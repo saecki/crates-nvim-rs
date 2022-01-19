@@ -19,7 +19,7 @@ pub fn parse_toml(lua: &Lua, buf: f64) -> LuaResult<LuaTable> {
     let lua_lines: LuaTable = nvim_buf_get_lines.call(buf)?;
 
     let lines: Vec<String> = lua_lines.sequence_values().filter_map(|l| l.ok()).collect();
-    let tokens = toml::parse(lines).unwrap_or_default();
+    let _tokens = toml::parse(lines).unwrap_or_default();
 
     let lua_tokens = lua.create_table()?;
     //for (i,t) in tokens.into_iter().enumerate() {
