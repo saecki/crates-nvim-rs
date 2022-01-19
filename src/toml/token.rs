@@ -9,7 +9,7 @@ pub struct Token {
     text: String,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Range {
     start: Pos,
     end: Pos,
@@ -48,27 +48,48 @@ pub enum TokenType {
     Bool(bool),
     Par(Par),
     Equal,
+    Comma,
     Dot,
+    Invalid,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Par {
-    SqareLeft,
-    SqareRight,
+    HeaderLeft,
+    HeaderRight,
+    ArrayLeft,
+    ArrayRight,
     CurlyLeft,
     CurlyRight,
 }
 
+impl Par {
+    fn matches(self, other: Par) -> bool {
+        match self {
+            Self::HeaderLeft => matches!(other, Self::ArrayRight),
+            Self::HeaderRight => matches!(other, Self::ArrayLeft),
+            Self::ArrayLeft => matches!(other, Self::ArrayRight),
+            Self::ArrayRight => matches!(other, Self::ArrayLeft),
+            Self::CurlyLeft => matches!(other, Self::CurlyRight),
+            Self::CurlyRight => matches!(other, Self::CurlyLeft),
+        }
+    }
+
+    pub fn is_curly(&self) -> bool {
+        matches!(self, Self::CurlyLeft | Self::CurlyRight)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Quote {
-    Singe,
+    Single,
     Double,
 }
 
 impl Quote {
     fn matches(self, char: char) -> bool {
         match self {
-            Self::Singe => char == '\'',
+            Self::Single => char == '\'',
             Self::Double => char == '"',
         }
     }
@@ -81,22 +102,42 @@ impl Quote {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct State {
     pos: Pos,
+    rhs: bool,
+    stack: Vec<Struct>,
     tokens: Vec<Token>,
     str: Option<StrState>,
     lit_start: Pos,
-    lit_is_num: bool,
     lit: String,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum Struct {
+    TableHeader,
+    InlineTable,
+    Array,
+}
+
+impl Struct {
+    pub fn supports_multiline(&self) -> bool {
+        match self {
+            Struct::TableHeader => false,
+            Struct::InlineTable => false,
+            Struct::Array => true,
+        }
+    }
+}
+
+#[derive(Debug)]
 struct StrState {
     esc: bool,
     esc_unicode: Option<UnicodeState>,
     quote: Quote,
 }
 
+#[derive(Debug)]
 struct UnicodeState {
     start: Pos,
     count: u8,
@@ -108,6 +149,9 @@ impl Ctx {
         let mut state = State::default();
 
         for (li, l) in lines.iter().enumerate() {
+            state.rhs = false; // TODO: if not in array
+            self.pop_inline_table_pars(&mut state);
+
             for (ci, c) in l.as_ref().chars().enumerate() {
                 state.pos.line = li;
                 state.pos.char = ci;
@@ -210,18 +254,51 @@ impl Ctx {
                         });
                         state.lit_start = state.pos;
                     }
-                    '[' => self.char_token(&mut state, c, TokenType::Par(Par::SqareLeft)),
-                    ']' => self.char_token(&mut state, c, TokenType::Par(Par::SqareRight)),
-                    '{' => self.char_token(&mut state, c, TokenType::Par(Par::CurlyLeft)),
-                    '}' => self.char_token(&mut state, c, TokenType::Par(Par::CurlyRight)),
-                    '=' => self.char_token(&mut state, c, TokenType::Equal),
+                    '\'' => {
+                        self.finish_literal(&mut state);
+                        state.str = Some(StrState {
+                            esc: false,
+                            esc_unicode: None,
+                            quote: Quote::Single,
+                        });
+                        state.lit_start = state.pos;
+                    }
+                    '[' => {
+                        self.char_token(&mut state, c, TokenType::Par(Par::ArrayLeft));
+                        if state.rhs {
+                            state.stack.push(Struct::Array);
+                        } else {
+                            state.stack.push(Struct::TableHeader);
+                        }
+                    }
+                    ']' => {
+                        self.char_token(&mut state, c, TokenType::Par(Par::ArrayRight));
+                        self.close_par(&mut state, Par::ArrayRight);
+                    }
+                    '{' => {
+                        self.char_token(&mut state, c, TokenType::Par(Par::CurlyLeft));
+                        state.stack.push(Struct::InlineTable);
+                        state.rhs = false;
+                    }
+                    '}' => {
+                        self.char_token(&mut state, c, TokenType::Par(Par::CurlyRight));
+                        self.close_par(&mut state, Par::CurlyRight);
+                    }
+                    '=' => {
+                        self.char_token(&mut state, c, TokenType::Equal);
+                        state.rhs = true;
+                    }
                     '.' => {
-                        if state.lit_is_num {
+                        if state.rhs {
                             self.push_literal(&mut state, c);
                         } else {
                             self.char_token(&mut state, c, TokenType::Dot);
                         }
                     }
+                    ',' => {
+                        self.char_token(&mut state, c, TokenType::Comma);
+                    }
+                    '#' => todo!("comment"),
                     _ => self.push_literal(&mut state, c),
                 }
             }
@@ -234,6 +311,8 @@ impl Ctx {
                 self.errors.push(Error::UnfinishedEscapeSequence(state.pos));
             }
             let quote = str.quote;
+            self.errors.push(Error::MissingQuote(quote, state.pos));
+
             self.finish_string(&mut state, quote);
         } else {
             self.finish_literal(&mut state);
@@ -245,7 +324,6 @@ impl Ctx {
     fn push_literal(&mut self, state: &mut State, char: char) {
         if state.lit.is_empty() {
             state.lit_start = state.pos;
-            state.lit_is_num = ('0'..='9').contains(&char);
         }
         state.lit.push(char);
     }
@@ -255,32 +333,39 @@ impl Ctx {
             let text = state.lit.clone();
             state.lit.clear();
 
-            let typ = if let Ok(i) = text.parse::<i64>() {
-                TokenType::Int(i)
-            } else if let Ok(f) = text.parse::<f64>() {
-                TokenType::Float(f)
-            } else {
-                match text.as_str() {
-                    "true" => TokenType::Bool(true),
-                    "false" => TokenType::Bool(false),
-                    "nan" => TokenType::Float(f64::NAN),
-                    "+nan" => TokenType::Float(f64::NAN),
-                    "-nan" => TokenType::Float(-f64::NAN),
-                    "inf" => TokenType::Float(f64::INFINITY),
-                    "+inf" => TokenType::Float(f64::INFINITY),
-                    "-inf" => TokenType::Float(-f64::NEG_INFINITY),
-                    _ => TokenType::Ident,
-                }
+            let range = Range {
+                start: state.lit_start,
+                end: state.pos,
             };
 
-            let token = Token {
-                range: Range {
-                    start: state.lit_start,
-                    end: state.pos,
-                },
-                typ,
-                text,
+            let typ = if state.rhs {
+                if let Ok(i) = text.parse::<i64>() {
+                    TokenType::Int(i)
+                } else if let Ok(f) = text.parse::<f64>() {
+                    TokenType::Float(f)
+                } else {
+                    match text.as_str() {
+                        "true" => TokenType::Bool(true),
+                        "false" => TokenType::Bool(false),
+                        "nan" => TokenType::Float(f64::NAN),
+                        "+nan" => TokenType::Float(f64::NAN),
+                        "-nan" => TokenType::Float(-f64::NAN),
+                        "inf" => TokenType::Float(f64::INFINITY),
+                        "+inf" => TokenType::Float(f64::INFINITY),
+                        "-inf" => TokenType::Float(-f64::NEG_INFINITY),
+                        _ => {
+                            // TODO date and time
+                            self.errors
+                                .push(Error::InvalidRhsLiteral(text.clone(), range.clone()));
+                            TokenType::Invalid
+                        }
+                    }
+                }
+            } else {
+                TokenType::Ident
             };
+
+            let token = Token { range, typ, text };
             state.tokens.push(token);
         }
     }
@@ -310,6 +395,35 @@ impl Ctx {
             typ,
             text: char.to_string(),
         });
+    }
+
+    fn close_par(&mut self, state: &mut State, par: Par) {
+        let mut pars = state.stack.iter().rev();
+        while let Some(&p) = pars.next() {
+            todo!("close par")
+        }
+    }
+
+    fn pop_inline_table_pars(&mut self, state: &mut State) {
+        let i = state.stack.iter().position(|s| s.supports_multiline());
+        if let Some(i) = i {
+            for _ in 0..(state.stack.len() - i) {
+                match state.stack.pop().expect("") {
+                    s @ Struct::TableHeader => {
+                        self.errors
+                            .push(Error::MissingRightPar(s, state.pos.moved(0, 1)));
+                    }
+                    s @ Struct::InlineTable => {
+                        self.errors
+                            .push(Error::MissingRightPar(s, state.pos.moved(0, 1)));
+                    }
+                    s @ Struct::Array => {
+                        self.errors
+                            .push(Error::MissingRightPar(s, state.pos.moved(0, 1)));
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -384,6 +498,128 @@ mod test {
                     },
                     typ: TokenType::Float(0.23),
                     text: "0.23".to_string(),
+                }
+            ],
+        );
+    }
+
+    #[test]
+    fn assign_literal_string() {
+        let mut ctx = Ctx::default();
+
+        let tokens = ctx.tokenize(&["my.string = 'yeet\\'"]).unwrap();
+        assert_eq!(
+            tokens,
+            [
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 2 },
+                    },
+                    typ: TokenType::Ident,
+                    text: "my".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 2 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    typ: TokenType::Dot,
+                    text: ".".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 3 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    typ: TokenType::Ident,
+                    text: "string".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    typ: TokenType::Equal,
+                    text: "=".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 12 },
+                        end: Pos { line: 0, char: 19 },
+                    },
+                    typ: TokenType::String(Quote::Single),
+                    text: "yeet\\".to_string(),
+                }
+            ],
+        );
+    }
+
+    #[test]
+    fn assign_escaped_string() {
+        let mut ctx = Ctx::default();
+
+        let tokens = ctx
+            .tokenize(&["my.escaped.string = \"a\\u93f2nope\""])
+            .unwrap();
+        assert_eq!(
+            tokens,
+            [
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 2 },
+                    },
+                    typ: TokenType::Ident,
+                    text: "my".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 2 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    typ: TokenType::Dot,
+                    text: ".".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 3 },
+                        end: Pos { line: 0, char: 10 },
+                    },
+                    typ: TokenType::Ident,
+                    text: "escaped".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    typ: TokenType::Dot,
+                    text: ".".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 11 },
+                        end: Pos { line: 0, char: 17 },
+                    },
+                    typ: TokenType::Ident,
+                    text: "string".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 18 },
+                        end: Pos { line: 0, char: 19 },
+                    },
+                    typ: TokenType::Equal,
+                    text: "=".to_string(),
+                },
+                Token {
+                    range: Range {
+                        start: Pos { line: 0, char: 20 },
+                        end: Pos { line: 0, char: 33 },
+                    },
+                    typ: TokenType::String(Quote::Double),
+                    text: "a\u{93f2}nope".to_string(),
                 }
             ],
         );
