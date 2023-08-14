@@ -10,8 +10,8 @@ struct Ctx {
     warnings: Vec<Warning>,
 }
 
-pub fn parse(lines: Vec<String>) -> Result<Vec<Token>, Error> {
+pub fn parse(input: &str) -> Result<Vec<Token>, Error> {
     let mut ctx = Ctx::default();
-    let tokens = ctx.tokenize(&lines)?;
+    let tokens = ctx.tokenize(input)?;
     Ok(tokens)
 }

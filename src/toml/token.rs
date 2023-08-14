@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::toml::{Ctx, Error};
 
+#[cfg(test)]
+mod test;
+
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Token {
     range: Range,
@@ -16,25 +19,27 @@ pub struct Range {
 }
 
 impl Range {
-    pub fn char(pos: Pos) -> Self {
+    fn char(pos: Pos, c: char) -> Self {
         Self {
             start: pos,
-            end: pos.moved(0, 1),
+            end: pos.after(c),
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pos {
+    /// 0-based index of line
     line: usize,
+    /// utf-8 byte index of line
     char: usize,
 }
 
 impl Pos {
-    pub fn moved(&self, line: usize, char: usize) -> Self {
+    fn after(&self, c: char) -> Self {
         Self {
-            line: self.line + line,
-            char: self.char + char,
+            line: self.line,
+            char: self.char + c.len_utf8(),
         }
     }
 }
@@ -63,47 +68,46 @@ pub enum Par {
     CurlyRight,
 }
 
-impl Par {
-    fn matches(self, other: Par) -> bool {
-        match self {
-            Self::HeaderLeft => matches!(other, Self::ArrayRight),
-            Self::HeaderRight => matches!(other, Self::ArrayLeft),
-            Self::ArrayLeft => matches!(other, Self::ArrayRight),
-            Self::ArrayRight => matches!(other, Self::ArrayLeft),
-            Self::CurlyLeft => matches!(other, Self::CurlyRight),
-            Self::CurlyRight => matches!(other, Self::CurlyLeft),
-        }
-    }
-
-    pub fn is_curly(&self) -> bool {
-        matches!(self, Self::CurlyLeft | Self::CurlyRight)
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Quote {
-    Single,
-    Double,
+    /// "
+    Basic,
+    /// """
+    BasicMultiline,
+    /// '
+    Literal,
+    /// '''
+    LiteralMultiline,
 }
 
 impl Quote {
-    fn matches(self, char: char) -> bool {
-        match self {
-            Self::Single => char == '\'',
-            Self::Double => char == '"',
+    fn is_basic(&self) -> bool {
+        matches!(self, Self::Basic | Self::BasicMultiline)
+    }
+
+    fn is_multiline(&self) -> bool {
+        matches!(self, Self::BasicMultiline | Self::LiteralMultiline)
+    }
+
+    fn matches(&self, c: char) -> bool {
+        match (c, self) {
+            ('\"', Self::Basic | Self::BasicMultiline) => true,
+            ('\'', Self::Literal | Self::LiteralMultiline) => true,
+            _ => false,
         }
     }
 
-    /// Returns `true` if the quote is [`Double`].
-    ///
-    /// [`Double`]: Quote::Double
-    pub fn is_double(&self) -> bool {
-        matches!(self, Self::Double)
+    fn char(&self) -> char {
+        match self {
+            Quote::Basic | Quote::BasicMultiline => '"',
+            Quote::Literal | Quote::LiteralMultiline => '\'',
+        }
     }
 }
 
 #[derive(Debug, Default)]
 struct State {
+    line_start: usize,
     pos: Pos,
     rhs: bool,
     stack: Vec<Struct>,
@@ -113,7 +117,7 @@ struct State {
     lit: String,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Struct {
     TableHeader,
     InlineTable,
@@ -132,9 +136,14 @@ impl Struct {
 
 #[derive(Debug)]
 struct StrState {
-    esc: bool,
-    esc_unicode: Option<UnicodeState>,
+    esc: Option<EscState>,
     quote: Quote,
+}
+
+#[derive(Debug)]
+struct EscState {
+    start: Pos,
+    unicode: Option<UnicodeState>,
 }
 
 #[derive(Debug)]
@@ -145,176 +154,291 @@ struct UnicodeState {
 }
 
 impl Ctx {
-    pub fn tokenize(&mut self, lines: &[impl AsRef<str>]) -> Result<Vec<Token>, Error> {
+    pub fn tokenize(&mut self, input: &str) -> Result<Vec<Token>, Error> {
         let mut state = State::default();
 
-        for (li, l) in lines.iter().enumerate() {
-            state.rhs = false; // TODO: if not in array
-            self.pop_inline_table_pars(&mut state);
+        let mut chars = input.char_indices().peekable();
+        while let Some((ci, c)) = chars.next() {
+            state.pos.char = ci - state.line_start;
 
-            for (ci, c) in l.as_ref().chars().enumerate() {
-                state.pos.line = li;
-                state.pos.char = ci;
+            if let Some(str) = &mut state.str {
+                if let Some(esc) = &mut str.esc {
+                    if let Some(esc) = &mut esc.unicode {
+                        esc.count -= 1;
 
-                if let Some(str) = &mut state.str {
-                    if !str.esc && str.quote.matches(c) {
-                        let quote = str.quote;
-                        self.finish_string(&mut state, quote);
-                        state.str = None;
-                    } else if str.quote.is_double() && !str.esc && c == '\\' {
-                        str.esc = true;
-                    } else if str.esc {
-                        if let Some(esc) = &mut str.esc_unicode {
-                            esc.count -= 1;
+                        let offset = esc.count * 4;
+                        match c {
+                            '0'..='9' => {
+                                esc.cp += (c as u32 - '0' as u32) << offset;
+                            }
+                            'a'..='f' => {
+                                esc.cp += (c as u32 - 'a' as u32 + 10) << offset;
+                            }
+                            'A'..='F' => {
+                                esc.cp += (c as u32 - 'A' as u32 + 10) << offset;
+                            }
+                            '\n' => {
+                                self.errors.push(Error::UnfinishedEscapeSequence(Range {
+                                    start: esc.start,
+                                    end: state.pos.after(c),
+                                }));
 
-                            let offset = esc.count * 4;
-                            match c {
-                                '0'..='9' => {
-                                    esc.cp += (c as u32 - '0' as u32) << offset;
-                                }
-                                'a'..='f' => {
-                                    esc.cp += (c as u32 - 'a' as u32 + 10) << offset;
-                                }
-                                'A'..='F' => {
-                                    esc.cp += (c as u32 - 'A' as u32 + 10) << offset;
-                                }
-                                _ => {
-                                    self.errors.push(Error::InvalidUnicodeEscapeChar(
-                                        c,
-                                        Pos { line: li, char: ci },
-                                    ));
+                                if str.quote.is_multiline() {
+                                    state.line_start = ci + 1;
+                                    state.pos.line += 1;
+                                    state.pos.char = 0;
 
-                                    if str.quote.matches(c) {
-                                        let quote = str.quote;
-                                        self.finish_string(&mut state, quote);
-                                        state.str = None;
-                                        continue;
+                                    // eat whitespace
+                                    while let Some((_, ' ' | '\t')) = chars.peek() {
+                                        chars.next();
+                                        state.line_start += 1;
                                     }
-                                }
-                            }
+                                } else {
+                                    // Recover state
+                                    self.errors.push(Error::MissingQuote(str.quote, todo!()));
+                                    self.finish_string(&mut state, str.quote, false);
+                                    state.str = None;
 
-                            if esc.count == 0 {
-                                match char::from_u32(esc.cp) {
-                                    Some(char) => state.lit.push(char),
-                                    None => self.errors.push(Error::InvalidUnicodeScalar(
-                                        esc.cp,
-                                        Range {
-                                            start: esc.start,
-                                            end: Pos {
-                                                line: li,
-                                                char: ci + 1,
-                                            },
-                                        },
-                                    )),
+                                    state.line_start = ci + 1;
+                                    state.pos.line += 1;
+                                    state.pos.char = 0;
                                 }
-                                str.esc = false;
-                                str.esc_unicode = None;
+                                continue;
                             }
-                        } else if c == 'u' {
-                            str.esc_unicode = Some(UnicodeState {
-                                start: Pos { line: li, char: ci },
-                                count: 4,
-                                cp: 0,
-                            });
-                        } else if c == 'U' {
-                            str.esc_unicode = Some(UnicodeState {
-                                start: Pos { line: li, char: ci },
-                                count: 8,
-                                cp: 0,
-                            });
-                        } else {
-                            match c {
-                                'b' => state.lit.push('\u{8}'),
-                                't' => state.lit.push('\t'),
-                                'n' => state.lit.push('\n'),
-                                'f' => state.lit.push('\u{D}'),
-                                'r' => state.lit.push('\r'),
-                                '"' => state.lit.push('"'),
-                                '\\' => state.lit.push('\\'),
-                                _ => self
-                                    .errors
-                                    .push(Error::InvalidEscapeChar(c, Pos { line: li, char: ci })),
+                            _ => {
+                                self.errors
+                                    .push(Error::InvalidUnicodeEscapeChar(c, state.pos));
+
+                                if str.quote.matches(c) {
+                                    if str.quote.is_multiline() {
+                                        let mut missing = false;
+                                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
+                                            missing = true;
+                                        } else {
+                                            chars.next();
+                                            state.pos.char += 1;
+                                        }
+
+                                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
+                                            missing = true;
+                                        } else {
+                                            chars.next();
+                                            state.pos.char += 1;
+                                        }
+
+                                        if missing {
+                                            self.errors
+                                                .push(Error::MissingQuote(str.quote, todo!()));
+                                        }
+                                    }
+
+                                    // Recover state
+                                    let quote = str.quote;
+                                    self.finish_string(&mut state, quote, true);
+                                    state.str = None;
+                                    continue;
+                                }
                             }
-                            str.esc = false;
                         }
+
+                        if esc.count == 0 {
+                            match char::from_u32(esc.cp) {
+                                Some(char) => state.lit.push(char),
+                                None => self.errors.push(Error::InvalidUnicodeScalar(
+                                    esc.cp,
+                                    Range {
+                                        start: esc.start,
+                                        end: state.pos.after(c),
+                                    },
+                                )),
+                            }
+                            str.esc = None;
+                        }
+                    } else if c == 'u' {
+                        esc.unicode = Some(UnicodeState {
+                            start: state.pos,
+                            count: 4,
+                            cp: 0,
+                        });
+                    } else if c == 'U' {
+                        esc.unicode = Some(UnicodeState {
+                            start: state.pos,
+                            count: 8,
+                            cp: 0,
+                        });
                     } else {
+                        match c {
+                            'b' => state.lit.push('\u{8}'),
+                            't' => state.lit.push('\t'),
+                            'n' => state.lit.push('\n'),
+                            'f' => state.lit.push('\u{D}'),
+                            'r' => state.lit.push('\r'),
+                            '"' => state.lit.push('"'),
+                            '\\' => state.lit.push('\\'),
+                            '\n' => {
+                                if !str.quote.is_multiline() {
+                                    // Recover state
+                                    self.errors.push(Error::MissingQuote(str.quote, todo!()));
+                                    self.finish_string(&mut state, str.quote, false);
+                                    state.str = None;
+                                    continue;
+                                }
+
+                                // Newline was escaped
+                                state.line_start = ci + 1;
+                                state.pos.line += 1;
+                                state.pos.char = 0;
+
+                                // eat whitespace
+                                while let Some((_, ' ' | '\t')) = chars.peek() {
+                                    chars.next();
+                                    state.line_start += 1;
+                                }
+                            }
+                            _ => self.errors.push(Error::InvalidEscapeChar(c, state.pos)),
+                        }
+                        str.esc = None;
+                    }
+                } else if str.quote.matches(c) {
+                    if str.quote.is_multiline() {
+                        let mut missing = false;
+                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
+                            missing = true;
+                        } else {
+                            chars.next();
+                            state.pos.char += 1;
+                        }
+
+                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
+                            missing = true;
+                        } else {
+                            chars.next();
+                            state.pos.char += 1;
+                        }
+
+                        if missing {
+                            self.errors.push(Error::MissingQuote(str.quote, todo!()));
+                        }
+                    }
+
+                    let quote = str.quote;
+                    self.finish_string(&mut state, quote, true);
+                    state.str = None;
+                } else if c == '\n' {
+                    if !str.quote.is_multiline() {
+                        // Recover state
+                        self.errors.push(Error::MissingQuote(str.quote, state.pos));
+                        let quote = str.quote;
+                        self.finish_string(&mut state, quote, false);
+                        state.str = None;
+
+                        state.line_start = ci + 1;
+                        state.pos.line += 1;
+                        state.pos.char = 0;
+                        continue;
+                    } else {
+                        state.line_start = ci + 1;
+                        state.pos.line += 1;
+                        state.pos.char = 0;
                         state.lit.push(c);
                     }
-                    continue;
+                } else if str.quote.is_basic() && c == '\\' {
+                    str.esc = Some(EscState {
+                        start: state.pos,
+                        unicode: None,
+                    });
+                } else {
+                    state.lit.push(c);
                 }
+                continue;
+            }
 
-                match c {
-                    '\t' | ' ' => self.finish_literal(&mut state),
-                    '"' => {
-                        self.finish_literal(&mut state);
-                        state.str = Some(StrState {
-                            esc: false,
-                            esc_unicode: None,
-                            quote: Quote::Double,
-                        });
-                        state.lit_start = state.pos;
-                    }
-                    '\'' => {
-                        self.finish_literal(&mut state);
-                        state.str = Some(StrState {
-                            esc: false,
-                            esc_unicode: None,
-                            quote: Quote::Single,
-                        });
-                        state.lit_start = state.pos;
-                    }
-                    '[' => {
-                        self.char_token(&mut state, c, TokenType::Par(Par::ArrayLeft));
-                        if state.rhs {
-                            state.stack.push(Struct::Array);
-                        } else {
-                            state.stack.push(Struct::TableHeader);
-                        }
-                    }
-                    ']' => {
-                        self.char_token(&mut state, c, TokenType::Par(Par::ArrayRight));
-                        self.close_par(&mut state, Par::ArrayRight);
-                    }
-                    '{' => {
-                        self.char_token(&mut state, c, TokenType::Par(Par::CurlyLeft));
-                        state.stack.push(Struct::InlineTable);
-                        state.rhs = false;
-                    }
-                    '}' => {
-                        self.char_token(&mut state, c, TokenType::Par(Par::CurlyRight));
-                        self.close_par(&mut state, Par::CurlyRight);
-                    }
-                    '=' => {
-                        self.char_token(&mut state, c, TokenType::Equal);
-                        state.rhs = true;
-                    }
-                    '.' => {
-                        if state.rhs {
-                            self.push_literal(&mut state, c);
-                        } else {
-                            self.char_token(&mut state, c, TokenType::Dot);
-                        }
-                    }
-                    ',' => {
-                        self.char_token(&mut state, c, TokenType::Comma);
-                    }
-                    '#' => todo!("comment"),
-                    _ => self.push_literal(&mut state, c),
+            match c {
+                '\n' => {
+                    state.line_start = ci + 1;
+                    state.pos.line += 1;
+                    state.pos.char = 0;
+
+                    // TODO: if not in array
+                    state.rhs = false;
+                    self.pop_inline_table_pars(&mut state, c);
                 }
+                '\t' | ' ' => self.finish_literal(&mut state),
+                '"' => {
+                    // TODO: multiline
+                    self.finish_literal(&mut state);
+                    state.str = Some(StrState {
+                        esc: None,
+                        quote: Quote::Basic,
+                    });
+                    state.lit_start = state.pos;
+                }
+                '\'' => {
+                    // TODO: multiline
+                    self.finish_literal(&mut state);
+                    state.str = Some(StrState {
+                        esc: None,
+                        quote: Quote::Literal,
+                    });
+                    state.lit_start = state.pos;
+                }
+                '[' => {
+                    self.char_token(&mut state, c, TokenType::Par(Par::ArrayLeft));
+                    if state.rhs {
+                        state.stack.push(Struct::Array);
+                    } else {
+                        state.stack.push(Struct::TableHeader);
+                    }
+                }
+                ']' => {
+                    self.char_token(&mut state, c, TokenType::Par(Par::ArrayRight));
+                    self.close_par(&mut state, Par::ArrayRight);
+                }
+                '{' => {
+                    self.char_token(&mut state, c, TokenType::Par(Par::CurlyLeft));
+                    state.stack.push(Struct::InlineTable);
+                    state.rhs = false;
+                }
+                '}' => {
+                    self.char_token(&mut state, c, TokenType::Par(Par::CurlyRight));
+                    self.close_par(&mut state, Par::CurlyRight);
+                }
+                '=' => {
+                    self.char_token(&mut state, c, TokenType::Equal);
+                    state.rhs = true;
+                }
+                '.' => {
+                    if state.rhs {
+                        self.push_literal(&mut state, c);
+                    } else {
+                        self.char_token(&mut state, c, TokenType::Dot);
+                    }
+                }
+                ',' => {
+                    self.char_token(&mut state, c, TokenType::Comma);
+                }
+                '#' => todo!("comment"),
+                _ => self.push_literal(&mut state, c),
             }
         }
 
-        state.pos.char += 1;
-
         if let Some(str) = &mut state.str {
-            if str.esc {
-                self.errors.push(Error::UnfinishedEscapeSequence(state.pos));
+            if let Some(esc) = &mut str.esc {
+                self.errors.push(Error::UnfinishedEscapeSequence(Range {
+                    start: esc.start,
+                    end: Pos {
+                        line: state.pos.line,
+                        char: input.len() - state.line_start,
+                    },
+                }));
             }
             let quote = str.quote;
             self.errors.push(Error::MissingQuote(quote, state.pos));
 
-            self.finish_string(&mut state, quote);
+            self.finish_string(&mut state, quote, false);
         } else {
+            // Set the position to the end of the last char
+            state.pos.char = input.len() - state.line_start;
             self.finish_literal(&mut state);
         }
 
@@ -370,18 +494,21 @@ impl Ctx {
         }
     }
 
-    fn finish_string(&mut self, state: &mut State, quote: Quote) {
+    fn finish_string(&mut self, state: &mut State, quote: Quote, closed: bool) {
         let lit = state.lit.clone();
         state.lit.clear();
 
-        let token = Token {
+        let mut token = Token {
             range: Range {
                 start: state.lit_start,
-                end: state.pos.moved(0, 1),
+                end: state.pos,
             },
             typ: TokenType::String(quote),
             text: lit,
         };
+        if closed {
+            token.range.end.char += 1;
+        }
         state.tokens.push(token);
 
         state.str = None;
@@ -391,7 +518,7 @@ impl Ctx {
         self.finish_literal(state);
 
         state.tokens.push(Token {
-            range: Range::char(state.pos),
+            range: Range::char(state.pos, char),
             typ,
             text: char.to_string(),
         });
@@ -404,224 +531,24 @@ impl Ctx {
         }
     }
 
-    fn pop_inline_table_pars(&mut self, state: &mut State) {
+    fn pop_inline_table_pars(&mut self, state: &mut State, c: char) {
         let i = state.stack.iter().position(|s| s.supports_multiline());
         if let Some(i) = i {
-            for _ in 0..(state.stack.len() - i) {
-                match state.stack.pop().expect("") {
-                    s @ Struct::TableHeader => {
+            let num_unclosed_structs = state.stack.len() - i;
+            for _ in 0..num_unclosed_structs {
+                let s = state.stack.pop().expect("");
+                match s {
+                    Struct::TableHeader => {
                         self.errors
-                            .push(Error::MissingRightPar(s, state.pos.moved(0, 1)));
+                            .push(Error::MissingRightPar(s, state.pos.after(c)));
                     }
-                    s @ Struct::InlineTable => {
+                    Struct::InlineTable => {
                         self.errors
-                            .push(Error::MissingRightPar(s, state.pos.moved(0, 1)));
+                            .push(Error::MissingRightPar(s, state.pos.after(c)));
                     }
-                    s @ Struct::Array => {
-                        self.errors
-                            .push(Error::MissingRightPar(s, state.pos.moved(0, 1)));
-                    }
+                    Struct::Array => unreachable!("Arrays support multiple lines"),
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn assign_int() {
-        let mut ctx = Ctx::default();
-
-        let tokens = ctx.tokenize(&["my_int = 98742"]).unwrap();
-        assert_eq!(
-            tokens,
-            [
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 6 },
-                    },
-                    typ: TokenType::Ident,
-                    text: "my_int".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 7 },
-                        end: Pos { line: 0, char: 8 },
-                    },
-                    typ: TokenType::Equal,
-                    text: "=".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 9 },
-                        end: Pos { line: 0, char: 14 },
-                    },
-                    typ: TokenType::Int(98742),
-                    text: "98742".to_string(),
-                }
-            ],
-        );
-    }
-
-    #[test]
-    fn assign_float() {
-        let mut ctx = Ctx::default();
-
-        let tokens = ctx.tokenize(&["my_float=0.23"]).unwrap();
-        assert_eq!(
-            tokens,
-            [
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 8 },
-                    },
-                    typ: TokenType::Ident,
-                    text: "my_float".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 8 },
-                        end: Pos { line: 0, char: 9 },
-                    },
-                    typ: TokenType::Equal,
-                    text: "=".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 9 },
-                        end: Pos { line: 0, char: 13 },
-                    },
-                    typ: TokenType::Float(0.23),
-                    text: "0.23".to_string(),
-                }
-            ],
-        );
-    }
-
-    #[test]
-    fn assign_literal_string() {
-        let mut ctx = Ctx::default();
-
-        let tokens = ctx.tokenize(&["my.string = 'yeet\\'"]).unwrap();
-        assert_eq!(
-            tokens,
-            [
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 2 },
-                    },
-                    typ: TokenType::Ident,
-                    text: "my".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 2 },
-                        end: Pos { line: 0, char: 3 },
-                    },
-                    typ: TokenType::Dot,
-                    text: ".".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 9 },
-                    },
-                    typ: TokenType::Ident,
-                    text: "string".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 10 },
-                        end: Pos { line: 0, char: 11 },
-                    },
-                    typ: TokenType::Equal,
-                    text: "=".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 12 },
-                        end: Pos { line: 0, char: 19 },
-                    },
-                    typ: TokenType::String(Quote::Single),
-                    text: "yeet\\".to_string(),
-                }
-            ],
-        );
-    }
-
-    #[test]
-    fn assign_escaped_string() {
-        let mut ctx = Ctx::default();
-
-        let tokens = ctx
-            .tokenize(&["my.escaped.string = \"a\\u93f2nope\""])
-            .unwrap();
-        assert_eq!(
-            tokens,
-            [
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 2 },
-                    },
-                    typ: TokenType::Ident,
-                    text: "my".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 2 },
-                        end: Pos { line: 0, char: 3 },
-                    },
-                    typ: TokenType::Dot,
-                    text: ".".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 10 },
-                    },
-                    typ: TokenType::Ident,
-                    text: "escaped".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 10 },
-                        end: Pos { line: 0, char: 11 },
-                    },
-                    typ: TokenType::Dot,
-                    text: ".".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 11 },
-                        end: Pos { line: 0, char: 17 },
-                    },
-                    typ: TokenType::Ident,
-                    text: "string".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 18 },
-                        end: Pos { line: 0, char: 19 },
-                    },
-                    typ: TokenType::Equal,
-                    text: "=".to_string(),
-                },
-                Token {
-                    range: Range {
-                        start: Pos { line: 0, char: 20 },
-                        end: Pos { line: 0, char: 33 },
-                    },
-                    typ: TokenType::String(Quote::Double),
-                    text: "a\u{93f2}nope".to_string(),
-                }
-            ],
-        );
     }
 }

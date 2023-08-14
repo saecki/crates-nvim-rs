@@ -1,6 +1,6 @@
 use crate::toml::{Struct, Pos, Quote, Range};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     MissingQuote(Quote, Pos),
     MissingRightPar(Struct, Pos),
@@ -8,7 +8,7 @@ pub enum Error {
     InvalidEscapeChar(char, Pos),
     InvalidUnicodeEscapeChar(char, Pos),
     InvalidUnicodeScalar(u32, Range),
-    UnfinishedEscapeSequence(Pos),
+    UnfinishedEscapeSequence(Range),
 }
 
 #[derive(Debug)]
