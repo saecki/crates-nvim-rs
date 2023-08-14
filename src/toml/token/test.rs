@@ -134,13 +134,8 @@ fn assign_literal_string() {
 
 #[test]
 fn assign_escaped_string() {
-    let mut ctx = Ctx::default();
-
-    let tokens = ctx
-        .tokenize("my.escaped.string = \"a\\u93f2nope\"")
-        .unwrap();
-    assert_eq!(
-        tokens,
+    check(
+        "my.escaped.string = \"a\\u93f2nope\"",
         [
             Token {
                 range: Range {
@@ -197,13 +192,136 @@ fn assign_escaped_string() {
                 },
                 typ: TokenType::String(Quote::Basic),
                 text: "a\u{93f2}nope".to_string(),
-            }
+            },
         ],
     );
 }
 
 #[test]
-fn unclosed_single_line_string() {
+fn multiline_string_escaped_newline() {
+    check(
+        "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
+        [
+            Token {
+                range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 4, char: 3 },
+                },
+                typ: TokenType::String(Quote::BasicMultiline),
+                text: "look the final string is just one line".to_string(),
+            },
+        ],
+    );
+}
+
+#[test]
+fn assign_multiline_string() {
+    check(
+        "m_string = '''each\nword\nis\non\na\nnew\nline'''",
+        [
+            Token {
+                range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 8 },
+                },
+                typ: TokenType::Ident,
+                text: "m_string".to_string(),
+            },
+            Token {
+                range: Range {
+                    start: Pos { line: 0, char: 9 },
+                    end: Pos { line: 0, char: 10 },
+                },
+                typ: TokenType::Equal,
+                text: "=".to_string(),
+            },
+            Token {
+                range: Range {
+                    start: Pos { line: 0, char: 11 },
+                    end: Pos { line: 6, char: 7 },
+                },
+                typ: TokenType::String(Quote::LiteralMultiline),
+                text: "each\nword\nis\non\na\nnew\nline".to_string(),
+            },
+        ],
+    );
+}
+
+#[test]
+fn unclosed_basic_single_line_string() {
+    check_err(
+        "\"some unclosed string\n",
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 0, char: 21 },
+            },
+            typ: TokenType::String(Quote::Basic),
+            text: "some unclosed string".to_string(),
+        }],
+        [Error::MissingQuote(Quote::Basic, Pos { line: 0, char: 21 })],
+    );
+}
+
+#[test]
+fn unclosed_basic_multi_line_string() {
+    check_err(
+        "\"\"\"some unclosed string\nthis is a new line",
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 1, char: 18 },
+            },
+            typ: TokenType::String(Quote::BasicMultiline),
+            text: "some unclosed string\nthis is a new line".to_string(),
+        }],
+        [Error::MissingQuote(
+            Quote::BasicMultiline,
+            Pos { line: 1, char: 18 },
+        )],
+    );
+}
+
+#[test]
+fn not_fully_closed_basic_multi_line_string_1() {
+    check_err(
+        "\"\"\"some unclosed string\"\n",
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 0, char: 24 },
+            },
+            typ: TokenType::String(Quote::BasicMultiline),
+            text: "some unclosed string".to_string(),
+        }],
+        [Error::MissingQuote(
+            Quote::BasicMultiline,
+            Pos { line: 0, char: 24 },
+        )],
+    );
+}
+
+#[test]
+fn not_fully_closed_basic_multi_line_string_2() {
+    check_err(
+        "\"\"\"some unclosed string\"\"\n",
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 0, char: 25 },
+            },
+            typ: TokenType::String(Quote::BasicMultiline),
+            text: "some unclosed string".to_string(),
+        }],
+        [Error::MissingQuote(
+            Quote::BasicMultiline,
+            Pos { line: 0, char: 25 },
+        )],
+    );
+}
+
+#[test]
+fn unclosed_literal_single_line_string() {
     check_err(
         "'some unclosed string\n",
         [Token {
@@ -214,6 +332,66 @@ fn unclosed_single_line_string() {
             typ: TokenType::String(Quote::Literal),
             text: "some unclosed string".to_string(),
         }],
-        [Error::MissingQuote(Quote::Literal, Pos { line: 0, char: 21 })],
+        [Error::MissingQuote(
+            Quote::Literal,
+            Pos { line: 0, char: 21 },
+        )],
+    );
+}
+
+#[test]
+fn unclosed_literal_multi_line_string() {
+    check_err(
+        "'''some unclosed string\nthis is a new line",
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 1, char: 18 },
+            },
+            typ: TokenType::String(Quote::LiteralMultiline),
+            text: "some unclosed string\nthis is a new line".to_string(),
+        }],
+        [Error::MissingQuote(
+            Quote::LiteralMultiline,
+            Pos { line: 1, char: 18 },
+        )],
+    );
+}
+
+#[test]
+fn not_fully_closed_literal_multi_line_string_1() {
+    check_err(
+        "'''some unclosed string'\n",
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 0, char: 24 },
+            },
+            typ: TokenType::String(Quote::LiteralMultiline),
+            text: "some unclosed string".to_string(),
+        }],
+        [Error::MissingQuote(
+            Quote::LiteralMultiline,
+            Pos { line: 0, char: 24 },
+        )],
+    );
+}
+
+#[test]
+fn not_fully_closed_literal_multi_line_string_2() {
+    check_err(
+        "'''some unclosed string''\n",
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 0, char: 25 },
+            },
+            typ: TokenType::String(Quote::LiteralMultiline),
+            text: "some unclosed string".to_string(),
+        }],
+        [Error::MissingQuote(
+            Quote::LiteralMultiline,
+            Pos { line: 0, char: 25 },
+        )],
     );
 }

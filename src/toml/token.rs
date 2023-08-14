@@ -107,6 +107,7 @@ impl Quote {
 
 #[derive(Debug, Default)]
 struct State {
+    /// Byte index of line start
     line_start: usize,
     pos: Pos,
     rhs: bool,
@@ -195,8 +196,9 @@ impl Ctx {
                                     }
                                 } else {
                                     // Recover state
-                                    self.errors.push(Error::MissingQuote(str.quote, todo!()));
-                                    self.finish_string(&mut state, str.quote, false);
+                                    let quote = str.quote;
+                                    self.errors.push(Error::MissingQuote(quote, state.pos));
+                                    self.finish_string(&mut state, quote, false);
                                     state.str = None;
 
                                     state.line_start = ci + 1;
@@ -228,7 +230,7 @@ impl Ctx {
 
                                         if missing {
                                             self.errors
-                                                .push(Error::MissingQuote(str.quote, todo!()));
+                                                .push(Error::MissingQuote(str.quote, state.pos));
                                         }
                                     }
 
@@ -278,8 +280,9 @@ impl Ctx {
                             '\n' => {
                                 if !str.quote.is_multiline() {
                                     // Recover state
-                                    self.errors.push(Error::MissingQuote(str.quote, todo!()));
-                                    self.finish_string(&mut state, str.quote, false);
+                                    let quote = str.quote;
+                                    self.errors.push(Error::MissingQuote(quote, state.pos));
+                                    self.finish_string(&mut state, quote, false);
                                     state.str = None;
                                     continue;
                                 }
@@ -317,7 +320,7 @@ impl Ctx {
                         }
 
                         if missing {
-                            self.errors.push(Error::MissingQuote(str.quote, todo!()));
+                            self.errors.push(Error::MissingQuote(str.quote, state.pos.after(c)));
                         }
                     }
 
@@ -365,22 +368,76 @@ impl Ctx {
                 }
                 '\t' | ' ' => self.finish_literal(&mut state),
                 '"' => {
-                    // TODO: multiline
                     self.finish_literal(&mut state);
-                    state.str = Some(StrState {
-                        esc: None,
-                        quote: Quote::Basic,
-                    });
-                    state.lit_start = state.pos;
+
+                    let start = state.pos;
+                    let mut quote = Quote::Basic;
+                    if Some('"') == chars.peek().map(|(_, c)| *c) {
+                        chars.next();
+                        state.pos.char += 1;
+
+                        if Some('"') == chars.peek().map(|(_, c)| *c) {
+                            // It's a multiline string
+                            chars.next();
+                            state.pos.char += 1;
+
+                            quote = Quote::BasicMultiline;
+                        } else {
+                            // It's just an empty string
+                            let token = Token {
+                                range: Range {
+                                    start,
+                                    end: Pos {
+                                        line: start.line,
+                                        char: start.char + 2,
+                                    },
+                                },
+                                typ: TokenType::String(quote),
+                                text: String::new(),
+                            };
+                            state.tokens.push(token);
+                            continue;
+                        }
+                    }
+
+                    state.str = Some(StrState { esc: None, quote });
+                    state.lit_start = start;
                 }
                 '\'' => {
-                    // TODO: multiline
                     self.finish_literal(&mut state);
-                    state.str = Some(StrState {
-                        esc: None,
-                        quote: Quote::Literal,
-                    });
-                    state.lit_start = state.pos;
+
+                    let start = state.pos;
+                    let mut quote = Quote::Literal;
+                    if Some('\'') == chars.peek().map(|(_, c)| *c) {
+                        chars.next();
+                        state.pos.char += 1;
+
+                        if Some('\'') == chars.peek().map(|(_, c)| *c) {
+                            // It's a multiline string
+                            chars.next();
+                            state.pos.char += 1;
+
+                            quote = Quote::LiteralMultiline;
+                        } else {
+                            // It's just an empty string
+                            let token = Token {
+                                range: Range {
+                                    start,
+                                    end: Pos {
+                                        line: start.line,
+                                        char: start.char + 2,
+                                    },
+                                },
+                                typ: TokenType::String(quote),
+                                text: String::new(),
+                            };
+                            state.tokens.push(token);
+                            continue;
+                        }
+                    }
+
+                    state.str = Some(StrState { esc: None, quote });
+                    state.lit_start = start;
                 }
                 '[' => {
                     self.char_token(&mut state, c, TokenType::Par(Par::ArrayLeft));
@@ -423,13 +480,12 @@ impl Ctx {
         }
 
         if let Some(str) = &mut state.str {
+            state.pos.char = input.len() - state.line_start;
+
             if let Some(esc) = &mut str.esc {
                 self.errors.push(Error::UnfinishedEscapeSequence(Range {
                     start: esc.start,
-                    end: Pos {
-                        line: state.pos.line,
-                        char: input.len() - state.line_start,
-                    },
+                    end: state.pos,
                 }));
             }
             let quote = str.quote;
@@ -494,7 +550,7 @@ impl Ctx {
         }
     }
 
-    fn finish_string(&mut self, state: &mut State, quote: Quote, closed: bool) {
+    fn finish_string(&mut self, state: &mut State, quote: Quote, end_after_current_pos: bool) {
         let lit = state.lit.clone();
         state.lit.clear();
 
@@ -506,7 +562,7 @@ impl Ctx {
             typ: TokenType::String(quote),
             text: lit,
         };
-        if closed {
+        if end_after_current_pos {
             token.range.end.char += 1;
         }
         state.tokens.push(token);
