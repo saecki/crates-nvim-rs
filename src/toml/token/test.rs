@@ -215,6 +215,23 @@ fn multiline_string_escaped_newline() {
 }
 
 #[test]
+fn multiline_string_contains_up_to_two_quotes() {
+    check(
+        "'''this doesn't end the string: '' but this does: '''",
+        [
+            Token {
+                range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 53 },
+                },
+                typ: TokenType::String(Quote::LiteralMultiline),
+                text: "this doesn't end the string: '' but this does: ".to_string(),
+            },
+        ],
+    );
+}
+
+#[test]
 fn assign_multiline_string() {
     check(
         "m_string = '''each\nword\nis\non\na\nnew\nline'''",
@@ -285,14 +302,14 @@ fn unclosed_basic_multi_line_string() {
 #[test]
 fn not_fully_closed_basic_multi_line_string_1() {
     check_err(
-        "\"\"\"some unclosed string\"\n",
+        "\"\"\"some unclosed string\"",
         [Token {
             range: Range {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 24 },
             },
             typ: TokenType::String(Quote::BasicMultiline),
-            text: "some unclosed string".to_string(),
+            text: "some unclosed string\"".to_string(),
         }],
         [Error::MissingQuote(
             Quote::BasicMultiline,
@@ -304,14 +321,14 @@ fn not_fully_closed_basic_multi_line_string_1() {
 #[test]
 fn not_fully_closed_basic_multi_line_string_2() {
     check_err(
-        "\"\"\"some unclosed string\"\"\n",
+        "\"\"\"some unclosed string\"\"",
         [Token {
             range: Range {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 25 },
             },
             typ: TokenType::String(Quote::BasicMultiline),
-            text: "some unclosed string".to_string(),
+            text: "some unclosed string\"\"".to_string(),
         }],
         [Error::MissingQuote(
             Quote::BasicMultiline,
@@ -361,14 +378,14 @@ fn unclosed_literal_multi_line_string() {
 #[test]
 fn not_fully_closed_literal_multi_line_string_1() {
     check_err(
-        "'''some unclosed string'\n",
+        "'''some unclosed string'",
         [Token {
             range: Range {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 24 },
             },
             typ: TokenType::String(Quote::LiteralMultiline),
-            text: "some unclosed string".to_string(),
+            text: "some unclosed string'".to_string(),
         }],
         [Error::MissingQuote(
             Quote::LiteralMultiline,
@@ -380,14 +397,14 @@ fn not_fully_closed_literal_multi_line_string_1() {
 #[test]
 fn not_fully_closed_literal_multi_line_string_2() {
     check_err(
-        "'''some unclosed string''\n",
+        "'''some unclosed string''",
         [Token {
             range: Range {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 25 },
             },
             typ: TokenType::String(Quote::LiteralMultiline),
-            text: "some unclosed string".to_string(),
+            text: "some unclosed string''".to_string(),
         }],
         [Error::MissingQuote(
             Quote::LiteralMultiline,

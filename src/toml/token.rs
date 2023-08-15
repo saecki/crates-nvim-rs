@@ -304,23 +304,21 @@ impl Ctx {
                     }
                 } else if str.quote.matches(c) {
                     if str.quote.is_multiline() {
-                        let mut missing = false;
-                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
-                            missing = true;
-                        } else {
+                        if Some(str.quote.char()) == chars.peek().map(|(_, c)| *c) {
                             chars.next();
                             state.pos.char += 1;
+                        } else {
+                            state.lit.push(c);
+                            continue;
                         }
 
-                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
-                            missing = true;
-                        } else {
+                        if Some(str.quote.char()) == chars.peek().map(|(_, c)| *c) {
                             chars.next();
                             state.pos.char += 1;
-                        }
-
-                        if missing {
-                            self.errors.push(Error::MissingQuote(str.quote, state.pos.after(c)));
+                        } else {
+                            state.lit.push(c);
+                            state.lit.push(c);
+                            continue;
                         }
                     }
 
