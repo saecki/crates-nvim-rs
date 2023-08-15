@@ -17,6 +17,20 @@ fn check_err<const SIZE: usize, const ERR_SIZE: usize>(
     assert_eq!(ctx.errors, expected_errors);
 }
 
+fn check_str(input: &str, expected_str: &str) {
+    let mut ctx = Ctx::default();
+    let tokens = ctx.lex(input).unwrap();
+    assert_eq!(tokens.len(), 1);
+    if ctx.errors != [] {
+        assert_eq!(ctx.errors, []);
+    }
+    assert_eq!(ctx.warnings, []);
+
+    let token = tokens.into_iter().next().unwrap();
+    assert_eq!(token.typ, TokenType::String(Quote::Basic));
+    assert_eq!(token.text, expected_str);
+}
+
 #[test]
 fn assign_int() {
     check(
@@ -211,6 +225,24 @@ fn assign_escaped_string() {
             },
         ],
     );
+}
+
+#[test]
+fn string_escapes() {
+    check_str(r#""\b""#, "\x08");
+    check_str(r#""\t""#, "\t");
+    check_str(r#""\n""#, "\n");
+    check_str(r#""\f""#, "\u{C}");
+    check_str(r#""\r""#, "\r");
+}
+
+#[test]
+fn unicode_escapes() {
+    check_str(r#""\u001b""#, "\x1b");
+    check_str(r#""\u001a""#, "\u{1a}");
+    check_str(r#""\u03a0""#, "\u{03a0}");
+    check_str(r#""\U00102230""#, "\u{102230}");
+    check_str(r#"  "\u03c0"  "#, "\u{03c0}");
 }
 
 #[test]

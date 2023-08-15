@@ -10,5 +10,5 @@ pub enum Error {
     UnfinishedEscapeSequence(Range),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Warning {}

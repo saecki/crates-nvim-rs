@@ -241,7 +241,7 @@ impl Ctx {
                             'b' => state.lit.push('\u{8}'),
                             't' => state.lit.push('\t'),
                             'n' => state.lit.push('\n'),
-                            'f' => state.lit.push('\u{D}'),
+                            'f' => state.lit.push('\u{C}'),
                             'r' => state.lit.push('\r'),
                             '"' => state.lit.push('"'),
                             '\\' => state.lit.push('\\'),
