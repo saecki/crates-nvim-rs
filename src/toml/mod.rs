@@ -5,9 +5,9 @@ pub use error::*;
 pub use token::*;
 
 #[derive(Default)]
-struct Ctx {
-    errors: Vec<Error>,
-    warnings: Vec<Warning>,
+pub struct Ctx {
+    pub errors: Vec<Error>,
+    pub warnings: Vec<Warning>,
 }
 
 pub fn parse(input: &str) -> Result<Vec<Token>, Error> {

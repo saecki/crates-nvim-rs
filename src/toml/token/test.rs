@@ -74,10 +74,26 @@ fn assign_float() {
             Token {
                 range: Range {
                     start: Pos { line: 0, char: 9 },
+                    end: Pos { line: 0, char: 10 },
+                },
+                typ: TokenType::Int(0),
+                text: "0".to_string(),
+            },
+            Token {
+                range: Range {
+                    start: Pos { line: 0, char: 10 },
+                    end: Pos { line: 0, char: 11 },
+                },
+                typ: TokenType::Dot,
+                text: ".".to_string(),
+            },
+            Token {
+                range: Range {
+                    start: Pos { line: 0, char: 11 },
                     end: Pos { line: 0, char: 13 },
                 },
-                typ: TokenType::Float(0.23),
-                text: "0.23".to_string(),
+                typ: TokenType::Int(23),
+                text: "23".to_string(),
             },
         ],
     );
@@ -201,16 +217,14 @@ fn assign_escaped_string() {
 fn multiline_string_escaped_newline() {
     check(
         "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
-        [
-            Token {
-                range: Range {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 4, char: 3 },
-                },
-                typ: TokenType::String(Quote::BasicMultiline),
-                text: "look the final string is just one line".to_string(),
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 4, char: 3 },
             },
-        ],
+            typ: TokenType::String(Quote::BasicMultiline),
+            text: "look the final string is just one line".to_string(),
+        }],
     );
 }
 
@@ -218,16 +232,14 @@ fn multiline_string_escaped_newline() {
 fn multiline_string_contains_up_to_two_quotes() {
     check(
         "'''this doesn't end the string: '' but this does: '''",
-        [
-            Token {
-                range: Range {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 53 },
-                },
-                typ: TokenType::String(Quote::LiteralMultiline),
-                text: "this doesn't end the string: '' but this does: ".to_string(),
+        [Token {
+            range: Range {
+                start: Pos { line: 0, char: 0 },
+                end: Pos { line: 0, char: 53 },
             },
-        ],
+            typ: TokenType::String(Quote::LiteralMultiline),
+            text: "this doesn't end the string: '' but this does: ".to_string(),
+        }],
     );
 }
 

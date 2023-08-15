@@ -51,7 +51,10 @@ pub enum TokenType {
     Int(i64),
     Float(f64),
     Bool(bool),
-    Par(Par),
+    SquareLeft,
+    SquareRight,
+    CurlyLeft,
+    CurlyRight,
     Equal,
     Comma,
     Dot,
@@ -59,14 +62,7 @@ pub enum TokenType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Par {
-    HeaderLeft,
-    HeaderRight,
-    ArrayLeft,
-    ArrayRight,
-    CurlyLeft,
-    CurlyRight,
-}
+pub enum Par {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Quote {
@@ -110,29 +106,10 @@ struct State {
     /// Byte index of line start
     line_start: usize,
     pos: Pos,
-    rhs: bool,
-    stack: Vec<Struct>,
     tokens: Vec<Token>,
     str: Option<StrState>,
     lit_start: Pos,
     lit: String,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Struct {
-    TableHeader,
-    InlineTable,
-    Array,
-}
-
-impl Struct {
-    pub fn supports_multiline(&self) -> bool {
-        match self {
-            Struct::TableHeader => false,
-            Struct::InlineTable => false,
-            Struct::Array => true,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -359,10 +336,6 @@ impl Ctx {
                     state.line_start = ci + 1;
                     state.pos.line += 1;
                     state.pos.char = 0;
-
-                    // TODO: if not in array
-                    state.rhs = false;
-                    self.pop_inline_table_pars(&mut state, c);
                 }
                 '\t' | ' ' => self.finish_literal(&mut state),
                 '"' => {
@@ -438,36 +411,22 @@ impl Ctx {
                     state.lit_start = start;
                 }
                 '[' => {
-                    self.char_token(&mut state, c, TokenType::Par(Par::ArrayLeft));
-                    if state.rhs {
-                        state.stack.push(Struct::Array);
-                    } else {
-                        state.stack.push(Struct::TableHeader);
-                    }
+                    self.char_token(&mut state, c, TokenType::SquareLeft);
                 }
                 ']' => {
-                    self.char_token(&mut state, c, TokenType::Par(Par::ArrayRight));
-                    self.close_par(&mut state, Par::ArrayRight);
+                    self.char_token(&mut state, c, TokenType::SquareRight);
                 }
                 '{' => {
-                    self.char_token(&mut state, c, TokenType::Par(Par::CurlyLeft));
-                    state.stack.push(Struct::InlineTable);
-                    state.rhs = false;
+                    self.char_token(&mut state, c, TokenType::CurlyLeft);
                 }
                 '}' => {
-                    self.char_token(&mut state, c, TokenType::Par(Par::CurlyRight));
-                    self.close_par(&mut state, Par::CurlyRight);
+                    self.char_token(&mut state, c, TokenType::CurlyRight);
                 }
                 '=' => {
                     self.char_token(&mut state, c, TokenType::Equal);
-                    state.rhs = true;
                 }
                 '.' => {
-                    if state.rhs {
-                        self.push_literal(&mut state, c);
-                    } else {
-                        self.char_token(&mut state, c, TokenType::Dot);
-                    }
+                    self.char_token(&mut state, c, TokenType::Dot);
                 }
                 ',' => {
                     self.char_token(&mut state, c, TokenType::Comma);
@@ -507,45 +466,62 @@ impl Ctx {
     }
 
     fn finish_literal(&mut self, state: &mut State) {
-        if !state.lit.is_empty() {
-            let text = state.lit.clone();
-            state.lit.clear();
+        if state.lit.is_empty() {
+            return;
+        }
+        let text = state.lit.clone();
+        state.lit.clear();
 
-            let range = Range {
-                start: state.lit_start,
-                end: state.pos,
-            };
+        let range = Range {
+            start: state.lit_start,
+            end: state.pos,
+        };
 
-            let typ = if state.rhs {
-                if let Ok(i) = text.parse::<i64>() {
-                    TokenType::Int(i)
-                } else if let Ok(f) = text.parse::<f64>() {
-                    TokenType::Float(f)
-                } else {
-                    match text.as_str() {
-                        "true" => TokenType::Bool(true),
-                        "false" => TokenType::Bool(false),
-                        "nan" => TokenType::Float(f64::NAN),
-                        "+nan" => TokenType::Float(f64::NAN),
-                        "-nan" => TokenType::Float(-f64::NAN),
-                        "inf" => TokenType::Float(f64::INFINITY),
-                        "+inf" => TokenType::Float(f64::INFINITY),
-                        "-inf" => TokenType::Float(-f64::NEG_INFINITY),
-                        _ => {
-                            // TODO date and time
-                            self.errors
-                                .push(Error::InvalidRhsLiteral(text.clone(), range.clone()));
-                            TokenType::Invalid
-                        }
+        // TODO: custom integer parser to support binary, oct, and hex literals, and adhere to the
+        // toml spec
+        let typ = if let Ok(i) = text.parse::<i64>() {
+            TokenType::Int(i)
+        // TODO: recognize an exponnent while parsing an integer and then store that exponent
+        // separately to compute the precise float later
+        } else if let Ok(f) = text.parse::<f64>() {
+            // Since dots won't be included in literals, floats are only identified if they
+            // contain an exponent. Otherwise they are identified as a later float during parsing
+            // when these kinds of tokens are found, when parsing a rhs expression:
+            // int dot int|float
+            //
+            // The following would imply that the first token contains an exponent that would
+            // preceed the fractional part which is invalid:
+            // float dot int|float
+            TokenType::Float(f)
+        } else {
+            match text.as_str() {
+                "true" => TokenType::Bool(true),
+                "false" => TokenType::Bool(false),
+                "nan" => TokenType::Float(f64::NAN),
+                "+nan" => TokenType::Float(f64::NAN),
+                "-nan" => TokenType::Float(-f64::NAN),
+                "inf" => TokenType::Float(f64::INFINITY),
+                "+inf" => TokenType::Float(f64::INFINITY),
+                "-inf" => TokenType::Float(-f64::NEG_INFINITY),
+                // TODO date and time
+                _ => {
+                    let is_valid_ident = text
+                        .chars()
+                        .all(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
+
+                    if is_valid_ident {
+                        TokenType::Ident
+                    } else {
+                        self.errors
+                            .push(Error::InvalidLiteral(text.clone(), range.clone()));
+                        TokenType::Invalid
                     }
                 }
-            } else {
-                TokenType::Ident
-            };
+            }
+        };
 
-            let token = Token { range, typ, text };
-            state.tokens.push(token);
-        }
+        let token = Token { range, typ, text };
+        state.tokens.push(token);
     }
 
     fn finish_string(&mut self, state: &mut State, quote: Quote, end_after_current_pos: bool) {
@@ -576,33 +552,5 @@ impl Ctx {
             typ,
             text: char.to_string(),
         });
-    }
-
-    fn close_par(&mut self, state: &mut State, par: Par) {
-        let mut pars = state.stack.iter().rev();
-        while let Some(&p) = pars.next() {
-            todo!("close par")
-        }
-    }
-
-    fn pop_inline_table_pars(&mut self, state: &mut State, c: char) {
-        let i = state.stack.iter().position(|s| s.supports_multiline());
-        if let Some(i) = i {
-            let num_unclosed_structs = state.stack.len() - i;
-            for _ in 0..num_unclosed_structs {
-                let s = state.stack.pop().expect("");
-                match s {
-                    Struct::TableHeader => {
-                        self.errors
-                            .push(Error::MissingRightPar(s, state.pos.after(c)));
-                    }
-                    Struct::InlineTable => {
-                        self.errors
-                            .push(Error::MissingRightPar(s, state.pos.after(c)));
-                    }
-                    Struct::Array => unreachable!("Arrays support multiple lines"),
-                }
-            }
-        }
     }
 }
