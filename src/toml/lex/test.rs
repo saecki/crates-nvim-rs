@@ -2,7 +2,7 @@ use super::*;
 
 fn check<const SIZE: usize>(input: &str, expected: [Token; SIZE]) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.tokenize(input).unwrap();
+    let tokens = ctx.lex(input).unwrap();
     assert_eq!(tokens, expected);
 }
 
@@ -12,7 +12,7 @@ fn check_err<const SIZE: usize, const ERR_SIZE: usize>(
     expected_errors: [Error; ERR_SIZE],
 ) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.tokenize(input).unwrap();
+    let tokens = ctx.lex(input).unwrap();
     assert_eq!(tokens, expected);
     assert_eq!(ctx.errors, expected_errors);
 }

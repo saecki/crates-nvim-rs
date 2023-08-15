@@ -1,8 +1,8 @@
 mod error;
-mod token;
+mod lex;
 
 pub use error::*;
-pub use token::*;
+pub use lex::*;
 
 #[derive(Default)]
 pub struct Ctx {
@@ -12,6 +12,6 @@ pub struct Ctx {
 
 pub fn parse(input: &str) -> Result<Vec<Token>, Error> {
     let mut ctx = Ctx::default();
-    let tokens = ctx.tokenize(input)?;
+    let tokens = ctx.lex(input)?;
     Ok(tokens)
 }

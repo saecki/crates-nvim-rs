@@ -126,13 +126,12 @@ struct EscState {
 
 #[derive(Debug)]
 struct UnicodeState {
-    start: Pos,
     count: u8,
     cp: u32,
 }
 
 impl Ctx {
-    pub fn tokenize(&mut self, input: &str) -> Result<Vec<Token>, Error> {
+    pub fn lex(&mut self, input: &str) -> Result<Vec<Token>, Error> {
         let mut state = State::default();
 
         let mut chars = input.char_indices().peekable();
@@ -141,19 +140,19 @@ impl Ctx {
 
             if let Some(str) = &mut state.str {
                 if let Some(esc) = &mut str.esc {
-                    if let Some(esc) = &mut esc.unicode {
-                        esc.count -= 1;
+                    if let Some(unicode) = &mut esc.unicode {
+                        unicode.count -= 1;
 
-                        let offset = esc.count * 4;
+                        let offset = unicode.count * 4;
                         match c {
                             '0'..='9' => {
-                                esc.cp += (c as u32 - '0' as u32) << offset;
+                                unicode.cp += (c as u32 - '0' as u32) << offset;
                             }
                             'a'..='f' => {
-                                esc.cp += (c as u32 - 'a' as u32 + 10) << offset;
+                                unicode.cp += (c as u32 - 'a' as u32 + 10) << offset;
                             }
                             'A'..='F' => {
-                                esc.cp += (c as u32 - 'A' as u32 + 10) << offset;
+                                unicode.cp += (c as u32 - 'A' as u32 + 10) << offset;
                             }
                             '\n' => {
                                 self.errors.push(Error::UnfinishedEscapeSequence(Range {
@@ -220,11 +219,11 @@ impl Ctx {
                             }
                         }
 
-                        if esc.count == 0 {
-                            match char::from_u32(esc.cp) {
+                        if unicode.count == 0 {
+                            match char::from_u32(unicode.cp) {
                                 Some(char) => state.lit.push(char),
                                 None => self.errors.push(Error::InvalidUnicodeScalar(
-                                    esc.cp,
+                                    unicode.cp,
                                     Range {
                                         start: esc.start,
                                         end: state.pos.after(c),
@@ -234,17 +233,9 @@ impl Ctx {
                             str.esc = None;
                         }
                     } else if c == 'u' {
-                        esc.unicode = Some(UnicodeState {
-                            start: state.pos,
-                            count: 4,
-                            cp: 0,
-                        });
+                        esc.unicode = Some(UnicodeState { count: 4, cp: 0 });
                     } else if c == 'U' {
-                        esc.unicode = Some(UnicodeState {
-                            start: state.pos,
-                            count: 8,
-                            cp: 0,
-                        });
+                        esc.unicode = Some(UnicodeState { count: 8, cp: 0 });
                     } else {
                         match c {
                             'b' => state.lit.push('\u{8}'),
