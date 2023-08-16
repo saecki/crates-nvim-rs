@@ -1,6 +1,6 @@
 mod error;
-mod parse;
 mod lex;
+mod parse;
 
 pub use error::*;
 pub use lex::*;

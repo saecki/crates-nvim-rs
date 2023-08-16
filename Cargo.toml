@@ -10,3 +10,6 @@ crate-type = ["cdylib"]
 mlua = { version = "0.7.2", features = ["luajit", "module", "vendored", "serialize"] }
 serde = { version = "1.0", features = ["serde_derive"] }
 serde_derive = "1.0"
+
+[dev-dependencies]
+pretty_assertions = "1.4.0"
