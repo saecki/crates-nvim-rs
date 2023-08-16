@@ -319,6 +319,13 @@ fn unclosed_basic_single_line_string() {
             },
             ty: TokenType::String(Quote::Basic),
             text: "some unclosed string".to_string(),
+        }, Token {
+            range: Range {
+                start: Pos { line: 0, char: 21 },
+                end: Pos { line: 1, char: 0 },
+            },
+            ty: TokenType::Newline,
+            text: "\n".to_string(),
         }],
         [Error::MissingQuote(Quote::Basic, Pos { line: 0, char: 21 })],
     );
@@ -392,6 +399,13 @@ fn unclosed_literal_single_line_string() {
             },
             ty: TokenType::String(Quote::Literal),
             text: "some unclosed string".to_string(),
+        }, Token {
+            range: Range {
+                start: Pos { line: 0, char: 21 },
+                end: Pos { line: 1, char: 0 },
+            },
+            ty: TokenType::Newline,
+            text: "\n".to_string(),
         }],
         [Error::MissingQuote(
             Quote::Literal,

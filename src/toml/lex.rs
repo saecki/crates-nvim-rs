@@ -114,7 +114,7 @@ struct State {
 }
 
 impl State {
-    fn new_line(&mut self, char_index: usize) {
+    fn newline(&mut self, char_index: usize) {
         self.line_start = char_index + 1;
         self.pos.line += 1;
         self.pos.char = 0;
@@ -170,7 +170,7 @@ impl Ctx {
                                 }));
 
                                 if str.quote.is_multiline() {
-                                    state.new_line(ci);
+                                    state.newline(ci);
 
                                     // eat whitespace
                                     while let Some((_, ' ' | '\t')) = chars.peek() {
@@ -184,9 +184,8 @@ impl Ctx {
                                     self.finish_string(&mut state, quote, false);
                                     state.str = None;
 
-                                    self.char_token(&mut state, c, TokenType::Newline);
-
-                                    state.new_line(ci);
+                                    self.newline_token(&mut state);
+                                    state.newline(ci);
                                 }
                                 continue;
                             }
@@ -196,24 +195,21 @@ impl Ctx {
 
                                 if str.quote.matches(c) {
                                     if str.quote.is_multiline() {
-                                        let mut missing = false;
-                                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
-                                            missing = true;
-                                        } else {
+                                        if Some(str.quote.char()) == chars.peek().map(|(_, c)| *c) {
                                             chars.next();
                                             state.pos.char += 1;
+                                        } else {
+                                            state.lit.push(c);
+                                            continue;
                                         }
 
-                                        if Some(str.quote.char()) != chars.peek().map(|(_, c)| *c) {
-                                            missing = true;
-                                        } else {
+                                        if Some(str.quote.char()) == chars.peek().map(|(_, c)| *c) {
                                             chars.next();
                                             state.pos.char += 1;
-                                        }
-
-                                        if missing {
-                                            self.errors
-                                                .push(Error::MissingQuote(str.quote, state.pos));
+                                        } else {
+                                            state.lit.push(c);
+                                            state.lit.push(c);
+                                            continue;
                                         }
                                     }
 
@@ -259,15 +255,14 @@ impl Ctx {
                                     let quote = str.quote;
                                     self.errors.push(Error::MissingQuote(quote, state.pos));
                                     self.finish_string(&mut state, quote, false);
-
-                                    self.char_token(&mut state, c, TokenType::Newline);
-
-                                    state.new_line(ci);
+                                    
+                                    self.newline_token(&mut state);
+                                    state.newline(ci);
                                     continue;
                                 }
 
                                 // Newline was escaped
-                                state.new_line(ci);
+                                state.newline(ci);
 
                                 // eat whitespace
                                 while let Some((_, ' ' | '\t')) = chars.peek() {
@@ -309,12 +304,13 @@ impl Ctx {
                         self.finish_string(&mut state, quote, false);
                         state.str = None;
 
-                        state.new_line(ci);
+                        self.newline_token(&mut state);
+                        state.newline(ci);
                         continue;
                     }
 
                     state.lit.push(c);
-                    state.new_line(ci);
+                    state.newline(ci);
                 } else if str.quote.is_basic() && c == '\\' {
                     str.esc = Some(EscState {
                         start: state.pos,
@@ -328,8 +324,8 @@ impl Ctx {
 
             match c {
                 '\n' => {
-                    self.char_token(&mut state, c, TokenType::Newline);
-                    state.new_line(ci);
+                    self.newline_token(&mut state);
+                    state.newline(ci);
                 }
                 '\t' | ' ' => self.finish_literal(&mut state),
                 '"' => {
@@ -543,6 +539,22 @@ impl Ctx {
             range: Range::char(state.pos, char),
             ty,
             text: char.to_string(),
+        });
+    }
+
+    fn newline_token(&mut self, state: &mut State) {
+        self.finish_literal(state);
+
+        state.tokens.push(Token {
+            range: Range {
+                start: state.pos,
+                end: Pos {
+                    line: state.pos.line + 1,
+                    char: 0,
+                },
+            },
+            ty: TokenType::Newline,
+            text: "\n".to_string(),
         });
     }
 }
