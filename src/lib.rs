@@ -1,4 +1,4 @@
-mod toml;
+pub mod toml;
 
 use mlua::prelude::{LuaResult, LuaTable};
 use mlua::{Function, Lua};

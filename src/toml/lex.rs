@@ -7,9 +7,9 @@ mod test;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Token {
-    range: Range,
-    typ: TokenType,
-    text: String,
+    pub range: Range,
+    pub ty: TokenType,
+    pub text: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,6 +58,7 @@ pub enum TokenType {
     Equal,
     Comma,
     Dot,
+    Newline,
     Invalid,
 }
 
@@ -112,6 +113,14 @@ struct State {
     lit: String,
 }
 
+impl State {
+    fn new_line(&mut self, char_index: usize) {
+        self.line_start = char_index + 1;
+        self.pos.line += 1;
+        self.pos.char = 0;
+    }
+}
+
 #[derive(Debug)]
 struct StrState {
     esc: Option<EscState>,
@@ -161,14 +170,12 @@ impl Ctx {
                                 }));
 
                                 if str.quote.is_multiline() {
-                                    state.line_start = ci + 1;
-                                    state.pos.line += 1;
-                                    state.pos.char = 0;
+                                    state.new_line(ci);
 
                                     // eat whitespace
                                     while let Some((_, ' ' | '\t')) = chars.peek() {
                                         chars.next();
-                                        state.line_start += 1;
+                                        state.pos.char += 1;
                                     }
                                 } else {
                                     // Recover state
@@ -177,9 +184,9 @@ impl Ctx {
                                     self.finish_string(&mut state, quote, false);
                                     state.str = None;
 
-                                    state.line_start = ci + 1;
-                                    state.pos.line += 1;
-                                    state.pos.char = 0;
+                                    self.char_token(&mut state, c, TokenType::Newline);
+
+                                    state.new_line(ci);
                                 }
                                 continue;
                             }
@@ -237,6 +244,7 @@ impl Ctx {
                     } else if c == 'U' {
                         esc.unicode = Some(UnicodeState { count: 8, cp: 0 });
                     } else {
+                        str.esc = None;
                         match c {
                             'b' => state.lit.push('\u{8}'),
                             't' => state.lit.push('\t'),
@@ -251,24 +259,24 @@ impl Ctx {
                                     let quote = str.quote;
                                     self.errors.push(Error::MissingQuote(quote, state.pos));
                                     self.finish_string(&mut state, quote, false);
-                                    state.str = None;
+
+                                    self.char_token(&mut state, c, TokenType::Newline);
+
+                                    state.new_line(ci);
                                     continue;
                                 }
 
                                 // Newline was escaped
-                                state.line_start = ci + 1;
-                                state.pos.line += 1;
-                                state.pos.char = 0;
+                                state.new_line(ci);
 
                                 // eat whitespace
                                 while let Some((_, ' ' | '\t')) = chars.peek() {
                                     chars.next();
-                                    state.line_start += 1;
+                                    state.pos.char += 1;
                                 }
                             }
                             _ => self.errors.push(Error::InvalidEscapeChar(c, state.pos)),
                         }
-                        str.esc = None;
                     }
                 } else if str.quote.matches(c) {
                     if str.quote.is_multiline() {
@@ -301,16 +309,12 @@ impl Ctx {
                         self.finish_string(&mut state, quote, false);
                         state.str = None;
 
-                        state.line_start = ci + 1;
-                        state.pos.line += 1;
-                        state.pos.char = 0;
+                        state.new_line(ci);
                         continue;
-                    } else {
-                        state.line_start = ci + 1;
-                        state.pos.line += 1;
-                        state.pos.char = 0;
-                        state.lit.push(c);
                     }
+
+                    state.lit.push(c);
+                    state.new_line(ci);
                 } else if str.quote.is_basic() && c == '\\' {
                     str.esc = Some(EscState {
                         start: state.pos,
@@ -324,9 +328,8 @@ impl Ctx {
 
             match c {
                 '\n' => {
-                    state.line_start = ci + 1;
-                    state.pos.line += 1;
-                    state.pos.char = 0;
+                    self.char_token(&mut state, c, TokenType::Newline);
+                    state.new_line(ci);
                 }
                 '\t' | ' ' => self.finish_literal(&mut state),
                 '"' => {
@@ -354,7 +357,7 @@ impl Ctx {
                                         char: start.char + 2,
                                     },
                                 },
-                                typ: TokenType::String(quote),
+                                ty: TokenType::String(quote),
                                 text: String::new(),
                             };
                             state.tokens.push(token);
@@ -390,7 +393,7 @@ impl Ctx {
                                         char: start.char + 2,
                                     },
                                 },
-                                typ: TokenType::String(quote),
+                                ty: TokenType::String(quote),
                                 text: String::new(),
                             };
                             state.tokens.push(token);
@@ -427,9 +430,9 @@ impl Ctx {
             }
         }
 
+        // Set the position to the end of the last char
+        state.pos.char = input.len() - state.line_start;
         if let Some(str) = &mut state.str {
-            state.pos.char = input.len() - state.line_start;
-
             if let Some(esc) = &mut str.esc {
                 self.errors.push(Error::UnfinishedEscapeSequence(Range {
                     start: esc.start,
@@ -441,8 +444,6 @@ impl Ctx {
 
             self.finish_string(&mut state, quote, false);
         } else {
-            // Set the position to the end of the last char
-            state.pos.char = input.len() - state.line_start;
             self.finish_literal(&mut state);
         }
 
@@ -470,7 +471,7 @@ impl Ctx {
 
         // TODO: custom integer parser to support binary, oct, and hex literals, and adhere to the
         // toml spec
-        let typ = if let Ok(i) = text.parse::<i64>() {
+        let ty = if let Ok(i) = text.parse::<i64>() {
             TokenType::Int(i)
         // TODO: recognize an exponnent while parsing an integer and then store that exponent
         // separately to compute the precise float later
@@ -511,7 +512,7 @@ impl Ctx {
             }
         };
 
-        let token = Token { range, typ, text };
+        let token = Token { range, ty, text };
         state.tokens.push(token);
     }
 
@@ -524,7 +525,7 @@ impl Ctx {
                 start: state.lit_start,
                 end: state.pos,
             },
-            typ: TokenType::String(quote),
+            ty: TokenType::String(quote),
             text: lit,
         };
         if end_after_current_pos {
@@ -535,12 +536,12 @@ impl Ctx {
         state.str = None;
     }
 
-    fn char_token(&mut self, state: &mut State, char: char, typ: TokenType) {
+    fn char_token(&mut self, state: &mut State, char: char, ty: TokenType) {
         self.finish_literal(state);
 
         state.tokens.push(Token {
             range: Range::char(state.pos, char),
-            typ,
+            ty,
             text: char.to_string(),
         });
     }

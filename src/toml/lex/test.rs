@@ -27,7 +27,7 @@ fn check_str(input: &str, expected_str: &str) {
     assert_eq!(ctx.warnings, []);
 
     let token = tokens.into_iter().next().unwrap();
-    assert_eq!(token.typ, TokenType::String(Quote::Basic));
+    assert_eq!(token.ty, TokenType::String(Quote::Basic));
     assert_eq!(token.text, expected_str);
 }
 
@@ -41,7 +41,7 @@ fn assign_int() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 6 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "my_int".to_string(),
             },
             Token {
@@ -49,7 +49,7 @@ fn assign_int() {
                     start: Pos { line: 0, char: 7 },
                     end: Pos { line: 0, char: 8 },
                 },
-                typ: TokenType::Equal,
+                ty: TokenType::Equal,
                 text: "=".to_string(),
             },
             Token {
@@ -57,7 +57,7 @@ fn assign_int() {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 14 },
                 },
-                typ: TokenType::Int(98742),
+                ty: TokenType::Int(98742),
                 text: "98742".to_string(),
             },
         ],
@@ -74,7 +74,7 @@ fn assign_float() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "my_float".to_string(),
             },
             Token {
@@ -82,7 +82,7 @@ fn assign_float() {
                     start: Pos { line: 0, char: 8 },
                     end: Pos { line: 0, char: 9 },
                 },
-                typ: TokenType::Equal,
+                ty: TokenType::Equal,
                 text: "=".to_string(),
             },
             Token {
@@ -90,7 +90,7 @@ fn assign_float() {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 10 },
                 },
-                typ: TokenType::Int(0),
+                ty: TokenType::Int(0),
                 text: "0".to_string(),
             },
             Token {
@@ -98,7 +98,7 @@ fn assign_float() {
                     start: Pos { line: 0, char: 10 },
                     end: Pos { line: 0, char: 11 },
                 },
-                typ: TokenType::Dot,
+                ty: TokenType::Dot,
                 text: ".".to_string(),
             },
             Token {
@@ -106,7 +106,7 @@ fn assign_float() {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 0, char: 13 },
                 },
-                typ: TokenType::Int(23),
+                ty: TokenType::Int(23),
                 text: "23".to_string(),
             },
         ],
@@ -123,7 +123,7 @@ fn assign_literal_string() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 2 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "my".to_string(),
             },
             Token {
@@ -131,7 +131,7 @@ fn assign_literal_string() {
                     start: Pos { line: 0, char: 2 },
                     end: Pos { line: 0, char: 3 },
                 },
-                typ: TokenType::Dot,
+                ty: TokenType::Dot,
                 text: ".".to_string(),
             },
             Token {
@@ -139,7 +139,7 @@ fn assign_literal_string() {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 9 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "string".to_string(),
             },
             Token {
@@ -147,7 +147,7 @@ fn assign_literal_string() {
                     start: Pos { line: 0, char: 10 },
                     end: Pos { line: 0, char: 11 },
                 },
-                typ: TokenType::Equal,
+                ty: TokenType::Equal,
                 text: "=".to_string(),
             },
             Token {
@@ -155,7 +155,7 @@ fn assign_literal_string() {
                     start: Pos { line: 0, char: 12 },
                     end: Pos { line: 0, char: 19 },
                 },
-                typ: TokenType::String(Quote::Literal),
+                ty: TokenType::String(Quote::Literal),
                 text: "yeet\\".to_string(),
             },
         ],
@@ -172,7 +172,7 @@ fn assign_escaped_string() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 2 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "my".to_string(),
             },
             Token {
@@ -180,7 +180,7 @@ fn assign_escaped_string() {
                     start: Pos { line: 0, char: 2 },
                     end: Pos { line: 0, char: 3 },
                 },
-                typ: TokenType::Dot,
+                ty: TokenType::Dot,
                 text: ".".to_string(),
             },
             Token {
@@ -188,7 +188,7 @@ fn assign_escaped_string() {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 10 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "escaped".to_string(),
             },
             Token {
@@ -196,7 +196,7 @@ fn assign_escaped_string() {
                     start: Pos { line: 0, char: 10 },
                     end: Pos { line: 0, char: 11 },
                 },
-                typ: TokenType::Dot,
+                ty: TokenType::Dot,
                 text: ".".to_string(),
             },
             Token {
@@ -204,7 +204,7 @@ fn assign_escaped_string() {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 0, char: 17 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "string".to_string(),
             },
             Token {
@@ -212,7 +212,7 @@ fn assign_escaped_string() {
                     start: Pos { line: 0, char: 18 },
                     end: Pos { line: 0, char: 19 },
                 },
-                typ: TokenType::Equal,
+                ty: TokenType::Equal,
                 text: "=".to_string(),
             },
             Token {
@@ -220,7 +220,7 @@ fn assign_escaped_string() {
                     start: Pos { line: 0, char: 20 },
                     end: Pos { line: 0, char: 33 },
                 },
-                typ: TokenType::String(Quote::Basic),
+                ty: TokenType::String(Quote::Basic),
                 text: "a\u{93f2}nope".to_string(),
             },
         ],
@@ -254,7 +254,7 @@ fn multiline_string_escaped_newline() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 4, char: 3 },
             },
-            typ: TokenType::String(Quote::BasicMultiline),
+            ty: TokenType::String(Quote::BasicMultiline),
             text: "look the final string is just one line".to_string(),
         }],
     );
@@ -269,7 +269,7 @@ fn multiline_string_contains_up_to_two_quotes() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 53 },
             },
-            typ: TokenType::String(Quote::LiteralMultiline),
+            ty: TokenType::String(Quote::LiteralMultiline),
             text: "this doesn't end the string: '' but this does: ".to_string(),
         }],
     );
@@ -285,7 +285,7 @@ fn assign_multiline_string() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },
                 },
-                typ: TokenType::Ident,
+                ty: TokenType::Ident,
                 text: "m_string".to_string(),
             },
             Token {
@@ -293,7 +293,7 @@ fn assign_multiline_string() {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 10 },
                 },
-                typ: TokenType::Equal,
+                ty: TokenType::Equal,
                 text: "=".to_string(),
             },
             Token {
@@ -301,7 +301,7 @@ fn assign_multiline_string() {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 6, char: 7 },
                 },
-                typ: TokenType::String(Quote::LiteralMultiline),
+                ty: TokenType::String(Quote::LiteralMultiline),
                 text: "each\nword\nis\non\na\nnew\nline".to_string(),
             },
         ],
@@ -317,7 +317,7 @@ fn unclosed_basic_single_line_string() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 21 },
             },
-            typ: TokenType::String(Quote::Basic),
+            ty: TokenType::String(Quote::Basic),
             text: "some unclosed string".to_string(),
         }],
         [Error::MissingQuote(Quote::Basic, Pos { line: 0, char: 21 })],
@@ -333,7 +333,7 @@ fn unclosed_basic_multi_line_string() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 1, char: 18 },
             },
-            typ: TokenType::String(Quote::BasicMultiline),
+            ty: TokenType::String(Quote::BasicMultiline),
             text: "some unclosed string\nthis is a new line".to_string(),
         }],
         [Error::MissingQuote(
@@ -352,7 +352,7 @@ fn not_fully_closed_basic_multi_line_string_1() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 24 },
             },
-            typ: TokenType::String(Quote::BasicMultiline),
+            ty: TokenType::String(Quote::BasicMultiline),
             text: "some unclosed string\"".to_string(),
         }],
         [Error::MissingQuote(
@@ -371,7 +371,7 @@ fn not_fully_closed_basic_multi_line_string_2() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 25 },
             },
-            typ: TokenType::String(Quote::BasicMultiline),
+            ty: TokenType::String(Quote::BasicMultiline),
             text: "some unclosed string\"\"".to_string(),
         }],
         [Error::MissingQuote(
@@ -390,7 +390,7 @@ fn unclosed_literal_single_line_string() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 21 },
             },
-            typ: TokenType::String(Quote::Literal),
+            ty: TokenType::String(Quote::Literal),
             text: "some unclosed string".to_string(),
         }],
         [Error::MissingQuote(
@@ -409,7 +409,7 @@ fn unclosed_literal_multi_line_string() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 1, char: 18 },
             },
-            typ: TokenType::String(Quote::LiteralMultiline),
+            ty: TokenType::String(Quote::LiteralMultiline),
             text: "some unclosed string\nthis is a new line".to_string(),
         }],
         [Error::MissingQuote(
@@ -428,7 +428,7 @@ fn not_fully_closed_literal_multi_line_string_1() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 24 },
             },
-            typ: TokenType::String(Quote::LiteralMultiline),
+            ty: TokenType::String(Quote::LiteralMultiline),
             text: "some unclosed string'".to_string(),
         }],
         [Error::MissingQuote(
@@ -447,7 +447,7 @@ fn not_fully_closed_literal_multi_line_string_2() {
                 start: Pos { line: 0, char: 0 },
                 end: Pos { line: 0, char: 25 },
             },
-            typ: TokenType::String(Quote::LiteralMultiline),
+            ty: TokenType::String(Quote::LiteralMultiline),
             text: "some unclosed string''".to_string(),
         }],
         [Error::MissingQuote(
