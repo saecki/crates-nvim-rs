@@ -227,6 +227,8 @@ fn assign_escaped_string() {
     );
 }
 
+// TODO: escape error tests
+
 #[test]
 fn string_escapes() {
     check_str(r#""\b""#, "\x08");
