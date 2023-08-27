@@ -7,6 +7,7 @@ pub enum Error {
     InvalidEscapeChar(char, Pos),
     InvalidUnicodeEscapeChar(char, Pos),
     InvalidUnicodeScalar(u32, Range),
+    InvalidCharInIdentifier(char, Pos),
     UnfinishedEscapeSequence(Range),
 }
 

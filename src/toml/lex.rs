@@ -13,10 +13,10 @@ pub struct Token<'a> {
     pub ty: TokenType<'a>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Range {
-    start: Pos,
-    end: Pos,
+    pub start: Pos,
+    pub end: Pos,
 }
 
 impl Range {
@@ -31,9 +31,9 @@ impl Range {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pos {
     /// 0-based index of line
-    line: u32,
+    pub line: u32,
     /// utf-8 byte index of line
-    char: u32,
+    pub char: u32,
 }
 
 impl Pos {
