@@ -1,9 +1,14 @@
 mod error;
 mod lex;
+mod map;
 mod parse;
+
+use std::collections::HashMap;
+use std::pin::Pin;
 
 pub use error::*;
 pub use lex::*;
+pub use map::*;
 pub use parse::*;
 
 #[derive(Default)]
@@ -12,8 +17,8 @@ pub struct Ctx {
     pub warnings: Vec<Warning>,
 }
 
-pub fn parse(input: &str) -> Result<Vec<Token>, Error> {
-    let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input)?;
-    Ok(tokens)
+pub struct Toml<'a, 'b: 'a> {
+    input: Pin<Box<str>>,
+    asts: Pin<Box<[Ast<'a>]>>,
+    map: HashMap<&'b str, (&'b Ast<'a>, AstRef<'b>)>,
 }

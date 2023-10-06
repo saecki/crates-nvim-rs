@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use crate::toml::{Ctx, Pos, Range};
+use pretty_assertions::assert_eq;
 
-use super::{Ast, BoolVal, Ident, IdentKind, Key, Value};
+use crate::toml::{Ast, BoolVal, Ctx, Ident, IdentKind, Key, Pos, Range, Value};
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
     let mut ctx = Ctx::default();

@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use crate::toml::{Ctx, Error, Pos, Quote, Range, Token, TokenType};
 
+#[cfg(test)]
 mod test;
 
 #[derive(Debug)]

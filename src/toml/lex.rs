@@ -9,8 +9,34 @@ mod test;
 
 #[derive(Debug, PartialEq)]
 pub struct Token<'a> {
-    pub range: Range,
     pub ty: TokenType<'a>,
+    pub range: Range,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum TokenType<'a> {
+    Ident(&'a str),
+    String {
+        quote: Quote,
+        /// The literal exactly as it is written in the toml file.
+        lit: &'a str,
+        /// The text with escape sequences evaluated
+        text: Cow<'a, str>,
+        /// The range of the text without quotes
+        text_range: Range,
+    },
+    Int(i64, &'a str),
+    Float(f64, &'a str),
+    Bool(bool, &'a str),
+    SquareLeft,
+    SquareRight,
+    CurlyLeft,
+    CurlyRight,
+    Equal,
+    Comma,
+    Dot,
+    Newline,
+    Invalid(&'a str),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,32 +76,6 @@ impl Pos {
             char: self.char + n,
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum TokenType<'a> {
-    Ident(&'a str),
-    String {
-        quote: Quote,
-        /// The literal exactly as it is written in the toml file.
-        lit: &'a str,
-        /// The text with escape sequences evaluated
-        text: Cow<'a, str>,
-        /// The range of the text without quotes
-        text_range: Range,
-    },
-    Int(i64, &'a str),
-    Float(f64, &'a str),
-    Bool(bool, &'a str),
-    SquareLeft,
-    SquareRight,
-    CurlyLeft,
-    CurlyRight,
-    Equal,
-    Comma,
-    Dot,
-    Newline,
-    Invalid(&'a str),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
