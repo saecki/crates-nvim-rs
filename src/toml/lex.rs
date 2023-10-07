@@ -565,19 +565,16 @@ impl Ctx {
                 "+inf" => TokenType::Float(f64::INFINITY, lit),
                 "-inf" => TokenType::Float(-f64::NEG_INFINITY, lit),
                 // TODO date and time
-                _ => {
-                    let is_valid_ident = lit
-                        .chars()
-                        .all(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
+                _ => match validate_literal(lit) {
+                    Ok(()) => TokenType::Ident(lit),
+                    Err((i, c)) => {
+                        let mut pos = range.start;
+                        pos.char += i as u32;
+                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
 
-                    if is_valid_ident {
-                        TokenType::Ident(lit)
-                    } else {
-                        self.errors
-                            .push(Error::InvalidLiteral(lit.to_string(), range.clone()));
                         TokenType::Invalid(lit)
                     }
-                }
+                },
             }
         };
 
@@ -653,5 +650,15 @@ impl Ctx {
             },
             ty: TokenType::Newline,
         });
+    }
+}
+
+pub fn validate_literal(lit: &str) -> Result<(), (usize, char)> {
+    let invalid_char = lit
+        .char_indices()
+        .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
+    match invalid_char {
+        Some(e) => Err(e),
+        None => Ok(()),
     }
 }

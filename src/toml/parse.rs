@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::toml::{Ctx, Error, Pos, Quote, Range, Token, TokenType};
+use crate::toml::{lex, Ctx, Error, Pos, Quote, Range, Token, TokenType};
 
 #[cfg(test)]
 mod test;
@@ -138,19 +138,23 @@ impl Ctx {
                     text_range,
                     kind: IdentKind::String(quote),
                 }),
-                TokenType::Int(_, lit) => Key::One(Ident {
-                    lit_range: token.range,
-                    lit,
-                    text: Cow::Borrowed(lit),
-                    text_range: token.range,
-                    kind: IdentKind::Plain,
-                }),
-                TokenType::Float(_, lit) => {
-                    let invalid_char = lit
-                        .char_indices()
-                        .find(|(_, c)| matches!(c, 'a'..='z' | 'A'..='Z' | '-' | '_'));
+                TokenType::Int(_, lit) => {
+                    if let Err((i, c)) = lex::validate_literal(lit) {
+                        let mut pos = token.range.start;
+                        pos.char += i as u32;
+                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                    }
 
-                    if let Some((i, c)) = invalid_char {
+                    Key::One(Ident {
+                        lit_range: token.range,
+                        lit,
+                        text: Cow::Borrowed(lit),
+                        text_range: token.range,
+                        kind: IdentKind::Plain,
+                    })
+                }
+                TokenType::Float(_, lit) => {
+                    if let Err((i, c)) = lex::validate_literal(lit) {
                         let mut pos = token.range.start;
                         pos.char += i as u32;
                         self.errors.push(Error::InvalidCharInIdentifier(c, pos));
