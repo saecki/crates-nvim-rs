@@ -80,8 +80,30 @@ impl std::ops::BitOr for StopOn {
 
 #[derive(Debug, PartialEq)]
 pub enum Ast<'a> {
-    TableHeader(TableHeader<'a>),
-    Assignment(Key<'a>, Pos, Value<'a>),
+    Assignment(Assignment<'a>),
+    Table(TableHeader<'a>, Vec<Assignment<'a>>),
+    Array(ArrayHeader<'a>, Vec<Assignment<'a>>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TableHeader<'a> {
+    l_par: Option<Pos>,
+    key: Key<'a>,
+    r_par: Option<Pos>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ArrayHeader<'a> {
+    l_pars: (Option<Pos>, Option<Pos>),
+    key: Key<'a>,
+    r_pars: (Option<Pos>, Option<Pos>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Assignment<'a> {
+    pub key: Key<'a>,
+    pub eq: Pos,
+    pub val: Value<'a>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -112,7 +134,7 @@ pub enum Value<'a> {
     Int(IntVal<'a>),
     Float(FloatVal<'a>),
     Bool(BoolVal),
-    Array(Array<'a>),
+    InlineArray(InlineArray<'a>),
     InlineTable(InlineTable<'a>),
 }
 
@@ -146,7 +168,7 @@ pub struct BoolVal {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Array<'a> {
+pub struct InlineArray<'a> {
     pub range: Range,
     pub values: Vec<Value<'a>>,
 }
@@ -154,14 +176,7 @@ pub struct Array<'a> {
 #[derive(Debug, PartialEq)]
 pub struct InlineTable<'a> {
     pub range: Range,
-    pub val: Vec<(Key<'a>, Value<'a>)>,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct TableHeader<'a> {
-    l_par: Option<Pos>,
-    key: Key<'a>,
-    r_par: Option<Pos>,
+    pub assignments: Vec<Assignment<'a>>,
 }
 
 impl Ctx {
@@ -170,91 +185,121 @@ impl Ctx {
         let mut asts = Vec::new();
 
         loop {
-            let Some(token) = parser.next() else { break };
-            let lhs = match token.ty {
-                TokenType::Ident(lit) => Key::One(Ident {
-                    lit_range: token.range.clone(),
-                    lit,
-                    text: Cow::Borrowed(lit),
-                    text_range: token.range,
-                    kind: IdentKind::Plain,
-                }),
-                TokenType::String {
-                    quote,
-                    lit,
-                    text,
-                    text_range,
-                } => Key::One(Ident {
-                    lit_range: token.range,
-                    lit,
-                    text,
-                    text_range,
-                    kind: IdentKind::String(quote),
-                }),
-                TokenType::Int(_, lit) => {
-                    if let Err((i, c)) = lex::validate_literal(lit) {
-                        let mut pos = token.range.start;
-                        pos.char += i as u32;
-                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
-                    }
-
-                    Key::One(Ident {
-                        lit_range: token.range,
-                        lit,
-                        text: Cow::Borrowed(lit),
-                        text_range: token.range,
-                        kind: IdentKind::Plain,
-                    })
+            // eat newlines
+            while let Some(t) = parser.peek() {
+                if t.ty == TokenType::Newline {
+                    parser.next();
+                } else {
+                    break;
                 }
-                TokenType::Float(_, lit) => {
-                    if let Err((i, c)) = lex::validate_literal(lit) {
-                        let mut pos = token.range.start;
-                        pos.char += i as u32;
-                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
-                    }
+            }
 
-                    Key::One(Ident {
-                        lit_range: token.range,
-                        lit,
-                        text: Cow::Borrowed(lit),
-                        text_range: token.range,
-                        kind: IdentKind::Plain,
-                    })
-                }
-                TokenType::Bool(_, lit) => Key::One(Ident {
-                    lit_range: token.range,
-                    lit,
-                    text: Cow::Borrowed(lit),
-                    text_range: token.range,
-                    kind: IdentKind::Plain,
-                }),
-                TokenType::SquareLeft => todo!(),
-                TokenType::SquareRight => todo!(),
-                TokenType::CurlyLeft => todo!(),
-                TokenType::CurlyRight => todo!(),
-                TokenType::Equal => todo!(),
-                TokenType::Comma => todo!(),
-                TokenType::Dot => todo!(),
-                TokenType::Newline => continue,
-                TokenType::Invalid(_) => todo!(),
+            let Some(key) = self.parse_key(&mut parser, StopOn::NOTHING)? else {
+                break;
             };
 
             // TODO: somehow try to recover, probably on newline
             let eq = match parser.next() {
-                Some(t) if t.ty == TokenType::Equal => t,
+                Some(t) if t.ty == TokenType::Equal => t.range.start,
                 Some(_) => todo!("error"),
                 None => todo!("error"),
             };
 
-            let Some(rhs) = self.parse_value(&mut parser, StopOn::NOTHING)? else {
+            let Some(val) = self.parse_value(&mut parser, StopOn::NOTHING)? else {
                 todo!("error");
                 break;
             };
 
-            asts.push(Ast::Assignment(lhs, eq.range.start, rhs));
+            asts.push(Ast::Assignment(Assignment { key, eq, val }));
         }
 
         Ok(asts)
+    }
+
+    fn parse_key<'a>(
+        &mut self,
+        parser: &mut Parser<'a>,
+        stop_on: StopOn,
+    ) -> Result<Option<Key<'a>>, Error> {
+        let Some(token) = parser.peek() else {
+            return Ok(None);
+        };
+
+        if stop_on.contains(&token.ty) {
+            return Ok(None);
+        }
+
+        let token = parser.next().unwrap();
+
+        let key = match token.ty {
+            TokenType::Ident(lit) => Key::One(Ident {
+                lit_range: token.range.clone(),
+                lit,
+                text: Cow::Borrowed(lit),
+                text_range: token.range,
+                kind: IdentKind::Plain,
+            }),
+            TokenType::String {
+                quote,
+                lit,
+                text,
+                text_range,
+            } => Key::One(Ident {
+                lit_range: token.range,
+                lit,
+                text,
+                text_range,
+                kind: IdentKind::String(quote),
+            }),
+            TokenType::Int(_, lit) => {
+                if let Err((i, c)) = lex::validate_literal(lit) {
+                    let mut pos = token.range.start;
+                    pos.char += i as u32;
+                    self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                }
+
+                Key::One(Ident {
+                    lit_range: token.range,
+                    lit,
+                    text: Cow::Borrowed(lit),
+                    text_range: token.range,
+                    kind: IdentKind::Plain,
+                })
+            }
+            TokenType::Float(_, lit) => {
+                if let Err((i, c)) = lex::validate_literal(lit) {
+                    let mut pos = token.range.start;
+                    pos.char += i as u32;
+                    self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                }
+
+                Key::One(Ident {
+                    lit_range: token.range,
+                    lit,
+                    text: Cow::Borrowed(lit),
+                    text_range: token.range,
+                    kind: IdentKind::Plain,
+                })
+            }
+            TokenType::Bool(_, lit) => Key::One(Ident {
+                lit_range: token.range,
+                lit,
+                text: Cow::Borrowed(lit),
+                text_range: token.range,
+                kind: IdentKind::Plain,
+            }),
+            TokenType::SquareLeft => todo!(),
+            TokenType::SquareRight => todo!(),
+            TokenType::CurlyLeft => todo!(),
+            TokenType::CurlyRight => todo!(),
+            TokenType::Equal => todo!(),
+            TokenType::Comma => todo!(),
+            TokenType::Dot => todo!(),
+            TokenType::Newline => todo!(),
+            TokenType::Invalid(_) => todo!(),
+        };
+
+        Ok(Some(key))
     }
 
     fn parse_value<'a>(
@@ -309,7 +354,7 @@ impl Ctx {
                         Some(t) if t.ty == TokenType::Comma => {
                             parser.next();
                         }
-                        Some(t) if t.ty == TokenType::SquareRight => (),
+                        Some(t) if t.ty == TokenType::SquareRight => break,
                         Some(_) => todo!("push error and continue"),
                         None => break,
                     }
@@ -326,10 +371,53 @@ impl Ctx {
                     end: right_par.range.end,
                 };
 
-                Value::Array(Array { range, values })
+                Value::InlineArray(InlineArray { range, values })
             }
             TokenType::SquareRight => todo!(),
-            TokenType::CurlyLeft => todo!("parse inline table"),
+            TokenType::CurlyLeft => {
+                let mut assignments = Vec::new();
+                loop {
+                    let Some(key) = self.parse_key(parser, StopOn::CURLY_RIGHT)? else {
+                        break;
+                    };
+
+                    // TODO: somehow try to recover, probably on newline
+                    let eq = match parser.next() {
+                        Some(t) if t.ty == TokenType::Equal => t.range.start,
+                        Some(_) => todo!("error"),
+                        None => todo!("error"),
+                    };
+
+                    let Some(val) = self.parse_value(parser, StopOn::CURLY_RIGHT)? else {
+                        todo!("error");
+                        break;
+                    };
+
+                    assignments.push(Assignment { key, eq, val });
+
+                    match parser.peek() {
+                        Some(t) if t.ty == TokenType::Comma => {
+                            parser.next();
+                        }
+                        Some(t) if t.ty == TokenType::CurlyRight => break,
+                        Some(_) => todo!("push error and continue"),
+                        None => break,
+                    }
+                }
+
+                let right_par = match parser.next() {
+                    Some(t) if t.ty == TokenType::CurlyRight => t,
+                    Some(_) => todo!("error"),
+                    None => todo!("push error"),
+                };
+
+                let range = Range {
+                    start: token.range.start,
+                    end: right_par.range.end,
+                };
+
+                Value::InlineTable(InlineTable { range, assignments })
+            }
             TokenType::CurlyRight => todo!(),
             TokenType::Equal => todo!(),
             TokenType::Comma => todo!(),

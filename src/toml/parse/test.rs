@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    Array, Ast, BoolVal, Ctx, Error, Ident, IdentKind, IntVal, Key, Pos, Quote, Range, StringVal,
-    Value,
+    Assignment, Ast, BoolVal, Ctx, Error, Ident, IdentKind, InlineArray, InlineTable, IntVal, Key,
+    Pos, Quote, Range, StringVal, Value,
 };
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -26,8 +26,8 @@ fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Err
 fn assign_bool() {
     check(
         "abc = false",
-        [Ast::Assignment(
-            Key::One(Ident {
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
                 lit: "abc",
                 lit_range: Range {
                     start: Pos { line: 0, char: 0 },
@@ -40,15 +40,15 @@ fn assign_bool() {
                 },
                 kind: IdentKind::Plain,
             }),
-            Pos { line: 0, char: 4 },
-            Value::Bool(BoolVal {
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Bool(BoolVal {
                 lit_range: Range {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
                 val: false,
             }),
-        )],
+        })],
     );
 }
 
@@ -56,8 +56,8 @@ fn assign_bool() {
 fn int_identifier() {
     check(
         "123 = false",
-        [Ast::Assignment(
-            Key::One(Ident {
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
                 lit: "123",
                 lit_range: Range {
                     start: Pos { line: 0, char: 0 },
@@ -70,15 +70,15 @@ fn int_identifier() {
                 },
                 kind: IdentKind::Plain,
             }),
-            Pos { line: 0, char: 4 },
-            Value::Bool(BoolVal {
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Bool(BoolVal {
                 lit_range: Range {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
                 val: false,
             }),
-        )],
+        })],
     );
 }
 
@@ -86,8 +86,8 @@ fn int_identifier() {
 fn invalid_int_identifier() {
     check_error(
         "+99 = false",
-        [Ast::Assignment(
-            Key::One(Ident {
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
                 lit: "+99",
                 lit_range: Range {
                     start: Pos { line: 0, char: 0 },
@@ -100,15 +100,15 @@ fn invalid_int_identifier() {
                 },
                 kind: IdentKind::Plain,
             }),
-            Pos { line: 0, char: 4 },
-            Value::Bool(BoolVal {
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Bool(BoolVal {
                 lit_range: Range {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
                 val: false,
             }),
-        )],
+        })],
         Error::InvalidCharInIdentifier('+', Pos { line: 0, char: 0 }),
     );
 }
@@ -117,8 +117,8 @@ fn invalid_int_identifier() {
 fn invalid_float_identifier() {
     check_error(
         "23e+3 = 'hello'",
-        [Ast::Assignment(
-            Key::One(Ident {
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
                 lit: "23e+3",
                 lit_range: Range {
                     start: Pos { line: 0, char: 0 },
@@ -131,8 +131,8 @@ fn invalid_float_identifier() {
                 },
                 kind: IdentKind::Plain,
             }),
-            Pos { line: 0, char: 6 },
-            Value::String(StringVal {
+            eq: Pos { line: 0, char: 6 },
+            val: Value::String(StringVal {
                 lit: "'hello'",
                 lit_range: Range {
                     start: Pos { line: 0, char: 8 },
@@ -145,7 +145,7 @@ fn invalid_float_identifier() {
                 },
                 quote: Quote::Literal,
             }),
-        )],
+        })],
         Error::InvalidCharInIdentifier('+', Pos { line: 0, char: 3 }),
     );
 }
@@ -154,8 +154,8 @@ fn invalid_float_identifier() {
 fn inline_array() {
     check(
         "array = [0, 1, 2]",
-        [Ast::Assignment(
-            Key::One(Ident {
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
                 lit: "array",
                 lit_range: Range {
                     start: Pos { line: 0, char: 0 },
@@ -168,8 +168,8 @@ fn inline_array() {
                 },
                 kind: IdentKind::Plain,
             }),
-            Pos { line: 0, char: 6 },
-            Value::Array(Array {
+            eq: Pos { line: 0, char: 6 },
+            val: Value::InlineArray(InlineArray {
                 range: Range {
                     start: Pos { line: 0, char: 8 },
                     end: Pos { line: 0, char: 17 },
@@ -201,6 +201,84 @@ fn inline_array() {
                     }),
                 ],
             }),
-        )],
+        })],
+    );
+}
+
+#[test]
+fn inline_table() {
+    check(
+        "table = { a = 3, b = true }",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "table",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 5 },
+                },
+                text: Cow::Borrowed("table"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 5 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 6 },
+            val: Value::InlineTable(InlineTable {
+                range: Range {
+                    start: Pos { line: 0, char: 8 },
+                    end: Pos { line: 0, char: 27 },
+                },
+                assignments: vec![
+                    Assignment {
+                        key: Key::One(Ident {
+                            lit: "a",
+                            lit_range: Range {
+                                start: Pos { line: 0, char: 10 },
+                                end: Pos { line: 0, char: 11 },
+                            },
+                            text: Cow::Borrowed("a"),
+                            text_range: Range {
+                                start: Pos { line: 0, char: 10 },
+                                end: Pos { line: 0, char: 11 },
+                            },
+                            kind: IdentKind::Plain,
+                        }),
+                        eq: Pos { line: 0, char: 12 },
+                        val: Value::Int(IntVal {
+                            lit: "3",
+                            lit_range: Range {
+                                start: Pos { line: 0, char: 14 },
+                                end: Pos { line: 0, char: 15 },
+                            },
+                            val: 3,
+                        }),
+                    },
+                    Assignment {
+                        key: Key::One(Ident {
+                            lit: "b",
+                            lit_range: Range {
+                                start: Pos { line: 0, char: 17 },
+                                end: Pos { line: 0, char: 18 },
+                            },
+                            text: Cow::Borrowed("b"),
+                            text_range: Range {
+                                start: Pos { line: 0, char: 17 },
+                                end: Pos { line: 0, char: 18 },
+                            },
+                            kind: IdentKind::Plain,
+                        }),
+                        eq: Pos { line: 0, char: 19 },
+                        val: Value::Bool(BoolVal {
+                            lit_range: Range {
+                                start: Pos { line: 0, char: 21 },
+                                end: Pos { line: 0, char: 25 },
+                            },
+                            val: true,
+                        }),
+                    },
+                ],
+            }),
+        })],
     );
 }

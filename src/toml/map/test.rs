@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    self, Ast, AstRef, BoolVal, Ctx, Ident, IdentKind, Key, Pos, Range, Scalar, Value,
+    self, Assignment, Ast, AstRef, BoolVal, Ctx, Ident, IdentKind, Key, Pos, Range, Scalar, Value,
 };
 
 fn check<'a>(input: &str, expected: HashMap<&'a str, (&'a Ast<'a>, AstRef<'a>)>) {
@@ -17,8 +17,8 @@ fn check<'a>(input: &str, expected: HashMap<&'a str, (&'a Ast<'a>, AstRef<'a>)>)
 #[test]
 fn assignment() {
     let mut map = HashMap::new();
-    let ast = Ast::Assignment(
-        Key::One(Ident {
+    let ast = Ast::Assignment(Assignment {
+        key: Key::One(Ident {
             lit: "something",
             lit_range: Range {
                 start: Pos { line: 0, char: 0 },
@@ -31,17 +31,21 @@ fn assignment() {
             },
             kind: IdentKind::Plain,
         }),
-        Pos { line: 0, char: 10 },
-        Value::Bool(BoolVal {
+        eq: Pos { line: 0, char: 10 },
+        val: Value::Bool(BoolVal {
             val: true,
             lit_range: Range {
                 start: Pos { line: 0, char: 12 },
                 end: Pos { line: 0, char: 16 },
             },
         }),
-    );
+    });
 
-    let Ast::Assignment(_, _, Value::Bool(bool_val)) = &ast else {
+    let Ast::Assignment(Assignment {
+        val: Value::Bool(bool_val),
+        ..
+    }) = &ast
+    else {
         unreachable!()
     };
 
