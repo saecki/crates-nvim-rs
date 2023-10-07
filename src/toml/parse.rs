@@ -7,13 +7,12 @@ mod test;
 
 #[derive(Debug)]
 pub struct Parser<'a> {
-    rhs: bool,
     tokens: std::iter::Peekable<std::vec::IntoIter<Token<'a>>>,
 }
 
 impl<'a> Parser<'a> {
     fn new(tokens: std::iter::Peekable<std::vec::IntoIter<Token<'a>>>) -> Self {
-        Self { rhs: false, tokens }
+        Self { tokens }
     }
 
     fn next(&mut self) -> Option<Token<'a>> {
@@ -22,6 +21,60 @@ impl<'a> Parser<'a> {
 
     fn peek(&mut self) -> Option<&Token<'a>> {
         self.tokens.peek()
+    }
+}
+
+#[derive(Clone, Copy)]
+struct StopOn(u16);
+
+#[rustfmt::skip]
+// TODO: remove later
+#[allow(unused)]
+impl StopOn {
+    const NOTHING: Self      = Self(0x00_00);
+    const IDENT: Self        = Self(0x00_01);
+    const STRING: Self       = Self(0x00_02);
+    const INT: Self          = Self(0x00_04);
+    const FLOAT: Self        = Self(0x00_08);
+    const BOOL: Self         = Self(0x00_10);
+    const SQUARE_LEFT: Self  = Self(0x00_20);
+    const SQUARE_RIGHT: Self = Self(0x00_40);
+    const CURLY_LEFT: Self   = Self(0x00_80);
+    const CURLY_RIGHT: Self  = Self(0x01_00);
+    const EQUAL: Self        = Self(0x02_00);
+    const COMMA: Self        = Self(0x04_00);
+    const DOT: Self          = Self(0x08_00);
+    const NEWLINE: Self      = Self(0x10_00);
+    const INVALID: Self      = Self(0x20_00);
+}
+
+impl StopOn {
+    fn contains(&self, ty: &TokenType) -> bool {
+        let stop_on = match ty {
+            TokenType::Ident(_) => Self::IDENT,
+            TokenType::String { .. } => Self::STRING,
+            TokenType::Int(_, _) => Self::INT,
+            TokenType::Float(_, _) => Self::FLOAT,
+            TokenType::Bool(_, _) => Self::BOOL,
+            TokenType::SquareLeft => Self::SQUARE_LEFT,
+            TokenType::SquareRight => Self::SQUARE_RIGHT,
+            TokenType::CurlyLeft => Self::CURLY_LEFT,
+            TokenType::CurlyRight => Self::CURLY_RIGHT,
+            TokenType::Equal => Self::EQUAL,
+            TokenType::Comma => Self::COMMA,
+            TokenType::Dot => Self::DOT,
+            TokenType::Newline => Self::NEWLINE,
+            TokenType::Invalid(_) => Self::INVALID,
+        };
+        (self.0 & stop_on.0) != 0
+    }
+}
+
+impl std::ops::BitOr for StopOn {
+    type Output = Self;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self(self.0 | rhs.0)
     }
 }
 
@@ -95,7 +148,7 @@ pub struct BoolVal {
 #[derive(Debug, PartialEq)]
 pub struct Array<'a> {
     pub range: Range,
-    pub val: Vec<Value<'a>>,
+    pub values: Vec<Value<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -193,52 +246,98 @@ impl Ctx {
                 None => todo!("error"),
             };
 
-            let Some(token) = parser.next() else {
+            let Some(rhs) = self.parse_value(&mut parser, StopOn::NOTHING)? else {
                 todo!("error");
                 break;
-            };
-            let rhs = match token.ty {
-                TokenType::Ident(_) => todo!(),
-                TokenType::String {
-                    quote,
-                    lit,
-                    text,
-                    text_range,
-                } => Value::String(StringVal {
-                    lit,
-                    lit_range: token.range,
-                    text,
-                    text_range,
-                    quote,
-                }),
-                TokenType::Int(val, lit) => Value::Int(IntVal {
-                    lit,
-                    lit_range: token.range,
-                    val,
-                }),
-                TokenType::Float(val, lit) => Value::Float(FloatVal {
-                    lit,
-                    lit_range: token.range,
-                    val,
-                }),
-                TokenType::Bool(val, _lit) => Value::Bool(BoolVal {
-                    lit_range: token.range,
-                    val,
-                }),
-                TokenType::SquareLeft => todo!("parse array"),
-                TokenType::SquareRight => todo!(),
-                TokenType::CurlyLeft => todo!("parse inline table"),
-                TokenType::CurlyRight => todo!(),
-                TokenType::Equal => todo!(),
-                TokenType::Comma => todo!(),
-                TokenType::Dot => todo!(),
-                TokenType::Newline => todo!(),
-                TokenType::Invalid(_) => todo!(),
             };
 
             asts.push(Ast::Assignment(lhs, eq.range.start, rhs));
         }
 
         Ok(asts)
+    }
+
+    fn parse_value<'a>(
+        &mut self,
+        parser: &mut Parser<'a>,
+        stop_on: StopOn,
+    ) -> Result<Option<Value<'a>>, Error> {
+        let Some(token) = parser.peek() else {
+            return Ok(None);
+        };
+
+        if stop_on.contains(&token.ty) {
+            return Ok(None);
+        }
+
+        let token = parser.next().unwrap();
+
+        let value = match token.ty {
+            TokenType::Ident(_) => todo!(),
+            TokenType::String {
+                quote,
+                lit,
+                text,
+                text_range,
+            } => Value::String(StringVal {
+                lit,
+                lit_range: token.range,
+                text,
+                text_range,
+                quote,
+            }),
+            TokenType::Int(val, lit) => Value::Int(IntVal {
+                lit,
+                lit_range: token.range,
+                val,
+            }),
+            TokenType::Float(val, lit) => Value::Float(FloatVal {
+                lit,
+                lit_range: token.range,
+                val,
+            }),
+            TokenType::Bool(val, _lit) => Value::Bool(BoolVal {
+                lit_range: token.range,
+                val,
+            }),
+            TokenType::SquareLeft => {
+                let mut values = Vec::new();
+                while let Some(value) = self.parse_value(parser, StopOn::SQUARE_RIGHT)? {
+                    values.push(value);
+
+                    match parser.peek() {
+                        Some(t) if t.ty == TokenType::Comma => {
+                            parser.next();
+                        }
+                        Some(t) if t.ty == TokenType::SquareRight => (),
+                        Some(_) => todo!("push error and continue"),
+                        None => break,
+                    }
+                }
+
+                let right_par = match parser.next() {
+                    Some(t) if t.ty == TokenType::SquareRight => t,
+                    Some(_) => todo!("error"),
+                    None => todo!("push error"),
+                };
+
+                let range = Range {
+                    start: token.range.start,
+                    end: right_par.range.end,
+                };
+
+                Value::Array(Array { range, values })
+            }
+            TokenType::SquareRight => todo!(),
+            TokenType::CurlyLeft => todo!("parse inline table"),
+            TokenType::CurlyRight => todo!(),
+            TokenType::Equal => todo!(),
+            TokenType::Comma => todo!(),
+            TokenType::Dot => todo!(),
+            TokenType::Newline => todo!(),
+            TokenType::Invalid(_) => todo!(),
+        };
+
+        Ok(Some(value))
     }
 }

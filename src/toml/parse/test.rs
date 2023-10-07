@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    Ast, BoolVal, Ctx, Error, Ident, IdentKind, Key, Pos, Quote, Range, StringVal, Value,
+    Array, Ast, BoolVal, Ctx, Error, Ident, IdentKind, IntVal, Key, Pos, Quote, Range, StringVal,
+    Value,
 };
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -146,5 +147,60 @@ fn invalid_float_identifier() {
             }),
         )],
         Error::InvalidCharInIdentifier('+', Pos { line: 0, char: 3 }),
+    );
+}
+
+#[test]
+fn inline_array() {
+    check(
+        "array = [0, 1, 2]",
+        [Ast::Assignment(
+            Key::One(Ident {
+                lit: "array",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 5 },
+                },
+                text: Cow::Borrowed("array"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 5 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            Pos { line: 0, char: 6 },
+            Value::Array(Array {
+                range: Range {
+                    start: Pos { line: 0, char: 8 },
+                    end: Pos { line: 0, char: 17 },
+                },
+                values: vec![
+                    Value::Int(IntVal {
+                        lit: "0",
+                        lit_range: Range {
+                            start: Pos { line: 0, char: 9 },
+                            end: Pos { line: 0, char: 10 },
+                        },
+                        val: 0,
+                    }),
+                    Value::Int(IntVal {
+                        lit: "1",
+                        lit_range: Range {
+                            start: Pos { line: 0, char: 12 },
+                            end: Pos { line: 0, char: 13 },
+                        },
+                        val: 1,
+                    }),
+                    Value::Int(IntVal {
+                        lit: "2",
+                        lit_range: Range {
+                            start: Pos { line: 0, char: 15 },
+                            end: Pos { line: 0, char: 16 },
+                        },
+                        val: 2,
+                    }),
+                ],
+            }),
+        )],
     );
 }
