@@ -81,8 +81,14 @@ impl std::ops::BitOr for StopOn {
 #[derive(Debug, PartialEq)]
 pub enum Ast<'a> {
     Assignment(Assignment<'a>),
-    Table(TableHeader<'a>, Vec<Assignment<'a>>),
-    Array(ArrayHeader<'a>, Vec<Assignment<'a>>),
+    Table(Table<'a>),
+    Array(Array<'a>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Table<'a> {
+    pub header: TableHeader<'a>,
+    pub assignments: Vec<Assignment<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -90,6 +96,12 @@ pub struct TableHeader<'a> {
     l_par: Option<Pos>,
     key: Key<'a>,
     r_par: Option<Pos>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Array<'a> {
+    pub header: ArrayHeader<'a>,
+    pub assignments: Vec<Assignment<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,6 +122,18 @@ pub struct Assignment<'a> {
 pub enum Key<'a> {
     One(Ident<'a>),
     Dotted(Vec<Ident<'a>>),
+}
+
+impl<'a> Key<'a> {
+    fn from_plain_lit(lit: &'a str, range: Range) -> Self {
+        Self::One(Ident {
+            lit,
+            lit_range: range,
+            text: Cow::Borrowed(lit),
+            text_range: range,
+            kind: IdentKind::Plain,
+        })
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -179,23 +203,69 @@ pub struct InlineTable<'a> {
     pub assignments: Vec<Assignment<'a>>,
 }
 
+enum Header<'a> {
+    Table(Table<'a>),
+    Array(Array<'a>),
+}
+
 impl Ctx {
     pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Result<Vec<Ast<'a>>, Error> {
         let mut parser = Parser::new(tokens.into_iter().peekable());
         let mut asts = Vec::new();
 
         loop {
-            // eat newlines
-            while let Some(t) = parser.peek() {
-                if t.ty == TokenType::Newline {
-                    parser.next();
-                } else {
-                    break;
-                }
-            }
-
-            let Some(key) = self.parse_key(&mut parser, StopOn::NOTHING)? else {
+            let Some(token) = parser.next() else {
                 break;
+            };
+
+            let key = match token.ty {
+                TokenType::Ident(lit) => Key::One(Ident {
+                    lit_range: token.range.clone(),
+                    lit,
+                    text: Cow::Borrowed(lit),
+                    text_range: token.range,
+                    kind: IdentKind::Plain,
+                }),
+                TokenType::String {
+                    quote,
+                    lit,
+                    text,
+                    text_range,
+                } => Key::One(Ident {
+                    lit_range: token.range,
+                    lit,
+                    text,
+                    text_range,
+                    kind: IdentKind::String(quote),
+                }),
+                TokenType::Int(_, lit) => {
+                    if let Err((i, c)) = lex::validate_literal(lit) {
+                        let mut pos = token.range.start;
+                        pos.char += i as u32;
+                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                    }
+
+                    Key::from_plain_lit(lit, token.range)
+                }
+                TokenType::Float(_, lit) => {
+                    if let Err((i, c)) = lex::validate_literal(lit) {
+                        let mut pos = token.range.start;
+                        pos.char += i as u32;
+                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                    }
+
+                    Key::from_plain_lit(lit, token.range)
+                }
+                TokenType::Bool(_, lit) => Key::from_plain_lit(lit, token.range),
+                TokenType::SquareLeft => todo!(),
+                TokenType::SquareRight => todo!(),
+                TokenType::CurlyLeft => todo!(),
+                TokenType::CurlyRight => todo!(),
+                TokenType::Equal => todo!(),
+                TokenType::Comma => todo!(),
+                TokenType::Dot => todo!(),
+                TokenType::Newline => continue,
+                TokenType::Invalid(_) => todo!(),
             };
 
             // TODO: somehow try to recover, probably on newline

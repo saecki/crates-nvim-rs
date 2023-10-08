@@ -17,8 +17,8 @@ pub struct Ctx {
     pub warnings: Vec<Warning>,
 }
 
-pub struct Toml<'a, 'b: 'a> {
+pub struct Toml<'a, /* 'b: 'a */> {
     input: Pin<Box<str>>,
     asts: Pin<Box<[Ast<'a>]>>,
-    map: HashMap<&'b str, (&'b Ast<'a>, AstRef<'b>)>,
+    // map: HashMap<&'b str, (&'b Ast<'a>, MapEntry<'b>)>,
 }

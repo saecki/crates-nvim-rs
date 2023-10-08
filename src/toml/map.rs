@@ -1,52 +1,84 @@
-use std::collections::HashMap;
-
-use crate::toml::{Assignment, Ast, BoolVal, FloatVal, IntVal, Key, StringVal, Value};
-
-#[cfg(test)]
-mod test;
-
-#[derive(Debug, PartialEq)]
-pub enum AstRef<'a> {
-    Scalar(Scalar<'a>),
-    Table(HashMap<&'a str, (&'a Ast<'a>, AstRef<'a>)>),
-    Array(Vec<(&'a Ast<'a>, AstRef<'a>)>),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Scalar<'a> {
-    String(&'a StringVal<'a>),
-    Int(&'a IntVal<'a>),
-    Float(&'a FloatVal<'a>),
-    Bool(&'a BoolVal),
-}
-
-pub fn map<'a>(asts: &'a [Ast<'a>]) -> HashMap<&'a str, (&'a Ast<'a>, AstRef<'a>)> {
-    let mut map = HashMap::new();
-    for a in asts {
-        match a {
-            Ast::Assignment(Assignment { key, val, .. }) => match key {
-                Key::One(i) => {
-                    let ident = i.text.as_ref();
-                    let rhs = map_rhs(val);
-                    map.insert(ident, (a, rhs));
-                }
-                Key::Dotted(_) => todo!(),
-            },
-            Ast::Table(_, _) => todo!(),
-            Ast::Array(_, _) => todo!(),
-        }
-    }
-
-    map
-}
-
-fn map_rhs<'a>(value: &'a Value<'a>) -> AstRef<'a> {
-    match value {
-        Value::String(s) => AstRef::Scalar(Scalar::String(s)),
-        Value::Int(i) => AstRef::Scalar(Scalar::Int(i)),
-        Value::Float(f) => AstRef::Scalar(Scalar::Float(f)),
-        Value::Bool(b) => AstRef::Scalar(Scalar::Bool(b)),
-        Value::InlineArray(a) => todo!(),
-        Value::InlineTable(_) => todo!(),
-    }
-}
+// use std::collections::HashMap;
+//
+// use crate::toml::{
+//     Array, Assignment, Ast, BoolVal, FloatVal, InlineArray, InlineTable, IntVal, Key, StringVal,
+//     Table, Value,
+// };
+//
+// #[cfg(test)]
+// mod test;
+//
+// #[derive(Debug, PartialEq)]
+// pub enum MapEntry<'a> {
+//     Assignment(AssignmentRef<'a>, Assignment<'a>),
+//     Table(Vec<TableRef<'a>>, HashMap<&'a str, MapEntry<'a>>),
+//     Array(Vec<ArrayRef<'a>>, Vec<MapEntry<'a>>),
+//     Scalar(Scalar<'a>),
+// }
+//
+// pub struct AssignmentRef {
+//     pub key: Assignment
+// }
+//
+// #[derive(Debug, PartialEq)]
+// pub enum TableRef<'a> {
+//     Table(&'a Table<'a>),
+//     InlineTable(&'a InlineTable<'a>),
+// }
+//
+// #[derive(Debug, PartialEq)]
+// pub enum ArrayRef<'a> {
+//     Array(&'a Array<'a>),
+//     InlineArray(&'a InlineArray<'a>),
+// }
+//
+// #[derive(Debug, PartialEq)]
+// pub enum Scalar<'a> {
+//     String(&'a StringVal<'a>),
+//     Int(&'a IntVal<'a>),
+//     Float(&'a FloatVal<'a>),
+//     Bool(&'a BoolVal),
+// }
+//
+// pub fn map<'a>(asts: &'a [Ast<'a>]) -> HashMap<&'a str, MapEntry<'a>> {
+//     let mut map = HashMap::new();
+//     for a in asts {
+//         match a {
+//             Ast::Assignment(a @ Assignment { key, val, .. }) => match key {
+//                 Key::One(i) => {
+//                     let ident = i.text.as_ref();
+//                     let ast_ref = AstRef::Assignment(a);
+//                     let map_val = map_value(val);
+//                     map.insert(ident, (ast_ref, map_val));
+//                 }
+//                 Key::Dotted(_) => todo!(),
+//             },
+//             Ast::Table(_) => todo!(),
+//             Ast::Array(_) => todo!(),
+//         }
+//     }
+//
+//     map
+// }
+//
+// fn map_value<'a>(value: &'a Value<'a>) -> MapEntry<'a> {
+//     match value {
+//         Value::String(s) => MapEntry::Scalar(Scalar::String(s)),
+//         Value::Int(i) => MapEntry::Scalar(Scalar::Int(i)),
+//         Value::Float(f) => MapEntry::Scalar(Scalar::Float(f)),
+//         Value::Bool(b) => MapEntry::Scalar(Scalar::Bool(b)),
+//         Value::InlineArray(array) => {
+//             let values = array
+//                 .values
+//                 .iter()
+//                 .map(|val| {
+//                     let ast_ref = AstRef::Value(val);
+//                     let map_val = map_value(val);
+//                     (ast_ref, map_val)
+//                 })
+//                 .collect();
+//             MapEntry::Array(values)
+//         }
+//         Value::InlineTable(_) => todo!(),
+//     }
+// }
