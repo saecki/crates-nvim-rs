@@ -104,17 +104,7 @@ pub struct DottedIdent<'a> {
     pub dot: Option<Pos>,
 }
 
-impl<'a> Key<'a> {
-    fn from_plain_lit(lit: &'a str, range: Range) -> Self {
-        Self::One(Ident {
-            lit,
-            lit_range: range,
-            text: Cow::Borrowed(lit),
-            text_range: range,
-            kind: IdentKind::Plain,
-        })
-    }
-
+impl Key<'_> {
     pub fn range(&self) -> Range {
         match self {
             Key::One(i) => i.lit_range,
@@ -130,6 +120,18 @@ pub struct Ident<'a> {
     pub text: Cow<'a, str>,
     pub text_range: Range,
     pub kind: IdentKind,
+}
+
+impl<'a> Ident<'a> {
+    fn from_plain_lit(lit: &'a str, range: Range) -> Self {
+        Ident {
+            lit,
+            lit_range: range,
+            text: Cow::Borrowed(lit),
+            text_range: range,
+            kind: IdentKind::Plain,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -261,48 +263,10 @@ impl Ctx {
         let mut last_header = None;
 
         loop {
-            let token = parser.next();
-            let key = match token.ty {
-                TokenType::Ident(lit) => Key::One(Ident {
-                    lit_range: token.range.clone(),
-                    lit,
-                    text: Cow::Borrowed(lit),
-                    text_range: token.range,
-                    kind: IdentKind::Plain,
-                }),
-                TokenType::String {
-                    quote,
-                    lit,
-                    text,
-                    text_range,
-                } => Key::One(Ident {
-                    lit_range: token.range,
-                    lit,
-                    text,
-                    text_range,
-                    kind: IdentKind::String(quote),
-                }),
-                TokenType::Int(_, lit) => {
-                    if let Err((i, c)) = lex::validate_literal(lit) {
-                        let mut pos = token.range.start;
-                        pos.char += i as u32;
-                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
-                    }
-
-                    Key::from_plain_lit(lit, token.range)
-                }
-                TokenType::Float(_, lit) => {
-                    if let Err((i, c)) = lex::validate_literal(lit) {
-                        let mut pos = token.range.start;
-                        pos.char += i as u32;
-                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
-                    }
-
-                    Key::from_plain_lit(lit, token.range)
-                }
-                TokenType::Bool(_, lit) => Key::from_plain_lit(lit, token.range),
-                TokenType::SquareLeft => {
+            match parser.peek() {
+                token if token.ty == TokenType::SquareLeft => {
                     let l_table_square = token.range;
+                    parser.next();
 
                     let l_array_square = match parser.peek() {
                         t if t.ty == TokenType::SquareLeft => Some(parser.next().range),
@@ -379,15 +343,17 @@ impl Ctx {
                     }
                     continue;
                 }
-                TokenType::SquareRight => todo!(),
-                TokenType::CurlyLeft => todo!(),
-                TokenType::CurlyRight => todo!(),
-                TokenType::Equal => todo!(),
-                TokenType::Comma => todo!(),
-                TokenType::Dot => todo!(),
-                TokenType::Newline => continue,
-                TokenType::Invalid(_) => todo!(),
-                TokenType::EOF => break,
+                t if t.ty == TokenType::Newline => {
+                    parser.next();
+                    continue;
+                }
+                t if t.ty == TokenType::EOF => break,
+                _ => (),
+            }
+
+            let key = match self.parse_key(&mut parser) {
+                Ok(k) => k,
+                Err(_e) => todo!("push error and try to recover"),
             };
 
             // TODO: somehow try to recover, probably on newline
@@ -420,63 +386,79 @@ impl Ctx {
     }
 
     fn parse_key<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
-        // TODO: parse dotted keys
+        let mut idents = Vec::new();
+        loop {
+            let token = parser.peek_mut();
+            let ident = match &mut token.ty {
+                TokenType::Ident(lit) => Ident {
+                    lit_range: token.range.clone(),
+                    lit,
+                    text: Cow::Borrowed(lit),
+                    text_range: token.range,
+                    kind: IdentKind::Plain,
+                },
+                TokenType::String {
+                    quote,
+                    lit,
+                    text,
+                    text_range,
+                } => Ident {
+                    lit_range: token.range,
+                    lit,
+                    text: std::mem::take(text),
+                    text_range: *text_range,
+                    kind: IdentKind::String(*quote),
+                },
+                TokenType::Int(_, lit) => {
+                    if let Err((i, c)) = lex::validate_literal(lit) {
+                        let mut pos = token.range.start;
+                        pos.char += i as u32;
+                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                    }
 
-        let token = parser.peek_mut();
-        let key = match &mut token.ty {
-            TokenType::Ident(lit) => Key::One(Ident {
-                lit_range: token.range.clone(),
-                lit,
-                text: Cow::Borrowed(lit),
-                text_range: token.range,
-                kind: IdentKind::Plain,
-            }),
-            TokenType::String {
-                quote,
-                lit,
-                text,
-                text_range,
-            } => Key::One(Ident {
-                lit_range: token.range,
-                lit,
-                text: std::mem::take(text),
-                text_range: *text_range,
-                kind: IdentKind::String(*quote),
-            }),
-            TokenType::Int(_, lit) => {
-                if let Err((i, c)) = lex::validate_literal(lit) {
-                    let mut pos = token.range.start;
-                    pos.char += i as u32;
-                    self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                    Ident::from_plain_lit(lit, token.range)
                 }
+                TokenType::Float(_, lit) => {
+                    if let Err((i, c)) = lex::validate_literal(lit) {
+                        let mut pos = token.range.start;
+                        pos.char += i as u32;
+                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                    }
 
-                Key::from_plain_lit(lit, token.range)
-            }
-            TokenType::Float(_, lit) => {
-                if let Err((i, c)) = lex::validate_literal(lit) {
-                    let mut pos = token.range.start;
-                    pos.char += i as u32;
-                    self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                    Ident::from_plain_lit(lit, token.range)
                 }
+                TokenType::Bool(_, lit) => Ident::from_plain_lit(lit, token.range),
+                TokenType::SquareLeft => todo!(),
+                TokenType::SquareRight => todo!(),
+                TokenType::CurlyLeft => todo!(),
+                TokenType::CurlyRight => todo!(),
+                TokenType::Equal => {
+                    return Err(Error::ExpectedKey(token.ty.to_string(), token.range))
+                }
+                TokenType::Comma => todo!(),
+                TokenType::Dot => todo!(),
+                TokenType::Newline => todo!(),
+                TokenType::Invalid(_) => todo!(),
+                TokenType::EOF => todo!(),
+            };
+            parser.next();
 
-                Key::from_plain_lit(lit, token.range)
+            match parser.peek() {
+                t if t.ty == TokenType::Dot => {
+                    let dot = Some(t.range.start);
+                    idents.push(DottedIdent { ident, dot });
+                    parser.next();
+                }
+                _ => {
+                    if idents.is_empty() {
+                        return Ok(Key::One(ident));
+                    } else {
+                        idents.push(DottedIdent { ident, dot: None });
+                        return Ok(Key::Dotted(idents));
+                    }
+                }
             }
-            TokenType::Bool(_, lit) => Key::from_plain_lit(lit, token.range),
-            TokenType::SquareLeft => todo!(),
-            TokenType::SquareRight => todo!(),
-            TokenType::CurlyLeft => todo!(),
-            TokenType::CurlyRight => todo!(),
-            TokenType::Equal => return Err(Error::ExpectedKey(token.ty.to_string(), token.range)),
-            TokenType::Comma => todo!(),
-            TokenType::Dot => todo!(),
-            TokenType::Newline => todo!(),
-            TokenType::Invalid(_) => todo!(),
-            TokenType::EOF => todo!(),
-        };
-
-        parser.next();
-
-        Ok(key)
+        }
     }
 
     fn parse_value<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {

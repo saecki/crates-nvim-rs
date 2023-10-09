@@ -5,7 +5,7 @@ use pretty_assertions::assert_eq;
 use crate::toml::{
     Assignment, Ast, BoolVal, Ctx, Error, Ident, IdentKind, InlineArray, InlineArrayValue,
     InlineTable, InlineTableAssignment, IntVal, Key, Pos, Quote, Range, StringVal, Table,
-    TableHeader, Value, Warning, ArrayHeader, Array,
+    TableHeader, Value, Warning, ArrayHeader, Array, DottedIdent,
 };
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -62,6 +62,73 @@ fn assign_bool() {
                 lit_range: Range {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
+                },
+                val: false,
+            }),
+        })],
+    );
+}
+
+#[test]
+fn dotted_key() {
+    check(
+        "a.b.c = false",
+        [Ast::Assignment(Assignment {
+            key: Key::Dotted(vec![
+                DottedIdent {
+                    ident: Ident {
+                        lit: "a",
+                        lit_range: Range {
+                            start: Pos { line: 0, char: 0 },
+                            end: Pos { line: 0, char: 1 },
+                        },
+                        text: Cow::Borrowed("a"),
+                        text_range: Range {
+                            start: Pos { line: 0, char: 0 },
+                            end: Pos { line: 0, char: 1 },
+                        },
+                        kind: IdentKind::Plain,
+                    },
+                    dot: Some(Pos { line: 0, char: 1 }),
+                },
+                DottedIdent {
+                    ident: Ident {
+                        lit: "b",
+                        lit_range: Range {
+                            start: Pos { line: 0, char: 2 },
+                            end: Pos { line: 0, char: 3 },
+                        },
+                        text: Cow::Borrowed("b"),
+                        text_range: Range {
+                            start: Pos { line: 0, char: 2 },
+                            end: Pos { line: 0, char: 3 },
+                        },
+                        kind: IdentKind::Plain,
+                    },
+                    dot: Some(Pos { line: 0, char: 3 }),
+                },
+                DottedIdent {
+                    ident: Ident {
+                        lit: "c",
+                        lit_range: Range {
+                            start: Pos { line: 0, char: 4 },
+                            end: Pos { line: 0, char: 5 },
+                        },
+                        text: Cow::Borrowed("c"),
+                        text_range: Range {
+                            start: Pos { line: 0, char: 4 },
+                            end: Pos { line: 0, char: 5 },
+                        },
+                        kind: IdentKind::Plain,
+                    },
+                    dot: None,
+                },
+            ]),
+            eq: Pos { line: 0, char: 6 },
+            val: Value::Bool(BoolVal {
+                lit_range: Range {
+                    start: Pos { line: 0, char: 8 },
+                    end: Pos { line: 0, char: 13 },
                 },
                 val: false,
             }),
