@@ -3,9 +3,6 @@ mod lex;
 mod map;
 mod parse;
 
-use std::collections::HashMap;
-use std::pin::Pin;
-
 pub use error::*;
 pub use lex::*;
 pub use map::*;
@@ -17,8 +14,8 @@ pub struct Ctx {
     pub warnings: Vec<Warning>,
 }
 
-pub struct Toml<'a /* 'b: 'a */> {
-    input: Pin<Box<str>>,
-    asts: Pin<Box<[Ast<'a>]>>,
-    // map: HashMap<&'b str, (&'b Ast<'a>, MapEntry<'b>)>,
-}
+// pub struct Toml<'a /* 'b: 'a */> {
+//     input: Pin<Box<str>>,
+//     asts: Pin<Box<[Ast<'a>]>>,
+//     // map: HashMap<&'b str, (&'b Ast<'a>, MapEntry<'b>)>,
+// }

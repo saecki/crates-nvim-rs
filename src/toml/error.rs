@@ -12,6 +12,7 @@ pub enum Error {
 
     ExpectedEqFound(String, Range),
     ExpectedRightCurlyFound(String, Range),
+    ExpectedRightSquareFound(String, Range),
     ExpectedComma(Pos),
     ExpectedKey(String, Range),
     ExpectedValue(String, Range),

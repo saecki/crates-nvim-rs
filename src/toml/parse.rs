@@ -6,7 +6,7 @@ use crate::toml::{lex, Ctx, Error, Pos, Quote, Range, Token, TokenType};
 mod test;
 
 macro_rules! recover_on {
-    ($parser:ident, $tokens:pat, $label:lifetime) => {{
+    ($parser:expr, $tokens:pat, $label:lifetime) => {{
         loop {
             match $parser.peek().ty {
                 $tokens => {
@@ -67,8 +67,8 @@ pub struct Table<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct TableHeader<'a> {
-    l_par: Option<Pos>,
-    key: Key<'a>,
+    l_par: Pos,
+    key: Option<Key<'a>>,
     r_par: Option<Pos>,
 }
 
@@ -80,8 +80,8 @@ pub struct Array<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct ArrayHeader<'a> {
-    l_pars: (Option<Pos>, Option<Pos>),
-    key: Key<'a>,
+    l_pars: (Pos, Pos),
+    key: Option<Key<'a>>,
     r_pars: (Option<Pos>, Option<Pos>),
 }
 
@@ -95,7 +95,13 @@ pub struct Assignment<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Key<'a> {
     One(Ident<'a>),
-    Dotted(Vec<Ident<'a>>),
+    Dotted(Vec<DottedIdent<'a>>),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct DottedIdent<'a> {
+    pub ident: Ident<'a>,
+    pub dot: Option<Pos>,
 }
 
 impl<'a> Key<'a> {
@@ -222,6 +228,20 @@ pub struct InlineArrayValue<'a> {
     pub comma: Option<Pos>,
 }
 
+enum Header<'a> {
+    Table(Table<'a>),
+    Array(Array<'a>),
+}
+
+impl<'a> Header<'a> {
+    fn into_ast(self) -> Ast<'a> {
+        match self {
+            Header::Table(t) => Ast::Table(t),
+            Header::Array(a) => Ast::Array(a),
+        }
+    }
+}
+
 impl InlineArrayValue<'_> {
     pub fn range(&self) -> Range {
         let start = self.val.range().start;
@@ -238,6 +258,7 @@ impl Ctx {
     pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Result<Vec<Ast<'a>>, Error> {
         let mut parser = Parser::new(tokens);
         let mut asts = Vec::new();
+        let mut last_header = None;
 
         loop {
             let token = parser.next();
@@ -280,7 +301,84 @@ impl Ctx {
                     Key::from_plain_lit(lit, token.range)
                 }
                 TokenType::Bool(_, lit) => Key::from_plain_lit(lit, token.range),
-                TokenType::SquareLeft => todo!(),
+                TokenType::SquareLeft => {
+                    let l_table_square = token.range;
+
+                    let l_array_square = match parser.peek() {
+                        t if t.ty == TokenType::SquareLeft => Some(parser.next().range),
+                        _ => None,
+                    };
+
+                    let key = match self.parse_key(&mut parser) {
+                        Ok(k) => Some(k),
+                        Err(e) => {
+                            self.errors.push(e);
+                            loop {
+                                match parser.peek().ty {
+                                    TokenType::SquareRight
+                                    | TokenType::Newline
+                                    | TokenType::EOF => break,
+                                    _ => {
+                                        parser.next();
+                                    }
+                                }
+                            }
+                            None
+                        }
+                    };
+
+                    let r_array_square = l_array_square.and_then(|_| match parser.peek() {
+                        t if t.ty == TokenType::SquareRight => Some(parser.next().range.start),
+                        t => {
+                            self.errors
+                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.range));
+                            None
+                        }
+                    });
+
+                    let r_table_square = match parser.peek() {
+                        t if t.ty == TokenType::SquareRight => Some(parser.next().range.start),
+                        t => {
+                            self.errors
+                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.range));
+                            None
+                        }
+                    };
+
+                    let header = match l_array_square {
+                        Some(l_array_square) => {
+                            let header = ArrayHeader {
+                                l_pars: (l_table_square.start, l_array_square.start),
+                                key,
+                                r_pars: (r_array_square, r_table_square),
+                            };
+                            Header::Array(Array {
+                                header,
+                                assignments: Vec::new(),
+                            })
+                        }
+                        None => {
+                            let header = TableHeader {
+                                l_par: l_table_square.start,
+                                key,
+                                r_par: r_table_square,
+                            };
+                            Header::Table(Table {
+                                header,
+                                assignments: Vec::new(),
+                            })
+                        }
+                    };
+
+                    match &mut last_header {
+                        Some(last) => {
+                            let last = std::mem::replace(last, header);
+                            asts.push(last.into_ast());
+                        }
+                        None => last_header = Some(header),
+                    }
+                    continue;
+                }
                 TokenType::SquareRight => todo!(),
                 TokenType::CurlyLeft => todo!(),
                 TokenType::CurlyRight => todo!(),
@@ -306,13 +404,24 @@ impl Ctx {
                 }
             };
 
-            asts.push(Ast::Assignment(Assignment { key, eq, val }));
+            let assignment = Assignment { key, eq, val };
+            match &mut last_header {
+                Some(Header::Table(t)) => t.assignments.push(assignment),
+                Some(Header::Array(a)) => a.assignments.push(assignment),
+                None => asts.push(Ast::Assignment(assignment)),
+            }
+        }
+
+        if let Some(last) = last_header {
+            asts.push(last.into_ast());
         }
 
         Ok(asts)
     }
 
     fn parse_key<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
+        // TODO: parse dotted keys
+
         let token = parser.peek_mut();
         let key = match &mut token.ty {
             TokenType::Ident(lit) => Key::One(Ident {
@@ -446,7 +555,7 @@ impl Ctx {
                     t if t.ty == TokenType::SquareRight => parser.next().range.end,
                     t => {
                         self.errors
-                            .push(Error::ExpectedRightCurlyFound(t.ty.to_string(), t.range));
+                            .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.range));
 
                         values.last().map_or(l_square_range.end, |v| v.range().end)
                     }

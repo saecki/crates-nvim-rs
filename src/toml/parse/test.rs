@@ -4,7 +4,8 @@ use pretty_assertions::assert_eq;
 
 use crate::toml::{
     Assignment, Ast, BoolVal, Ctx, Error, Ident, IdentKind, InlineArray, InlineArrayValue,
-    InlineTable, InlineTableAssignment, IntVal, Key, Pos, Quote, Range, StringVal, Value, Warning,
+    InlineTable, InlineTableAssignment, IntVal, Key, Pos, Quote, Range, StringVal, Table,
+    TableHeader, Value, Warning, ArrayHeader, Array,
 };
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -612,4 +613,102 @@ fn inline_table_recover_invalid() {
             },
         ),
     );
+}
+
+#[test]
+fn table_header() {
+    check(
+        "[my_table]\nentry = false\n",
+        [Ast::Table(Table {
+            header: TableHeader {
+                l_par: Pos { line: 0, char: 0 },
+                key: Some(Key::One(Ident {
+                    lit: "my_table",
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 1 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    text: Cow::Borrowed("my_table"),
+                    text_range: Range {
+                        start: Pos { line: 0, char: 1 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    kind: IdentKind::Plain,
+                })),
+                r_par: Some(Pos { line: 0, char: 9 }),
+            },
+            assignments: vec![Assignment {
+                key: Key::One(Ident {
+                    lit: "entry",
+                    lit_range: Range {
+                        start: Pos { line: 1, char: 0 },
+                        end: Pos { line: 1, char: 5 },
+                    },
+                    text: Cow::Borrowed("entry"),
+                    text_range: Range {
+                        start: Pos { line: 1, char: 0 },
+                        end: Pos { line: 1, char: 5 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 1, char: 6 },
+                val: Value::Bool(BoolVal {
+                    lit_range: Range {
+                        start: Pos { line: 1, char: 8 },
+                        end: Pos { line: 1, char: 13 },
+                    },
+                    val: false,
+                }),
+            }],
+        })],
+    )
+}
+
+#[test]
+fn array_header() {
+    check(
+        "[[my_array]]\nentry = false\n",
+        [Ast::Array(Array {
+            header: ArrayHeader {
+                l_pars: (Pos { line: 0, char: 0 }, Pos { line: 0, char: 1 }),
+                key: Some(Key::One(Ident {
+                    lit: "my_array",
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 2 },
+                        end: Pos { line: 0, char: 10 },
+                    },
+                    text: Cow::Borrowed("my_array"),
+                    text_range: Range {
+                        start: Pos { line: 0, char: 2 },
+                        end: Pos { line: 0, char: 10 },
+                    },
+                    kind: IdentKind::Plain,
+                })),
+                r_pars: (Some(Pos { line: 0, char: 10 }), Some(Pos { line: 0, char: 11 })),
+            },
+            assignments: vec![Assignment {
+                key: Key::One(Ident {
+                    lit: "entry",
+                    lit_range: Range {
+                        start: Pos { line: 1, char: 0 },
+                        end: Pos { line: 1, char: 5 },
+                    },
+                    text: Cow::Borrowed("entry"),
+                    text_range: Range {
+                        start: Pos { line: 1, char: 0 },
+                        end: Pos { line: 1, char: 5 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 1, char: 6 },
+                val: Value::Bool(BoolVal {
+                    lit_range: Range {
+                        start: Pos { line: 1, char: 8 },
+                        end: Pos { line: 1, char: 13 },
+                    },
+                    val: false,
+                }),
+            }],
+        })],
+    )
 }
