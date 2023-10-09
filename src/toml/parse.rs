@@ -158,8 +158,8 @@ impl Value<'_> {
             Value::Int(i) => i.lit_range,
             Value::Float(f) => f.lit_range,
             Value::Bool(b) => b.lit_range,
-            Value::InlineTable(t) => t.range,
-            Value::InlineArray(a) => a.range,
+            Value::InlineTable(t) => t.range(),
+            Value::InlineArray(a) => a.range(),
         }
     }
 }
@@ -195,8 +195,20 @@ pub struct BoolVal {
 
 #[derive(Debug, PartialEq)]
 pub struct InlineTable<'a> {
-    pub range: Range,
+    pub l_par: Pos,
     pub assignments: Vec<InlineTableAssignment<'a>>,
+    pub r_par: Option<Pos>,
+}
+
+impl InlineTable<'_> {
+    pub fn range(&self) -> Range {
+        let start = self.l_par;
+        let end = self
+            .r_par
+            .or_else(|| self.assignments.last().map(|a| a.range().end))
+            .unwrap_or_else(|| self.l_par.plus(1));
+        Range { start, end }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -220,14 +232,37 @@ impl InlineTableAssignment<'_> {
 
 #[derive(Debug, PartialEq)]
 pub struct InlineArray<'a> {
-    pub range: Range,
+    pub l_par: Pos,
     pub values: Vec<InlineArrayValue<'a>>,
+    pub r_par: Option<Pos>,
+}
+
+impl InlineArray<'_> {
+    pub fn range(&self) -> Range {
+        let start = self.l_par;
+        let end = self
+            .r_par
+            .or_else(|| self.values.last().map(|a| a.range().end))
+            .unwrap_or_else(|| self.l_par.plus(1));
+        Range { start, end }
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct InlineArrayValue<'a> {
     pub val: Value<'a>,
     pub comma: Option<Pos>,
+}
+
+impl InlineArrayValue<'_> {
+    pub fn range(&self) -> Range {
+        let start = self.val.range().start;
+        let end = self
+            .comma
+            .map(|c| c.plus(1))
+            .unwrap_or_else(|| self.val.range().end);
+        Range { start, end }
+    }
 }
 
 enum Header<'a> {
@@ -241,17 +276,6 @@ impl<'a> Header<'a> {
             Header::Table(t) => Ast::Table(t),
             Header::Array(a) => Ast::Array(a),
         }
-    }
-}
-
-impl InlineArrayValue<'_> {
-    pub fn range(&self) -> Range {
-        let start = self.val.range().start;
-        let end = self
-            .comma
-            .map(|c| c.plus(1))
-            .unwrap_or_else(|| self.val.range().end);
-        Range { start, end }
     }
 }
 
@@ -492,7 +516,7 @@ impl Ctx {
                 val: *val,
             }),
             TokenType::SquareLeft => {
-                let l_square_range = token.range;
+                let l_par = token.range.start;
                 parser.next();
 
                 let mut values = Vec::new();
@@ -533,26 +557,24 @@ impl Ctx {
                 }
 
                 parser.eat_newlines();
-                let end = match parser.peek() {
-                    t if t.ty == TokenType::SquareRight => parser.next().range.end,
+                let r_par = match parser.peek() {
+                    t if t.ty == TokenType::SquareRight => Some(parser.next().range.start),
                     t => {
                         self.errors
                             .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.range));
-
-                        values.last().map_or(l_square_range.end, |v| v.range().end)
+                        None
                     }
                 };
 
-                let range = Range {
-                    start: l_square_range.start,
-                    end,
-                };
-
-                return Ok(Value::InlineArray(InlineArray { range, values }));
+                return Ok(Value::InlineArray(InlineArray {
+                    l_par,
+                    values,
+                    r_par,
+                }));
             }
             TokenType::SquareRight => todo!(),
             TokenType::CurlyLeft => {
-                let l_curly_range = token.range;
+                let l_par = token.range.start;
                 parser.next();
 
                 let mut assignments = Vec::new();
@@ -611,24 +633,20 @@ impl Ctx {
                     assignments.push(assignment);
                 }
 
-                let end = match parser.peek() {
-                    t if t.ty == TokenType::CurlyRight => parser.next().range.end,
+                let r_par = match parser.peek() {
+                    t if t.ty == TokenType::CurlyRight => Some(parser.next().range.start),
                     t => {
                         self.errors
                             .push(Error::ExpectedRightCurlyFound(t.ty.to_string(), t.range));
-
-                        assignments
-                            .last()
-                            .map_or(l_curly_range.end, |a| a.range().end)
+                        None
                     }
                 };
 
-                let range = Range {
-                    start: l_curly_range.start,
-                    end,
-                };
-
-                return Ok(Value::InlineTable(InlineTable { range, assignments }));
+                return Ok(Value::InlineTable(InlineTable {
+                    l_par,
+                    assignments,
+                    r_par,
+                }));
             }
             TokenType::CurlyRight => todo!(),
             TokenType::Equal => {

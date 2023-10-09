@@ -3,9 +3,9 @@ use std::borrow::Cow;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    Assignment, Ast, BoolVal, Ctx, Error, Ident, IdentKind, InlineArray, InlineArrayValue,
-    InlineTable, InlineTableAssignment, IntVal, Key, Pos, Quote, Range, StringVal, Table,
-    TableHeader, Value, Warning, ArrayHeader, Array, DottedIdent,
+    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, DottedIdent, Error, Ident, IdentKind,
+    InlineArray, InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, Pos, Quote,
+    Range, StringVal, Table, TableHeader, Value, Warning,
 };
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -254,10 +254,7 @@ fn inline_array() {
             }),
             eq: Pos { line: 0, char: 6 },
             val: Value::InlineArray(InlineArray {
-                range: Range {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 17 },
-                },
+                l_par: Pos { line: 0, char: 8 },
                 values: vec![
                     InlineArrayValue {
                         val: Value::Int(IntVal {
@@ -293,6 +290,7 @@ fn inline_array() {
                         comma: None,
                     },
                 ],
+                r_par: Some(Pos { line: 0, char: 16 }),
             }),
         })],
     );
@@ -318,10 +316,7 @@ fn inline_array_recover_comma() {
             }),
             eq: Pos { line: 0, char: 6 },
             val: Value::InlineArray(InlineArray {
-                range: Range {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 17 },
-                },
+                l_par: Pos { line: 0, char: 8 },
                 values: vec![
                     InlineArrayValue {
                         val: Value::Int(IntVal {
@@ -357,6 +352,7 @@ fn inline_array_recover_comma() {
                         comma: None,
                     },
                 ],
+                r_par: Some(Pos { line: 0, char: 16 }),
             }),
         })],
         Error::ExpectedComma(Pos { line: 0, char: 13 }),
@@ -383,10 +379,7 @@ fn inline_array_recover_invalid() {
             }),
             eq: Pos { line: 0, char: 6 },
             val: Value::InlineArray(InlineArray {
-                range: Range {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 20 },
-                },
+                l_par: Pos { line: 0, char: 8 },
                 values: vec![
                     InlineArrayValue {
                         val: Value::Int(IntVal {
@@ -422,6 +415,7 @@ fn inline_array_recover_invalid() {
                         comma: Some(Pos { line: 0, char: 16 }),
                     },
                 ],
+                r_par: Some(Pos { line: 0, char: 19 }),
             }),
         })],
         Error::ExpectedValue(
@@ -454,10 +448,7 @@ fn inline_table() {
             }),
             eq: Pos { line: 0, char: 6 },
             val: Value::InlineTable(InlineTable {
-                range: Range {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 27 },
-                },
+                l_par: Pos { line: 0, char: 8 },
                 assignments: vec![
                     InlineTableAssignment {
                         key: Key::One(Ident {
@@ -509,6 +500,7 @@ fn inline_table() {
                         comma: None,
                     },
                 ],
+                r_par: Some(Pos { line: 0, char: 26 }),
             }),
         })],
     );
@@ -534,10 +526,7 @@ fn inline_table_recover_missing_comma() {
             }),
             eq: Pos { line: 0, char: 6 },
             val: Value::InlineTable(InlineTable {
-                range: Range {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 27 },
-                },
+                l_par: Pos { line: 0, char: 8 },
                 assignments: vec![
                     InlineTableAssignment {
                         key: Key::One(Ident {
@@ -589,6 +578,7 @@ fn inline_table_recover_missing_comma() {
                         comma: None,
                     },
                 ],
+                r_par: Some(Pos { line: 0, char: 26 }),
             }),
         })],
         Error::ExpectedComma(Pos { line: 0, char: 15 }),
@@ -615,10 +605,7 @@ fn inline_table_recover_invalid() {
             }),
             eq: Pos { line: 0, char: 6 },
             val: Value::InlineTable(InlineTable {
-                range: Range {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 30 },
-                },
+                l_par: Pos { line: 0, char: 8 },
                 assignments: vec![
                     InlineTableAssignment {
                         key: Key::One(Ident {
@@ -670,6 +657,7 @@ fn inline_table_recover_invalid() {
                         comma: Some(Pos { line: 0, char: 25 }),
                     },
                 ],
+                r_par: Some(Pos { line: 0, char: 29 }),
             }),
         })],
         Error::ExpectedKey(
@@ -751,7 +739,10 @@ fn array_header() {
                     },
                     kind: IdentKind::Plain,
                 })),
-                r_pars: (Some(Pos { line: 0, char: 10 }), Some(Pos { line: 0, char: 11 })),
+                r_pars: (
+                    Some(Pos { line: 0, char: 10 }),
+                    Some(Pos { line: 0, char: 11 }),
+                ),
             },
             assignments: vec![Assignment {
                 key: Key::One(Ident {
