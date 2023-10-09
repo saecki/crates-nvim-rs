@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
 
@@ -7,7 +8,7 @@ use crate::toml::{Ctx, Error};
 #[cfg(test)]
 mod test;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Token<'a> {
     pub ty: TokenType<'a>,
     pub range: Range,
@@ -37,6 +38,29 @@ pub enum TokenType<'a> {
     Dot,
     Newline,
     Invalid(&'a str),
+    EOF,
+}
+
+impl std::fmt::Display for TokenType<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenType::Ident(i) => f.write_str(i),
+            TokenType::String { lit, .. } => f.write_str(lit),
+            TokenType::Int(_, lit) => f.write_str(lit),
+            TokenType::Float(_, lit) => f.write_str(lit),
+            TokenType::Bool(_, lit) => f.write_str(lit),
+            TokenType::SquareLeft => f.write_char('['),
+            TokenType::SquareRight => f.write_char(']'),
+            TokenType::CurlyLeft => f.write_char('{'),
+            TokenType::CurlyRight => f.write_char('{'),
+            TokenType::Equal => f.write_char('='),
+            TokenType::Comma => f.write_char(','),
+            TokenType::Dot => f.write_char('.'),
+            TokenType::Newline => f.write_str("\\n"),
+            TokenType::Invalid(i) => f.write_str(i),
+            TokenType::EOF => f.write_str("EOF"),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,6 +70,13 @@ pub struct Range {
 }
 
 impl Range {
+    pub fn pos(pos: Pos) -> Self {
+        Self {
+            start: pos,
+            end: pos,
+        }
+    }
+
     fn ascii_char(pos: Pos) -> Self {
         Self {
             start: pos,
@@ -70,7 +101,7 @@ impl Pos {
         }
     }
 
-    fn plus(&self, n: u32) -> Self {
+    pub fn plus(&self, n: u32) -> Self {
         Self {
             line: self.line,
             char: self.char + n,
@@ -515,6 +546,11 @@ impl Ctx {
         } else {
             self.finish_literal(&mut lexer, end);
         }
+
+        lexer.tokens.push(Token {
+            ty: TokenType::EOF,
+            range: Range::pos(lexer.pos),
+        });
 
         Ok(lexer.tokens)
     }

@@ -5,76 +5,50 @@ use crate::toml::{lex, Ctx, Error, Pos, Quote, Range, Token, TokenType};
 #[cfg(test)]
 mod test;
 
+macro_rules! recover_on {
+    ($parser:ident, $tokens:pat, $label:lifetime) => {{
+        loop {
+            match $parser.peek().ty {
+                $tokens => {
+                    break $label;
+                }
+                _ => {
+                    $parser.next();
+                }
+            }
+        }
+    }};
+}
+
 #[derive(Debug)]
 pub struct Parser<'a> {
     tokens: std::iter::Peekable<std::vec::IntoIter<Token<'a>>>,
+    last: Token<'a>,
 }
 
 impl<'a> Parser<'a> {
-    fn new(tokens: std::iter::Peekable<std::vec::IntoIter<Token<'a>>>) -> Self {
-        Self { tokens }
+    fn new(tokens: Vec<Token<'a>>) -> Self {
+        let last = tokens.last().expect("there has to be an EOF token").clone();
+        let tokens = tokens.into_iter().peekable();
+        Self { tokens, last }
     }
 
-    fn next(&mut self) -> Option<Token<'a>> {
-        self.tokens.next()
+    fn next(&mut self) -> Token<'a> {
+        self.tokens.next().unwrap_or(self.last.clone())
     }
 
-    fn peek(&mut self) -> Option<&Token<'a>> {
-        self.tokens.peek()
+    fn peek(&mut self) -> &Token<'a> {
+        self.tokens.peek().unwrap_or(&self.last)
     }
-}
 
-#[derive(Clone, Copy)]
-struct StopOn(u16);
-
-#[rustfmt::skip]
-// TODO: remove later
-#[allow(unused)]
-impl StopOn {
-    const NOTHING: Self      = Self(0x00_00);
-    const IDENT: Self        = Self(0x00_01);
-    const STRING: Self       = Self(0x00_02);
-    const INT: Self          = Self(0x00_04);
-    const FLOAT: Self        = Self(0x00_08);
-    const BOOL: Self         = Self(0x00_10);
-    const SQUARE_LEFT: Self  = Self(0x00_20);
-    const SQUARE_RIGHT: Self = Self(0x00_40);
-    const CURLY_LEFT: Self   = Self(0x00_80);
-    const CURLY_RIGHT: Self  = Self(0x01_00);
-    const EQUAL: Self        = Self(0x02_00);
-    const COMMA: Self        = Self(0x04_00);
-    const DOT: Self          = Self(0x08_00);
-    const NEWLINE: Self      = Self(0x10_00);
-    const INVALID: Self      = Self(0x20_00);
-}
-
-impl StopOn {
-    fn contains(&self, ty: &TokenType) -> bool {
-        let stop_on = match ty {
-            TokenType::Ident(_) => Self::IDENT,
-            TokenType::String { .. } => Self::STRING,
-            TokenType::Int(_, _) => Self::INT,
-            TokenType::Float(_, _) => Self::FLOAT,
-            TokenType::Bool(_, _) => Self::BOOL,
-            TokenType::SquareLeft => Self::SQUARE_LEFT,
-            TokenType::SquareRight => Self::SQUARE_RIGHT,
-            TokenType::CurlyLeft => Self::CURLY_LEFT,
-            TokenType::CurlyRight => Self::CURLY_RIGHT,
-            TokenType::Equal => Self::EQUAL,
-            TokenType::Comma => Self::COMMA,
-            TokenType::Dot => Self::DOT,
-            TokenType::Newline => Self::NEWLINE,
-            TokenType::Invalid(_) => Self::INVALID,
-        };
-        (self.0 & stop_on.0) != 0
+    fn peek_mut(&mut self) -> &mut Token<'a> {
+        self.tokens.peek_mut().unwrap_or(&mut self.last)
     }
-}
 
-impl std::ops::BitOr for StopOn {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Self(self.0 | rhs.0)
+    fn eat_newlines(&mut self) {
+        while self.peek().ty == TokenType::Newline {
+            self.next();
+        }
     }
 }
 
@@ -134,6 +108,13 @@ impl<'a> Key<'a> {
             kind: IdentKind::Plain,
         })
     }
+
+    pub fn range(&self) -> Range {
+        match self {
+            Key::One(i) => i.lit_range,
+            Key::Dotted(_) => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -158,8 +139,21 @@ pub enum Value<'a> {
     Int(IntVal<'a>),
     Float(FloatVal<'a>),
     Bool(BoolVal),
-    InlineArray(InlineArray<'a>),
     InlineTable(InlineTable<'a>),
+    InlineArray(InlineArray<'a>),
+}
+
+impl Value<'_> {
+    pub fn range(&self) -> Range {
+        match self {
+            Value::String(s) => s.lit_range,
+            Value::Int(i) => i.lit_range,
+            Value::Float(f) => f.lit_range,
+            Value::Bool(b) => b.lit_range,
+            Value::InlineTable(t) => t.range,
+            Value::InlineArray(a) => a.range,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -192,32 +186,61 @@ pub struct BoolVal {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct InlineArray<'a> {
+pub struct InlineTable<'a> {
     pub range: Range,
-    pub values: Vec<Value<'a>>,
+    pub assignments: Vec<InlineTableAssignment<'a>>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct InlineTable<'a> {
-    pub range: Range,
-    pub assignments: Vec<Assignment<'a>>,
+pub struct InlineTableAssignment<'a> {
+    pub key: Key<'a>,
+    pub eq: Pos,
+    pub val: Value<'a>,
+    pub comma: Option<Pos>,
 }
 
-enum Header<'a> {
-    Table(Table<'a>),
-    Array(Array<'a>),
+impl InlineTableAssignment<'_> {
+    pub fn range(&self) -> Range {
+        let start = self.key.range().start;
+        let end = self
+            .comma
+            .map(|c| c.plus(1))
+            .unwrap_or_else(|| self.val.range().end);
+        Range { start, end }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct InlineArray<'a> {
+    pub range: Range,
+    pub values: Vec<InlineArrayValue<'a>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct InlineArrayValue<'a> {
+    pub val: Value<'a>,
+    pub comma: Option<Pos>,
+}
+
+impl InlineArrayValue<'_> {
+    pub fn range(&self) -> Range {
+        let start = self.val.range().start;
+        let end = self
+            .comma
+            .map(|c| c.plus(1))
+            .unwrap_or_else(|| self.val.range().end);
+        Range { start, end }
+    }
 }
 
 impl Ctx {
+    // TODO: require newlines after toplevel assignments, array- and table headers.
     pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Result<Vec<Ast<'a>>, Error> {
-        let mut parser = Parser::new(tokens.into_iter().peekable());
+        let mut parser = Parser::new(tokens);
         let mut asts = Vec::new();
 
         loop {
-            let Some(token) = parser.next() else {
-                break;
-            };
-
+            let token = parser.next();
             let key = match token.ty {
                 TokenType::Ident(lit) => Key::One(Ident {
                     lit_range: token.range.clone(),
@@ -266,18 +289,21 @@ impl Ctx {
                 TokenType::Dot => todo!(),
                 TokenType::Newline => continue,
                 TokenType::Invalid(_) => todo!(),
+                TokenType::EOF => break,
             };
 
             // TODO: somehow try to recover, probably on newline
             let eq = match parser.next() {
-                Some(t) if t.ty == TokenType::Equal => t.range.start,
-                Some(_) => todo!("error"),
-                None => todo!("error"),
+                t if t.ty == TokenType::Equal => t.range.start,
+                _ => todo!("error"),
             };
 
-            let Some(val) = self.parse_value(&mut parser, StopOn::NOTHING)? else {
-                todo!("error");
-                break;
+            let val = match self.parse_value(&mut parser) {
+                Ok(v) => v,
+                Err(e) => {
+                    self.errors.push(e);
+                    break;
+                }
             };
 
             asts.push(Ast::Assignment(Assignment { key, eq, val }));
@@ -286,22 +312,9 @@ impl Ctx {
         Ok(asts)
     }
 
-    fn parse_key<'a>(
-        &mut self,
-        parser: &mut Parser<'a>,
-        stop_on: StopOn,
-    ) -> Result<Option<Key<'a>>, Error> {
-        let Some(token) = parser.peek() else {
-            return Ok(None);
-        };
-
-        if stop_on.contains(&token.ty) {
-            return Ok(None);
-        }
-
-        let token = parser.next().unwrap();
-
-        let key = match token.ty {
+    fn parse_key<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
+        let token = parser.peek_mut();
+        let key = match &mut token.ty {
             TokenType::Ident(lit) => Key::One(Ident {
                 lit_range: token.range.clone(),
                 lit,
@@ -317,9 +330,9 @@ impl Ctx {
             } => Key::One(Ident {
                 lit_range: token.range,
                 lit,
-                text,
-                text_range,
-                kind: IdentKind::String(quote),
+                text: std::mem::take(text),
+                text_range: *text_range,
+                kind: IdentKind::String(*quote),
             }),
             TokenType::Int(_, lit) => {
                 if let Err((i, c)) = lex::validate_literal(lit) {
@@ -328,13 +341,7 @@ impl Ctx {
                     self.errors.push(Error::InvalidCharInIdentifier(c, pos));
                 }
 
-                Key::One(Ident {
-                    lit_range: token.range,
-                    lit,
-                    text: Cow::Borrowed(lit),
-                    text_range: token.range,
-                    kind: IdentKind::Plain,
-                })
+                Key::from_plain_lit(lit, token.range)
             }
             TokenType::Float(_, lit) => {
                 if let Err((i, c)) = lex::validate_literal(lit) {
@@ -343,51 +350,29 @@ impl Ctx {
                     self.errors.push(Error::InvalidCharInIdentifier(c, pos));
                 }
 
-                Key::One(Ident {
-                    lit_range: token.range,
-                    lit,
-                    text: Cow::Borrowed(lit),
-                    text_range: token.range,
-                    kind: IdentKind::Plain,
-                })
+                Key::from_plain_lit(lit, token.range)
             }
-            TokenType::Bool(_, lit) => Key::One(Ident {
-                lit_range: token.range,
-                lit,
-                text: Cow::Borrowed(lit),
-                text_range: token.range,
-                kind: IdentKind::Plain,
-            }),
+            TokenType::Bool(_, lit) => Key::from_plain_lit(lit, token.range),
             TokenType::SquareLeft => todo!(),
             TokenType::SquareRight => todo!(),
             TokenType::CurlyLeft => todo!(),
             TokenType::CurlyRight => todo!(),
-            TokenType::Equal => todo!(),
+            TokenType::Equal => return Err(Error::ExpectedKey(token.ty.to_string(), token.range)),
             TokenType::Comma => todo!(),
             TokenType::Dot => todo!(),
             TokenType::Newline => todo!(),
             TokenType::Invalid(_) => todo!(),
+            TokenType::EOF => todo!(),
         };
 
-        Ok(Some(key))
+        parser.next();
+
+        Ok(key)
     }
 
-    fn parse_value<'a>(
-        &mut self,
-        parser: &mut Parser<'a>,
-        stop_on: StopOn,
-    ) -> Result<Option<Value<'a>>, Error> {
-        let Some(token) = parser.peek() else {
-            return Ok(None);
-        };
-
-        if stop_on.contains(&token.ty) {
-            return Ok(None);
-        }
-
-        let token = parser.next().unwrap();
-
-        let value = match token.ty {
+    fn parse_value<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
+        let token = parser.peek_mut();
+        let value = match &mut token.ty {
             TokenType::Ident(_) => todo!(),
             TokenType::String {
                 quote,
@@ -397,105 +382,176 @@ impl Ctx {
             } => Value::String(StringVal {
                 lit,
                 lit_range: token.range,
-                text,
-                text_range,
-                quote,
+                text: std::mem::take(text),
+                text_range: *text_range,
+                quote: *quote,
             }),
             TokenType::Int(val, lit) => Value::Int(IntVal {
                 lit,
                 lit_range: token.range,
-                val,
+                val: *val,
             }),
             TokenType::Float(val, lit) => Value::Float(FloatVal {
                 lit,
                 lit_range: token.range,
-                val,
+                val: *val,
             }),
             TokenType::Bool(val, _lit) => Value::Bool(BoolVal {
                 lit_range: token.range,
-                val,
+                val: *val,
             }),
             TokenType::SquareLeft => {
-                let mut values = Vec::new();
-                while let Some(value) = self.parse_value(parser, StopOn::SQUARE_RIGHT)? {
-                    values.push(value);
+                let l_square_range = token.range;
+                parser.next();
 
-                    match parser.peek() {
-                        Some(t) if t.ty == TokenType::Comma => {
-                            parser.next();
-                        }
-                        Some(t) if t.ty == TokenType::SquareRight => break,
-                        Some(_) => todo!("push error and continue"),
-                        None => break,
+                let mut values = Vec::new();
+                'inline_array: loop {
+                    if matches!(parser.peek().ty, TokenType::SquareRight | TokenType::EOF) {
+                        break;
                     }
+
+                    parser.eat_newlines();
+                    let val = match self.parse_value(parser) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            self.errors.push(e);
+
+                            recover_on!(parser, TokenType::SquareRight | TokenType::EOF, 'inline_array)
+                        }
+                    };
+
+                    parser.eat_newlines();
+                    let mut value = InlineArrayValue { val, comma: None };
+                    match parser.peek() {
+                        t if t.ty == TokenType::Comma => {
+                            value.comma = Some(parser.next().range.start);
+                        }
+                        t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
+                            values.push(value);
+                            break;
+                        }
+                        _ => {
+                            // TODO: maybe try to eat dot or similar character
+                            let pos = value.val.range().end;
+                            self.errors.push(Error::ExpectedComma(pos));
+                            // try to continue
+                        }
+                    };
+
+                    values.push(value);
                 }
 
-                let right_par = match parser.next() {
-                    Some(t) if t.ty == TokenType::SquareRight => t,
-                    Some(_) => todo!("error"),
-                    None => todo!("push error"),
+                parser.eat_newlines();
+                let end = match parser.peek() {
+                    t if t.ty == TokenType::SquareRight => parser.next().range.end,
+                    t => {
+                        self.errors
+                            .push(Error::ExpectedRightCurlyFound(t.ty.to_string(), t.range));
+
+                        values.last().map_or(l_square_range.end, |v| v.range().end)
+                    }
                 };
 
                 let range = Range {
-                    start: token.range.start,
-                    end: right_par.range.end,
+                    start: l_square_range.start,
+                    end,
                 };
 
-                Value::InlineArray(InlineArray { range, values })
+                return Ok(Value::InlineArray(InlineArray { range, values }));
             }
             TokenType::SquareRight => todo!(),
             TokenType::CurlyLeft => {
+                let l_curly_range = token.range;
+                parser.next();
+
                 let mut assignments = Vec::new();
-                loop {
-                    let Some(key) = self.parse_key(parser, StopOn::CURLY_RIGHT)? else {
+                'inline_table: loop {
+                    if matches!(parser.peek().ty, TokenType::CurlyRight | TokenType::EOF) {
                         break;
+                    }
+                    let key = match self.parse_key(parser) {
+                        Ok(k) => k,
+                        Err(e) => {
+                            self.errors.push(e);
+                            recover_on!(parser, TokenType::CurlyRight | TokenType::Newline | TokenType::EOF, 'inline_table)
+                        }
                     };
 
                     // TODO: somehow try to recover, probably on newline
-                    let eq = match parser.next() {
-                        Some(t) if t.ty == TokenType::Equal => t.range.start,
-                        Some(_) => todo!("error"),
-                        None => todo!("error"),
-                    };
-
-                    let Some(val) = self.parse_value(parser, StopOn::CURLY_RIGHT)? else {
-                        todo!("error");
-                        break;
-                    };
-
-                    assignments.push(Assignment { key, eq, val });
-
-                    match parser.peek() {
-                        Some(t) if t.ty == TokenType::Comma => {
-                            parser.next();
+                    let eq = match parser.peek() {
+                        t if t.ty == TokenType::Equal => parser.next().range.start,
+                        t => {
+                            self.errors
+                                .push(Error::ExpectedEqFound(t.ty.to_string(), t.range));
+                            recover_on!(parser, TokenType::CurlyRight | TokenType::Newline | TokenType::EOF, 'inline_table)
                         }
-                        Some(t) if t.ty == TokenType::CurlyRight => break,
-                        Some(_) => todo!("push error and continue"),
-                        None => break,
-                    }
+                    };
+
+                    let val = match self.parse_value(parser) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            self.errors.push(e);
+                            recover_on!(parser, TokenType::CurlyRight | TokenType::Newline | TokenType::EOF, 'inline_table)
+                        }
+                    };
+
+                    let mut assignment = InlineTableAssignment {
+                        key,
+                        eq,
+                        val,
+                        comma: None,
+                    };
+                    match parser.peek() {
+                        t if t.ty == TokenType::Comma => {
+                            assignment.comma = Some(parser.next().range.start);
+                        }
+                        t if t.ty == TokenType::CurlyRight || t.ty == TokenType::EOF => {
+                            assignments.push(assignment);
+                            break;
+                        }
+                        _ => {
+                            // TODO: maybe try to eat dot or similar character
+                            let pos = assignment.val.range().end;
+                            self.errors.push(Error::ExpectedComma(pos));
+                            // try to continue
+                        }
+                    };
+
+                    assignments.push(assignment);
                 }
 
-                let right_par = match parser.next() {
-                    Some(t) if t.ty == TokenType::CurlyRight => t,
-                    Some(_) => todo!("error"),
-                    None => todo!("push error"),
+                let end = match parser.peek() {
+                    t if t.ty == TokenType::CurlyRight => parser.next().range.end,
+                    t => {
+                        self.errors
+                            .push(Error::ExpectedRightCurlyFound(t.ty.to_string(), t.range));
+
+                        assignments
+                            .last()
+                            .map_or(l_curly_range.end, |a| a.range().end)
+                    }
                 };
 
                 let range = Range {
-                    start: token.range.start,
-                    end: right_par.range.end,
+                    start: l_curly_range.start,
+                    end,
                 };
 
-                Value::InlineTable(InlineTable { range, assignments })
+                return Ok(Value::InlineTable(InlineTable { range, assignments }));
             }
             TokenType::CurlyRight => todo!(),
-            TokenType::Equal => todo!(),
+            TokenType::Equal => {
+                return Err(Error::ExpectedValue(token.ty.to_string(), token.range))
+            }
             TokenType::Comma => todo!(),
             TokenType::Dot => todo!(),
             TokenType::Newline => todo!(),
             TokenType::Invalid(_) => todo!(),
+            TokenType::EOF => todo!(),
         };
 
-        Ok(Some(value))
+        parser.next();
+
+        Ok(value)
     }
 }

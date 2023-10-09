@@ -9,6 +9,12 @@ pub enum Error {
     InvalidUnicodeScalar(u32, Range),
     InvalidCharInIdentifier(char, Pos),
     UnfinishedEscapeSequence(Range),
+
+    ExpectedEqFound(String, Range),
+    ExpectedRightCurlyFound(String, Range),
+    ExpectedComma(Pos),
+    ExpectedKey(String, Range),
+    ExpectedValue(String, Range),
 }
 
 #[derive(Debug, PartialEq, Eq)]
