@@ -582,7 +582,7 @@ impl Ctx {
         // separately to compute the precise float later
         } else if let Ok(f) = lit.parse::<f64>() {
             // Since dots won't be included in literals, floats are only identified if they
-            // contain an exponent. Otherwise they are identified as a later float during parsing
+            // contain an exponent. Otherwise they are identified as a float during parsing
             // when these kinds of tokens are found, when parsing a rhs expression:
             // int dot int|float
             //

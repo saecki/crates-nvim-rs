@@ -3,9 +3,9 @@ use std::borrow::Cow;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, DottedIdent, Error, Ident, IdentKind,
-    InlineArray, InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, Pos, Quote,
-    Range, StringVal, Table, TableHeader, Value, Warning,
+    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, DottedIdent, Error, FloatVal, Ident,
+    IdentKind, InlineArray, InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, Pos,
+    Quote, Range, StringVal, Table, TableHeader, Value, Warning,
 };
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -64,6 +64,37 @@ fn assign_bool() {
                     end: Pos { line: 0, char: 11 },
                 },
                 val: false,
+            }),
+        })],
+    );
+}
+
+#[test]
+fn assign_float() {
+    check(
+        "abc = 23.5",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Float(FloatVal {
+                lit: "23.5",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 10 },
+                },
+                val: 23.5,
             }),
         })],
     );

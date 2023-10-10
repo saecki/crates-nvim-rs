@@ -486,26 +486,102 @@ impl Ctx {
     }
 
     fn parse_value<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
-        let token = parser.peek_mut();
-        let value = match &mut token.ty {
+        let token = parser.peek();
+        let value = match &token.ty {
             TokenType::Ident(_) => todo!(),
-            TokenType::String {
-                quote,
-                lit,
-                text,
-                text_range,
-            } => Value::String(StringVal {
-                lit,
-                lit_range: token.range,
-                text: std::mem::take(text),
-                text_range: *text_range,
-                quote: *quote,
-            }),
-            TokenType::Int(val, lit) => Value::Int(IntVal {
-                lit,
-                lit_range: token.range,
-                val: *val,
-            }),
+            TokenType::String { .. } => {
+                let token = parser.next();
+                let TokenType::String {
+                    quote,
+                    lit,
+                    text,
+                    text_range,
+                } = token.ty
+                else {
+                    unreachable!()
+                };
+
+                // return as to not advance the parser
+                return Ok(Value::String(StringVal {
+                    lit,
+                    lit_range: token.range,
+                    text,
+                    text_range,
+                    quote,
+                }));
+            }
+            TokenType::Int(..) => {
+                let first = parser.next();
+                let TokenType::Int(first_val, first_lit) = first.ty else {
+                    unreachable!()
+                };
+
+                // Check this is actually a floating point literal separated by a dot
+                match parser.peek() {
+                    t if t.ty == TokenType::Dot && first.range.end == t.range.start => {
+                        parser.next();
+                    }
+                    _ => {
+                        return Ok(Value::Int(IntVal {
+                            lit: first_lit,
+                            lit_range: first.range,
+                            val: first_val,
+                        }))
+                    }
+                };
+
+                let second;
+                let second_lit = match parser.peek().ty {
+                    TokenType::Int(..) | TokenType::Float(..) => {
+                        second = parser.next();
+                        let (TokenType::Int(_, second_lit) | TokenType::Float(_, second_lit)) =
+                            second.ty
+                        else {
+                            unreachable!();
+                        };
+
+                        let first_end = first_lit.as_bytes().as_ptr_range().end;
+                        let second_start = second_lit.as_bytes().as_ptr_range().start;
+
+                        // SAFETY: we know there is a dot directly after first_lit.
+                        let dot_end = unsafe { first_end.add(1) };
+
+                        if dot_end == second_start {
+                            second_lit
+                        } else {
+                            todo!("error")
+                        }
+                    }
+                    _ => todo!("error"),
+                };
+
+                // SAFETY: the first and second literal literals reference the same string and are
+                // only separated by a single dot. See above.
+                let lit = unsafe {
+                    let ptr = first_lit.as_ptr();
+                    let len = first_lit.len() + 1 + second_lit.len();
+                    let slice = std::slice::from_raw_parts(ptr, len);
+                    std::str::from_utf8_unchecked(slice)
+                };
+
+                // TODO: toml compliant float parser
+                let val = match lit.parse() {
+                    Ok(v) => v,
+                    Err(e) => todo!("error {e}"),
+                };
+
+                let lit_range = Range {
+                    start: first.range.start,
+                    end: second.range.end,
+                };
+
+                // return as to not advance the parser
+                return Ok(Value::Float(FloatVal {
+                    lit_range,
+                    lit,
+                    val,
+                }));
+            }
             TokenType::Float(val, lit) => Value::Float(FloatVal {
                 lit,
                 lit_range: token.range,
@@ -566,6 +642,7 @@ impl Ctx {
                     }
                 };
 
+                // return as to not advance the parser
                 return Ok(Value::InlineArray(InlineArray {
                     l_par,
                     values,
