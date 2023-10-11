@@ -16,7 +16,6 @@ pub struct Token<'a> {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum TokenType<'a> {
-    Ident(&'a str),
     String {
         quote: Quote,
         /// The literal exactly as it is written in the toml file.
@@ -26,9 +25,7 @@ pub enum TokenType<'a> {
         /// The range of the text without quotes
         text_range: Range,
     },
-    Int(i64, &'a str),
-    Float(f64, &'a str),
-    Bool(bool, &'a str),
+    LiteralOrIdent(&'a str),
     SquareLeft,
     SquareRight,
     CurlyLeft,
@@ -44,11 +41,8 @@ pub enum TokenType<'a> {
 impl std::fmt::Display for TokenType<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            TokenType::Ident(i) => f.write_str(i),
             TokenType::String { lit, .. } => f.write_str(lit),
-            TokenType::Int(_, lit) => f.write_str(lit),
-            TokenType::Float(_, lit) => f.write_str(lit),
-            TokenType::Bool(_, lit) => f.write_str(lit),
+            TokenType::LiteralOrIdent(lit) => f.write_str(lit),
             TokenType::SquareLeft => f.write_char('['),
             TokenType::SquareRight => f.write_char(']'),
             TokenType::CurlyLeft => f.write_char('{'),
@@ -108,9 +102,6 @@ impl Pos {
         }
     }
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Par {}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Quote {
@@ -573,47 +564,8 @@ impl Ctx {
             start: lexer.lit_start,
             end: lexer.pos,
         };
-
-        // TODO: custom integer parser to support binary, oct, and hex literals, and adhere to the
-        // toml spec
-        let ty = if let Ok(i) = lit.parse::<i64>() {
-            TokenType::Int(i, lit)
-        // TODO: recognize an exponnent while parsing an integer and then store that exponent
-        // separately to compute the precise float later
-        } else if let Ok(f) = lit.parse::<f64>() {
-            // Since dots won't be included in literals, floats are only identified if they
-            // contain an exponent. Otherwise they are identified as a float during parsing
-            // when these kinds of tokens are found, when parsing a rhs expression:
-            // int dot int|float
-            //
-            // The following would imply that the first token contains an exponent that would
-            // preceed the fractional part which is invalid:
-            // float dot int|float
-            TokenType::Float(f, lit)
-        } else {
-            match lit {
-                "true" => TokenType::Bool(true, lit),
-                "false" => TokenType::Bool(false, lit),
-                "nan" => TokenType::Float(f64::NAN, lit),
-                "+nan" => TokenType::Float(f64::NAN, lit),
-                "-nan" => TokenType::Float(-f64::NAN, lit),
-                "inf" => TokenType::Float(f64::INFINITY, lit),
-                "+inf" => TokenType::Float(f64::INFINITY, lit),
-                "-inf" => TokenType::Float(-f64::NEG_INFINITY, lit),
-                // TODO date and time
-                _ => match validate_literal(lit) {
-                    Ok(()) => TokenType::Ident(lit),
-                    Err((i, c)) => {
-                        let mut pos = range.start;
-                        pos.char += i as u32;
-                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
-
-                        TokenType::Invalid(lit)
-                    }
-                },
-            }
-        };
-
+        
+        let ty = TokenType::LiteralOrIdent(lit);
         let token = Token { range, ty };
         lexer.tokens.push(token);
 
@@ -687,14 +639,5 @@ impl Ctx {
             ty: TokenType::Newline,
         });
     }
-}
 
-pub fn validate_literal(lit: &str) -> Result<(), (usize, char)> {
-    let invalid_char = lit
-        .char_indices()
-        .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
-    match invalid_char {
-        Some(e) => Err(e),
-        None => Ok(()),
-    }
 }

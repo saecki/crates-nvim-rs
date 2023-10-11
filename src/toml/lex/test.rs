@@ -44,7 +44,7 @@ fn assign_int() {
         "my_int = 98742",
         [
             Token {
-                ty: TokenType::Ident("my_int"),
+                ty: TokenType::LiteralOrIdent("my_int"),
                 range: Range {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 6 },
@@ -58,7 +58,7 @@ fn assign_int() {
                 },
             },
             Token {
-                ty: TokenType::Int(98742, "98742"),
+                ty: TokenType::LiteralOrIdent("98742"),
                 range: Range {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 14 },
@@ -78,7 +78,7 @@ fn assign_float() {
         "my_float=0.23",
         [
             Token {
-                ty: TokenType::Ident("my_float"),
+                ty: TokenType::LiteralOrIdent("my_float"),
                 range: Range {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },
@@ -92,7 +92,7 @@ fn assign_float() {
                 },
             },
             Token {
-                ty: TokenType::Int(0, "0"),
+                ty: TokenType::LiteralOrIdent("0"),
                 range: Range {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 10 },
@@ -106,7 +106,7 @@ fn assign_float() {
                 },
             },
             Token {
-                ty: TokenType::Int(23, "23"),
+                ty: TokenType::LiteralOrIdent("23"),
                 range: Range {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 0, char: 13 },
@@ -126,7 +126,7 @@ fn assign_literal_string() {
         "my.string = 'yeet\\'",
         [
             Token {
-                ty: TokenType::Ident("my"),
+                ty: TokenType::LiteralOrIdent("my"),
                 range: Range {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 2 },
@@ -140,7 +140,7 @@ fn assign_literal_string() {
                 },
             },
             Token {
-                ty: TokenType::Ident("string"),
+                ty: TokenType::LiteralOrIdent("string"),
                 range: Range {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 9 },
@@ -182,7 +182,7 @@ fn assign_escaped_string() {
         "my.escaped.string = \"a\\u93f2nope\"",
         [
             Token {
-                ty: TokenType::Ident("my"),
+                ty: TokenType::LiteralOrIdent("my"),
                 range: Range {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 2 },
@@ -196,7 +196,7 @@ fn assign_escaped_string() {
                 },
             },
             Token {
-                ty: TokenType::Ident("escaped"),
+                ty: TokenType::LiteralOrIdent("escaped"),
                 range: Range {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 10 },
@@ -210,7 +210,7 @@ fn assign_escaped_string() {
                 },
             },
             Token {
-                ty: TokenType::Ident("string"),
+                ty: TokenType::LiteralOrIdent("string"),
                 range: Range {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 0, char: 17 },
@@ -329,7 +329,7 @@ fn assign_basic_multiline_string() {
         "m_string = \"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
         [
             Token {
-                ty: TokenType::Ident("m_string"),
+                ty: TokenType::LiteralOrIdent("m_string"),
                 range: Range {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },
@@ -371,7 +371,7 @@ fn assign_literal_multiline_string() {
         "m_string = '''\\\neach\nword\nis\non\na\nnew\nline\n'''",
         [
             Token {
-                ty: TokenType::Ident("m_string"),
+                ty: TokenType::LiteralOrIdent("m_string"),
                 range: Range {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },

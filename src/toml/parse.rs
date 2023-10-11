@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::toml::{lex, Ctx, Error, Pos, Quote, Range, Token, TokenType};
+use crate::toml::{Ctx, Error, Pos, Quote, Range, Token, TokenType};
 
 #[cfg(test)]
 mod test;
@@ -149,6 +149,7 @@ pub enum Value<'a> {
     Bool(BoolVal),
     InlineTable(InlineTable<'a>),
     InlineArray(InlineArray<'a>),
+    Invalid(&'a str, Range),
 }
 
 impl Value<'_> {
@@ -160,6 +161,7 @@ impl Value<'_> {
             Value::Bool(b) => b.lit_range,
             Value::InlineTable(t) => t.range(),
             Value::InlineArray(a) => a.range(),
+            Value::Invalid(_, r) => *r,
         }
     }
 }
@@ -180,6 +182,16 @@ pub struct IntVal<'a> {
     pub val: i64,
 }
 
+impl<'a> IntVal<'a> {
+    pub fn new(lit: &'a str, lit_range: Range, val: i64) -> Self {
+        Self {
+            lit,
+            lit_range,
+            val,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct FloatVal<'a> {
     pub lit: &'a str,
@@ -187,10 +199,26 @@ pub struct FloatVal<'a> {
     pub val: f64,
 }
 
+impl<'a> FloatVal<'a> {
+    pub fn new(lit: &'a str, lit_range: Range, val: f64) -> Self {
+        Self {
+            lit,
+            lit_range,
+            val,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct BoolVal {
     pub lit_range: Range,
     pub val: bool,
+}
+
+impl BoolVal {
+    pub fn new(lit_range: Range, val: bool) -> Self {
+        Self { lit_range, val }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -414,13 +442,6 @@ impl Ctx {
         loop {
             let token = parser.peek_mut();
             let ident = match &mut token.ty {
-                TokenType::Ident(lit) => Ident {
-                    lit_range: token.range.clone(),
-                    lit,
-                    text: Cow::Borrowed(lit),
-                    text_range: token.range,
-                    kind: IdentKind::Plain,
-                },
                 TokenType::String {
                     quote,
                     lit,
@@ -433,8 +454,12 @@ impl Ctx {
                     text_range: *text_range,
                     kind: IdentKind::String(*quote),
                 },
-                TokenType::Int(_, lit) => {
-                    if let Err((i, c)) = lex::validate_literal(lit) {
+                TokenType::LiteralOrIdent(lit) => {
+                    let invalid_char = lit
+                        .char_indices()
+                        .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
+
+                    if let Some((i, c)) = invalid_char {
                         let mut pos = token.range.start;
                         pos.char += i as u32;
                         self.errors.push(Error::InvalidCharInIdentifier(c, pos));
@@ -442,16 +467,6 @@ impl Ctx {
 
                     Ident::from_plain_lit(lit, token.range)
                 }
-                TokenType::Float(_, lit) => {
-                    if let Err((i, c)) = lex::validate_literal(lit) {
-                        let mut pos = token.range.start;
-                        pos.char += i as u32;
-                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
-                    }
-
-                    Ident::from_plain_lit(lit, token.range)
-                }
-                TokenType::Bool(_, lit) => Ident::from_plain_lit(lit, token.range),
                 TokenType::SquareLeft => todo!(),
                 TokenType::SquareRight => todo!(),
                 TokenType::CurlyLeft => todo!(),
@@ -488,7 +503,6 @@ impl Ctx {
     fn parse_value<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
         let token = parser.peek();
         let value = match &token.ty {
-            TokenType::Ident(_) => todo!(),
             TokenType::String { .. } => {
                 let token = parser.next();
                 let TokenType::String {
@@ -501,96 +515,57 @@ impl Ctx {
                     unreachable!()
                 };
 
-                // return as to not advance the parser
-                return Ok(Value::String(StringVal {
+                Value::String(StringVal {
                     lit,
                     lit_range: token.range,
                     text,
                     text_range,
                     quote,
-                }));
+                })
             }
-            TokenType::Int(..) => {
-                let first = parser.next();
-                let TokenType::Int(first_val, first_lit) = first.ty else {
+            TokenType::LiteralOrIdent(_) => {
+                let token = parser.next();
+                let TokenType::LiteralOrIdent(lit) = token.ty else {
                     unreachable!()
                 };
 
-                // Check this is actually a floating point literal separated by a dot
-                match parser.peek() {
-                    t if t.ty == TokenType::Dot && first.range.end == t.range.start => {
-                        parser.next();
-                    }
-                    _ => {
-                        return Ok(Value::Int(IntVal {
-                            lit: first_lit,
-                            lit_range: first.range,
-                            val: first_val,
-                        }))
-                    }
-                };
-
-                let second;
-                let second_lit = match parser.peek().ty {
-                    TokenType::Int(..) | TokenType::Float(..) => {
-                        second = parser.next();
-                        let (TokenType::Int(_, second_lit) | TokenType::Float(_, second_lit)) =
-                            second.ty
-                        else {
-                            unreachable!();
-                        };
-
-                        let first_end = first_lit.as_bytes().as_ptr_range().end;
-                        let second_start = second_lit.as_bytes().as_ptr_range().start;
-
-                        // SAFETY: we know there is a dot directly after first_lit.
-                        let dot_end = unsafe { first_end.add(1) };
-
-                        if dot_end == second_start {
-                            second_lit
-                        } else {
-                            todo!("error")
+                match lit {
+                    "true" => Value::Bool(BoolVal::new(token.range, true)),
+                    "false" => Value::Bool(BoolVal::new(token.range, false)),
+                    "nan" => Value::Float(FloatVal::new(lit, token.range, f64::NAN)),
+                    "+nan" => Value::Float(FloatVal::new(lit, token.range, f64::NAN)),
+                    "-nan" => Value::Float(FloatVal::new(lit, token.range, -f64::NAN)),
+                    "inf" => Value::Float(FloatVal::new(lit, token.range, f64::INFINITY)),
+                    "+inf" => Value::Float(FloatVal::new(lit, token.range, f64::INFINITY)),
+                    "-inf" => Value::Float(FloatVal::new(lit, token.range, f64::NEG_INFINITY)),
+                    _ => match parse_num_or_date(lit, token.range) {
+                        Ok(PartialValue::PrefixedInt(i)) => {
+                            Value::Int(IntVal::new(lit, token.range, i))
                         }
-                    }
-                    _ => todo!("error"),
-                };
-
-                // SAFETY: the first and second literal literals reference the same string and are
-                // only separated by a single dot. See above.
-                let lit = unsafe {
-                    let ptr = first_lit.as_ptr();
-                    let len = first_lit.len() + 1 + second_lit.len();
-                    let slice = std::slice::from_raw_parts(ptr, len);
-                    std::str::from_utf8_unchecked(slice)
-                };
-
-                // TODO: toml compliant float parser
-                let val = match lit.parse() {
-                    Ok(v) => v,
-                    Err(e) => todo!("error {e}"),
-                };
-
-                let lit_range = Range {
-                    start: first.range.start,
-                    end: second.range.end,
-                };
-
-                // return as to not advance the parser
-                return Ok(Value::Float(FloatVal {
-                    lit_range,
-                    lit,
-                    val,
-                }));
+                        Ok(PartialValue::Int(i)) => self.try_to_parse_fractional_part_of_float(
+                            parser,
+                            lit,
+                            token.range,
+                            Some(i),
+                        )?,
+                        Ok(PartialValue::OverflowOrFloat) => self
+                            .try_to_parse_fractional_part_of_float(
+                                parser,
+                                lit,
+                                token.range,
+                                None,
+                            )?,
+                        Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
+                            Ok(f) => Value::Float(FloatVal::new(lit, token.range, f)),
+                            Err(e) => todo!("push error {e}"),
+                        },
+                        Err(e) => {
+                            self.errors.push(e);
+                            Value::Invalid(lit, token.range)
+                        }
+                    },
+                }
             }
-            TokenType::Float(val, lit) => Value::Float(FloatVal {
-                lit,
-                lit_range: token.range,
-                val: *val,
-            }),
-            TokenType::Bool(val, _lit) => Value::Bool(BoolVal {
-                lit_range: token.range,
-                val: *val,
-            }),
             TokenType::SquareLeft => {
                 let l_par = token.range.start;
                 parser.next();
@@ -642,12 +617,11 @@ impl Ctx {
                     }
                 };
 
-                // return as to not advance the parser
-                return Ok(Value::InlineArray(InlineArray {
+                Value::InlineArray(InlineArray {
                     l_par,
                     values,
                     r_par,
-                }));
+                })
             }
             TokenType::SquareRight => todo!(),
             TokenType::CurlyLeft => {
@@ -719,11 +693,11 @@ impl Ctx {
                     }
                 };
 
-                return Ok(Value::InlineTable(InlineTable {
+                Value::InlineTable(InlineTable {
                     l_par,
                     assignments,
                     r_par,
-                }));
+                })
             }
             TokenType::CurlyRight => todo!(),
             TokenType::Equal => {
@@ -736,8 +710,252 @@ impl Ctx {
             TokenType::EOF => todo!(),
         };
 
-        parser.next();
-
         Ok(value)
     }
+
+    fn try_to_parse_fractional_part_of_float<'a>(
+        &mut self,
+        parser: &mut Parser<'a>,
+        int_lit: &'a str,
+        int_range: Range,
+        int_val: Option<i64>,
+    ) -> Result<Value<'a>, Error> {
+        // Check this is actually a floating point literal separated by a dot
+        match parser.peek() {
+            t if t.ty == TokenType::Dot && int_range.end == t.range.start => {
+                parser.next();
+            }
+            _ => match int_val {
+                Some(val) => return Ok(Value::Int(IntVal::new(int_lit, int_range, val))),
+                None => todo!("integer overflow error"),
+            },
+        };
+
+        let frac;
+        let frac_lit = match parser.peek().ty {
+            TokenType::LiteralOrIdent(..) => {
+                frac = parser.next();
+                let TokenType::LiteralOrIdent(frac_lit) = frac.ty else {
+                    unreachable!();
+                };
+
+                let int_end = int_lit.as_bytes().as_ptr_range().end;
+                let frac_start = frac_lit.as_bytes().as_ptr_range().start;
+                // SAFETY: we know there is a dot directly after int_lit.
+                let dot_end = unsafe { int_end.add(1) };
+                if dot_end == frac_start {
+                    frac_lit
+                } else {
+                    todo!("error")
+                }
+            }
+            _ => todo!("error"),
+        };
+
+        // SAFETY: the first and second literal reference the same string and
+        // are only separated by a single dot. See above.
+        let lit = unsafe {
+            let ptr = int_lit.as_ptr();
+            let len = int_lit.len() + 1 + frac_lit.len();
+            let slice = std::slice::from_raw_parts(ptr, len);
+            std::str::from_utf8_unchecked(slice)
+        };
+
+        let val = match lit.replace('_', "").parse() {
+            Ok(v) => v,
+            Err(e) => todo!("error {e}"),
+        };
+
+        let range = Range {
+            start: int_range.start,
+            end: frac.range.end,
+        };
+
+        // return as to not advance the parser
+        Ok(Value::Float(FloatVal::new(lit, range, val)))
+    }
+}
+
+/// A possibly only partially parsed value
+enum PartialValue {
+    /// An integer that is prefixed by either `0b`, `0o`, or `0x`.
+    PrefixedInt(i64),
+    /// A valid decimal integer, but could also be the integer part of a float.
+    Int(i64),
+    /// Possibly the integer part of a float, otherwise an error.
+    OverflowOrFloat,
+    /// A float with an exponent. There can't be a fractional part after this.
+    FloatWithExp,
+}
+
+/// Parse all integers adhering to the toml spec, or the integer part of a float and it's
+/// exponent.
+fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue, Error> {
+    #[derive(PartialEq, Eq)]
+    enum NumParseState {
+        Int,
+        OverflowOrFloat,
+    }
+
+    let mut chars = literal.char_indices().peekable();
+    let c = match chars.next() {
+        None => todo!("error"),
+        Some((_, c)) => c,
+    };
+
+    let mut parse_state = NumParseState::Int;
+    let mut int_accum;
+
+    match c {
+        '0' => match chars.next() {
+            Some((_, 'b')) => {
+                let val = parse_integer_literal::<1>(chars)?;
+                return Ok(PartialValue::PrefixedInt(val));
+            }
+            Some((_, 'o')) => {
+                let val = parse_integer_literal::<3>(chars)?;
+                return Ok(PartialValue::PrefixedInt(val));
+            }
+            Some((_, 'x')) => {
+                let val = parse_integer_literal::<4>(chars)?;
+                return Ok(PartialValue::PrefixedInt(val));
+            }
+            Some((i, radix)) => todo!("invalid radix {i} {radix}"),
+            None => {
+                return Ok(PartialValue::Int(0));
+            }
+        },
+        '1'..='9' => {
+            int_accum = (c as u32 - '0' as u32) as i64;
+        }
+        _ => todo!("error"),
+    }
+
+    loop {
+        let Some((_, c)) = chars.next() else { break };
+
+        match c {
+            '0'..='9' => {
+                match parse_state {
+                    // the literal seems to be an integer
+                    NumParseState::Int => {
+                        let digit = (c as u32) - ('0' as u32);
+                        let (val, overflow) = int_accum.overflowing_mul(10);
+                        if overflow {
+                            parse_state = NumParseState::OverflowOrFloat;
+                        } else {
+                            int_accum = val;
+                            int_accum += digit as i64;
+                        }
+                    }
+                    // The literal would overflow if it was an int, but it could be a float.
+                    NumParseState::OverflowOrFloat => {}
+                }
+            }
+            'e' | 'E' => {
+                if let Some((_, '-' | '+')) = chars.peek() {
+                    chars.next();
+                }
+
+                let mut last_underscore = false;
+                for i in 0.. {
+                    let c = match chars.next() {
+                        Some((_, c)) => c,
+                        None => break,
+                    };
+
+                    last_underscore = false;
+
+                    match c {
+                        '0'..='9' => {}
+                        '_' => {
+                            if i == 0 {
+                                todo!("push error");
+                            }
+                            last_underscore = true;
+                            continue;
+                        }
+                        _ => todo!("error"),
+                    }
+                }
+
+                if last_underscore {
+                    todo!("push error")
+                }
+
+                return Ok(PartialValue::FloatWithExp);
+            }
+            '_' => continue,
+            _ => todo!("error invalid character"),
+        }
+    }
+
+    match parse_state {
+        NumParseState::Int => Ok(PartialValue::Int(int_accum)),
+        NumParseState::OverflowOrFloat => Ok(PartialValue::OverflowOrFloat),
+    }
+}
+
+fn parse_integer_literal<const BITS: u32>(
+    mut chars: impl Iterator<Item = (usize, char)>,
+) -> Result<i64, Error> {
+    let max_value: u32 = 2u32.pow(BITS);
+    let mut accum: i64 = 0;
+    let mut last_underscore = false;
+
+    for i in 0.. {
+        let c = match chars.next() {
+            Some((_, c)) => c,
+            None if i == 0 => todo!("error"),
+            None => break,
+        };
+
+        last_underscore = false;
+
+        let digit = match c {
+            '0'..='9' => {
+                let n = (c as u32) - ('0' as u32);
+                if n >= max_value {
+                    todo!("error")
+                }
+                n
+            }
+            'a'..='f' => {
+                let n = 10 + (c as u32) - ('a' as u32);
+                if n >= max_value {
+                    todo!("error")
+                }
+                n
+            }
+            'A'..='F' => {
+                let n = 10 + (c as u32) - ('A' as u32);
+                if n >= max_value {
+                    todo!("error")
+                }
+                n
+            }
+            '_' => {
+                if i == 0 {
+                    todo!("error")
+                }
+                last_underscore = true;
+                continue;
+            }
+            _ => todo!("error"),
+        };
+
+        let (val, overflow) = accum.overflowing_shl(BITS);
+        if overflow {
+            todo!("return error")
+        }
+
+        accum = val;
+        accum += digit as i64;
+    }
+
+    if last_underscore {
+        todo!("error")
+    }
+
+    Ok(accum)
 }
