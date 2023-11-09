@@ -543,7 +543,7 @@ impl Ctx {
                 TokenType::CurlyLeft => todo!(),
                 TokenType::CurlyRight => todo!(),
                 TokenType::Equal => {
-                    return Err(Error::ExpectedKey(token.ty.to_string(), token.range))
+                    return Err(Error::ExpectedKeyFound(token.ty.to_string(), token.range))
                 }
                 TokenType::Comma => todo!(),
                 TokenType::Dot => todo!(),
@@ -776,7 +776,7 @@ impl Ctx {
             }
             TokenType::CurlyRight => todo!(),
             TokenType::Equal => {
-                return Err(Error::ExpectedValue(token.ty.to_string(), token.range))
+                return Err(Error::ExpectedValueFound(token.ty.to_string(), token.range))
             }
             TokenType::Comma => todo!(),
             TokenType::Dot => todo!(),

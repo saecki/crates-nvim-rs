@@ -449,7 +449,7 @@ fn inline_array_recover_invalid() {
                 r_par: Some(Pos { line: 0, char: 19 }),
             }),
         })],
-        Error::ExpectedValue(
+        Error::ExpectedValueFound(
             "=".into(),
             Range {
                 start: Pos { line: 0, char: 18 },
@@ -691,7 +691,7 @@ fn inline_table_recover_invalid() {
                 r_par: Some(Pos { line: 0, char: 29 }),
             }),
         })],
-        Error::ExpectedKey(
+        Error::ExpectedKeyFound(
             "=".into(),
             Range {
                 start: Pos { line: 0, char: 27 },
