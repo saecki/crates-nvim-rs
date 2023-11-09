@@ -37,7 +37,6 @@ pub enum TokenType<'a> {
     Comma,
     Dot,
     Newline,
-    Invalid(&'a str),
     EOF,
 }
 
@@ -55,7 +54,6 @@ impl std::fmt::Display for TokenType<'_> {
             TokenType::Comma => f.write_char(','),
             TokenType::Dot => f.write_char('.'),
             TokenType::Newline => f.write_str("\\n"),
-            TokenType::Invalid(i) => f.write_str(i),
             TokenType::EOF => f.write_str("EOF"),
         }
     }

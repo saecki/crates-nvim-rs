@@ -548,7 +548,6 @@ impl Ctx {
                 TokenType::Comma => todo!(),
                 TokenType::Dot => todo!(),
                 TokenType::Newline => todo!(),
-                TokenType::Invalid(_) => todo!(),
                 TokenType::EOF => todo!(),
             };
             parser.next();
@@ -781,7 +780,6 @@ impl Ctx {
             TokenType::Comma => todo!(),
             TokenType::Dot => todo!(),
             TokenType::Newline => todo!(),
-            TokenType::Invalid(_) => todo!(),
             TokenType::EOF => todo!(),
         };
 
