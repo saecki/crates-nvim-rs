@@ -108,7 +108,12 @@ impl Key<'_> {
     pub fn range(&self) -> Range {
         match self {
             Key::One(i) => i.lit_range,
-            Key::Dotted(_) => todo!(),
+            Key::Dotted(idents) => {
+                let start = idents.first().unwrap().ident.lit_range.start;
+                let last = idents.last().unwrap();
+                let end = last.dot.map_or(last.ident.lit_range.end, |p| p.plus(1));
+                Range { start, end }
+            }
         }
     }
 }
