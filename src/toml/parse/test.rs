@@ -801,3 +801,110 @@ fn array_header() {
         })],
     )
 }
+
+#[test]
+fn newline_is_required_after_table_header() {
+    check_error(
+        "[my_table]entry = false\n",
+        [Ast::Table(Table {
+            header: TableHeader {
+                l_par: Pos { line: 0, char: 0 },
+                key: Some(Key::One(Ident {
+                    lit: "my_table",
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 1 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    text: Cow::Borrowed("my_table"),
+                    text_range: Range {
+                        start: Pos { line: 0, char: 1 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    kind: IdentKind::Plain,
+                })),
+                r_par: Some(Pos { line: 0, char: 9 }),
+            },
+            assignments: vec![Assignment {
+                key: Key::One(Ident {
+                    lit: "entry",
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 15 },
+                    },
+                    text: Cow::Borrowed("entry"),
+                    text_range: Range {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 15 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 16 },
+                val: Value::Bool(BoolVal {
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 18 },
+                        end: Pos { line: 0, char: 23 },
+                    },
+                    val: false,
+                }),
+            }],
+        })],
+        Error::ExpectedNewline(Pos { line: 0, char: 10 }),
+    )
+}
+
+#[test]
+fn newline_is_required_after_assignment() {
+    check_error(
+        "a = false b = 87",
+        [
+            Ast::Assignment(Assignment {
+                key: Key::One(Ident {
+                    lit: "a",
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 1 },
+                    },
+                    text: Cow::Borrowed("a"),
+                    text_range: Range {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 1 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 2 },
+                val: Value::Bool(BoolVal {
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 4 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    val: false,
+                }),
+            }),
+            Ast::Assignment(Assignment {
+                key: Key::One(Ident {
+                    lit: "b",
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    text: Cow::Borrowed("b"),
+                    text_range: Range {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 12 },
+                val: Value::Int(IntVal {
+                    lit: "87",
+                    lit_range: Range {
+                        start: Pos { line: 0, char: 14 },
+                        end: Pos { line: 0, char: 16 },
+                    },
+                    val: 87,
+                }),
+            }),
+        ],
+        Error::ExpectedNewline(Pos { line: 0, char: 10 }),
+    )
+}

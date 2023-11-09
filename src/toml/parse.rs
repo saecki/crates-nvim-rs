@@ -313,13 +313,27 @@ impl<'a> Header<'a> {
 }
 
 impl Ctx {
-    // TODO: require newlines after toplevel assignments, array- and table headers.
     pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Result<Vec<Ast<'a>>, Error> {
         let mut parser = Parser::new(tokens);
         let mut asts = Vec::new();
         let mut last_header = None;
+        let mut newline_required = false;
 
         loop {
+            if newline_required {
+                match parser.peek() {
+                    t if t.ty == TokenType::Newline => {
+                        parser.next();
+                    }
+                    t if t.ty == TokenType::EOF => break,
+                    t => {
+                        self.errors.push(Error::ExpectedNewline(t.range.start));
+                    }
+                }
+
+                newline_required = false;
+            }
+
             match parser.peek() {
                 token if token.ty == TokenType::SquareLeft => {
                     let l_table_square = token.range;
@@ -398,6 +412,8 @@ impl Ctx {
                         }
                         None => last_header = Some(header),
                     }
+
+                    newline_required = true;
                     continue;
                 }
                 t if t.ty == TokenType::Newline => {
@@ -433,6 +449,8 @@ impl Ctx {
                 Some(Header::Array(a)) => a.assignments.push(assignment),
                 None => asts.push(Ast::Assignment(assignment)),
             }
+
+            newline_required = true;
         }
 
         if let Some(last) = last_header {

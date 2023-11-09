@@ -16,6 +16,7 @@ pub enum Error {
     ExpectedComma(Pos),
     ExpectedKey(String, Range),
     ExpectedValue(String, Range),
+    ExpectedNewline(Pos),
 }
 
 #[derive(Debug, PartialEq, Eq)]
