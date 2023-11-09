@@ -45,9 +45,38 @@ impl<'a> Parser<'a> {
         self.tokens.peek_mut().unwrap_or(&mut self.last)
     }
 
-    fn eat_newlines(&mut self) {
-        while self.peek().ty == TokenType::Newline {
-            self.next();
+    fn eat_comment(&mut self) -> Option<Comment<'a>> {
+        let t = self.peek();
+        match &t.ty {
+            TokenType::Comment(text) => {
+                let c = Comment {
+                    range: t.range,
+                    text,
+                };
+                self.next();
+                Some(c)
+            }
+            _ => None,
+        }
+    }
+
+    fn eat_comment_and_newlines(&mut self) -> Option<Comment<'a>> {
+        loop {
+            let t = self.peek();
+            match &t.ty {
+                TokenType::Comment(text) => {
+                    let c = Comment {
+                        range: t.range,
+                        text,
+                    };
+                    self.next();
+                    return Some(c);
+                }
+                TokenType::Newline => {
+                    self.next();
+                }
+                _ => return None,
+            }
         }
     }
 }
@@ -57,6 +86,7 @@ pub enum Ast<'a> {
     Assignment(Assignment<'a>),
     Table(Table<'a>),
     Array(Array<'a>),
+    Comment(Comment<'a>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -298,6 +328,12 @@ impl InlineArrayValue<'_> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Comment<'a> {
+    pub range: Range,
+    pub text: &'a str,
+}
+
 enum Header<'a> {
     Table(Table<'a>),
     Array(Array<'a>),
@@ -321,6 +357,9 @@ impl Ctx {
 
         loop {
             if newline_required {
+                while let Some(comment) = parser.eat_comment() {
+                    asts.push(Ast::Comment(comment));
+                }
                 match parser.peek() {
                     t if t.ty == TokenType::Newline => {
                         parser.next();
@@ -334,8 +373,9 @@ impl Ctx {
                 newline_required = false;
             }
 
-            match parser.peek() {
-                token if token.ty == TokenType::SquareLeft => {
+            let token = parser.peek();
+            match token.ty {
+                TokenType::SquareLeft => {
                     let l_table_square = token.range;
                     parser.next();
 
@@ -416,11 +456,18 @@ impl Ctx {
                     newline_required = true;
                     continue;
                 }
-                t if t.ty == TokenType::Newline => {
+                TokenType::Comment(text) => {
+                    asts.push(Ast::Comment(Comment {
+                        range: token.range,
+                        text,
+                    }));
+                    continue;
+                }
+                TokenType::Newline => {
                     parser.next();
                     continue;
                 }
-                t if t.ty == TokenType::EOF => break,
+                TokenType::EOF => break,
                 _ => (),
             }
 
@@ -601,7 +648,9 @@ impl Ctx {
                         break;
                     }
 
-                    parser.eat_newlines();
+                    while let Some(comment) = parser.eat_comment_and_newlines() {
+                        todo!("store comment inside the array: {comment:?}");
+                    }
                     let val = match self.parse_value(parser) {
                         Ok(v) => v,
                         Err(e) => {
@@ -611,7 +660,9 @@ impl Ctx {
                         }
                     };
 
-                    parser.eat_newlines();
+                    while let Some(comment) = parser.eat_comment_and_newlines() {
+                        todo!("store comment inside the array: {comment:?}");
+                    }
                     let mut value = InlineArrayValue { val, comma: None };
                     match parser.peek() {
                         t if t.ty == TokenType::Comma => {
@@ -632,7 +683,6 @@ impl Ctx {
                     values.push(value);
                 }
 
-                parser.eat_newlines();
                 let r_par = match parser.peek() {
                     t if t.ty == TokenType::SquareRight => Some(parser.next().range.start),
                     t => {

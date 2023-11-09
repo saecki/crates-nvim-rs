@@ -46,7 +46,7 @@ impl std::fmt::Display for TokenType<'_> {
         match self {
             TokenType::String { lit, .. } => f.write_str(lit),
             TokenType::LiteralOrIdent(lit) => f.write_str(lit),
-            TokenType::Comment(lit) => write!(f, "#{lit}"),
+            TokenType::Comment(text) => write!(f, "#{text}"),
             TokenType::SquareLeft => f.write_char('['),
             TokenType::SquareRight => f.write_char(']'),
             TokenType::CurlyLeft => f.write_char('{'),
