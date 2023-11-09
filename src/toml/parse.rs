@@ -467,6 +467,7 @@ impl Ctx {
 
                     Ident::from_plain_lit(lit, token.range)
                 }
+                TokenType::Comment(_) => todo!(),
                 TokenType::SquareLeft => todo!(),
                 TokenType::SquareRight => todo!(),
                 TokenType::CurlyLeft => todo!(),
@@ -566,6 +567,7 @@ impl Ctx {
                     },
                 }
             }
+            TokenType::Comment(_) => todo!(),
             TokenType::SquareLeft => {
                 let l_par = token.range.start;
                 parser.next();

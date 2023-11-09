@@ -673,3 +673,50 @@ fn not_fully_closed_literal_multi_line_string_2() {
         )],
     );
 }
+
+#[test]
+fn comment_without_newline() {
+    check(
+        "# hello there",
+        [
+            Token {
+                ty: TokenType::Comment(" hello there"),
+                range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 13 },
+                },
+            },
+            Token {
+                ty: TokenType::EOF,
+                range: Range::pos(Pos { line: 0, char: 13 }),
+            },
+        ],
+    )
+}
+
+#[test]
+fn comment_with_newline() {
+    check(
+        "# hello there\n",
+        [
+            Token {
+                ty: TokenType::Comment(" hello there"),
+                range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 13 },
+                },
+            },
+            Token {
+                ty: TokenType::Newline,
+                range: Range {
+                    start: Pos { line: 0, char: 13 },
+                    end: Pos { line: 1, char: 0 },
+                },
+            },
+            Token {
+                ty: TokenType::EOF,
+                range: Range::pos(Pos { line: 1, char: 0 }),
+            },
+        ],
+    )
+}

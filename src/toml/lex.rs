@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::Write;
+use std::iter::Peekable;
 
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +27,8 @@ pub enum TokenType<'a> {
         text_range: Range,
     },
     LiteralOrIdent(&'a str),
+    /// Contains all the text following a `#` excluding the next newline.
+    Comment(&'a str),
     SquareLeft,
     SquareRight,
     CurlyLeft,
@@ -43,6 +46,7 @@ impl std::fmt::Display for TokenType<'_> {
         match self {
             TokenType::String { lit, .. } => f.write_str(lit),
             TokenType::LiteralOrIdent(lit) => f.write_str(lit),
+            TokenType::Comment(lit) => write!(f, "#{lit}"),
             TokenType::SquareLeft => f.write_char('['),
             TokenType::SquareRight => f.write_char(']'),
             TokenType::CurlyLeft => f.write_char('{'),
@@ -515,7 +519,7 @@ impl Ctx {
                 '=' => self.char_token(&mut lexer, TokenType::Equal, ci),
                 '.' => self.char_token(&mut lexer, TokenType::Dot, ci),
                 ',' => self.char_token(&mut lexer, TokenType::Comma, ci),
-                '#' => todo!("comment"),
+                '#' => self.comment(&mut chars, &mut lexer, ci),
                 _ => self.push_literal(&mut lexer, ci),
             }
         }
@@ -564,7 +568,7 @@ impl Ctx {
             start: lexer.lit_start,
             end: lexer.pos,
         };
-        
+
         let ty = TokenType::LiteralOrIdent(lit);
         let token = Token { range, ty };
         lexer.tokens.push(token);
@@ -640,4 +644,34 @@ impl Ctx {
         });
     }
 
+    fn comment<C>(&mut self, chars: &mut Peekable<C>, lexer: &mut Lexer, char_index: usize)
+    where
+        C: Iterator<Item = (usize, char)>,
+    {
+        self.finish_literal(lexer, char_index);
+
+        let text_start = char_index + 1;
+        let mut text_end = text_start;
+        while let Some((ci, c)) = chars.peek() {
+            match c {
+                '\n' => break,
+                _ => {
+                    text_end = ci + c.len_utf8();
+                    chars.next();
+                }
+            }
+        }
+
+        let text = &lexer.input[text_start..text_end];
+        let end_pos = lexer.pos.plus(1 + text.len() as u32);
+        lexer.tokens.push(Token {
+            range: Range {
+                start: lexer.pos,
+                end: end_pos,
+            },
+            ty: TokenType::Comment(text),
+        });
+
+        lexer.pos = end_pos;
+    }
 }
