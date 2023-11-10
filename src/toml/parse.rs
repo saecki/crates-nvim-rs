@@ -625,10 +625,10 @@ impl Ctx {
                                 token.range,
                                 None,
                             )?,
-                        Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
-                            Ok(f) => Value::Float(FloatVal::new(lit, token.range, f)),
-                            Err(e) => todo!("push error {e}"),
-                        },
+                        Ok(PartialValue::FloatWithExp) => {
+                            let val = lit.replace('_', "").parse().expect("should be valid");
+                            Value::Float(FloatVal::new(lit, token.range, val))
+                        }
                         Err(e) => {
                             self.errors.push(e);
                             Value::Invalid(lit, token.range)
@@ -800,7 +800,7 @@ impl Ctx {
             }
             _ => match int_val {
                 Some(val) => return Ok(Value::Int(IntVal::new(int_lit, int_range, val))),
-                None => todo!("integer overflow error"),
+                None => return Err(Error::IntLiteralOverflow(int_range)),
             },
         };
 
@@ -816,14 +816,19 @@ impl Ctx {
                 let frac_start = frac_lit.as_bytes().as_ptr_range().start;
                 // SAFETY: we know there is a dot directly after int_lit.
                 let dot_end = unsafe { int_end.add(1) };
-                if dot_end == frac_start {
-                    frac_lit
-                } else {
-                    todo!("error")
+                if dot_end != frac_start {
+                    let pos = int_range.end.plus(1);
+                    return Err(Error::MissingFloatFractionalPart(pos));
                 }
+                frac_lit
             }
-            _ => todo!("error"),
+            _ => {
+                let pos = int_range.end.plus(1);
+                return Err(Error::MissingFloatFractionalPart(pos));
+            }
         };
+
+        // TODO: validate frac_lit
 
         // SAFETY: the first and second literal reference the same string and
         // are only separated by a single dot. See above.
@@ -834,17 +839,13 @@ impl Ctx {
             std::str::from_utf8_unchecked(slice)
         };
 
-        let val = match lit.replace('_', "").parse() {
-            Ok(v) => v,
-            Err(e) => todo!("error {e}"),
-        };
+        let val = lit.replace('_', "").parse().expect("should be valid");
 
         let range = Range {
             start: int_range.start,
             end: frac.range.end,
         };
 
-        // return as to not advance the parser
         Ok(Value::Float(FloatVal::new(lit, range, val)))
     }
 }
@@ -1054,7 +1055,8 @@ fn parse_integer_literal<const BITS: u32>(
     }
 
     if last_underscore {
-        return Err(Error::PrefixedIntValueEndsWithUnderscore(range.end));
+        let pos = range.end.minus(1);
+        return Err(Error::PrefixedIntValueEndsWithUnderscore(pos));
     }
 
     Ok(accum)

@@ -24,6 +24,7 @@ pub enum Error {
     NumOrDateLiteralStartsWithUnderscore(Pos),
     NumOrDateLiteralEndsWithUnderscore(Pos),
 
+    MissingFloatFractionalPart(Pos),
     FloatExponentStartsWithUnderscore(Pos),
     FloatExponentEndsWithUnderscore(Pos),
     InvalidCharInFloatExponent(char, Pos),

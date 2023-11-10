@@ -101,6 +101,130 @@ fn assign_float() {
 }
 
 #[test]
+fn invalid_prefixed_int_radix() {
+    check_error(
+        "abc = 0c324",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Invalid(
+                "0c324",
+                Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 11 },
+                },
+            ),
+        })],
+        Error::InvalidIntRadix('c', Pos { line: 0, char: 7 }),
+    );
+}
+
+#[test]
+fn prefixed_int_digit_too_big() {
+    check_error(
+        "abc = 0o384",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Invalid(
+                "0o384",
+                Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 11 },
+                },
+            ),
+        })],
+        Error::IntDigitTooBig(3, '8', Pos { line: 0, char: 9 }),
+    );
+}
+
+#[test]
+fn prefixed_int_starts_with_underscore() {
+    check_error(
+        "abc = 0o_43",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Invalid(
+                "0o_43",
+                Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 11 },
+                },
+            ),
+        })],
+        Error::PrefixedIntValueStartsWithUnderscore(Pos { line: 0, char: 8 }),
+    );
+}
+
+#[test]
+fn prefixed_int_ends_with_underscore() {
+    check_error(
+        "abc = 0o43_",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Invalid(
+                "0o43_",
+                Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 11 },
+                },
+            ),
+        })],
+        Error::PrefixedIntValueEndsWithUnderscore(Pos { line: 0, char: 10 }),
+    );
+}
+
+#[test]
 fn dotted_key() {
     check(
         "a.b.c = false",
