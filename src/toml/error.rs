@@ -17,6 +17,23 @@ pub enum Error {
     ExpectedValueFound(String, Range),
     ExpectedComma(Pos),
     ExpectedNewline(Pos),
+
+    InvalidIntRadix(char, Pos),
+    InvalidNumOrDateLiteralStart(char, Pos),
+    InvalidCharInNumOrDateLiteral(char, Pos),
+    NumOrDateLiteralStartsWithUnderscore(Pos),
+    NumOrDateLiteralEndsWithUnderscore(Pos),
+
+    FloatExponentStartsWithUnderscore(Pos),
+    FloatExponentEndsWithUnderscore(Pos),
+    InvalidCharInFloatExponent(char, Pos),
+
+    EmptyPrefixedIntValue(Pos),
+    PrefixedIntValueStartsWithUnderscore(Pos),
+    PrefixedIntValueEndsWithUnderscore(Pos),
+    InvalidCharInPrefixedInt(char, Pos),
+    IntDigitTooBig(u8, char, Pos),
+    IntLiteralOverflow(Range),
 }
 
 #[derive(Debug, PartialEq, Eq)]

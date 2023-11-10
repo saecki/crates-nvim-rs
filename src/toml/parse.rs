@@ -872,7 +872,7 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
 
     let mut chars = literal.char_indices().peekable();
     let c = match chars.next() {
-        None => todo!("error"),
+        None => unreachable!("value literal should never be emtpy"),
         Some((_, c)) => c,
     };
 
@@ -882,18 +882,20 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
     match c {
         '0' => match chars.next() {
             Some((_, 'b')) => {
-                let val = parse_integer_literal::<1>(chars)?;
+                let val = parse_integer_literal::<1>(chars, range)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'o')) => {
-                let val = parse_integer_literal::<3>(chars)?;
+                let val = parse_integer_literal::<3>(chars, range)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'x')) => {
-                let val = parse_integer_literal::<4>(chars)?;
+                let val = parse_integer_literal::<4>(chars, range)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
-            Some((i, radix)) => todo!("invalid radix {i} {radix}"),
+            Some((i, radix)) => {
+                return Err(Error::InvalidIntRadix(radix, range.start.plus(i as u32)));
+            }
             None => {
                 return Ok(PartialValue::Int(0));
             }
@@ -901,11 +903,13 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
         '1'..='9' => {
             int_accum = (c as u32 - '0' as u32) as i64;
         }
-        _ => todo!("error"),
+        '_' => return Err(Error::NumOrDateLiteralStartsWithUnderscore(range.start)),
+        _ => return Err(Error::InvalidNumOrDateLiteralStart(c, range.start)),
     }
 
+    let mut last_underscore = false;
     loop {
-        let Some((_, c)) = chars.next() else { break };
+        let Some((i, c)) = chars.next() else { break };
 
         match c {
             '0'..='9' => {
@@ -931,36 +935,49 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
                 }
 
                 let mut last_underscore = false;
-                for i in 0.. {
-                    let c = match chars.next() {
-                        Some((_, c)) => c,
-                        None => break,
-                    };
+                for j in 0.. {
+                    let Some((i, c)) = chars.next() else { break };
 
                     last_underscore = false;
 
                     match c {
                         '0'..='9' => {}
                         '_' => {
-                            if i == 0 {
-                                todo!("push error");
+                            if j == 0 {
+                                let pos = range.start.plus(i as u32);
+                                return Err(Error::FloatExponentStartsWithUnderscore(pos));
                             }
                             last_underscore = true;
                             continue;
                         }
-                        _ => todo!("error"),
+                        _ => {
+                            let pos = range.start.plus(i as u32);
+                            return Err(Error::InvalidCharInFloatExponent(c, pos));
+                        }
                     }
                 }
 
                 if last_underscore {
-                    todo!("push error")
+                    let pos = range.end.minus(1);
+                    return Err(Error::FloatExponentEndsWithUnderscore(pos));
                 }
 
                 return Ok(PartialValue::FloatWithExp);
             }
-            '_' => continue,
-            _ => todo!("error invalid character"),
+            '_' => {
+                last_underscore = true;
+                continue;
+            }
+            _ => {
+                let pos = range.start.plus(i as u32);
+                return Err(Error::InvalidCharInNumOrDateLiteral(c, pos));
+            }
         }
+    }
+
+    if last_underscore {
+        let pos = range.end.minus(1);
+        return Err(Error::NumOrDateLiteralEndsWithUnderscore(pos));
     }
 
     match parse_state {
@@ -971,16 +988,19 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
 
 fn parse_integer_literal<const BITS: u32>(
     mut chars: impl Iterator<Item = (usize, char)>,
+    range: Range,
 ) -> Result<i64, Error> {
     let max_value: u32 = 2u32.pow(BITS);
     let mut accum: i64 = 0;
     let mut last_underscore = false;
 
-    for i in 0.. {
-        let c = match chars.next() {
-            Some((_, c)) => c,
-            None if i == 0 => todo!("error"),
-            None => break,
+    for j in 0.. {
+        let Some((i, c)) = chars.next() else {
+            if j == 0 {
+                return Err(Error::EmptyPrefixedIntValue(range.end));
+            } else {
+                break;
+            }
         };
 
         last_underscore = false;
@@ -989,37 +1009,44 @@ fn parse_integer_literal<const BITS: u32>(
             '0'..='9' => {
                 let n = (c as u32) - ('0' as u32);
                 if n >= max_value {
-                    todo!("error")
+                    let pos = range.start.plus(i as u32);
+                    return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
                 }
                 n
             }
             'a'..='f' => {
                 let n = 10 + (c as u32) - ('a' as u32);
                 if n >= max_value {
-                    todo!("error")
+                    let pos = range.start.plus(i as u32);
+                    return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
                 }
                 n
             }
             'A'..='F' => {
                 let n = 10 + (c as u32) - ('A' as u32);
                 if n >= max_value {
-                    todo!("error")
+                    let pos = range.start.plus(i as u32);
+                    return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
                 }
                 n
             }
             '_' => {
-                if i == 0 {
-                    todo!("error")
+                if j == 0 {
+                    let pos = range.start.plus(i as u32);
+                    return Err(Error::PrefixedIntValueStartsWithUnderscore(pos));
                 }
                 last_underscore = true;
                 continue;
             }
-            _ => todo!("error"),
+            _ => {
+                let pos = range.start.plus(i as u32);
+                return Err(Error::InvalidCharInPrefixedInt(c, pos));
+            }
         };
 
         let (val, overflow) = accum.overflowing_shl(BITS);
         if overflow {
-            todo!("return error")
+            return Err(Error::IntLiteralOverflow(range));
         }
 
         accum = val;
@@ -1027,7 +1054,7 @@ fn parse_integer_literal<const BITS: u32>(
     }
 
     if last_underscore {
-        todo!("error")
+        return Err(Error::PrefixedIntValueEndsWithUnderscore(range.end));
     }
 
     Ok(accum)

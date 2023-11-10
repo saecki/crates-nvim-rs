@@ -103,6 +103,13 @@ impl Pos {
             char: self.char + n,
         }
     }
+
+    pub fn minus(&self, n: u32) -> Self {
+        Self {
+            line: self.line,
+            char: self.char - n,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
