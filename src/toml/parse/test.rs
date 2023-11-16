@@ -101,6 +101,68 @@ fn assign_float() {
 }
 
 #[test]
+fn assign_float_with_exp() {
+    check(
+        "abc = 23.5e+9",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Float(FloatVal {
+                lit: "23.5e+9",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 13 },
+                },
+                val: 23.5e9,
+            }),
+        })],
+    );
+}
+
+#[test]
+fn float_fractional_part_ends_with_underscore() {
+    check_error(
+        "abc = 23.5_e9",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Invalid(
+                "23.5_e9",
+                Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 13 },
+                },
+            ),
+        })],
+        Error::FloatFractEndsWithUnderscore(Pos { line: 0, char: 10 }),
+    );
+}
+
+#[test]
 fn int_with_underscore() {
     check(
         "abc = 1_000",
@@ -384,7 +446,7 @@ fn invalid_int_identifier() {
 }
 
 #[test]
-fn invalid_float_identifier() {
+fn invalid_float_literal_as_identifier() {
     check_error(
         "23e+3 = 'hello'",
         [Ast::Assignment(Assignment {

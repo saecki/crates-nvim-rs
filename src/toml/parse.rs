@@ -626,7 +626,10 @@ impl Ctx {
                                 None,
                             )?,
                         Ok(PartialValue::FloatWithExp) => {
-                            let val = lit.replace('_', "").parse().expect("should be valid");
+                            let val = match lit.replace('_', "").parse() {
+                                Ok(v) => v,
+                                Err(e) => todo!("{e}"),
+                            };
                             Value::Float(FloatVal::new(lit, token.range, val))
                         }
                         Err(e) => {
@@ -800,8 +803,27 @@ impl Ctx {
             }
             _ => match int_val {
                 Some(val) => return Ok(Value::Int(IntVal::new(int_lit, int_range, val))),
-                None => return Err(Error::IntLiteralOverflow(int_range)),
+                None => {
+                    self.errors.push(Error::IntLiteralOverflow(int_range));
+                    return Ok(Value::Invalid(int_lit, int_range));
+                }
             },
+        };
+
+        let mut missing_float_fractional_part_error = || {
+            let pos = int_range.end.plus(1);
+            self.errors.push(Error::MissingFloatFractionalPart(pos));
+
+            // SAFETY: we know there is a dot directly after int_lit.
+            let lit = unsafe {
+                let ptr = int_lit.as_ptr();
+                let len = int_lit.len() + 1;
+                let slice = std::slice::from_raw_parts(ptr, len);
+                std::str::from_utf8_unchecked(slice)
+            };
+            let mut range = int_range;
+            range.end.char += 1;
+            Value::Invalid(lit, range)
         };
 
         let frac;
@@ -817,18 +839,14 @@ impl Ctx {
                 // SAFETY: we know there is a dot directly after int_lit.
                 let dot_end = unsafe { int_end.add(1) };
                 if dot_end != frac_start {
-                    let pos = int_range.end.plus(1);
-                    return Err(Error::MissingFloatFractionalPart(pos));
+                    return Ok(missing_float_fractional_part_error());
                 }
                 frac_lit
             }
             _ => {
-                let pos = int_range.end.plus(1);
-                return Err(Error::MissingFloatFractionalPart(pos));
+                return Ok(missing_float_fractional_part_error());
             }
         };
-
-        // TODO: validate frac_lit
 
         // SAFETY: the first and second literal reference the same string and
         // are only separated by a single dot. See above.
@@ -838,12 +856,20 @@ impl Ctx {
             let slice = std::slice::from_raw_parts(ptr, len);
             std::str::from_utf8_unchecked(slice)
         };
-
-        let val = lit.replace('_', "").parse().expect("should be valid");
-
         let range = Range {
             start: int_range.start,
             end: frac.range.end,
+        };
+
+        // validate fractional part
+        if let Err(e) = validate_float_fractional_part(frac_lit, frac.range) {
+            self.errors.push(e);
+            return Ok(Value::Invalid(lit, range));
+        }
+
+        let val = match lit.replace('_', "").parse() {
+            Ok(v) => v,
+            Err(e) => todo!("{e}"),
         };
 
         Ok(Value::Float(FloatVal::new(lit, range, val)))
@@ -883,15 +909,15 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
     match c {
         '0' => match chars.next() {
             Some((_, 'b')) => {
-                let val = parse_integer_literal::<1>(chars, range)?;
+                let val = parse_prefixed_int_literal::<1>(chars, range)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'o')) => {
-                let val = parse_integer_literal::<3>(chars, range)?;
+                let val = parse_prefixed_int_literal::<3>(chars, range)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'x')) => {
-                let val = parse_integer_literal::<4>(chars, range)?;
+                let val = parse_prefixed_int_literal::<4>(chars, range)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((i, radix)) => {
@@ -904,7 +930,7 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
         '1'..='9' => {
             int_accum = (c as u32 - '0' as u32) as i64;
         }
-        '_' => return Err(Error::NumOrDateLiteralStartsWithUnderscore(range.start)),
+        '_' => return Err(Error::NumLiteralStartsWithUnderscore(range.start)),
         _ => return Err(Error::InvalidNumOrDateLiteralStart(c, range.start)),
     }
 
@@ -973,14 +999,14 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
             }
             _ => {
                 let pos = range.start.plus(i as u32);
-                return Err(Error::InvalidCharInNumOrDateLiteral(c, pos));
+                return Err(Error::InvalidCharInNumLiteral(c, pos));
             }
         }
     }
 
     if last_underscore {
         let pos = range.end.minus(1);
-        return Err(Error::NumOrDateLiteralEndsWithUnderscore(pos));
+        return Err(Error::NumLiteralEndsWithUnderscore(pos));
     }
 
     match parse_state {
@@ -989,7 +1015,7 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
     }
 }
 
-fn parse_integer_literal<const BITS: u32>(
+fn parse_prefixed_int_literal<const BITS: u32>(
     mut chars: impl Iterator<Item = (usize, char)>,
     range: Range,
 ) -> Result<i64, Error> {
@@ -1062,4 +1088,69 @@ fn parse_integer_literal<const BITS: u32>(
     }
 
     Ok(accum)
+}
+
+fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Error> {
+    let mut chars = literal.char_indices().peekable();
+    let mut last_underscore = false;
+    loop {
+        let Some((i, c)) = chars.next() else { break };
+
+        match c {
+            '0'..='9' => {}
+            'e' | 'E' => {
+                if last_underscore {
+                    let pos = range.start.plus(i as u32 - 1);
+                    return Err(Error::FloatFractEndsWithUnderscore(pos));
+                }
+
+                if let Some((_, '-' | '+')) = chars.peek() {
+                    chars.next();
+                }
+
+                for j in 0.. {
+                    let Some((i, c)) = chars.next() else { break };
+
+                    last_underscore = false;
+
+                    match c {
+                        '0'..='9' => {}
+                        '_' => {
+                            if j == 0 {
+                                let pos = range.start.plus(i as u32);
+                                return Err(Error::FloatExponentStartsWithUnderscore(pos));
+                            }
+                            last_underscore = true;
+                            continue;
+                        }
+                        _ => {
+                            let pos = range.start.plus(i as u32);
+                            return Err(Error::InvalidCharInFloatExponent(c, pos));
+                        }
+                    }
+                }
+
+                if last_underscore {
+                    let pos = range.end.minus(1);
+                    return Err(Error::FloatExponentEndsWithUnderscore(pos));
+                }
+
+                return Ok(());
+            }
+            '_' => (),
+            _ => {
+                let pos = range.start.plus(i as u32);
+                return Err(Error::InvalidCharInFloatLiteral(c, pos));
+            }
+        }
+
+        last_underscore = c == '_';
+    }
+
+    if last_underscore {
+        let pos = range.end.minus(1);
+        return Err(Error::FloatEndsWithUnderscore(pos));
+    }
+
+    Ok(())
 }

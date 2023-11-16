@@ -20,11 +20,14 @@ pub enum Error {
 
     InvalidIntRadix(char, Pos),
     InvalidNumOrDateLiteralStart(char, Pos),
-    InvalidCharInNumOrDateLiteral(char, Pos),
-    NumOrDateLiteralStartsWithUnderscore(Pos),
-    NumOrDateLiteralEndsWithUnderscore(Pos),
+    InvalidCharInNumLiteral(char, Pos),
+    NumLiteralStartsWithUnderscore(Pos),
+    NumLiteralEndsWithUnderscore(Pos),
 
     MissingFloatFractionalPart(Pos),
+    FloatEndsWithUnderscore(Pos),
+    FloatFractEndsWithUnderscore(Pos),
+    InvalidCharInFloatLiteral(char, Pos),
     FloatExponentStartsWithUnderscore(Pos),
     FloatExponentEndsWithUnderscore(Pos),
     InvalidCharInFloatExponent(char, Pos),
