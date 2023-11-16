@@ -101,6 +101,37 @@ fn assign_float() {
 }
 
 #[test]
+fn int_with_underscore() {
+    check(
+        "abc = 1_000",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Int(IntVal {
+                val: 1000,
+                lit: "1_000",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 11 },
+                },
+            }),
+        })],
+    );
+}
+
+#[test]
 fn invalid_prefixed_int_radix() {
     check_error(
         "abc = 0c324",

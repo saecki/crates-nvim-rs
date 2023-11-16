@@ -912,6 +912,8 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
     loop {
         let Some((i, c)) = chars.next() else { break };
 
+        last_underscore = false;
+
         match c {
             '0'..='9' => {
                 match parse_state {
