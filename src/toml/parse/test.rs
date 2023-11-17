@@ -101,7 +101,7 @@ fn assign_float() {
 }
 
 #[test]
-fn assign_float_with_exp() {
+fn assign_float_with_exp1() {
     check(
         "abc = 23.5e+9",
         [Ast::Assignment(Assignment {
@@ -125,7 +125,38 @@ fn assign_float_with_exp() {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 13 },
                 },
-                val: 23.5e9,
+                val: 23.5e+9,
+            }),
+        })],
+    );
+}
+
+#[test]
+fn assign_float_with_exp2() {
+    check(
+        "abc = 23.5e-1_2",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Float(FloatVal {
+                lit: "23.5e-1_2",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 15 },
+                },
+                val: 23.5e-12,
             }),
         })],
     );

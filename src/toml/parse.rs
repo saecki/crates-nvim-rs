@@ -537,18 +537,18 @@ impl Ctx {
 
                     Ident::from_plain_lit(lit, token.range)
                 }
-                TokenType::Comment(_) => todo!(),
-                TokenType::SquareLeft => todo!(),
-                TokenType::SquareRight => todo!(),
-                TokenType::CurlyLeft => todo!(),
-                TokenType::CurlyRight => todo!(),
-                TokenType::Equal => {
+                TokenType::Comment(_)
+                | TokenType::SquareLeft
+                | TokenType::SquareRight
+                | TokenType::CurlyLeft
+                | TokenType::CurlyRight
+                | TokenType::Equal
+                | TokenType::Comma
+                | TokenType::Dot
+                | TokenType::Newline
+                | TokenType::EOF => {
                     return Err(Error::ExpectedKeyFound(token.ty.to_string(), token.range))
                 }
-                TokenType::Comma => todo!(),
-                TokenType::Dot => todo!(),
-                TokenType::Newline => todo!(),
-                TokenType::EOF => todo!(),
             };
             parser.next();
 
@@ -625,13 +625,13 @@ impl Ctx {
                                 token.range,
                                 None,
                             )?,
-                        Ok(PartialValue::FloatWithExp) => {
-                            let val = match lit.replace('_', "").parse() {
-                                Ok(v) => v,
-                                Err(e) => todo!("{e}"),
-                            };
-                            Value::Float(FloatVal::new(lit, token.range, val))
-                        }
+                        Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
+                            Ok(v) => Value::Float(FloatVal::new(lit, token.range, v)),
+                            Err(_) => {
+                                self.errors.push(Error::FloatLiteralOverflow(token.range));
+                                Value::Invalid(lit, token.range)
+                            }
+                        },
                         Err(e) => {
                             self.errors.push(e);
                             Value::Invalid(lit, token.range)
@@ -639,7 +639,6 @@ impl Ctx {
                     },
                 }
             }
-            TokenType::Comment(_) => todo!(),
             TokenType::SquareLeft => {
                 let l_par = token.range.start;
                 parser.next();
@@ -700,7 +699,6 @@ impl Ctx {
                     r_par,
                 })
             }
-            TokenType::SquareRight => todo!(),
             TokenType::CurlyLeft => {
                 let l_par = token.range.start;
                 parser.next();
@@ -776,14 +774,16 @@ impl Ctx {
                     r_par,
                 })
             }
-            TokenType::CurlyRight => todo!(),
-            TokenType::Equal => {
+            TokenType::Comment(_)
+            | TokenType::SquareRight
+            | TokenType::CurlyRight
+            | TokenType::Equal
+            | TokenType::Comma
+            | TokenType::Dot
+            | TokenType::Newline
+            | TokenType::EOF => {
                 return Err(Error::ExpectedValueFound(token.ty.to_string(), token.range))
             }
-            TokenType::Comma => todo!(),
-            TokenType::Dot => todo!(),
-            TokenType::Newline => todo!(),
-            TokenType::EOF => todo!(),
         };
 
         Ok(value)
@@ -867,9 +867,9 @@ impl Ctx {
             return Ok(Value::Invalid(lit, range));
         }
 
-        let val = match lit.replace('_', "").parse() {
-            Ok(v) => v,
-            Err(e) => todo!("{e}"),
+        let Ok(val) = lit.replace('_', "").parse() else {
+            self.errors.push(Error::FloatLiteralOverflow(range));
+            return Ok(Value::Invalid(lit, range));
         };
 
         Ok(Value::Float(FloatVal::new(lit, range, val)))

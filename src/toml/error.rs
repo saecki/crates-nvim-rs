@@ -31,6 +31,7 @@ pub enum Error {
     FloatExponentStartsWithUnderscore(Pos),
     FloatExponentEndsWithUnderscore(Pos),
     InvalidCharInFloatExponent(char, Pos),
+    FloatLiteralOverflow(Range),
 
     EmptyPrefixedIntValue(Pos),
     PrefixedIntValueStartsWithUnderscore(Pos),
