@@ -1,11 +1,9 @@
 mod error;
 mod lex;
-mod map;
 mod parse;
 
 pub use error::*;
 pub use lex::*;
-pub use map::*;
 pub use parse::*;
 
 #[derive(Default)]
