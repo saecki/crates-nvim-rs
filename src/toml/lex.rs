@@ -214,7 +214,9 @@ struct UnicodeState {
 }
 
 impl Ctx {
-    pub fn lex<'a>(&mut self, input: &'a str) -> Result<Vec<Token<'a>>, Error> {
+    /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
+    /// is returned, otherwise the possibly partially invalid token stream is returned.
+    pub fn lex<'a>(&mut self, input: &'a str) -> Result<Vec<Token<'a>>, ()> {
         let mut lexer = Lexer::new(input);
 
         let mut chars = input.char_indices().peekable();

@@ -6,12 +6,14 @@ use crate::toml::{Ctx, Error, Pos, Quote, Range, Token, TokenType};
 mod test;
 
 macro_rules! recover_on {
-    ($parser:expr, $tokens:pat, $label:lifetime) => {{
+    ($parser:expr, $($tokens:pat => $recover:stmt),+ $(,)?) => {{
         loop {
+            use TokenType::*;
             match $parser.peek().ty {
-                $tokens => {
-                    break $label;
-                }
+                $($tokens => {
+                    #[allow(redundant_semicolons)]
+                    $recover;
+                })+
                 _ => {
                     $parser.next();
                 }
@@ -21,7 +23,7 @@ macro_rules! recover_on {
 }
 
 #[derive(Debug)]
-pub struct Parser<'a> {
+struct Parser<'a> {
     tokens: std::iter::Peekable<std::vec::IntoIter<Token<'a>>>,
     last: Token<'a>,
 }
@@ -97,9 +99,9 @@ pub struct Table<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct TableHeader<'a> {
-    l_par: Pos,
-    key: Option<Key<'a>>,
-    r_par: Option<Pos>,
+    pub l_par: Pos,
+    pub key: Option<Key<'a>>,
+    pub r_par: Option<Pos>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,9 +112,9 @@ pub struct Array<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct ArrayHeader<'a> {
-    l_pars: (Pos, Pos),
-    key: Option<Key<'a>>,
-    r_pars: (Option<Pos>, Option<Pos>),
+    pub l_pars: (Pos, Pos),
+    pub key: Option<Key<'a>>,
+    pub r_pars: (Option<Pos>, Option<Pos>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -349,13 +351,15 @@ impl<'a> Header<'a> {
 }
 
 impl Ctx {
-    pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Result<Vec<Ast<'a>>, Error> {
+    /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
+    /// is returned, otherwise the possibly partially invalid ast is returned.
+    pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Result<Vec<Ast<'a>>, ()> {
         let mut parser = Parser::new(tokens);
         let mut asts = Vec::new();
         let mut last_header = None;
         let mut newline_required = false;
 
-        loop {
+        'root: loop {
             if newline_required {
                 while let Some(comment) = parser.eat_comment() {
                     asts.push(Ast::Comment(comment));
@@ -364,7 +368,7 @@ impl Ctx {
                     t if t.ty == TokenType::Newline => {
                         parser.next();
                     }
-                    t if t.ty == TokenType::EOF => break,
+                    t if t.ty == TokenType::EOF => break 'root,
                     t => {
                         self.errors.push(Error::ExpectedNewline(t.range.start));
                     }
@@ -467,26 +471,32 @@ impl Ctx {
                     parser.next();
                     continue;
                 }
-                TokenType::EOF => break,
+                TokenType::EOF => break 'root,
                 _ => (),
             }
 
             let key = match self.parse_key(&mut parser) {
                 Ok(k) => k,
-                Err(_e) => todo!("push error and try to recover"),
+                Err(e) => {
+                    self.errors.push(e);
+                    recover_on!(parser, Newline | EOF => continue 'root);
+                }
             };
 
-            // TODO: somehow try to recover, probably on newline
             let eq = match parser.next() {
                 t if t.ty == TokenType::Equal => t.range.start,
-                _ => todo!("error"),
+                t => {
+                    let error = Error::ExpectedEqFound(t.ty.to_string(), t.range);
+                    self.errors.push(error);
+                    recover_on!(parser, Newline | EOF => continue 'root);
+                }
             };
 
             let val = match self.parse_value(&mut parser) {
                 Ok(v) => v,
                 Err(e) => {
                     self.errors.push(e);
-                    break;
+                    recover_on!(parser, Newline | EOF => continue 'root);
                 }
             };
 
@@ -656,8 +666,10 @@ impl Ctx {
                         Ok(v) => v,
                         Err(e) => {
                             self.errors.push(e);
-
-                            recover_on!(parser, TokenType::SquareRight | TokenType::EOF, 'inline_array)
+                            recover_on!(parser,
+                                Comma | Newline => continue 'inline_array,
+                                SquareRight | EOF => break 'inline_array,
+                            );
                         }
                     };
 
@@ -674,7 +686,6 @@ impl Ctx {
                             break;
                         }
                         _ => {
-                            // TODO: maybe try to eat dot or similar character
                             let pos = value.val.range().end;
                             self.errors.push(Error::ExpectedComma(pos));
                             // try to continue
@@ -712,17 +723,22 @@ impl Ctx {
                         Ok(k) => k,
                         Err(e) => {
                             self.errors.push(e);
-                            recover_on!(parser, TokenType::CurlyRight | TokenType::Newline | TokenType::EOF, 'inline_table)
+                            recover_on!(parser,
+                                Comma => continue 'inline_table,
+                                Newline | CurlyRight | EOF => break 'inline_table,
+                            )
                         }
                     };
 
-                    // TODO: somehow try to recover, probably on newline
                     let eq = match parser.peek() {
                         t if t.ty == TokenType::Equal => parser.next().range.start,
                         t => {
-                            self.errors
-                                .push(Error::ExpectedEqFound(t.ty.to_string(), t.range));
-                            recover_on!(parser, TokenType::CurlyRight | TokenType::Newline | TokenType::EOF, 'inline_table)
+                            let error = Error::ExpectedEqFound(t.ty.to_string(), t.range);
+                            self.errors.push(error);
+                            recover_on!(parser,
+                                Comma => continue 'inline_table,
+                                Newline | CurlyRight | EOF => break 'inline_table,
+                            )
                         }
                     };
 
@@ -730,7 +746,10 @@ impl Ctx {
                         Ok(v) => v,
                         Err(e) => {
                             self.errors.push(e);
-                            recover_on!(parser, TokenType::CurlyRight | TokenType::Newline | TokenType::EOF, 'inline_table)
+                            recover_on!(parser,
+                                Comma => continue 'inline_table,
+                                Newline | CurlyRight | EOF => break 'inline_table,
+                            )
                         }
                     };
 
@@ -749,7 +768,6 @@ impl Ctx {
                             break;
                         }
                         _ => {
-                            // TODO: maybe try to eat dot or similar character
                             let pos = assignment.val.range().end;
                             self.errors.push(Error::ExpectedComma(pos));
                             // try to continue
