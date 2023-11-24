@@ -3,16 +3,23 @@ use std::borrow::Cow;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, DottedIdent, Error, FloatVal, Ident,
-    IdentKind, InlineArray, InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, Pos,
-    Quote, Range, StringVal, Table, TableHeader, Value, Warning,
+    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, Date, DateTime, DateTimeVal, DottedIdent,
+    Error, FloatVal, Ident, IdentKind, InlineArray, InlineArrayValue, InlineTable,
+    InlineTableAssignment, IntVal, Key, Offset, Pos, Quote, Range, StringVal, Table, TableHeader,
+    Time, Value, Warning,
 };
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input).unwrap();
     let asts = ctx.parse(tokens).unwrap();
-    assert_eq!(expected.as_slice(), asts);
+    assert_eq!(
+        expected.as_slice(),
+        asts,
+        "\nerrors: {:#?}\nwarnings: {:#?}",
+        ctx.errors,
+        ctx.warnings
+    );
     assert_eq!(Vec::<Error>::new(), ctx.errors);
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
@@ -21,7 +28,13 @@ fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Err
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input).unwrap();
     let asts = ctx.parse(tokens).unwrap();
-    assert_eq!(expected.as_slice(), asts);
+    assert_eq!(
+        expected.as_slice(),
+        asts,
+        "\nerrors: {:#?}\nwarnings: {:#?}",
+        ctx.errors,
+        ctx.warnings
+    );
     assert_eq!(vec![error], ctx.errors);
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
@@ -1156,3 +1169,168 @@ fn newline_is_required_after_assignment() {
         Error::ExpectedNewline(Pos { line: 0, char: 10 }),
     )
 }
+
+#[test]
+fn offset_date_time_with_subsec() {
+    check(
+        "abc = 2023-12-05T10:11:12.3324243-04:30",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::DateTime(DateTimeVal {
+                lit: "2023-12-05T10:11:12.3324243-04:30",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 39 },
+                },
+                val: DateTime::OffsetDateTime(
+                    Date::new(2023, 12, 05),
+                    Time::new(10, 11, 12, 332_424_300),
+                    Offset::Custom(-(4 * 60 + 30)),
+                ),
+            }),
+        })],
+    );
+}
+
+#[test]
+fn offset_date_time_without_subsec() {
+    check(
+        "abc = 2023-12-05T10:11:12+04:30",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::DateTime(DateTimeVal {
+                lit: "2023-12-05T10:11:12+04:30",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 31 },
+                },
+                val: DateTime::OffsetDateTime(
+                    Date::new(2023, 12, 05),
+                    Time::new(10, 11, 12, 0),
+                    Offset::Custom(4 * 60 + 30),
+                ),
+            }),
+        })],
+    );
+}
+
+#[test]
+fn space_separated_time() {
+    check(
+        "abc = 2023-12-05 10:11:12",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::DateTime(DateTimeVal {
+                lit: "2023-12-05 10:11:12",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 25 },
+                },
+                val: DateTime::LocalDateTime(Date::new(2023, 12, 05), Time::new(10, 11, 12, 0)),
+            }),
+        })],
+    );
+}
+
+#[test]
+fn local_date() {
+    check(
+        "abc = 2023-12-05",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::DateTime(DateTimeVal {
+                lit: "2023-12-05",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 16 },
+                },
+                val: DateTime::LocalDate(Date::new(2023, 12, 05)),
+            }),
+        })],
+    );
+}
+
+#[test]
+fn local_time() {
+    check(
+        "abc = 10:11:12",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::DateTime(DateTimeVal {
+                lit: "10:11:12",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 14 },
+                },
+                val: DateTime::LocalTime(Time::new(10, 11, 12, 0)),
+            }),
+        })],
+    );
+}
+
+// TODO: date time error tests

@@ -39,6 +39,28 @@ pub enum Error {
     InvalidCharInPrefixedInt(char, Pos),
     IntDigitTooBig(u8, char, Pos),
     IntLiteralOverflow(Range),
+
+    InvalidCharInDateTime(char, Pos),
+    DateTimeExpectedCharFound(char, char, Pos),
+    DateTimeMissingChar(char, Pos),
+    DateTimeIncomplete(DateTimeField, Pos),
+    DateTimeMissing(DateTimeField, Pos),
+    DateTimeOutOfBounds(DateTimeField, u8, Range),
+    DateTimeMissingSubsec(Pos),
+    LocalDateTimeOffset(Pos),
+    DateAndTimeTooFarApart(Range),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DateTimeField {
+    Year,
+    Month,
+    Day,
+    Hour,
+    Minute,
+    Second,
+    OffsetHour,
+    OffsetMinute,
 }
 
 #[derive(Debug, PartialEq, Eq)]

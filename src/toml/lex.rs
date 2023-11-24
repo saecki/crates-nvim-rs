@@ -79,6 +79,20 @@ impl Range {
             end: pos.plus(1),
         }
     }
+
+    pub fn across(a: Self, b: Self) -> Self {
+        Self {
+            start: a.start,
+            end: b.end,
+        }
+    }
+
+    pub fn between(a: Self, b: Self) -> Self {
+        Self {
+            start: a.end,
+            end: b.start,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

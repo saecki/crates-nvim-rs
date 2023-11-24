@@ -1,7 +1,9 @@
 use std::borrow::Cow;
 
 use crate::toml::{Ctx, Error, Pos, Quote, Range, Token, TokenType};
+pub use datetime::{Date, DateTime, Offset, Time};
 
+mod datetime;
 #[cfg(test)]
 mod test;
 
@@ -177,13 +179,13 @@ pub enum IdentKind {
     String(Quote),
 }
 
-// TODO: date and time
 #[derive(Debug, PartialEq)]
 pub enum Value<'a> {
     String(StringVal<'a>),
     Int(IntVal<'a>),
     Float(FloatVal<'a>),
     Bool(BoolVal),
+    DateTime(DateTimeVal<'a>),
     InlineTable(InlineTable<'a>),
     InlineArray(InlineArray<'a>),
     Invalid(&'a str, Range),
@@ -196,6 +198,7 @@ impl Value<'_> {
             Value::Int(i) => i.lit_range,
             Value::Float(f) => f.lit_range,
             Value::Bool(b) => b.lit_range,
+            Value::DateTime(d) => d.lit_range,
             Value::InlineTable(t) => t.range(),
             Value::InlineArray(a) => a.range(),
             Value::Invalid(_, r) => *r,
@@ -255,6 +258,23 @@ pub struct BoolVal {
 impl BoolVal {
     pub fn new(lit_range: Range, val: bool) -> Self {
         Self { lit_range, val }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct DateTimeVal<'a> {
+    pub lit: &'a str,
+    pub lit_range: Range,
+    pub val: DateTime,
+}
+
+impl<'a> DateTimeVal<'a> {
+    pub fn new(lit: &'a str, lit_range: Range, val: DateTime) -> Self {
+        Self {
+            lit,
+            lit_range,
+            val,
+        }
     }
 }
 
@@ -627,14 +647,9 @@ impl Ctx {
                             lit,
                             token.range,
                             Some(i),
-                        )?,
+                        ),
                         Ok(PartialValue::OverflowOrFloat) => self
-                            .try_to_parse_fractional_part_of_float(
-                                parser,
-                                lit,
-                                token.range,
-                                None,
-                            )?,
+                            .try_to_parse_fractional_part_of_float(parser, lit, token.range, None),
                         Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
                             Ok(v) => Value::Float(FloatVal::new(lit, token.range, v)),
                             Err(_) => {
@@ -642,6 +657,19 @@ impl Ctx {
                                 Value::Invalid(lit, token.range)
                             }
                         },
+                        Ok(PartialValue::OffsetDateTime(val)) => {
+                            let date_time = DateTimeVal::new(lit, token.range, val);
+                            Value::DateTime(date_time)
+                        }
+                        Ok(PartialValue::PartialDate(date)) => {
+                            self.try_to_parse_time_part(parser, lit, token.range, date)
+                        }
+                        Ok(PartialValue::PartialDateTime(date, time)) => {
+                            self.try_to_parse_subsecs(parser, lit, token.range, Some(date), time)
+                        }
+                        Ok(PartialValue::PartialTime(time)) => {
+                            self.try_to_parse_subsecs(parser, lit, token.range, None, time)
+                        }
                         Err(e) => {
                             self.errors.push(e);
                             Value::Invalid(lit, token.range)
@@ -813,20 +841,20 @@ impl Ctx {
         int_lit: &'a str,
         int_range: Range,
         int_val: Option<i64>,
-    ) -> Result<Value<'a>, Error> {
+    ) -> Value<'a> {
         // Check this is actually a floating point literal separated by a dot
         match parser.peek() {
             t if t.ty == TokenType::Dot && int_range.end == t.range.start => {
                 parser.next();
             }
             _ => match int_val {
-                Some(val) => return Ok(Value::Int(IntVal::new(int_lit, int_range, val))),
+                Some(val) => return Value::Int(IntVal::new(int_lit, int_range, val)),
                 None => {
                     self.errors.push(Error::IntLiteralOverflow(int_range));
-                    return Ok(Value::Invalid(int_lit, int_range));
+                    return Value::Invalid(int_lit, int_range);
                 }
             },
-        };
+        }
 
         let mut missing_float_fractional_part_error = || {
             let pos = int_range.end.plus(1);
@@ -857,13 +885,11 @@ impl Ctx {
                 // SAFETY: we know there is a dot directly after int_lit.
                 let dot_end = unsafe { int_end.add(1) };
                 if dot_end != frac_start {
-                    return Ok(missing_float_fractional_part_error());
+                    return missing_float_fractional_part_error();
                 }
                 frac_lit
             }
-            _ => {
-                return Ok(missing_float_fractional_part_error());
-            }
+            _ => return missing_float_fractional_part_error(),
         };
 
         // SAFETY: the first and second literal reference the same string and
@@ -882,15 +908,155 @@ impl Ctx {
         // validate fractional part
         if let Err(e) = validate_float_fractional_part(frac_lit, frac.range) {
             self.errors.push(e);
-            return Ok(Value::Invalid(lit, range));
+            return Value::Invalid(lit, range);
         }
 
         let Ok(val) = lit.replace('_', "").parse() else {
             self.errors.push(Error::FloatLiteralOverflow(range));
-            return Ok(Value::Invalid(lit, range));
+            return Value::Invalid(lit, range);
         };
 
-        Ok(Value::Float(FloatVal::new(lit, range, val)))
+        Value::Float(FloatVal::new(lit, range, val))
+    }
+
+    /// toml permits using spaces instead of `T` to separate date and time in and rfc3339
+    /// timestamp, if the previous token just contained the date then check if the next token
+    /// contains the time.
+    fn try_to_parse_time_part<'a>(
+        &mut self,
+        parser: &mut Parser<'a>,
+        date_lit: &'a str,
+        date_range: Range,
+        date: Date,
+    ) -> Value<'a> {
+        let (time_lit, time_range) = match parser.peek().ty {
+            TokenType::LiteralOrIdent(_) => {
+                let token = parser.next();
+                let TokenType::LiteralOrIdent(lit) = token.ty else {
+                    unreachable!()
+                };
+                (lit, token.range)
+            }
+            _ => {
+                let val = DateTime::LocalDate(date);
+                let date_time = DateTimeVal::new(date_lit, date_range, val);
+                return Value::DateTime(date_time);
+            }
+        };
+
+        // only need to compare columns, since we known there is no newline token in between
+        if time_range.start.char > date_range.end.char + 1 {
+            let range = Range::between(date_range, time_range);
+            self.errors.push(Error::DateAndTimeTooFarApart(range));
+        }
+
+        // SAFETY: the first and second literal reference the same string, are on the same line and
+        // are only separated by whitespace. See above.
+        let lit = unsafe {
+            let ptr = date_lit.as_ptr();
+            let len = (time_range.end.char - date_range.start.char) as usize;
+            let slice = std::slice::from_raw_parts(ptr, len);
+            std::str::from_utf8_unchecked(slice)
+        };
+        let range = Range::across(date_range, time_range);
+
+        let mut chars = time_lit.char_indices().peekable();
+        let (time, offset) = match datetime::parse_time_and_offset(&mut chars, time_range) {
+            Ok(v) => v,
+            Err(e) => {
+                self.errors.push(e);
+                return Value::Invalid(lit, range);
+            }
+        };
+
+        if let Some(offset) = offset {
+            let val = DateTime::OffsetDateTime(date, time, offset);
+            let date_time = DateTimeVal::new(lit, range, val);
+            return Value::DateTime(date_time);
+        }
+
+        self.try_to_parse_subsecs(parser, lit, range, Some(date), time)
+    }
+
+    fn try_to_parse_subsecs<'a>(
+        &mut self,
+        parser: &mut Parser<'a>,
+        date_time_lit: &'a str,
+        date_time_range: Range,
+        date: Option<Date>,
+        time: Time,
+    ) -> Value<'a> {
+        match parser.peek() {
+            t if t.ty == TokenType::Dot && date_time_range.end == t.range.start => {
+                parser.next();
+            }
+            _ => {
+                let val = match date {
+                    Some(date) => DateTime::LocalDateTime(date, time),
+                    None => DateTime::LocalTime(time),
+                };
+                let date_time = DateTimeVal::new(date_time_lit, date_time_range, val);
+                return Value::DateTime(date_time);
+            }
+        }
+
+        let mut missing_date_time_subsec_part_error = || {
+            let pos = date_time_range.end.plus(1);
+            self.errors.push(Error::DateTimeMissingSubsec(pos));
+
+            // SAFETY: we know there is a dot directly after int_lit.
+            let lit = unsafe {
+                let ptr = date_time_lit.as_ptr();
+                let len = date_time_lit.len() + 1;
+                let slice = std::slice::from_raw_parts(ptr, len);
+                std::str::from_utf8_unchecked(slice)
+            };
+            let mut range = date_time_range;
+            range.end.char += 1;
+            Value::Invalid(lit, range)
+        };
+
+        let subsec;
+        let subsec_lit = match parser.peek().ty {
+            TokenType::LiteralOrIdent(..) => {
+                subsec = parser.next();
+                let TokenType::LiteralOrIdent(subsec_lit) = subsec.ty else {
+                    unreachable!();
+                };
+
+                let time_end = date_time_lit.as_bytes().as_ptr_range().end;
+                let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
+                // SAFETY: we know there is a dot directly after date_time_lit.
+                let dot_end = unsafe { time_end.add(1) };
+                if dot_end != subsec_start {
+                    return missing_date_time_subsec_part_error();
+                }
+                subsec_lit
+            }
+            _ => return missing_date_time_subsec_part_error(),
+        };
+
+        // SAFETY: the first and second literal reference the same string and
+        // are only separated by a single dot. See above.
+        let lit = unsafe {
+            let ptr = date_time_lit.as_ptr();
+            let len = date_time_lit.len() + 1 + subsec_lit.len();
+            let slice = std::slice::from_raw_parts(ptr, len);
+            std::str::from_utf8_unchecked(slice)
+        };
+        let range = Range {
+            start: date_time_range.start,
+            end: subsec.range.end,
+        };
+
+        // parse subsec part
+        match parse_date_time_subsec_part(lit, range, subsec_lit, subsec.range, date, time) {
+            Ok(date_time) => Value::DateTime(date_time),
+            Err(e) => {
+                self.errors.push(e);
+                Value::Invalid(lit, range)
+            }
+        }
     }
 }
 
@@ -904,10 +1070,21 @@ enum PartialValue {
     OverflowOrFloat,
     /// A float with an exponent. There can't be a fractional part after this.
     FloatWithExp,
+    /// A complete offset date-time, without the sub second part, but with an offset.
+    OffsetDateTime(DateTime),
+    /// A date-time without the subsecond part and an offset, might be followed by the subsecond
+    /// part.
+    PartialDateTime(Date, Time),
+    /// Just the date part, might be followed by the time part.
+    PartialDate(Date),
+    /// A local time without sub second part, might be followed by it.
+    PartialTime(Time),
 }
 
-/// Parse all integers adhering to the toml spec, or the integer part of a float and it's
-/// exponent.
+/// Parse all integers adhering to the toml spec, the integer part of a float and it's exponent or
+/// a date-time adhering to the RFC 3339 spec. This allows using a space instead of `T` to separate
+/// the date and time parts, in that case only the date is parsed, since the time part is inside the
+/// next token.
 fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue, Error> {
     #[derive(PartialEq, Eq)]
     enum NumParseState {
@@ -938,6 +1115,10 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
                 let val = parse_prefixed_int_literal::<4>(chars, range)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
+            Some((_, c @ ('0'..='9'))) => {
+                let two_digits = c as u16 - '0' as u16;
+                return datetime::continue_parsing_date_time(&mut chars, range, two_digits);
+            }
             Some((i, radix)) => {
                 return Err(Error::InvalidIntRadix(radix, range.start.plus(i as u32)));
             }
@@ -954,7 +1135,9 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
 
     let mut last_underscore = false;
     loop {
-        let Some((i, c)) = chars.next() else { break };
+        let Some((i, c)) = chars.next() else {
+            break;
+        };
 
         last_underscore = false;
 
@@ -983,7 +1166,9 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
 
                 let mut last_underscore = false;
                 for j in 0.. {
-                    let Some((i, c)) = chars.next() else { break };
+                    let Some((i, c)) = chars.next() else {
+                        break;
+                    };
 
                     last_underscore = false;
 
@@ -1010,6 +1195,15 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
                 }
 
                 return Ok(PartialValue::FloatWithExp);
+            }
+            ':' if i == 2 => {
+                let hour = int_accum as u8;
+                return datetime::continue_parsing_local_time(&mut chars, range, hour)
+                    .map(PartialValue::PartialTime);
+            }
+            '-' if i == 4 => {
+                let year = int_accum as u16;
+                return datetime::continue_parsing_date_time_after_year(&mut chars, range, year);
             }
             '_' => {
                 last_underscore = true;
@@ -1171,4 +1365,29 @@ fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Err
     }
 
     Ok(())
+}
+
+fn parse_date_time_subsec_part<'a>(
+    lit: &'a str,
+    range: Range,
+    subsec_lit: &str,
+    subsec_range: Range,
+    date: Option<Date>,
+    mut time: Time,
+) -> Result<DateTimeVal<'a>, Error> {
+    let mut chars = subsec_lit.char_indices().peekable();
+    let val = match date {
+        Some(date) => {
+            let (nanos, offset) = datetime::parse_subsec_and_offset(&mut chars, subsec_range)?;
+            time.nanos = nanos;
+            DateTime::from_optional_offset(date, time, offset)
+        }
+        None => {
+            let nanos = datetime::parse_subsec_without_offset(&mut chars, subsec_range)?;
+            time.nanos = nanos;
+            DateTime::LocalTime(time)
+        }
+    };
+
+    Ok(DateTimeVal::new(lit, range, val))
 }

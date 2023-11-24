@@ -40,7 +40,7 @@ pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
     Ok(Dictionary::from_iter([("parse_toml", parse_toml)]))
 }
 
-fn push_key(path: &mut Vec<&Ident>, key: &Key) {
+fn push_key<'a>(path: &mut Vec<&'a Ident<'a>>, key: &'a Key<'a>) {
     match key {
         Key::One(i) => path.push(i),
         Key::Dotted(idents) => path.extend(idents.iter().map(|d| &d.ident)),
@@ -49,11 +49,11 @@ fn push_key(path: &mut Vec<&Ident>, key: &Key) {
 
 fn validate(path: &mut Vec<&Ident>, val: &Value) {
     match val {
-        Value::String(_) => {
-        }
+        Value::String(_) => todo!(),
         Value::Int(_) => todo!(),
         Value::Float(_) => todo!(),
         Value::Bool(_) => todo!(),
+        Value::DateTime(_) => todo!(),
         Value::InlineTable(_) => todo!(),
         Value::InlineArray(_) => todo!(),
         Value::Invalid(_, _) => todo!(),
