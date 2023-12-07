@@ -11,8 +11,8 @@ use crate::toml::{
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input).unwrap();
-    let asts = ctx.parse(tokens).unwrap();
+    let tokens = ctx.lex(input);
+    let asts = ctx.parse(tokens);
     assert_eq!(
         expected.as_slice(),
         asts,
@@ -26,8 +26,8 @@ fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
 
 fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Error) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input).unwrap();
-    let asts = ctx.parse(tokens).unwrap();
+    let tokens = ctx.lex(input);
+    let asts = ctx.parse(tokens);
     assert_eq!(
         expected.as_slice(),
         asts,
@@ -45,8 +45,8 @@ fn check_errors<const AST_SIZE: usize, const ERR_SIZE: usize>(
     errors: [Error; ERR_SIZE],
 ) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input).unwrap();
-    let asts = ctx.parse(tokens).unwrap();
+    let tokens = ctx.lex(input);
+    let asts = ctx.parse(tokens);
     assert_eq!(expected.as_slice(), asts);
     assert_eq!(errors.as_slice(), ctx.errors);
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);

@@ -373,7 +373,7 @@ impl<'a> Header<'a> {
 impl Ctx {
     /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
     /// is returned, otherwise the possibly partially invalid ast is returned.
-    pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Result<Vec<Ast<'a>>, ()> {
+    pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Vec<Ast<'a>> {
         let mut parser = Parser::new(tokens);
         let mut asts = Vec::new();
         let mut last_header = None;
@@ -534,7 +534,7 @@ impl Ctx {
             asts.push(last.into_ast());
         }
 
-        Ok(asts)
+        asts
     }
 
     fn parse_key<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {

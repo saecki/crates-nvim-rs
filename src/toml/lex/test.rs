@@ -4,7 +4,7 @@ use pretty_assertions::assert_eq;
 
 fn check<const SIZE: usize>(input: &str, expected: [Token; SIZE]) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input).unwrap();
+    let tokens = ctx.lex(input);
     assert_eq!(tokens, expected);
 }
 
@@ -14,14 +14,14 @@ fn check_err<const SIZE: usize, const ERR_SIZE: usize>(
     expected_errors: [Error; ERR_SIZE],
 ) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input).unwrap();
+    let tokens = ctx.lex(input);
     assert_eq!(tokens, expected);
     assert_eq!(ctx.errors, expected_errors);
 }
 
 fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input).unwrap();
+    let tokens = ctx.lex(input);
     assert_eq!(tokens.len(), 2);
     if ctx.errors != [] {
         assert_eq!(ctx.errors, []);

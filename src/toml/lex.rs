@@ -230,7 +230,7 @@ struct UnicodeState {
 impl Ctx {
     /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
     /// is returned, otherwise the possibly partially invalid token stream is returned.
-    pub fn lex<'a>(&mut self, input: &'a str) -> Result<Vec<Token<'a>>, ()> {
+    pub fn lex<'a>(&mut self, input: &'a str) -> Vec<Token<'a>> {
         let mut lexer = Lexer::new(input);
 
         let mut chars = input.char_indices().peekable();
@@ -568,7 +568,7 @@ impl Ctx {
             range: Range::pos(lexer.pos),
         });
 
-        Ok(lexer.tokens)
+        lexer.tokens
     }
 
     fn push_literal(&mut self, lexer: &mut Lexer, char_index: usize) {
