@@ -1241,6 +1241,41 @@ fn offset_date_time_without_subsec() {
 }
 
 #[test]
+fn offset_date_time_with_z_suffix() {
+    check(
+        "abc = 2023-12-05T10:11:12Z",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_range: Range {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::DateTime(DateTimeVal {
+                lit: "2023-12-05T10:11:12Z",
+                lit_range: Range {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 26 },
+                },
+                val: DateTime::OffsetDateTime(
+                    Date::new(2023, 12, 05),
+                    Time::new(10, 11, 12, 0),
+                    Offset::Utc,
+                ),
+            }),
+        })],
+    );
+}
+
+#[test]
 fn space_separated_time() {
     check(
         "abc = 2023-12-05 10:11:12",

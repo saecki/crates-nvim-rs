@@ -191,7 +191,7 @@ fn continue_parsing_time(chars: &mut CharIter, range: Range, hour: u8) -> Result
 
     match chars.peek() {
         // ignore offset
-        Some((_, '+' | '-')) => (),
+        Some((_, 'Z' | '+' | '-')) => (),
         Some(&(i, c)) => return invalid_char_error(c, range, i),
         None => (),
     }
