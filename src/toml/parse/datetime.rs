@@ -61,6 +61,8 @@ pub enum Offset {
     Custom(i16),
 }
 
+// Continue parsing a date-time after the first two digits. These digits could either be part of
+// the year in case of a date, or the hour in case of a time.
 pub fn continue_parsing_date_time(
     mut chars: &mut CharIter,
     range: Range,
@@ -97,6 +99,7 @@ pub fn continue_parsing_date_time(
     continue_parsing_date_time_after_year(chars, range, year)
 }
 
+/// Continue parsing this date-time after the `-` separator following the year.
 pub fn continue_parsing_date_time_after_year(
     mut chars: &mut CharIter,
     range: Range,
@@ -131,7 +134,8 @@ pub fn continue_parsing_date_time_after_year(
     }
 }
 
-/// Parse local time *without* offset, finding one will result in an error.
+/// Continue to parse local time *without* offset (finding one will result in an error), after the
+/// `:` separtor following the hour.
 pub fn continue_parsing_local_time(
     chars: &mut CharIter,
     range: Range,
@@ -157,19 +161,7 @@ pub fn parse_time_and_offset(
         continue_parsing_time(chars, range, hour)?
     };
 
-    let offset = match chars.next() {
-        Some((_, 'Z')) => Some(Offset::Utc),
-        Some((_, '+')) => {
-            let minutes = parse_offset(chars, range)?;
-            Some(Offset::Custom(minutes))
-        }
-        Some((_, '-')) => {
-            let minutes = parse_offset(chars, range)?;
-            Some(Offset::Custom(-minutes))
-        }
-        Some((i, c)) => return invalid_char_error(c, range, i),
-        None => None,
-    };
+    let offset = try_to_parse_offset(chars, range)?;
 
     Ok((time, offset))
 }
@@ -204,6 +196,7 @@ fn continue_parsing_time(chars: &mut CharIter, range: Range, hour: u8) -> Result
     })
 }
 
+/// Parse the subsecond part up to nano seconds, truncating the rest, and an optional offset.
 pub fn parse_subsec_and_offset(
     chars: &mut CharIter,
     range: Range,
@@ -213,6 +206,7 @@ pub fn parse_subsec_and_offset(
     Ok((nanos, offset))
 }
 
+/// Parse the subsecond part up to nano seconds, truncating the rest, error on finding an offset.
 pub fn parse_subsec_without_offset(chars: &mut CharIter, range: Range) -> Result<u32, Error> {
     let nanos = parse_subsec(chars, range)?;
     error_on_offset(chars, range)?;
@@ -261,17 +255,6 @@ fn try_to_parse_offset(chars: &mut CharIter, range: Range) -> Result<Option<Offs
     }
 }
 
-fn error_on_offset(chars: &mut CharIter, range: Range) -> Result<(), Error> {
-    match chars.next() {
-        Some((i, 'Z' | '+' | '-')) => {
-            let pos = range.start.plus(i as u32);
-            return Err(Error::LocalDateTimeOffset(pos));
-        }
-        Some((i, c)) => return invalid_char_error(c, range, i),
-        None => Ok(()),
-    }
-}
-
 fn parse_offset(chars: &mut CharIter, range: Range) -> Result<i16, Error> {
     let (hour, _) = expect_two_digit_num(chars, range)
         .map_err(|e| e.kind(OffsetHour))?
@@ -286,6 +269,17 @@ fn parse_offset(chars: &mut CharIter, range: Range) -> Result<i16, Error> {
         .map_err(|e| e.kind(OffsetMinute))?;
 
     Ok(60 * hour as i16 + minute as i16)
+}
+
+fn error_on_offset(chars: &mut CharIter, range: Range) -> Result<(), Error> {
+    match chars.next() {
+        Some((i, 'Z' | '+' | '-')) => {
+            let pos = range.start.plus(i as u32);
+            return Err(Error::LocalDateTimeOffset(pos));
+        }
+        Some((i, c)) => return invalid_char_error(c, range, i),
+        None => Ok(()),
+    }
 }
 
 fn invalid_char_error<T>(char: char, range: Range, offset: usize) -> Result<T, Error> {
