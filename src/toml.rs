@@ -1,10 +1,12 @@
 mod error;
 mod lex;
 mod parse;
+mod map;
 
 pub use error::*;
 pub use lex::*;
 pub use parse::*;
+pub use map::*;
 
 #[derive(Default)]
 pub struct Ctx {
