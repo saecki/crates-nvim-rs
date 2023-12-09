@@ -45,28 +45,28 @@ fn assign_int() {
         [
             Token {
                 ty: TokenType::LiteralOrIdent("my_int"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 6 },
                 },
             },
             Token {
                 ty: TokenType::Equal,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 7 },
                     end: Pos { line: 0, char: 8 },
                 },
             },
             Token {
                 ty: TokenType::LiteralOrIdent("98742"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 14 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 14 }),
+                span: Span::pos(Pos { line: 0, char: 14 }),
             },
         ],
     );
@@ -79,42 +79,42 @@ fn assign_float() {
         [
             Token {
                 ty: TokenType::LiteralOrIdent("my_float"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },
                 },
             },
             Token {
                 ty: TokenType::Equal,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 8 },
                     end: Pos { line: 0, char: 9 },
                 },
             },
             Token {
                 ty: TokenType::LiteralOrIdent("0"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 10 },
                 },
             },
             Token {
                 ty: TokenType::Dot,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 10 },
                     end: Pos { line: 0, char: 11 },
                 },
             },
             Token {
                 ty: TokenType::LiteralOrIdent("23"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 0, char: 13 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 13 }),
+                span: Span::pos(Pos { line: 0, char: 13 }),
             },
         ],
     );
@@ -127,28 +127,28 @@ fn assign_literal_string() {
         [
             Token {
                 ty: TokenType::LiteralOrIdent("my"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 2 },
                 },
             },
             Token {
                 ty: TokenType::Dot,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 2 },
                     end: Pos { line: 0, char: 3 },
                 },
             },
             Token {
                 ty: TokenType::LiteralOrIdent("string"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 9 },
                 },
             },
             Token {
                 ty: TokenType::Equal,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 10 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -158,19 +158,19 @@ fn assign_literal_string() {
                     quote: Quote::Literal,
                     lit: "'yeet\\'",
                     text: Cow::Borrowed("yeet\\"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 13 },
                         end: Pos { line: 0, char: 18 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 12 },
                     end: Pos { line: 0, char: 19 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 19 }),
+                span: Span::pos(Pos { line: 0, char: 19 }),
             },
         ],
     );
@@ -183,42 +183,42 @@ fn assign_escaped_string() {
         [
             Token {
                 ty: TokenType::LiteralOrIdent("my"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 2 },
                 },
             },
             Token {
                 ty: TokenType::Dot,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 2 },
                     end: Pos { line: 0, char: 3 },
                 },
             },
             Token {
                 ty: TokenType::LiteralOrIdent("escaped"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 10 },
                 },
             },
             Token {
                 ty: TokenType::Dot,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 10 },
                     end: Pos { line: 0, char: 11 },
                 },
             },
             Token {
                 ty: TokenType::LiteralOrIdent("string"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 0, char: 17 },
                 },
             },
             Token {
                 ty: TokenType::Equal,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 18 },
                     end: Pos { line: 0, char: 19 },
                 },
@@ -228,19 +228,19 @@ fn assign_escaped_string() {
                     quote: Quote::Basic,
                     lit: "\"a\\u93f2nope\"",
                     text: Cow::Borrowed("a\u{93f2}nope"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 21 },
                         end: Pos { line: 0, char: 32 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 20 },
                     end: Pos { line: 0, char: 33 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 33 }),
+                span: Span::pos(Pos { line: 0, char: 33 }),
             },
         ],
     );
@@ -277,19 +277,19 @@ fn multiline_string_escaped_newline() {
                     lit:
                         "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
                     text: Cow::Borrowed("look the final string is just one line"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 4, char: 0 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 4, char: 3 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 4, char: 3 }),
+                span: Span::pos(Pos { line: 4, char: 3 }),
             },
         ],
     );
@@ -305,19 +305,19 @@ fn multiline_string_contains_up_to_two_quotes() {
                     quote: Quote::LiteralMultiline,
                     lit: "'''this doesn't end the string: '' but this does: '''",
                     text: Cow::Borrowed("this doesn't end the string: '' but this does: "),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 0, char: 50 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 53 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 53 }),
+                span: Span::pos(Pos { line: 0, char: 53 }),
             },
         ],
     );
@@ -330,14 +330,14 @@ fn assign_basic_multiline_string() {
         [
             Token {
                 ty: TokenType::LiteralOrIdent("m_string"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },
                 },
             },
             Token {
                 ty: TokenType::Equal,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 10 },
                 },
@@ -347,19 +347,19 @@ fn assign_basic_multiline_string() {
                     quote: Quote::BasicMultiline,
                     lit: "\"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
                     text: Cow::Borrowed("each\nword\nis\non\na\nnew\nline\n"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 14 },
                         end: Pos { line: 8, char: 0 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 8, char: 3 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 8, char: 3 }),
+                span: Span::pos(Pos { line: 8, char: 3 }),
             },
         ],
     );
@@ -372,14 +372,14 @@ fn assign_literal_multiline_string() {
         [
             Token {
                 ty: TokenType::LiteralOrIdent("m_string"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 8 },
                 },
             },
             Token {
                 ty: TokenType::Equal,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 10 },
                 },
@@ -389,19 +389,19 @@ fn assign_literal_multiline_string() {
                     quote: Quote::LiteralMultiline,
                     lit: "'''\\\neach\nword\nis\non\na\nnew\nline\n'''",
                     text: Cow::Borrowed("\\\neach\nword\nis\non\na\nnew\nline\n"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 14 },
                         end: Pos { line: 8, char: 0 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 11 },
                     end: Pos { line: 8, char: 3 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 8, char: 3 }),
+                span: Span::pos(Pos { line: 8, char: 3 }),
             },
         ],
     );
@@ -417,26 +417,26 @@ fn unclosed_basic_single_line_string() {
                     quote: Quote::Basic,
                     lit: "\"some unclosed string",
                     text: Cow::Borrowed("some unclosed string"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 21 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 21 },
                 },
             },
             Token {
                 ty: TokenType::Newline,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 21 },
                     end: Pos { line: 1, char: 0 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 1, char: 0 }),
+                span: Span::pos(Pos { line: 1, char: 0 }),
             },
         ],
         [Error::MissingQuote(Quote::Basic, Pos { line: 0, char: 21 })],
@@ -453,19 +453,19 @@ fn unclosed_basic_multi_line_string() {
                     quote: Quote::BasicMultiline,
                     lit: "\"\"\"some unclosed string\nthis is a new line",
                     text: Cow::Borrowed("some unclosed string\nthis is a new line"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 1, char: 18 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 1, char: 18 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 1, char: 18 }),
+                span: Span::pos(Pos { line: 1, char: 18 }),
             },
         ],
         [Error::MissingQuote(
@@ -485,19 +485,19 @@ fn not_fully_closed_basic_multi_line_string_1() {
                     quote: Quote::BasicMultiline,
                     lit: "\"\"\"some unclosed string\"",
                     text: Cow::Borrowed("some unclosed string\""),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 0, char: 24 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 24 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 24 }),
+                span: Span::pos(Pos { line: 0, char: 24 }),
             },
         ],
         [Error::MissingQuote(
@@ -517,19 +517,19 @@ fn not_fully_closed_basic_multi_line_string_2() {
                     quote: Quote::BasicMultiline,
                     lit: "\"\"\"some unclosed string\"\"",
                     text: Cow::Borrowed("some unclosed string\"\""),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 0, char: 25 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 25 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 25 }),
+                span: Span::pos(Pos { line: 0, char: 25 }),
             },
         ],
         [Error::MissingQuote(
@@ -549,26 +549,26 @@ fn unclosed_literal_single_line_string() {
                     quote: Quote::Literal,
                     lit: "'some unclosed string",
                     text: Cow::Borrowed("some unclosed string"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 21 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 21 },
                 },
             },
             Token {
                 ty: TokenType::Newline,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 21 },
                     end: Pos { line: 1, char: 0 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 1, char: 0 }),
+                span: Span::pos(Pos { line: 1, char: 0 }),
             },
         ],
         [Error::MissingQuote(
@@ -588,19 +588,19 @@ fn unclosed_literal_multi_line_string() {
                     quote: Quote::LiteralMultiline,
                     lit: "'''some unclosed string\nthis is a new line",
                     text: Cow::Borrowed("some unclosed string\nthis is a new line"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 1, char: 18 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 1, char: 18 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 1, char: 18 }),
+                span: Span::pos(Pos { line: 1, char: 18 }),
             },
         ],
         [Error::MissingQuote(
@@ -620,19 +620,19 @@ fn not_fully_closed_literal_multi_line_string_1() {
                     quote: Quote::LiteralMultiline,
                     lit: "'''some unclosed string'",
                     text: Cow::Borrowed("some unclosed string'"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 0, char: 24 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 24 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 24 }),
+                span: Span::pos(Pos { line: 0, char: 24 }),
             },
         ],
         [Error::MissingQuote(
@@ -652,19 +652,19 @@ fn not_fully_closed_literal_multi_line_string_2() {
                     quote: Quote::LiteralMultiline,
                     lit: "'''some unclosed string''",
                     text: Cow::Borrowed("some unclosed string''"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 3 },
                         end: Pos { line: 0, char: 25 },
                     },
                 },
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 25 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 25 }),
+                span: Span::pos(Pos { line: 0, char: 25 }),
             },
         ],
         [Error::MissingQuote(
@@ -681,14 +681,14 @@ fn comment_without_newline() {
         [
             Token {
                 ty: TokenType::Comment(" hello there"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 13 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 0, char: 13 }),
+                span: Span::pos(Pos { line: 0, char: 13 }),
             },
         ],
     )
@@ -701,21 +701,21 @@ fn comment_with_newline() {
         [
             Token {
                 ty: TokenType::Comment(" hello there"),
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 13 },
                 },
             },
             Token {
                 ty: TokenType::Newline,
-                range: Range {
+                span: Span {
                     start: Pos { line: 0, char: 13 },
                     end: Pos { line: 1, char: 0 },
                 },
             },
             Token {
                 ty: TokenType::EOF,
-                range: Range::pos(Pos { line: 1, char: 0 }),
+                span: Span::pos(Pos { line: 1, char: 0 }),
             },
         ],
     )

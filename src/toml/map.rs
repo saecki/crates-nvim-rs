@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::toml::{
-    Ast, BoolVal, Ctx, DateTimeVal, Error, FloatVal, Ident, IntVal, Key, Range, StringVal, Value,
+    Ast, BoolVal, Ctx, DateTimeVal, Error, FloatVal, Ident, IntVal, Key, Span, StringVal, Value,
 };
 
 #[cfg(test)]
@@ -126,7 +126,7 @@ pub enum Scalar<'a> {
     Float(&'a FloatVal<'a>),
     Bool(&'a BoolVal),
     DateTime(&'a DateTimeVal<'a>),
-    Invalid(&'a str, Range),
+    Invalid(&'a str, Span),
 }
 
 impl Ctx {

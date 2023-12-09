@@ -5,7 +5,7 @@ use pretty_assertions::assert_eq;
 use crate::toml::{
     Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, Date, DateTime, DateTimeVal, DottedIdent,
     Error, FloatVal, Ident, IdentKind, InlineArray, InlineArrayValue, InlineTable,
-    InlineTableAssignment, IntVal, Key, Offset, Pos, Quote, Range, StringVal, Table, TableHeader,
+    InlineTableAssignment, IntVal, Key, Offset, Pos, Quote, Span, StringVal, Table, TableHeader,
     Time, Value, Warning,
 };
 
@@ -59,12 +59,12 @@ fn assign_bool() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -72,7 +72,7 @@ fn assign_bool() {
             }),
             eq: Pos { line: 0, char: 4 },
             val: Value::Bool(BoolVal {
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -89,12 +89,12 @@ fn assign_float() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -103,7 +103,7 @@ fn assign_float() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Float(FloatVal {
                 lit: "23.5",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 10 },
                 },
@@ -120,12 +120,12 @@ fn assign_float_with_exp1() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -134,7 +134,7 @@ fn assign_float_with_exp1() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Float(FloatVal {
                 lit: "23.5e+9",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 13 },
                 },
@@ -151,12 +151,12 @@ fn assign_float_with_exp2() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -165,7 +165,7 @@ fn assign_float_with_exp2() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Float(FloatVal {
                 lit: "23.5e-1_2",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 15 },
                 },
@@ -182,12 +182,12 @@ fn float_fractional_part_ends_with_underscore() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -196,7 +196,7 @@ fn float_fractional_part_ends_with_underscore() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Invalid(
                 "23.5_e9",
-                Range {
+                Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 13 },
                 },
@@ -213,12 +213,12 @@ fn int_with_underscore() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -228,7 +228,7 @@ fn int_with_underscore() {
             val: Value::Int(IntVal {
                 val: 1000,
                 lit: "1_000",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -244,12 +244,12 @@ fn invalid_prefixed_int_radix() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -258,7 +258,7 @@ fn invalid_prefixed_int_radix() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Invalid(
                 "0c324",
-                Range {
+                Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -275,12 +275,12 @@ fn prefixed_int_digit_too_big() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -289,7 +289,7 @@ fn prefixed_int_digit_too_big() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Invalid(
                 "0o384",
-                Range {
+                Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -306,12 +306,12 @@ fn prefixed_int_starts_with_underscore() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -320,7 +320,7 @@ fn prefixed_int_starts_with_underscore() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Invalid(
                 "0o_43",
-                Range {
+                Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -337,12 +337,12 @@ fn prefixed_int_ends_with_underscore() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -351,7 +351,7 @@ fn prefixed_int_ends_with_underscore() {
             eq: Pos { line: 0, char: 4 },
             val: Value::Invalid(
                 "0o43_",
-                Range {
+                Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -370,12 +370,12 @@ fn dotted_key() {
                 DottedIdent {
                     ident: Ident {
                         lit: "a",
-                        lit_range: Range {
+                        lit_span: Span {
                             start: Pos { line: 0, char: 0 },
                             end: Pos { line: 0, char: 1 },
                         },
                         text: Cow::Borrowed("a"),
-                        text_range: Range {
+                        text_span: Span {
                             start: Pos { line: 0, char: 0 },
                             end: Pos { line: 0, char: 1 },
                         },
@@ -386,12 +386,12 @@ fn dotted_key() {
                 DottedIdent {
                     ident: Ident {
                         lit: "b",
-                        lit_range: Range {
+                        lit_span: Span {
                             start: Pos { line: 0, char: 2 },
                             end: Pos { line: 0, char: 3 },
                         },
                         text: Cow::Borrowed("b"),
-                        text_range: Range {
+                        text_span: Span {
                             start: Pos { line: 0, char: 2 },
                             end: Pos { line: 0, char: 3 },
                         },
@@ -402,12 +402,12 @@ fn dotted_key() {
                 DottedIdent {
                     ident: Ident {
                         lit: "c",
-                        lit_range: Range {
+                        lit_span: Span {
                             start: Pos { line: 0, char: 4 },
                             end: Pos { line: 0, char: 5 },
                         },
                         text: Cow::Borrowed("c"),
-                        text_range: Range {
+                        text_span: Span {
                             start: Pos { line: 0, char: 4 },
                             end: Pos { line: 0, char: 5 },
                         },
@@ -418,7 +418,7 @@ fn dotted_key() {
             ]),
             eq: Pos { line: 0, char: 6 },
             val: Value::Bool(BoolVal {
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 8 },
                     end: Pos { line: 0, char: 13 },
                 },
@@ -435,12 +435,12 @@ fn int_identifier() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "123",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("123"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -448,7 +448,7 @@ fn int_identifier() {
             }),
             eq: Pos { line: 0, char: 4 },
             val: Value::Bool(BoolVal {
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -465,12 +465,12 @@ fn invalid_int_identifier() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "+99",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("+99"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -478,7 +478,7 @@ fn invalid_int_identifier() {
             }),
             eq: Pos { line: 0, char: 4 },
             val: Value::Bool(BoolVal {
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 11 },
                 },
@@ -496,12 +496,12 @@ fn invalid_float_literal_as_identifier() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "23e+3",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
                 text: Cow::Borrowed("23e+3"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
@@ -510,12 +510,12 @@ fn invalid_float_literal_as_identifier() {
             eq: Pos { line: 0, char: 6 },
             val: Value::String(StringVal {
                 lit: "'hello'",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 8 },
                     end: Pos { line: 0, char: 15 },
                 },
                 text: Cow::Borrowed("hello"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 14 },
                 },
@@ -533,12 +533,12 @@ fn inline_array() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "array",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
                 text: Cow::Borrowed("array"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
@@ -551,7 +551,7 @@ fn inline_array() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "0",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 9 },
                                 end: Pos { line: 0, char: 10 },
                             },
@@ -562,7 +562,7 @@ fn inline_array() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "1",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 12 },
                                 end: Pos { line: 0, char: 13 },
                             },
@@ -573,7 +573,7 @@ fn inline_array() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "2",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 15 },
                                 end: Pos { line: 0, char: 16 },
                             },
@@ -595,12 +595,12 @@ fn inline_array_recover_comma() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "array",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
                 text: Cow::Borrowed("array"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
@@ -613,7 +613,7 @@ fn inline_array_recover_comma() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "0",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 9 },
                                 end: Pos { line: 0, char: 10 },
                             },
@@ -624,7 +624,7 @@ fn inline_array_recover_comma() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "1",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 12 },
                                 end: Pos { line: 0, char: 13 },
                             },
@@ -635,7 +635,7 @@ fn inline_array_recover_comma() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "2",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 15 },
                                 end: Pos { line: 0, char: 16 },
                             },
@@ -658,12 +658,12 @@ fn inline_array_recover_invalid() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "array",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
                 text: Cow::Borrowed("array"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
@@ -676,7 +676,7 @@ fn inline_array_recover_invalid() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "0",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 9 },
                                 end: Pos { line: 0, char: 10 },
                             },
@@ -687,7 +687,7 @@ fn inline_array_recover_invalid() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "1",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 12 },
                                 end: Pos { line: 0, char: 13 },
                             },
@@ -698,7 +698,7 @@ fn inline_array_recover_invalid() {
                     InlineArrayValue {
                         val: Value::Int(IntVal {
                             lit: "2",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 15 },
                                 end: Pos { line: 0, char: 16 },
                             },
@@ -712,7 +712,7 @@ fn inline_array_recover_invalid() {
         })],
         Error::ExpectedValueFound(
             "=".into(),
-            Range {
+            Span {
                 start: Pos { line: 0, char: 18 },
                 end: Pos { line: 0, char: 19 },
             },
@@ -727,12 +727,12 @@ fn inline_table() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "table",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
                 text: Cow::Borrowed("table"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
@@ -745,12 +745,12 @@ fn inline_table() {
                     InlineTableAssignment {
                         key: Key::One(Ident {
                             lit: "a",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 10 },
                                 end: Pos { line: 0, char: 11 },
                             },
                             text: Cow::Borrowed("a"),
-                            text_range: Range {
+                            text_span: Span {
                                 start: Pos { line: 0, char: 10 },
                                 end: Pos { line: 0, char: 11 },
                             },
@@ -759,7 +759,7 @@ fn inline_table() {
                         eq: Pos { line: 0, char: 12 },
                         val: Value::Int(IntVal {
                             lit: "3",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 14 },
                                 end: Pos { line: 0, char: 15 },
                             },
@@ -770,12 +770,12 @@ fn inline_table() {
                     InlineTableAssignment {
                         key: Key::One(Ident {
                             lit: "b",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 17 },
                                 end: Pos { line: 0, char: 18 },
                             },
                             text: Cow::Borrowed("b"),
-                            text_range: Range {
+                            text_span: Span {
                                 start: Pos { line: 0, char: 17 },
                                 end: Pos { line: 0, char: 18 },
                             },
@@ -783,7 +783,7 @@ fn inline_table() {
                         }),
                         eq: Pos { line: 0, char: 19 },
                         val: Value::Bool(BoolVal {
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 21 },
                                 end: Pos { line: 0, char: 25 },
                             },
@@ -805,12 +805,12 @@ fn inline_table_recover_missing_comma() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "table",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
                 text: Cow::Borrowed("table"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
@@ -823,12 +823,12 @@ fn inline_table_recover_missing_comma() {
                     InlineTableAssignment {
                         key: Key::One(Ident {
                             lit: "a",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 10 },
                                 end: Pos { line: 0, char: 11 },
                             },
                             text: Cow::Borrowed("a"),
-                            text_range: Range {
+                            text_span: Span {
                                 start: Pos { line: 0, char: 10 },
                                 end: Pos { line: 0, char: 11 },
                             },
@@ -837,7 +837,7 @@ fn inline_table_recover_missing_comma() {
                         eq: Pos { line: 0, char: 12 },
                         val: Value::Int(IntVal {
                             lit: "3",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 14 },
                                 end: Pos { line: 0, char: 15 },
                             },
@@ -848,12 +848,12 @@ fn inline_table_recover_missing_comma() {
                     InlineTableAssignment {
                         key: Key::One(Ident {
                             lit: "b",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 17 },
                                 end: Pos { line: 0, char: 18 },
                             },
                             text: Cow::Borrowed("b"),
-                            text_range: Range {
+                            text_span: Span {
                                 start: Pos { line: 0, char: 17 },
                                 end: Pos { line: 0, char: 18 },
                             },
@@ -861,7 +861,7 @@ fn inline_table_recover_missing_comma() {
                         }),
                         eq: Pos { line: 0, char: 19 },
                         val: Value::Bool(BoolVal {
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 21 },
                                 end: Pos { line: 0, char: 25 },
                             },
@@ -884,12 +884,12 @@ fn inline_table_recover_invalid() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "table",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
                 text: Cow::Borrowed("table"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
@@ -902,12 +902,12 @@ fn inline_table_recover_invalid() {
                     InlineTableAssignment {
                         key: Key::One(Ident {
                             lit: "a",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 10 },
                                 end: Pos { line: 0, char: 11 },
                             },
                             text: Cow::Borrowed("a"),
-                            text_range: Range {
+                            text_span: Span {
                                 start: Pos { line: 0, char: 10 },
                                 end: Pos { line: 0, char: 11 },
                             },
@@ -916,7 +916,7 @@ fn inline_table_recover_invalid() {
                         eq: Pos { line: 0, char: 12 },
                         val: Value::Int(IntVal {
                             lit: "3",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 14 },
                                 end: Pos { line: 0, char: 15 },
                             },
@@ -927,12 +927,12 @@ fn inline_table_recover_invalid() {
                     InlineTableAssignment {
                         key: Key::One(Ident {
                             lit: "b",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 17 },
                                 end: Pos { line: 0, char: 18 },
                             },
                             text: Cow::Borrowed("b"),
-                            text_range: Range {
+                            text_span: Span {
                                 start: Pos { line: 0, char: 17 },
                                 end: Pos { line: 0, char: 18 },
                             },
@@ -940,7 +940,7 @@ fn inline_table_recover_invalid() {
                         }),
                         eq: Pos { line: 0, char: 19 },
                         val: Value::Bool(BoolVal {
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 21 },
                                 end: Pos { line: 0, char: 25 },
                             },
@@ -954,7 +954,7 @@ fn inline_table_recover_invalid() {
         })],
         Error::ExpectedKeyFound(
             "=".into(),
-            Range {
+            Span {
                 start: Pos { line: 0, char: 27 },
                 end: Pos { line: 0, char: 28 },
             },
@@ -971,12 +971,12 @@ fn table_header() {
                 l_par: Pos { line: 0, char: 0 },
                 key: Some(Key::One(Ident {
                     lit: "my_table",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
                     },
                     text: Cow::Borrowed("my_table"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
                     },
@@ -987,12 +987,12 @@ fn table_header() {
             assignments: vec![Assignment {
                 key: Key::One(Ident {
                     lit: "entry",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
                     },
                     text: Cow::Borrowed("entry"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
                     },
@@ -1000,7 +1000,7 @@ fn table_header() {
                 }),
                 eq: Pos { line: 1, char: 6 },
                 val: Value::Bool(BoolVal {
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 1, char: 8 },
                         end: Pos { line: 1, char: 13 },
                     },
@@ -1020,12 +1020,12 @@ fn array_header() {
                 l_pars: (Pos { line: 0, char: 0 }, Pos { line: 0, char: 1 }),
                 key: Some(Key::One(Ident {
                     lit: "my_array",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 2 },
                         end: Pos { line: 0, char: 10 },
                     },
                     text: Cow::Borrowed("my_array"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 2 },
                         end: Pos { line: 0, char: 10 },
                     },
@@ -1039,12 +1039,12 @@ fn array_header() {
             assignments: vec![Assignment {
                 key: Key::One(Ident {
                     lit: "entry",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
                     },
                     text: Cow::Borrowed("entry"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
                     },
@@ -1052,7 +1052,7 @@ fn array_header() {
                 }),
                 eq: Pos { line: 1, char: 6 },
                 val: Value::Bool(BoolVal {
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 1, char: 8 },
                         end: Pos { line: 1, char: 13 },
                     },
@@ -1072,12 +1072,12 @@ fn newline_is_required_after_table_header() {
                 l_par: Pos { line: 0, char: 0 },
                 key: Some(Key::One(Ident {
                     lit: "my_table",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
                     },
                     text: Cow::Borrowed("my_table"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
                     },
@@ -1088,12 +1088,12 @@ fn newline_is_required_after_table_header() {
             assignments: vec![Assignment {
                 key: Key::One(Ident {
                     lit: "entry",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 15 },
                     },
                     text: Cow::Borrowed("entry"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 15 },
                     },
@@ -1101,7 +1101,7 @@ fn newline_is_required_after_table_header() {
                 }),
                 eq: Pos { line: 0, char: 16 },
                 val: Value::Bool(BoolVal {
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 18 },
                         end: Pos { line: 0, char: 23 },
                     },
@@ -1121,12 +1121,12 @@ fn newline_is_required_after_assignment() {
             Ast::Assignment(Assignment {
                 key: Key::One(Ident {
                     lit: "a",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 0 },
                         end: Pos { line: 0, char: 1 },
                     },
                     text: Cow::Borrowed("a"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 0 },
                         end: Pos { line: 0, char: 1 },
                     },
@@ -1134,7 +1134,7 @@ fn newline_is_required_after_assignment() {
                 }),
                 eq: Pos { line: 0, char: 2 },
                 val: Value::Bool(BoolVal {
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 4 },
                         end: Pos { line: 0, char: 9 },
                     },
@@ -1144,12 +1144,12 @@ fn newline_is_required_after_assignment() {
             Ast::Assignment(Assignment {
                 key: Key::One(Ident {
                     lit: "b",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 11 },
                     },
                     text: Cow::Borrowed("b"),
-                    text_range: Range {
+                    text_span: Span {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 11 },
                     },
@@ -1158,7 +1158,7 @@ fn newline_is_required_after_assignment() {
                 eq: Pos { line: 0, char: 12 },
                 val: Value::Int(IntVal {
                     lit: "87",
-                    lit_range: Range {
+                    lit_span: Span {
                         start: Pos { line: 0, char: 14 },
                         end: Pos { line: 0, char: 16 },
                     },
@@ -1177,12 +1177,12 @@ fn offset_date_time_with_subsec() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -1191,7 +1191,7 @@ fn offset_date_time_with_subsec() {
             eq: Pos { line: 0, char: 4 },
             val: Value::DateTime(DateTimeVal {
                 lit: "2023-12-05T10:11:12.3324243-04:30",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 39 },
                 },
@@ -1212,12 +1212,12 @@ fn offset_date_time_without_subsec() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -1226,7 +1226,7 @@ fn offset_date_time_without_subsec() {
             eq: Pos { line: 0, char: 4 },
             val: Value::DateTime(DateTimeVal {
                 lit: "2023-12-05T10:11:12+04:30",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 31 },
                 },
@@ -1247,12 +1247,12 @@ fn offset_date_time_with_z_suffix() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -1261,7 +1261,7 @@ fn offset_date_time_with_z_suffix() {
             eq: Pos { line: 0, char: 4 },
             val: Value::DateTime(DateTimeVal {
                 lit: "2023-12-05T10:11:12Z",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 26 },
                 },
@@ -1282,12 +1282,12 @@ fn space_separated_time() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -1296,7 +1296,7 @@ fn space_separated_time() {
             eq: Pos { line: 0, char: 4 },
             val: Value::DateTime(DateTimeVal {
                 lit: "2023-12-05 10:11:12",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 25 },
                 },
@@ -1313,12 +1313,12 @@ fn local_date() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -1327,7 +1327,7 @@ fn local_date() {
             eq: Pos { line: 0, char: 4 },
             val: Value::DateTime(DateTimeVal {
                 lit: "2023-12-05",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 16 },
                 },
@@ -1344,12 +1344,12 @@ fn local_time() {
         [Ast::Assignment(Assignment {
             key: Key::One(Ident {
                 lit: "abc",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
                 text: Cow::Borrowed("abc"),
-                text_range: Range {
+                text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
@@ -1358,7 +1358,7 @@ fn local_time() {
             eq: Pos { line: 0, char: 4 },
             val: Value::DateTime(DateTimeVal {
                 lit: "10:11:12",
-                lit_range: Range {
+                lit_span: Span {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 14 },
                 },

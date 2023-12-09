@@ -1,20 +1,20 @@
-use crate::toml::{Pos, Quote, Range};
+use crate::toml::{Pos, Quote, Span};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     MissingQuote(Quote, Pos),
-    InvalidLiteral(String, Range),
+    InvalidLiteral(String, Span),
     InvalidEscapeChar(char, Pos),
     InvalidUnicodeEscapeChar(char, Pos),
-    InvalidUnicodeScalar(u32, Range),
+    InvalidUnicodeScalar(u32, Span),
     InvalidCharInIdentifier(char, Pos),
-    UnfinishedEscapeSequence(Range),
+    UnfinishedEscapeSequence(Span),
 
-    ExpectedEqFound(String, Range),
-    ExpectedRightCurlyFound(String, Range),
-    ExpectedRightSquareFound(String, Range),
-    ExpectedKeyFound(String, Range),
-    ExpectedValueFound(String, Range),
+    ExpectedEqFound(String, Span),
+    ExpectedRightCurlyFound(String, Span),
+    ExpectedRightSquareFound(String, Span),
+    ExpectedKeyFound(String, Span),
+    ExpectedValueFound(String, Span),
     ExpectedComma(Pos),
     ExpectedNewline(Pos),
 
@@ -31,24 +31,24 @@ pub enum Error {
     FloatExponentStartsWithUnderscore(Pos),
     FloatExponentEndsWithUnderscore(Pos),
     InvalidCharInFloatExponent(char, Pos),
-    FloatLiteralOverflow(Range),
+    FloatLiteralOverflow(Span),
 
     EmptyPrefixedIntValue(Pos),
     PrefixedIntValueStartsWithUnderscore(Pos),
     PrefixedIntValueEndsWithUnderscore(Pos),
     InvalidCharInPrefixedInt(char, Pos),
     IntDigitTooBig(u8, char, Pos),
-    IntLiteralOverflow(Range),
+    IntLiteralOverflow(Span),
 
     InvalidCharInDateTime(char, Pos),
     DateTimeExpectedCharFound(char, char, Pos),
     DateTimeMissingChar(char, Pos),
     DateTimeIncomplete(DateTimeField, Pos),
     DateTimeMissing(DateTimeField, Pos),
-    DateTimeOutOfBounds(DateTimeField, u8, Range),
+    DateTimeOutOfBounds(DateTimeField, u8, Span),
     DateTimeMissingSubsec(Pos),
     LocalDateTimeOffset(Pos),
-    DateAndTimeTooFarApart(Range),
+    DateAndTimeTooFarApart(Span),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

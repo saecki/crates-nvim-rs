@@ -12,7 +12,7 @@ mod test;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Token<'a> {
     pub ty: TokenType<'a>,
-    pub range: Range,
+    pub span: Span,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -23,8 +23,8 @@ pub enum TokenType<'a> {
         lit: &'a str,
         /// The text with escape sequences evaluated
         text: Cow<'a, str>,
-        /// The range of the text without quotes
-        text_range: Range,
+        /// The span of the text without quotes
+        text_span: Span,
     },
     LiteralOrIdent(&'a str),
     /// Contains all the text following a `#` excluding the next newline.
@@ -59,14 +59,13 @@ impl std::fmt::Display for TokenType<'_> {
     }
 }
 
-// TODO: rename to Span
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Range {
+pub struct Span {
     pub start: Pos,
     pub end: Pos,
 }
 
-impl Range {
+impl Span {
     pub fn pos(pos: Pos) -> Self {
         Self {
             start: pos,
@@ -255,7 +254,7 @@ impl Ctx {
                                 unicode.cp += (c as u32 - 'A' as u32 + 10) << offset;
                             }
                             '\n' => {
-                                self.errors.push(Error::UnfinishedEscapeSequence(Range {
+                                self.errors.push(Error::UnfinishedEscapeSequence(Span {
                                     start: esc.start,
                                     end: lexer.pos.after(c),
                                 }));
@@ -320,7 +319,7 @@ impl Ctx {
                                 Some(char) => str.push_char(char),
                                 None => self.errors.push(Error::InvalidUnicodeScalar(
                                     unicode.cp,
-                                    Range {
+                                    Span {
                                         start: esc.start,
                                         end: lexer.pos.after(c),
                                     },
@@ -444,12 +443,12 @@ impl Ctx {
                             quote = Quote::BasicMultiline;
                         } else {
                             // It's just an empty string
-                            let text_range = Range {
+                            let text_span = Span {
                                 start: lexer.pos,
                                 end: lexer.pos,
                             };
                             let token = Token {
-                                range: Range {
+                                span: Span {
                                     start: lit_start,
                                     end: Pos {
                                         line: lit_start.line,
@@ -460,7 +459,7 @@ impl Ctx {
                                     quote,
                                     lit: &input[ci..ci + 2],
                                     text: Cow::Borrowed(&input[ci + 1..ci + 1]),
-                                    text_range,
+                                    text_span,
                                 },
                             };
                             lexer.tokens.push(token);
@@ -498,12 +497,9 @@ impl Ctx {
                             quote = Quote::LiteralMultiline;
                         } else {
                             // It's just an empty string
-                            let text_range = Range {
-                                start: lexer.pos,
-                                end: lexer.pos,
-                            };
+                            let text_span = Span::pos(lexer.pos);
                             let token = Token {
-                                range: Range {
+                                span: Span {
                                     start: lit_start,
                                     end: Pos {
                                         line: lit_start.line,
@@ -514,7 +510,7 @@ impl Ctx {
                                     quote,
                                     lit: &input[ci..ci + 2],
                                     text: Cow::Borrowed(&input[ci + 1..ci + 1]),
-                                    text_range,
+                                    text_span,
                                 },
                             };
                             lexer.tokens.push(token);
@@ -551,7 +547,7 @@ impl Ctx {
         lexer.pos.char = (end - lexer.line_start) as u32;
         if let Some(str) = &mut lexer.str {
             if let Some(esc) = &mut str.esc {
-                self.errors.push(Error::UnfinishedEscapeSequence(Range {
+                self.errors.push(Error::UnfinishedEscapeSequence(Span {
                     start: esc.start,
                     end: lexer.pos,
                 }));
@@ -566,7 +562,7 @@ impl Ctx {
 
         lexer.tokens.push(Token {
             ty: TokenType::EOF,
-            range: Range::pos(lexer.pos),
+            span: Span::pos(lexer.pos),
         });
 
         lexer.tokens
@@ -586,13 +582,13 @@ impl Ctx {
         }
         let lit = &lexer.input[lexer.lit_byte_start..lit_end];
 
-        let range = Range {
+        let span = Span {
             start: lexer.lit_start,
             end: lexer.pos,
         };
 
         let ty = TokenType::LiteralOrIdent(lit);
-        let token = Token { range, ty };
+        let token = Token { span, ty };
         lexer.tokens.push(token);
 
         lexer.in_lit = false;
@@ -613,14 +609,14 @@ impl Ctx {
             None => Cow::Borrowed(&lexer.input[str.text_byte_start..text_byte_end]),
         };
 
-        let lit_range = Range {
+        let lit_span = Span {
             start: lexer.lit_start,
             end: Pos {
                 line: lexer.pos.line,
                 char: (lit_byte_end - lexer.line_start) as u32,
             },
         };
-        let text_range = Range {
+        let text_span = Span {
             start: str.text_start,
             end: Pos {
                 line: lexer.pos.line,
@@ -628,12 +624,12 @@ impl Ctx {
             },
         };
         let token = Token {
-            range: lit_range,
+            span: lit_span,
             ty: TokenType::String {
                 quote,
                 lit,
                 text,
-                text_range,
+                text_span,
             },
         };
         lexer.tokens.push(token);
@@ -646,7 +642,7 @@ impl Ctx {
         self.finish_literal(lexer, char_index);
 
         lexer.tokens.push(Token {
-            range: Range::ascii_char(lexer.pos),
+            span: Span::ascii_char(lexer.pos),
             ty,
         });
     }
@@ -655,7 +651,7 @@ impl Ctx {
         self.finish_literal(lexer, char_index);
 
         lexer.tokens.push(Token {
-            range: Range {
+            span: Span {
                 start: lexer.pos,
                 end: Pos {
                     line: lexer.pos.line + 1,
@@ -687,7 +683,7 @@ impl Ctx {
         let text = &lexer.input[text_start..text_end];
         let end_pos = lexer.pos.plus(1 + text.len() as u32);
         lexer.tokens.push(Token {
-            range: Range {
+            span: Span {
                 start: lexer.pos,
                 end: end_pos,
             },

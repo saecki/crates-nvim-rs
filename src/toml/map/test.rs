@@ -4,7 +4,7 @@ use pretty_assertions::assert_eq;
 
 use crate::toml::{
     ArrayKind, BoolVal, Ctx, Error, FloatVal, IntVal, MapArray, MapEntry, MapTable, Pos, Quote,
-    Range, Scalar, StringVal, TableKind, Warning,
+    Span, Scalar, StringVal, TableKind, Warning,
 };
 
 fn check(input: &str, expected: MapTable) {
@@ -39,7 +39,7 @@ fn dotted_key() {
                                 "c",
                                 MapEntry::Scalar(Scalar::Int(&IntVal {
                                     lit: "1",
-                                    lit_range: Range {
+                                    lit_span: Span {
                                         start: Pos { line: 0, char: 8 },
                                         end: Pos { line: 0, char: 9 },
                                     },
@@ -73,7 +73,7 @@ fn dotted_keys_extend() {
                                     "c",
                                     MapEntry::Scalar(Scalar::Int(&IntVal {
                                         lit: "1",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 0, char: 8 },
                                             end: Pos { line: 0, char: 9 },
                                         },
@@ -84,7 +84,7 @@ fn dotted_keys_extend() {
                                     "d",
                                     MapEntry::Scalar(Scalar::Int(&IntVal {
                                         lit: "2",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 1, char: 8 },
                                             end: Pos { line: 1, char: 9 },
                                         },
@@ -114,7 +114,7 @@ fn table() {
                         (
                             "abc",
                             MapEntry::Scalar(Scalar::Bool(&BoolVal {
-                                lit_range: Range {
+                                lit_span: Span {
                                     start: Pos { line: 1, char: 6 },
                                     end: Pos { line: 1, char: 10 },
                                 },
@@ -125,7 +125,7 @@ fn table() {
                             "def",
                             MapEntry::Scalar(Scalar::Float(&FloatVal {
                                 lit: "23.0",
-                                lit_range: Range {
+                                lit_span: Span {
                                     start: Pos { line: 2, char: 6 },
                                     end: Pos { line: 2, char: 10 },
                                 },
@@ -152,7 +152,7 @@ fn inline_array() {
                     [
                         MapEntry::Scalar(Scalar::Int(&IntVal {
                             lit: "1",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 9 },
                                 end: Pos { line: 0, char: 10 },
                             },
@@ -160,7 +160,7 @@ fn inline_array() {
                         })),
                         MapEntry::Scalar(Scalar::Int(&IntVal {
                             lit: "2",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 12 },
                                 end: Pos { line: 0, char: 13 },
                             },
@@ -168,7 +168,7 @@ fn inline_array() {
                         })),
                         MapEntry::Scalar(Scalar::Int(&IntVal {
                             lit: "4",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 15 },
                                 end: Pos { line: 0, char: 16 },
                             },
@@ -176,7 +176,7 @@ fn inline_array() {
                         })),
                         MapEntry::Scalar(Scalar::Int(&IntVal {
                             lit: "8",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 18 },
                                 end: Pos { line: 0, char: 19 },
                             },
@@ -184,7 +184,7 @@ fn inline_array() {
                         })),
                         MapEntry::Scalar(Scalar::Int(&IntVal {
                             lit: "16",
-                            lit_range: Range {
+                            lit_span: Span {
                                 start: Pos { line: 0, char: 21 },
                                 end: Pos { line: 0, char: 23 },
                             },
@@ -227,12 +227,12 @@ symbol = '£'
                                     "name",
                                     MapEntry::Scalar(Scalar::String(&StringVal {
                                         lit: "'Euro'",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 1, char: 7 },
                                             end: Pos { line: 1, char: 13 },
                                         },
                                         text: Cow::Borrowed("Euro"),
-                                        text_range: Range {
+                                        text_span: Span {
                                             start: Pos { line: 1, char: 8 },
                                             end: Pos { line: 1, char: 12 },
                                         },
@@ -243,12 +243,12 @@ symbol = '£'
                                     "symbol",
                                     MapEntry::Scalar(Scalar::String(&StringVal {
                                         lit: "'€'",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 2, char: 9 },
                                             end: Pos { line: 2, char: 14 },
                                         },
                                         text: Cow::Borrowed("€"),
-                                        text_range: Range {
+                                        text_span: Span {
                                             start: Pos { line: 2, char: 10 },
                                             end: Pos { line: 2, char: 13 },
                                         },
@@ -264,12 +264,12 @@ symbol = '£'
                                     "name",
                                     MapEntry::Scalar(Scalar::String(&StringVal {
                                         lit: "'Dollar'",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 5, char: 7 },
                                             end: Pos { line: 5, char: 15 },
                                         },
                                         text: Cow::Borrowed("Dollar"),
-                                        text_range: Range {
+                                        text_span: Span {
                                             start: Pos { line: 5, char: 8 },
                                             end: Pos { line: 5, char: 14 },
                                         },
@@ -280,12 +280,12 @@ symbol = '£'
                                     "symbol",
                                     MapEntry::Scalar(Scalar::String(&StringVal {
                                         lit: "'$'",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 6, char: 9 },
                                             end: Pos { line: 6, char: 12 },
                                         },
                                         text: Cow::Borrowed("$"),
-                                        text_range: Range {
+                                        text_span: Span {
                                             start: Pos { line: 6, char: 10 },
                                             end: Pos { line: 6, char: 11 },
                                         },
@@ -301,12 +301,12 @@ symbol = '£'
                                     "name",
                                     MapEntry::Scalar(Scalar::String(&StringVal {
                                         lit: "'Pound'",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 9, char: 7 },
                                             end: Pos { line: 9, char: 14 },
                                         },
                                         text: Cow::Borrowed("Pound"),
-                                        text_range: Range {
+                                        text_span: Span {
                                             start: Pos { line: 9, char: 8 },
                                             end: Pos { line: 9, char: 13 },
                                         },
@@ -317,12 +317,12 @@ symbol = '£'
                                     "symbol",
                                     MapEntry::Scalar(Scalar::String(&StringVal {
                                         lit: "'£'",
-                                        lit_range: Range {
+                                        lit_span: Span {
                                             start: Pos { line: 10, char: 9 },
                                             end: Pos { line: 10, char: 13 },
                                         },
                                         text: Cow::Borrowed("£"),
-                                        text_range: Range {
+                                        text_span: Span {
                                             start: Pos { line: 10, char: 10 },
                                             end: Pos { line: 10, char: 12 },
                                         },

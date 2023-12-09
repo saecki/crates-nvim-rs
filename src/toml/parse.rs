@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::toml::{Ctx, Error, Pos, Quote, Range, Token, TokenType};
+use crate::toml::{Ctx, Error, Pos, Quote, Span, Token, TokenType};
 pub use datetime::{Date, DateTime, Offset, Time};
 
 mod datetime;
@@ -53,10 +53,7 @@ impl<'a> Parser<'a> {
         let t = self.peek();
         match &t.ty {
             TokenType::Comment(text) => {
-                let c = Comment {
-                    range: t.range,
-                    text,
-                };
+                let c = Comment { span: t.span, text };
                 self.next();
                 Some(c)
             }
@@ -69,10 +66,7 @@ impl<'a> Parser<'a> {
             let t = self.peek();
             match &t.ty {
                 TokenType::Comment(text) => {
-                    let c = Comment {
-                        range: t.range,
-                        text,
-                    };
+                    let c = Comment { span: t.span, text };
                     self.next();
                     return Some(c);
                 }
@@ -139,14 +133,14 @@ pub struct DottedIdent<'a> {
 }
 
 impl Key<'_> {
-    pub fn range(&self) -> Range {
+    pub fn span(&self) -> Span {
         match self {
-            Key::One(i) => i.lit_range,
+            Key::One(i) => i.lit_span,
             Key::Dotted(idents) => {
-                let start = idents.first().unwrap().ident.lit_range.start;
+                let start = idents.first().unwrap().ident.lit_span.start;
                 let last = idents.last().unwrap();
-                let end = last.dot.map_or(last.ident.lit_range.end, |p| p.plus(1));
-                Range { start, end }
+                let end = last.dot.map_or(last.ident.lit_span.end, |p| p.plus(1));
+                Span { start, end }
             }
         }
     }
@@ -155,19 +149,19 @@ impl Key<'_> {
 #[derive(Debug, PartialEq)]
 pub struct Ident<'a> {
     pub lit: &'a str,
-    pub lit_range: Range,
+    pub lit_span: Span,
     pub text: Cow<'a, str>,
-    pub text_range: Range,
+    pub text_span: Span,
     pub kind: IdentKind,
 }
 
 impl<'a> Ident<'a> {
-    fn from_plain_lit(lit: &'a str, range: Range) -> Self {
+    fn from_plain_lit(lit: &'a str, span: Span) -> Self {
         Ident {
             lit,
-            lit_range: range,
+            lit_span: span,
             text: Cow::Borrowed(lit),
-            text_range: range,
+            text_span: span,
             kind: IdentKind::Plain,
         }
     }
@@ -188,19 +182,19 @@ pub enum Value<'a> {
     DateTime(DateTimeVal<'a>),
     InlineTable(InlineTable<'a>),
     InlineArray(InlineArray<'a>),
-    Invalid(&'a str, Range),
+    Invalid(&'a str, Span),
 }
 
 impl Value<'_> {
-    pub fn range(&self) -> Range {
+    pub fn span(&self) -> Span {
         match self {
-            Value::String(s) => s.lit_range,
-            Value::Int(i) => i.lit_range,
-            Value::Float(f) => f.lit_range,
-            Value::Bool(b) => b.lit_range,
-            Value::DateTime(d) => d.lit_range,
-            Value::InlineTable(t) => t.range(),
-            Value::InlineArray(a) => a.range(),
+            Value::String(s) => s.lit_span,
+            Value::Int(i) => i.lit_span,
+            Value::Float(f) => f.lit_span,
+            Value::Bool(b) => b.lit_span,
+            Value::DateTime(d) => d.lit_span,
+            Value::InlineTable(t) => t.span(),
+            Value::InlineArray(a) => a.span(),
             Value::Invalid(_, r) => *r,
         }
     }
@@ -209,72 +203,60 @@ impl Value<'_> {
 #[derive(Debug, PartialEq)]
 pub struct StringVal<'a> {
     pub lit: &'a str,
-    pub lit_range: Range,
+    pub lit_span: Span,
     pub text: Cow<'a, str>,
-    pub text_range: Range,
+    pub text_span: Span,
     pub quote: Quote,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct IntVal<'a> {
     pub lit: &'a str,
-    pub lit_range: Range,
+    pub lit_span: Span,
     pub val: i64,
 }
 
 impl<'a> IntVal<'a> {
-    pub fn new(lit: &'a str, lit_range: Range, val: i64) -> Self {
-        Self {
-            lit,
-            lit_range,
-            val,
-        }
+    pub fn new(lit: &'a str, lit_span: Span, val: i64) -> Self {
+        Self { lit, lit_span, val }
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct FloatVal<'a> {
     pub lit: &'a str,
-    pub lit_range: Range,
+    pub lit_span: Span,
     pub val: f64,
 }
 
 impl<'a> FloatVal<'a> {
-    pub fn new(lit: &'a str, lit_range: Range, val: f64) -> Self {
-        Self {
-            lit,
-            lit_range,
-            val,
-        }
+    pub fn new(lit: &'a str, lit_span: Span, val: f64) -> Self {
+        Self { lit, lit_span, val }
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct BoolVal {
-    pub lit_range: Range,
+    pub lit_span: Span,
     pub val: bool,
 }
 
 impl BoolVal {
-    pub fn new(lit_range: Range, val: bool) -> Self {
-        Self { lit_range, val }
+    pub fn new(lit_span: Span, val: bool) -> Self {
+        Self { lit_span, val }
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct DateTimeVal<'a> {
     pub lit: &'a str,
-    pub lit_range: Range,
+    pub lit_span: Span,
     pub val: DateTime,
 }
 
 impl<'a> DateTimeVal<'a> {
-    pub fn new(lit: &'a str, lit_range: Range, val: DateTime) -> Self {
-        Self {
-            lit,
-            lit_range,
-            val,
-        }
+    pub fn new(lit: &'a str, lit_span: Span, val: DateTime) -> Self {
+        Self { lit, lit_span, val }
     }
 }
 
@@ -286,13 +268,13 @@ pub struct InlineTable<'a> {
 }
 
 impl InlineTable<'_> {
-    pub fn range(&self) -> Range {
+    pub fn span(&self) -> Span {
         let start = self.l_par;
         let end = self
             .r_par
-            .or_else(|| self.assignments.last().map(|a| a.range().end))
+            .or_else(|| self.assignments.last().map(|a| a.span().end))
             .unwrap_or_else(|| self.l_par.plus(1));
-        Range { start, end }
+        Span { start, end }
     }
 }
 
@@ -305,13 +287,13 @@ pub struct InlineTableAssignment<'a> {
 }
 
 impl InlineTableAssignment<'_> {
-    pub fn range(&self) -> Range {
-        let start = self.key.range().start;
+    pub fn span(&self) -> Span {
+        let start = self.key.span().start;
         let end = self
             .comma
             .map(|c| c.plus(1))
-            .unwrap_or_else(|| self.val.range().end);
-        Range { start, end }
+            .unwrap_or_else(|| self.val.span().end);
+        Span { start, end }
     }
 }
 
@@ -323,13 +305,13 @@ pub struct InlineArray<'a> {
 }
 
 impl InlineArray<'_> {
-    pub fn range(&self) -> Range {
+    pub fn span(&self) -> Span {
         let start = self.l_par;
         let end = self
             .r_par
-            .or_else(|| self.values.last().map(|a| a.range().end))
+            .or_else(|| self.values.last().map(|a| a.span().end))
             .unwrap_or_else(|| self.l_par.plus(1));
-        Range { start, end }
+        Span { start, end }
     }
 }
 
@@ -340,19 +322,19 @@ pub struct InlineArrayValue<'a> {
 }
 
 impl InlineArrayValue<'_> {
-    pub fn range(&self) -> Range {
-        let start = self.val.range().start;
+    pub fn span(&self) -> Span {
+        let start = self.val.span().start;
         let end = self
             .comma
             .map(|c| c.plus(1))
-            .unwrap_or_else(|| self.val.range().end);
-        Range { start, end }
+            .unwrap_or_else(|| self.val.span().end);
+        Span { start, end }
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Comment<'a> {
-    pub range: Range,
+    pub span: Span,
     pub text: &'a str,
 }
 
@@ -390,7 +372,7 @@ impl Ctx {
                     }
                     t if t.ty == TokenType::EOF => break 'root,
                     t => {
-                        self.errors.push(Error::ExpectedNewline(t.range.start));
+                        self.errors.push(Error::ExpectedNewline(t.span.start));
                     }
                 }
 
@@ -400,11 +382,11 @@ impl Ctx {
             let token = parser.peek();
             match token.ty {
                 TokenType::SquareLeft => {
-                    let l_table_square = token.range;
+                    let l_table_square = token.span;
                     parser.next();
 
                     let l_array_square = match parser.peek() {
-                        t if t.ty == TokenType::SquareLeft => Some(parser.next().range),
+                        t if t.ty == TokenType::SquareLeft => Some(parser.next().span),
                         _ => None,
                     };
 
@@ -427,19 +409,19 @@ impl Ctx {
                     };
 
                     let r_array_square = l_array_square.and_then(|_| match parser.peek() {
-                        t if t.ty == TokenType::SquareRight => Some(parser.next().range.start),
+                        t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                         t => {
                             self.errors
-                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.range));
+                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.span));
                             None
                         }
                     });
 
                     let r_table_square = match parser.peek() {
-                        t if t.ty == TokenType::SquareRight => Some(parser.next().range.start),
+                        t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                         t => {
                             self.errors
-                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.range));
+                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.span));
                             None
                         }
                     };
@@ -482,7 +464,7 @@ impl Ctx {
                 }
                 TokenType::Comment(text) => {
                     asts.push(Ast::Comment(Comment {
-                        range: token.range,
+                        span: token.span,
                         text,
                     }));
                     continue;
@@ -504,9 +486,9 @@ impl Ctx {
             };
 
             let eq = match parser.next() {
-                t if t.ty == TokenType::Equal => t.range.start,
+                t if t.ty == TokenType::Equal => t.span.start,
                 t => {
-                    let error = Error::ExpectedEqFound(t.ty.to_string(), t.range);
+                    let error = Error::ExpectedEqFound(t.ty.to_string(), t.span);
                     self.errors.push(error);
                     recover_on!(parser, Newline | EOF => continue 'root);
                 }
@@ -546,12 +528,12 @@ impl Ctx {
                     quote,
                     lit,
                     text,
-                    text_range,
+                    text_span,
                 } => Ident {
-                    lit_range: token.range,
+                    lit_span: token.span,
                     lit,
                     text: std::mem::take(text),
-                    text_range: *text_range,
+                    text_span: *text_span,
                     kind: IdentKind::String(*quote),
                 },
                 TokenType::LiteralOrIdent(lit) => {
@@ -560,12 +542,12 @@ impl Ctx {
                         .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
 
                     if let Some((i, c)) = invalid_char {
-                        let mut pos = token.range.start;
+                        let mut pos = token.span.start;
                         pos.char += i as u32;
                         self.errors.push(Error::InvalidCharInIdentifier(c, pos));
                     }
 
-                    Ident::from_plain_lit(lit, token.range)
+                    Ident::from_plain_lit(lit, token.span)
                 }
                 TokenType::Comment(_)
                 | TokenType::SquareLeft
@@ -577,14 +559,14 @@ impl Ctx {
                 | TokenType::Dot
                 | TokenType::Newline
                 | TokenType::EOF => {
-                    return Err(Error::ExpectedKeyFound(token.ty.to_string(), token.range))
+                    return Err(Error::ExpectedKeyFound(token.ty.to_string(), token.span))
                 }
             };
             parser.next();
 
             match parser.peek() {
                 t if t.ty == TokenType::Dot => {
-                    let dot = Some(t.range.start);
+                    let dot = Some(t.span.start);
                     idents.push(DottedIdent { ident, dot });
                     parser.next();
                 }
@@ -609,7 +591,7 @@ impl Ctx {
                     quote,
                     lit,
                     text,
-                    text_range,
+                    text_span,
                 } = token.ty
                 else {
                     unreachable!()
@@ -617,9 +599,9 @@ impl Ctx {
 
                 Value::String(StringVal {
                     lit,
-                    lit_range: token.range,
+                    lit_span: token.span,
                     text,
-                    text_range,
+                    text_span,
                     quote,
                 })
             }
@@ -630,55 +612,55 @@ impl Ctx {
                 };
 
                 match lit {
-                    "true" => Value::Bool(BoolVal::new(token.range, true)),
-                    "false" => Value::Bool(BoolVal::new(token.range, false)),
-                    "nan" => Value::Float(FloatVal::new(lit, token.range, f64::NAN)),
-                    "+nan" => Value::Float(FloatVal::new(lit, token.range, f64::NAN)),
-                    "-nan" => Value::Float(FloatVal::new(lit, token.range, -f64::NAN)),
-                    "inf" => Value::Float(FloatVal::new(lit, token.range, f64::INFINITY)),
-                    "+inf" => Value::Float(FloatVal::new(lit, token.range, f64::INFINITY)),
-                    "-inf" => Value::Float(FloatVal::new(lit, token.range, f64::NEG_INFINITY)),
-                    _ => match parse_num_or_date(lit, token.range) {
+                    "true" => Value::Bool(BoolVal::new(token.span, true)),
+                    "false" => Value::Bool(BoolVal::new(token.span, false)),
+                    "nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
+                    "+nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
+                    "-nan" => Value::Float(FloatVal::new(lit, token.span, -f64::NAN)),
+                    "inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
+                    "+inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
+                    "-inf" => Value::Float(FloatVal::new(lit, token.span, f64::NEG_INFINITY)),
+                    _ => match parse_num_or_date(lit, token.span) {
                         Ok(PartialValue::PrefixedInt(i)) => {
-                            Value::Int(IntVal::new(lit, token.range, i))
+                            Value::Int(IntVal::new(lit, token.span, i))
                         }
                         Ok(PartialValue::Int(i)) => self.try_to_parse_fractional_part_of_float(
                             parser,
                             lit,
-                            token.range,
+                            token.span,
                             Some(i),
                         ),
                         Ok(PartialValue::OverflowOrFloat) => self
-                            .try_to_parse_fractional_part_of_float(parser, lit, token.range, None),
+                            .try_to_parse_fractional_part_of_float(parser, lit, token.span, None),
                         Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
-                            Ok(v) => Value::Float(FloatVal::new(lit, token.range, v)),
+                            Ok(v) => Value::Float(FloatVal::new(lit, token.span, v)),
                             Err(_) => {
-                                self.errors.push(Error::FloatLiteralOverflow(token.range));
-                                Value::Invalid(lit, token.range)
+                                self.errors.push(Error::FloatLiteralOverflow(token.span));
+                                Value::Invalid(lit, token.span)
                             }
                         },
                         Ok(PartialValue::OffsetDateTime(val)) => {
-                            let date_time = DateTimeVal::new(lit, token.range, val);
+                            let date_time = DateTimeVal::new(lit, token.span, val);
                             Value::DateTime(date_time)
                         }
                         Ok(PartialValue::PartialDate(date)) => {
-                            self.try_to_parse_time_part(parser, lit, token.range, date)
+                            self.try_to_parse_time_part(parser, lit, token.span, date)
                         }
                         Ok(PartialValue::PartialDateTime(date, time)) => {
-                            self.try_to_parse_subsecs(parser, lit, token.range, Some(date), time)
+                            self.try_to_parse_subsecs(parser, lit, token.span, Some(date), time)
                         }
                         Ok(PartialValue::PartialTime(time)) => {
-                            self.try_to_parse_subsecs(parser, lit, token.range, None, time)
+                            self.try_to_parse_subsecs(parser, lit, token.span, None, time)
                         }
                         Err(e) => {
                             self.errors.push(e);
-                            Value::Invalid(lit, token.range)
+                            Value::Invalid(lit, token.span)
                         }
                     },
                 }
             }
             TokenType::SquareLeft => {
-                let l_par = token.range.start;
+                let l_par = token.span.start;
                 parser.next();
 
                 let mut values = Vec::new();
@@ -707,14 +689,14 @@ impl Ctx {
                     let mut value = InlineArrayValue { val, comma: None };
                     match parser.peek() {
                         t if t.ty == TokenType::Comma => {
-                            value.comma = Some(parser.next().range.start);
+                            value.comma = Some(parser.next().span.start);
                         }
                         t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
                             values.push(value);
                             break;
                         }
                         _ => {
-                            let pos = value.val.range().end;
+                            let pos = value.val.span().end;
                             self.errors.push(Error::ExpectedComma(pos));
                             // try to continue
                         }
@@ -724,10 +706,10 @@ impl Ctx {
                 }
 
                 let r_par = match parser.peek() {
-                    t if t.ty == TokenType::SquareRight => Some(parser.next().range.start),
+                    t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                     t => {
                         self.errors
-                            .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.range));
+                            .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.span));
                         None
                     }
                 };
@@ -739,7 +721,7 @@ impl Ctx {
                 })
             }
             TokenType::CurlyLeft => {
-                let l_par = token.range.start;
+                let l_par = token.span.start;
                 parser.next();
 
                 let mut assignments = Vec::new();
@@ -759,9 +741,9 @@ impl Ctx {
                     };
 
                     let eq = match parser.peek() {
-                        t if t.ty == TokenType::Equal => parser.next().range.start,
+                        t if t.ty == TokenType::Equal => parser.next().span.start,
                         t => {
-                            let error = Error::ExpectedEqFound(t.ty.to_string(), t.range);
+                            let error = Error::ExpectedEqFound(t.ty.to_string(), t.span);
                             self.errors.push(error);
                             recover_on!(parser,
                                 Comma => continue 'inline_table,
@@ -789,14 +771,14 @@ impl Ctx {
                     };
                     match parser.peek() {
                         t if t.ty == TokenType::Comma => {
-                            assignment.comma = Some(parser.next().range.start);
+                            assignment.comma = Some(parser.next().span.start);
                         }
                         t if t.ty == TokenType::CurlyRight || t.ty == TokenType::EOF => {
                             assignments.push(assignment);
                             break;
                         }
                         _ => {
-                            let pos = assignment.val.range().end;
+                            let pos = assignment.val.span().end;
                             self.errors.push(Error::ExpectedComma(pos));
                             // try to continue
                         }
@@ -806,10 +788,10 @@ impl Ctx {
                 }
 
                 let r_par = match parser.peek() {
-                    t if t.ty == TokenType::CurlyRight => Some(parser.next().range.start),
+                    t if t.ty == TokenType::CurlyRight => Some(parser.next().span.start),
                     t => {
                         self.errors
-                            .push(Error::ExpectedRightCurlyFound(t.ty.to_string(), t.range));
+                            .push(Error::ExpectedRightCurlyFound(t.ty.to_string(), t.span));
                         None
                     }
                 };
@@ -828,7 +810,7 @@ impl Ctx {
             | TokenType::Dot
             | TokenType::Newline
             | TokenType::EOF => {
-                return Err(Error::ExpectedValueFound(token.ty.to_string(), token.range))
+                return Err(Error::ExpectedValueFound(token.ty.to_string(), token.span))
             }
         };
 
@@ -839,25 +821,25 @@ impl Ctx {
         &mut self,
         parser: &mut Parser<'a>,
         int_lit: &'a str,
-        int_range: Range,
+        int_span: Span,
         int_val: Option<i64>,
     ) -> Value<'a> {
         // Check this is actually a floating point literal separated by a dot
         match parser.peek() {
-            t if t.ty == TokenType::Dot && int_range.end == t.range.start => {
+            t if t.ty == TokenType::Dot && int_span.end == t.span.start => {
                 parser.next();
             }
             _ => match int_val {
-                Some(val) => return Value::Int(IntVal::new(int_lit, int_range, val)),
+                Some(val) => return Value::Int(IntVal::new(int_lit, int_span, val)),
                 None => {
-                    self.errors.push(Error::IntLiteralOverflow(int_range));
-                    return Value::Invalid(int_lit, int_range);
+                    self.errors.push(Error::IntLiteralOverflow(int_span));
+                    return Value::Invalid(int_lit, int_span);
                 }
             },
         }
 
         let mut missing_float_fractional_part_error = || {
-            let pos = int_range.end.plus(1);
+            let pos = int_span.end.plus(1);
             self.errors.push(Error::MissingFloatFractionalPart(pos));
 
             // SAFETY: we know there is a dot directly after int_lit.
@@ -867,9 +849,9 @@ impl Ctx {
                 let slice = std::slice::from_raw_parts(ptr, len);
                 std::str::from_utf8_unchecked(slice)
             };
-            let mut range = int_range;
-            range.end.char += 1;
-            Value::Invalid(lit, range)
+            let mut span = int_span;
+            span.end.char += 1;
+            Value::Invalid(lit, span)
         };
 
         let frac;
@@ -900,23 +882,23 @@ impl Ctx {
             let slice = std::slice::from_raw_parts(ptr, len);
             std::str::from_utf8_unchecked(slice)
         };
-        let range = Range {
-            start: int_range.start,
-            end: frac.range.end,
+        let span = Span {
+            start: int_span.start,
+            end: frac.span.end,
         };
 
         // validate fractional part
-        if let Err(e) = validate_float_fractional_part(frac_lit, frac.range) {
+        if let Err(e) = validate_float_fractional_part(frac_lit, frac.span) {
             self.errors.push(e);
-            return Value::Invalid(lit, range);
+            return Value::Invalid(lit, span);
         }
 
         let Ok(val) = lit.replace('_', "").parse() else {
-            self.errors.push(Error::FloatLiteralOverflow(range));
-            return Value::Invalid(lit, range);
+            self.errors.push(Error::FloatLiteralOverflow(span));
+            return Value::Invalid(lit, span);
         };
 
-        Value::Float(FloatVal::new(lit, range, val))
+        Value::Float(FloatVal::new(lit, span, val))
     }
 
     /// toml permits using spaces instead of `T` to separate date and time in and rfc3339
@@ -926,68 +908,68 @@ impl Ctx {
         &mut self,
         parser: &mut Parser<'a>,
         date_lit: &'a str,
-        date_range: Range,
+        date_span: Span,
         date: Date,
     ) -> Value<'a> {
-        let (time_lit, time_range) = match parser.peek().ty {
+        let (time_lit, time_span) = match parser.peek().ty {
             TokenType::LiteralOrIdent(_) => {
                 let token = parser.next();
                 let TokenType::LiteralOrIdent(lit) = token.ty else {
                     unreachable!()
                 };
-                (lit, token.range)
+                (lit, token.span)
             }
             _ => {
                 let val = DateTime::LocalDate(date);
-                let date_time = DateTimeVal::new(date_lit, date_range, val);
+                let date_time = DateTimeVal::new(date_lit, date_span, val);
                 return Value::DateTime(date_time);
             }
         };
 
         // only need to compare columns, since we known there is no newline token in between
-        if time_range.start.char > date_range.end.char + 1 {
-            let range = Range::between(date_range, time_range);
-            self.errors.push(Error::DateAndTimeTooFarApart(range));
+        if time_span.start.char > date_span.end.char + 1 {
+            let span = Span::between(date_span, time_span);
+            self.errors.push(Error::DateAndTimeTooFarApart(span));
         }
 
         // SAFETY: the first and second literal reference the same string, are on the same line and
         // are only separated by whitespace. See above.
         let lit = unsafe {
             let ptr = date_lit.as_ptr();
-            let len = (time_range.end.char - date_range.start.char) as usize;
+            let len = (time_span.end.char - date_span.start.char) as usize;
             let slice = std::slice::from_raw_parts(ptr, len);
             std::str::from_utf8_unchecked(slice)
         };
-        let range = Range::across(date_range, time_range);
+        let span = Span::across(date_span, time_span);
 
         let mut chars = time_lit.char_indices().peekable();
-        let (time, offset) = match datetime::parse_time_and_offset(&mut chars, time_range) {
+        let (time, offset) = match datetime::parse_time_and_offset(&mut chars, time_span) {
             Ok(v) => v,
             Err(e) => {
                 self.errors.push(e);
-                return Value::Invalid(lit, range);
+                return Value::Invalid(lit, span);
             }
         };
 
         if let Some(offset) = offset {
             let val = DateTime::OffsetDateTime(date, time, offset);
-            let date_time = DateTimeVal::new(lit, range, val);
+            let date_time = DateTimeVal::new(lit, span, val);
             return Value::DateTime(date_time);
         }
 
-        self.try_to_parse_subsecs(parser, lit, range, Some(date), time)
+        self.try_to_parse_subsecs(parser, lit, span, Some(date), time)
     }
 
     fn try_to_parse_subsecs<'a>(
         &mut self,
         parser: &mut Parser<'a>,
         date_time_lit: &'a str,
-        date_time_range: Range,
+        date_time_span: Span,
         date: Option<Date>,
         time: Time,
     ) -> Value<'a> {
         match parser.peek() {
-            t if t.ty == TokenType::Dot && date_time_range.end == t.range.start => {
+            t if t.ty == TokenType::Dot && date_time_span.end == t.span.start => {
                 parser.next();
             }
             _ => {
@@ -995,13 +977,13 @@ impl Ctx {
                     Some(date) => DateTime::LocalDateTime(date, time),
                     None => DateTime::LocalTime(time),
                 };
-                let date_time = DateTimeVal::new(date_time_lit, date_time_range, val);
+                let date_time = DateTimeVal::new(date_time_lit, date_time_span, val);
                 return Value::DateTime(date_time);
             }
         }
 
         let mut missing_date_time_subsec_part_error = || {
-            let pos = date_time_range.end.plus(1);
+            let pos = date_time_span.end.plus(1);
             self.errors.push(Error::DateTimeMissingSubsec(pos));
 
             // SAFETY: we know there is a dot directly after int_lit.
@@ -1011,9 +993,9 @@ impl Ctx {
                 let slice = std::slice::from_raw_parts(ptr, len);
                 std::str::from_utf8_unchecked(slice)
             };
-            let mut range = date_time_range;
-            range.end.char += 1;
-            Value::Invalid(lit, range)
+            let mut span = date_time_span;
+            span.end.char += 1;
+            Value::Invalid(lit, span)
         };
 
         let subsec;
@@ -1044,17 +1026,17 @@ impl Ctx {
             let slice = std::slice::from_raw_parts(ptr, len);
             std::str::from_utf8_unchecked(slice)
         };
-        let range = Range {
-            start: date_time_range.start,
-            end: subsec.range.end,
+        let span = Span {
+            start: date_time_span.start,
+            end: subsec.span.end,
         };
 
         // parse subsec part
-        match parse_date_time_subsec_part(lit, range, subsec_lit, subsec.range, date, time) {
+        match parse_date_time_subsec_part(lit, span, subsec_lit, subsec.span, date, time) {
             Ok(date_time) => Value::DateTime(date_time),
             Err(e) => {
                 self.errors.push(e);
-                Value::Invalid(lit, range)
+                Value::Invalid(lit, span)
             }
         }
     }
@@ -1085,7 +1067,7 @@ enum PartialValue {
 /// a date-time adhering to the RFC 3339 spec. This allows using a space instead of `T` to separate
 /// the date and time parts, in that case only the date is parsed, since the time part is inside the
 /// next token.
-fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue, Error> {
+fn parse_num_or_date<'a>(literal: &'a str, span: Span) -> Result<PartialValue, Error> {
     #[derive(PartialEq, Eq)]
     enum NumParseState {
         Int,
@@ -1104,23 +1086,23 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
     match c {
         '0' => match chars.next() {
             Some((_, 'b')) => {
-                let val = parse_prefixed_int_literal::<1>(chars, range)?;
+                let val = parse_prefixed_int_literal::<1>(chars, span)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'o')) => {
-                let val = parse_prefixed_int_literal::<3>(chars, range)?;
+                let val = parse_prefixed_int_literal::<3>(chars, span)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'x')) => {
-                let val = parse_prefixed_int_literal::<4>(chars, range)?;
+                let val = parse_prefixed_int_literal::<4>(chars, span)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, c @ ('0'..='9'))) => {
                 let two_digits = c as u16 - '0' as u16;
-                return datetime::continue_parsing_date_time(&mut chars, range, two_digits);
+                return datetime::continue_parsing_date_time(&mut chars, span, two_digits);
             }
             Some((i, radix)) => {
-                return Err(Error::InvalidIntRadix(radix, range.start.plus(i as u32)));
+                return Err(Error::InvalidIntRadix(radix, span.start.plus(i as u32)));
             }
             None => {
                 return Ok(PartialValue::Int(0));
@@ -1129,8 +1111,8 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
         '1'..='9' => {
             int_accum = (c as u32 - '0' as u32) as i64;
         }
-        '_' => return Err(Error::NumLiteralStartsWithUnderscore(range.start)),
-        _ => return Err(Error::InvalidNumOrDateLiteralStart(c, range.start)),
+        '_' => return Err(Error::NumLiteralStartsWithUnderscore(span.start)),
+        _ => return Err(Error::InvalidNumOrDateLiteralStart(c, span.start)),
     }
 
     let mut last_underscore = false;
@@ -1176,21 +1158,21 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
                         '0'..='9' => {}
                         '_' => {
                             if j == 0 {
-                                let pos = range.start.plus(i as u32);
+                                let pos = span.start.plus(i as u32);
                                 return Err(Error::FloatExponentStartsWithUnderscore(pos));
                             }
                             last_underscore = true;
                             continue;
                         }
                         _ => {
-                            let pos = range.start.plus(i as u32);
+                            let pos = span.start.plus(i as u32);
                             return Err(Error::InvalidCharInFloatExponent(c, pos));
                         }
                     }
                 }
 
                 if last_underscore {
-                    let pos = range.end.minus(1);
+                    let pos = span.end.minus(1);
                     return Err(Error::FloatExponentEndsWithUnderscore(pos));
                 }
 
@@ -1198,26 +1180,26 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
             }
             ':' if i == 2 => {
                 let hour = int_accum as u8;
-                return datetime::continue_parsing_local_time(&mut chars, range, hour)
+                return datetime::continue_parsing_local_time(&mut chars, span, hour)
                     .map(PartialValue::PartialTime);
             }
             '-' if i == 4 => {
                 let year = int_accum as u16;
-                return datetime::continue_parsing_date_time_after_year(&mut chars, range, year);
+                return datetime::continue_parsing_date_time_after_year(&mut chars, span, year);
             }
             '_' => {
                 last_underscore = true;
                 continue;
             }
             _ => {
-                let pos = range.start.plus(i as u32);
+                let pos = span.start.plus(i as u32);
                 return Err(Error::InvalidCharInNumLiteral(c, pos));
             }
         }
     }
 
     if last_underscore {
-        let pos = range.end.minus(1);
+        let pos = span.end.minus(1);
         return Err(Error::NumLiteralEndsWithUnderscore(pos));
     }
 
@@ -1229,7 +1211,7 @@ fn parse_num_or_date<'a>(literal: &'a str, range: Range) -> Result<PartialValue,
 
 fn parse_prefixed_int_literal<const BITS: u32>(
     mut chars: impl Iterator<Item = (usize, char)>,
-    range: Range,
+    span: Span,
 ) -> Result<i64, Error> {
     let max_value: u32 = 2u32.pow(BITS);
     let mut accum: i64 = 0;
@@ -1238,7 +1220,7 @@ fn parse_prefixed_int_literal<const BITS: u32>(
     for j in 0.. {
         let Some((i, c)) = chars.next() else {
             if j == 0 {
-                return Err(Error::EmptyPrefixedIntValue(range.end));
+                return Err(Error::EmptyPrefixedIntValue(span.end));
             } else {
                 break;
             }
@@ -1250,7 +1232,7 @@ fn parse_prefixed_int_literal<const BITS: u32>(
             '0'..='9' => {
                 let n = (c as u32) - ('0' as u32);
                 if n >= max_value {
-                    let pos = range.start.plus(i as u32);
+                    let pos = span.start.plus(i as u32);
                     return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
                 }
                 n
@@ -1258,7 +1240,7 @@ fn parse_prefixed_int_literal<const BITS: u32>(
             'a'..='f' => {
                 let n = 10 + (c as u32) - ('a' as u32);
                 if n >= max_value {
-                    let pos = range.start.plus(i as u32);
+                    let pos = span.start.plus(i as u32);
                     return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
                 }
                 n
@@ -1266,28 +1248,28 @@ fn parse_prefixed_int_literal<const BITS: u32>(
             'A'..='F' => {
                 let n = 10 + (c as u32) - ('A' as u32);
                 if n >= max_value {
-                    let pos = range.start.plus(i as u32);
+                    let pos = span.start.plus(i as u32);
                     return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
                 }
                 n
             }
             '_' => {
                 if j == 0 {
-                    let pos = range.start.plus(i as u32);
+                    let pos = span.start.plus(i as u32);
                     return Err(Error::PrefixedIntValueStartsWithUnderscore(pos));
                 }
                 last_underscore = true;
                 continue;
             }
             _ => {
-                let pos = range.start.plus(i as u32);
+                let pos = span.start.plus(i as u32);
                 return Err(Error::InvalidCharInPrefixedInt(c, pos));
             }
         };
 
         let (val, overflow) = accum.overflowing_shl(BITS);
         if overflow {
-            return Err(Error::IntLiteralOverflow(range));
+            return Err(Error::IntLiteralOverflow(span));
         }
 
         accum = val;
@@ -1295,14 +1277,14 @@ fn parse_prefixed_int_literal<const BITS: u32>(
     }
 
     if last_underscore {
-        let pos = range.end.minus(1);
+        let pos = span.end.minus(1);
         return Err(Error::PrefixedIntValueEndsWithUnderscore(pos));
     }
 
     Ok(accum)
 }
 
-fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Error> {
+fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), Error> {
     let mut chars = literal.char_indices().peekable();
     let mut last_underscore = false;
     loop {
@@ -1312,7 +1294,7 @@ fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Err
             '0'..='9' => {}
             'e' | 'E' => {
                 if last_underscore {
-                    let pos = range.start.plus(i as u32 - 1);
+                    let pos = span.start.plus(i as u32 - 1);
                     return Err(Error::FloatFractEndsWithUnderscore(pos));
                 }
 
@@ -1329,21 +1311,21 @@ fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Err
                         '0'..='9' => {}
                         '_' => {
                             if j == 0 {
-                                let pos = range.start.plus(i as u32);
+                                let pos = span.start.plus(i as u32);
                                 return Err(Error::FloatExponentStartsWithUnderscore(pos));
                             }
                             last_underscore = true;
                             continue;
                         }
                         _ => {
-                            let pos = range.start.plus(i as u32);
+                            let pos = span.start.plus(i as u32);
                             return Err(Error::InvalidCharInFloatExponent(c, pos));
                         }
                     }
                 }
 
                 if last_underscore {
-                    let pos = range.end.minus(1);
+                    let pos = span.end.minus(1);
                     return Err(Error::FloatExponentEndsWithUnderscore(pos));
                 }
 
@@ -1351,7 +1333,7 @@ fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Err
             }
             '_' => (),
             _ => {
-                let pos = range.start.plus(i as u32);
+                let pos = span.start.plus(i as u32);
                 return Err(Error::InvalidCharInFloatLiteral(c, pos));
             }
         }
@@ -1360,7 +1342,7 @@ fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Err
     }
 
     if last_underscore {
-        let pos = range.end.minus(1);
+        let pos = span.end.minus(1);
         return Err(Error::FloatEndsWithUnderscore(pos));
     }
 
@@ -1369,25 +1351,25 @@ fn validate_float_fractional_part(literal: &str, range: Range) -> Result<(), Err
 
 fn parse_date_time_subsec_part<'a>(
     lit: &'a str,
-    range: Range,
+    span: Span,
     subsec_lit: &str,
-    subsec_range: Range,
+    subsec_span: Span,
     date: Option<Date>,
     mut time: Time,
 ) -> Result<DateTimeVal<'a>, Error> {
     let mut chars = subsec_lit.char_indices().peekable();
     let val = match date {
         Some(date) => {
-            let (nanos, offset) = datetime::parse_subsec_and_offset(&mut chars, subsec_range)?;
+            let (nanos, offset) = datetime::parse_subsec_and_offset(&mut chars, subsec_span)?;
             time.nanos = nanos;
             DateTime::from_optional_offset(date, time, offset)
         }
         None => {
-            let nanos = datetime::parse_subsec_without_offset(&mut chars, subsec_range)?;
+            let nanos = datetime::parse_subsec_without_offset(&mut chars, subsec_span)?;
             time.nanos = nanos;
             DateTime::LocalTime(time)
         }
     };
 
-    Ok(DateTimeVal::new(lit, range, val))
+    Ok(DateTimeVal::new(lit, span, val))
 }
