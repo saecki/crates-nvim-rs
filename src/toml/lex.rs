@@ -59,6 +59,7 @@ impl std::fmt::Display for TokenType<'_> {
     }
 }
 
+// TODO: rename to Span
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Range {
     pub start: Pos,

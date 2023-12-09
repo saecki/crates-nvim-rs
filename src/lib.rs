@@ -19,7 +19,8 @@ pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
 
         let mut ctx = Ctx::default();
         let tokens = ctx.lex(&text);
-        let _asts = ctx.parse(tokens);
+        let asts = ctx.parse(tokens);
+        let _map = ctx.map(&asts);
 
         // TODO
 
