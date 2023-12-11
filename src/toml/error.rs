@@ -49,6 +49,8 @@ pub enum Error {
     DateTimeMissingSubsec(Pos),
     LocalDateTimeOffset(Pos),
     DateAndTimeTooFarApart(Span),
+
+    CannotExtendInlineArray(String, Span, Span),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

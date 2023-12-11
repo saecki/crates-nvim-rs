@@ -9,7 +9,7 @@ mod test;
 
 #[derive(Debug, PartialEq)]
 pub struct MapTable<'a> {
-    kind: TableKind,
+    pub kind: TableKind,
     inner: HashMap<&'a str, MapEntry<'a>>,
 }
 
@@ -76,11 +76,15 @@ impl<'a> MapTable<'a> {
     {
         self.inner.entry(key).or_insert_with(default)
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&&str, &MapEntry)> {
+        self.inner.iter()
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MapArray<'a> {
-    kind: ArrayKind,
+    pub kind: ArrayKind,
     inner: Vec<MapEntry<'a>>,
 }
 
@@ -109,6 +113,10 @@ impl<'a> MapArray<'a> {
 
     pub fn push(&mut self, entry: MapEntry<'a>) {
         self.inner.push(entry);
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &MapEntry> {
+        self.inner.iter()
     }
 }
 
@@ -260,8 +268,8 @@ fn insert_array_entry<'a>(
         match map.get_mut(ident.text.as_ref()) {
             Some(e) => {
                 let array = match e {
-                    MapEntry::Table(_) => todo!("error"),
                     MapEntry::Array(a) => a,
+                    MapEntry::Table(_) => todo!("error"),
                     MapEntry::Scalar(_) => todo!("error"),
                 };
 
