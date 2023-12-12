@@ -72,14 +72,6 @@ pub fn continue_parsing_date_time(
         Some((_, c @ ('0'..='9'))) => c as u16 - '0' as u16,
         Some((_, ':')) => {
             let hour = two_digits as u8;
-            let hour_span = Span {
-                start: span.start,
-                end: span.start.plus(2),
-            };
-            (hour, hour_span)
-                .check_range(0..=23)
-                .map_err(|e| e.kind(Hour))?;
-
             let time = continue_parsing_local_time(chars, span, hour)?;
             return Ok(PartialValue::PartialTime(time));
         }
@@ -141,6 +133,11 @@ pub fn continue_parsing_local_time(
     span: Span,
     hour: u8,
 ) -> Result<Time, Error> {
+    let hour_span = Span::from_pos_len(span.start, 2);
+    (hour, hour_span)
+        .check_range(0..=23)
+        .map_err(|e| e.kind(Hour))?;
+
     let time = continue_parsing_time(chars, span, hour)?;
     error_on_offset(chars, span)?;
     Ok(time)

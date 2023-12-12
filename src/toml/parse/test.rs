@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, Date, DateTime, DateTimeVal, DottedIdent,
-    Error, FloatVal, Ident, IdentKind, InlineArray, InlineArrayValue, InlineTable,
+    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, Date, DateTime, DateTimeField, DateTimeVal,
+    DottedIdent, Error, FloatVal, Ident, IdentKind, InlineArray, InlineArrayValue, InlineTable,
     InlineTableAssignment, IntVal, Key, Offset, Pos, Quote, Span, StringVal, Table, TableHeader,
     Time, Value, Warning,
 };
@@ -1365,6 +1365,41 @@ fn local_time() {
                 val: DateTime::LocalTime(Time::new(10, 11, 12, 0)),
             }),
         })],
+    );
+}
+
+#[test]
+fn local_time_hour_out_of_range() {
+    check_error(
+        "abc = 25:00:00",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "abc",
+                lit_span: Span {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                text: Cow::Borrowed("abc"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 3 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 4 },
+            val: Value::Invalid(
+                "25:00:00",
+                Span {
+                    start: Pos { line: 0, char: 6 },
+                    end: Pos { line: 0, char: 14 },
+                },
+            ),
+        })],
+        Error::DateTimeOutOfBounds(
+            DateTimeField::Hour,
+            25,
+            Span::from_pos_len(Pos { line: 0, char: 6 }, 2),
+        ),
     );
 }
 
