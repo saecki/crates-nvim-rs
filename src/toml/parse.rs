@@ -882,10 +882,7 @@ impl Ctx {
             let slice = std::slice::from_raw_parts(ptr, len);
             std::str::from_utf8_unchecked(slice)
         };
-        let span = Span {
-            start: int_span.start,
-            end: frac.span.end,
-        };
+        let span = Span::across(int_span, frac.span);
 
         // validate fractional part
         if let Err(e) = validate_float_fractional_part(frac_lit, frac.span) {
@@ -1064,9 +1061,9 @@ enum PartialValue {
 }
 
 /// Parse all integers adhering to the toml spec, the integer part of a float and it's exponent or
-/// a date-time adhering to the RFC 3339 spec. This allows using a space instead of `T` to separate
-/// the date and time parts, in that case only the date is parsed, since the time part is inside the
-/// next token.
+/// a date-time adhering to the RFC 3339 spec. The toml spec allows using a space instead of `T` to
+/// separate the date and time parts, in that case only the date is parsed since the time part is
+/// inside the next token.
 fn parse_num_or_date<'a>(literal: &'a str, span: Span) -> Result<PartialValue, Error> {
     #[derive(PartialEq, Eq)]
     enum NumParseState {

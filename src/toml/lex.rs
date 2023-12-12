@@ -66,6 +66,20 @@ pub struct Span {
 }
 
 impl Span {
+    #[inline(always)]
+    pub fn new(start: Pos, end: Pos) -> Self {
+        Self { start, end }
+    }
+
+    #[inline(always)]
+    pub fn from_pos_len(start: Pos, len: u32) -> Self {
+        Self {
+            start,
+            end: start.plus(len),
+        }
+    }
+
+    #[inline(always)]
     pub fn pos(pos: Pos) -> Self {
         Self {
             start: pos,
@@ -73,6 +87,7 @@ impl Span {
         }
     }
 
+    #[inline(always)]
     fn ascii_char(pos: Pos) -> Self {
         Self {
             start: pos,
@@ -80,6 +95,7 @@ impl Span {
         }
     }
 
+    #[inline(always)]
     pub fn across(a: Self, b: Self) -> Self {
         Self {
             start: a.start,
@@ -87,6 +103,7 @@ impl Span {
         }
     }
 
+    #[inline(always)]
     pub fn between(a: Self, b: Self) -> Self {
         Self {
             start: a.end,
@@ -104,6 +121,7 @@ pub struct Pos {
 }
 
 impl Pos {
+    #[inline(always)]
     fn after(&self, c: char) -> Self {
         Self {
             line: self.line,
@@ -111,6 +129,7 @@ impl Pos {
         }
     }
 
+    #[inline(always)]
     pub fn plus(&self, n: u32) -> Self {
         Self {
             line: self.line,
@@ -118,6 +137,7 @@ impl Pos {
         }
     }
 
+    #[inline(always)]
     pub fn minus(&self, n: u32) -> Self {
         Self {
             line: self.line,
@@ -148,11 +168,7 @@ impl Quote {
     }
 
     fn matches(&self, c: char) -> bool {
-        match (c, self) {
-            ('\"', Self::Basic | Self::BasicMultiline) => true,
-            ('\'', Self::Literal | Self::LiteralMultiline) => true,
-            _ => false,
-        }
+        self.char() == c
     }
 
     fn char(&self) -> char {
@@ -319,10 +335,7 @@ impl Ctx {
                                 Some(char) => str.push_char(char),
                                 None => self.errors.push(Error::InvalidUnicodeScalar(
                                     unicode.cp,
-                                    Span {
-                                        start: esc.start,
-                                        end: lexer.pos.after(c),
-                                    },
+                                    Span::new(esc.start, lexer.pos.after(c)),
                                 )),
                             }
                             str.esc = None;
@@ -443,18 +456,9 @@ impl Ctx {
                             quote = Quote::BasicMultiline;
                         } else {
                             // It's just an empty string
-                            let text_span = Span {
-                                start: lexer.pos,
-                                end: lexer.pos,
-                            };
+                            let text_span = Span::pos(lexer.pos);
                             let token = Token {
-                                span: Span {
-                                    start: lit_start,
-                                    end: Pos {
-                                        line: lit_start.line,
-                                        char: lit_start.char + 2,
-                                    },
-                                },
+                                span: Span::from_pos_len(lit_start, 2),
                                 ty: TokenType::String {
                                     quote,
                                     lit: &input[ci..ci + 2],
@@ -499,13 +503,7 @@ impl Ctx {
                             // It's just an empty string
                             let text_span = Span::pos(lexer.pos);
                             let token = Token {
-                                span: Span {
-                                    start: lit_start,
-                                    end: Pos {
-                                        line: lit_start.line,
-                                        char: lit_start.char + 2,
-                                    },
-                                },
+                                span: Span::from_pos_len(lit_start, 2),
                                 ty: TokenType::String {
                                     quote,
                                     lit: &input[ci..ci + 2],
@@ -581,12 +579,7 @@ impl Ctx {
             return;
         }
         let lit = &lexer.input[lexer.lit_byte_start..lit_end];
-
-        let span = Span {
-            start: lexer.lit_start,
-            end: lexer.pos,
-        };
-
+        let span = Span::new(lexer.lit_start, lexer.pos);
         let ty = TokenType::LiteralOrIdent(lit);
         let token = Token { span, ty };
         lexer.tokens.push(token);
@@ -683,10 +676,7 @@ impl Ctx {
         let text = &lexer.input[text_start..text_end];
         let end_pos = lexer.pos.plus(1 + text.len() as u32);
         lexer.tokens.push(Token {
-            span: Span {
-                start: lexer.pos,
-                end: end_pos,
-            },
+            span: Span::new(lexer.pos, end_pos),
             ty: TokenType::Comment(text),
         });
 
