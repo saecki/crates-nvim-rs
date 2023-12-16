@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use pretty_assertions::assert_eq;
 
 use crate::toml::{
-    Array, ArrayHeader, Assignment, Ast, BoolVal, Ctx, Date, DateTime, DateTimeField, DateTimeVal,
+    ArrayEntry, ArrayHeader, Assignment, Ast, BoolVal, Ctx, Date, DateTime, DateTimeField, DateTimeVal,
     DottedIdent, Error, FloatVal, Ident, IdentKind, InlineArray, InlineArrayValue, InlineTable,
     InlineTableAssignment, IntVal, Key, Offset, Pos, Quote, Span, StringVal, Table, TableHeader,
     Time, Value, Warning,
@@ -1015,7 +1015,7 @@ fn table_header() {
 fn array_header() {
     check(
         "[[my_array]]\nentry = false\n",
-        [Ast::Array(Array {
+        [Ast::Array(ArrayEntry {
             header: ArrayHeader {
                 l_pars: (Pos { line: 0, char: 0 }, Pos { line: 0, char: 1 }),
                 key: Some(Key::One(Ident {

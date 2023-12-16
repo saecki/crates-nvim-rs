@@ -50,6 +50,7 @@ pub enum Error {
     LocalDateTimeOffset(Pos),
     DateAndTimeTooFarApart(Span),
 
+    DuplicateKey(String, Span, Span),
     CannotExtendInlineArray(String, Span, Span),
 }
 

@@ -1,8 +1,9 @@
 pub mod toml;
+mod onevec;
 
 use nvim_oxi::{Dictionary, Function};
 
-use crate::toml::{Ctx, MapEntry, MapTable, Scalar, StringVal};
+use crate::toml::{Ctx, MapNode, MapTable, Scalar, StringVal};
 
 #[nvim_oxi::module]
 pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
@@ -53,19 +54,19 @@ pub struct Crate {
     pub explicit_name_col: Range,
     pub lines: Range,
     pub syntax: Syntax,
-    pub vers: Vers,
-    pub registry: Registry,
-    pub path: Path,
-    pub git: Git,
-    pub branch: Branch,
-    pub rev: Rev,
-    pub pkg: Pkg,
-    pub workspace: Workspace,
-    pub opt: Opt,
-    pub def: Def,
-    pub feat: Feat,
     pub section: Section,
     pub dep_kind: DepKind,
+    pub vers: Option<Vers>,
+    pub registry: Option<Registry>,
+    pub path: Option<Path>,
+    pub git: Option<Git>,
+    pub branch: Option<Branch>,
+    pub rev: Option<Rev>,
+    pub pkg: Option<Pkg>,
+    pub workspace: Option<Workspace>,
+    pub opt: Option<Opt>,
+    pub def: Option<Def>,
+    pub feat: Option<Feat>,
 }
 
 pub enum Syntax {
@@ -237,13 +238,13 @@ pub struct Range {
 impl Ctx {
     fn find(&mut self, map: &MapTable) -> Vec<Crate> {
         let mut crates = Vec::new();
-        if let Some(MapEntry::Table(dependencies)) = map.get("dependencies") {
+        if let Some(MapNode::Table(dependencies)) = map.get("dependencies".into()) {
             for (key, val) in dependencies.iter() {
                 match val {
-                    MapEntry::Scalar(Scalar::String(s)) => todo!(),
-                    MapEntry::Table(t) => {
+                    MapNode::Scalar(Scalar::String(s)) => todo!(),
+                    MapNode::Table(t) => {
                         for (k, v) in t.iter() {
-                            match *k {
+                            match k.key {
                                 "version" => {
                                     if let Some(s) = self.expect_string(v) {
                                         todo!();
@@ -271,9 +272,9 @@ impl Ctx {
         crates
     }
 
-    fn expect_string<'a>(&mut self, value: &'a MapEntry<'a>) -> Option<&'a StringVal<'a>> {
+    fn expect_string<'a>(&mut self, value: &'a MapNode<'a>) -> Option<&'a StringVal<'a>> {
         match value {
-            MapEntry::Scalar(Scalar::String(s)) => Some(s),
+            MapNode::Scalar(Scalar::String(s)) => Some(s),
             _ => {
                 self.errors.push(todo!());
                 None

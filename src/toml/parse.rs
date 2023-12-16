@@ -83,7 +83,7 @@ impl<'a> Parser<'a> {
 pub enum Ast<'a> {
     Assignment(Assignment<'a>),
     Table(Table<'a>),
-    Array(Array<'a>),
+    Array(ArrayEntry<'a>),
     Comment(Comment<'a>),
 }
 
@@ -93,7 +93,7 @@ pub struct Table<'a> {
     pub assignments: Vec<Assignment<'a>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct TableHeader<'a> {
     pub l_par: Pos,
     pub key: Option<Key<'a>>,
@@ -101,7 +101,7 @@ pub struct TableHeader<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Array<'a> {
+pub struct ArrayEntry<'a> {
     pub header: ArrayHeader<'a>,
     pub assignments: Vec<Assignment<'a>>,
 }
@@ -120,13 +120,13 @@ pub struct Assignment<'a> {
     pub val: Value<'a>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Key<'a> {
     One(Ident<'a>),
     Dotted(Vec<DottedIdent<'a>>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DottedIdent<'a> {
     pub ident: Ident<'a>,
     pub dot: Option<Pos>,
@@ -146,7 +146,7 @@ impl Key<'_> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ident<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
@@ -156,7 +156,7 @@ pub struct Ident<'a> {
 }
 
 impl<'a> Ident<'a> {
-    fn from_plain_lit(lit: &'a str, span: Span) -> Self {
+    pub fn from_plain_lit(lit: &'a str, span: Span) -> Self {
         Ident {
             lit,
             lit_span: span,
@@ -165,9 +165,13 @@ impl<'a> Ident<'a> {
             kind: IdentKind::Plain,
         }
     }
+
+    pub fn text(&self) -> &str {
+        self.text.as_ref()
+    }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IdentKind {
     Plain,
     String(Quote),
@@ -340,7 +344,7 @@ pub struct Comment<'a> {
 
 enum Header<'a> {
     Table(Table<'a>),
-    Array(Array<'a>),
+    Array(ArrayEntry<'a>),
 }
 
 impl<'a> Header<'a> {
@@ -433,7 +437,7 @@ impl Ctx {
                                 key,
                                 r_pars: (r_array_square, r_table_square),
                             };
-                            Header::Array(Array {
+                            Header::Array(ArrayEntry {
                                 header,
                                 assignments: Vec::new(),
                             })

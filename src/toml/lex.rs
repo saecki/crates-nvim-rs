@@ -122,6 +122,11 @@ pub struct Pos {
 
 impl Pos {
     #[inline(always)]
+    pub fn new(line: u32, char: u32) -> Self {
+        Self { line, char }
+    }
+
+    #[inline(always)]
     fn after(&self, c: char) -> Self {
         Self {
             line: self.line,
