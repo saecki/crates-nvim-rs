@@ -1,4 +1,4 @@
-use crate::toml::{Pos, Quote, Span};
+use crate::{Pos, Quote, Span};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {

@@ -2,9 +2,7 @@ use std::borrow::Cow;
 use std::fmt::Write;
 use std::iter::Peekable;
 
-use serde::{Deserialize, Serialize};
-
-use crate::toml::{Ctx, Error};
+use crate::{Ctx, Error};
 
 #[cfg(test)]
 mod test;
@@ -15,7 +13,7 @@ pub struct Token<'a> {
     pub span: Span,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType<'a> {
     String {
         quote: Quote,
@@ -59,7 +57,7 @@ impl std::fmt::Display for TokenType<'_> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
     pub start: Pos,
     pub end: Pos,
@@ -112,7 +110,7 @@ impl Span {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Pos {
     /// 0-based index of line
     pub line: u32,
@@ -151,7 +149,7 @@ impl Pos {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Quote {
     /// "
     Basic,

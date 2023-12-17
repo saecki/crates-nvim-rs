@@ -1,0 +1,13 @@
+[package]
+name = "crates_nvim"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+crates-toml = { workspace = true }
+nvim-oxi = { version = "0.3.0", features = ["neovim-0-9"] }
+serde = { version = "1.0", features = ["serde_derive"] }
+serde_derive = "1.0"

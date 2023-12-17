@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::toml::{Ctx, Error, Pos, Quote, Span, Token, TokenType};
+use crate::{Ctx, Error, Pos, Quote, Span, Token, TokenType};
 pub use datetime::{Date, DateTime, Offset, Time};
 
 mod datetime;

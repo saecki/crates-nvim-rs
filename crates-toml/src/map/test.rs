@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 
-use crate::toml::{Ctx, Error, MapTable, Warning};
+use crate::{Ctx, Error, MapTable, Warning};
 
 fn check(input: &str, expected: MapTable) {
     let mut ctx = Ctx::default();

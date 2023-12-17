@@ -1,9 +1,6 @@
-mod onevec;
-pub mod toml;
-
 use nvim_oxi::{Dictionary, Function};
 
-use crate::toml::{Ctx, Ident, MapNode, MapTable, MapTableEntries, Scalar, StringVal};
+use crates_toml::{Ctx, Ident, MapNode, MapTable, MapTableEntries, Scalar, StringVal};
 
 #[nvim_oxi::module]
 pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
@@ -283,77 +280,75 @@ impl Range {
     }
 }
 
-impl Ctx {
-    fn find(&mut self, map: &MapTable) -> Vec<Crate> {
-        let mut crates = Vec::new();
-        for (key, entries) in map.iter() {
-            match *key {
-                "dependencies" => {
-                    if let MapNode::Table(dependencies) = &entries.node {
-                        self.parse_dependencies(&mut crates, dependencies);
-                    }
+fn find(ctx: &mut Ctx, map: &MapTable) -> Vec<Crate> {
+    let mut crates = Vec::new();
+    for (key, entries) in map.iter() {
+        match *key {
+            "dependencies" => {
+                if let MapNode::Table(dependencies) = &entries.node {
+                    parse_dependencies(ctx, &mut crates, dependencies);
                 }
-                "dev-dependencies" => todo!(),
-                "build-dependencies" => todo!(),
-                "target" => todo!(),
-                _ => todo!(),
             }
+            "dev-dependencies" => todo!(),
+            "build-dependencies" => todo!(),
+            "target" => todo!(),
+            _ => todo!(),
         }
-        if let Some(MapTableEntries {
-            node: MapNode::Table(dependencies),
-            reprs,
-        }) = map.get("dependencies")
-        {}
-        crates
     }
+    if let Some(MapTableEntries {
+        node: MapNode::Table(dependencies),
+        reprs,
+    }) = map.get("dependencies")
+    {}
+    crates
+}
 
-    fn parse_dependencies(&mut self, crates: &mut Vec<Crate>, dependencies: &MapTable) {
-        for (crate_name, entries) in dependencies.iter() {
-            let crt = match &entries.node {
-                MapNode::Scalar(Scalar::String(version)) => {
-                    let name = entries.reprs.first().key.referenced_ident();
-                    let section = todo!();
-                    Crate::plain(name, version, section)
-                }
-                MapNode::Scalar(_) => todo!("error"),
-                MapNode::Table(t) => {
-                    for (k, v) in t.iter() {
-                        match *k {
-                            "version" => {
-                                if let Some(s) = self.expect_string(&v.node) {
-                                    todo!();
-                                }
+fn parse_dependencies(ctx: &mut Ctx, crates: &mut Vec<Crate>, dependencies: &MapTable) {
+    for (crate_name, entries) in dependencies.iter() {
+        let crt = match &entries.node {
+            MapNode::Scalar(Scalar::String(version)) => {
+                let name = entries.reprs.first().key.referenced_ident();
+                let section = todo!();
+                Crate::plain(name, version, section)
+            }
+            MapNode::Scalar(_) => todo!("error"),
+            MapNode::Table(t) => {
+                for (k, v) in t.iter() {
+                    match *k {
+                        "version" => {
+                            if let Some(s) = expect_string(ctx, &v.node) {
+                                todo!();
                             }
-                            "registry" => todo!(),
-                            "path" => todo!(),
-                            "git" => todo!(),
-                            "branch" => todo!(),
-                            "rev" => todo!(),
-                            "package" => todo!(),
-                            "default-features" => todo!(),
-                            "default_features" => todo!("warning or error"),
-                            "features" => todo!(),
-                            "workspace" => todo!(),
-                            "optional" => todo!(),
-                            _ => todo!("warning"),
                         }
+                        "registry" => todo!(),
+                        "path" => todo!(),
+                        "git" => todo!(),
+                        "branch" => todo!(),
+                        "rev" => todo!(),
+                        "package" => todo!(),
+                        "default-features" => todo!(),
+                        "default_features" => todo!("warning or error"),
+                        "features" => todo!(),
+                        "workspace" => todo!(),
+                        "optional" => todo!(),
+                        _ => todo!("warning"),
                     }
-                    todo!()
                 }
-                MapNode::Array(_) => todo!("error"),
-            };
-
-            crates.push(crt);
-        }
-    }
-
-    fn expect_string<'a>(&mut self, value: &'a MapNode<'a>) -> Option<&'a StringVal<'a>> {
-        match value {
-            MapNode::Scalar(Scalar::String(s)) => Some(s),
-            _ => {
-                self.errors.push(todo!());
-                None
+                todo!()
             }
+            MapNode::Array(_) => todo!("error"),
+        };
+
+        crates.push(crt);
+    }
+}
+
+fn expect_string<'a>(ctx: &mut Ctx, value: &'a MapNode<'a>) -> Option<&'a StringVal<'a>> {
+    match value {
+        MapNode::Scalar(Scalar::String(s)) => Some(s),
+        _ => {
+            ctx.errors.push(todo!());
+            None
         }
     }
 }

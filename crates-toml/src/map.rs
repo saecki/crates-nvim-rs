@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::onevec::OneVec;
-use crate::toml::{
+use crate::{
     ArrayEntry, Assignment, Ast, BoolVal, Ctx, DateTimeVal, DottedIdent, Error, FloatVal, Ident,
     InlineArray, InlineArrayValue, InlineTableAssignment, IntVal, Key, Span, StringVal, Table,
     Value,

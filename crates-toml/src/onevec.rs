@@ -1,3 +1,4 @@
+/// A wrapper around `Vec` that is guaranteed to always contains at least one element.
 pub struct OneVec<T> {
     inner: Vec<T>,
 }

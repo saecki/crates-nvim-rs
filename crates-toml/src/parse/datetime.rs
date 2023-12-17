@@ -1,5 +1,5 @@
-use crate::toml::parse::PartialValue;
-use crate::toml::{DateTimeField, DateTimeField::*, Error, Pos, Span};
+use crate::parse::PartialValue;
+use crate::{DateTimeField, DateTimeField::*, Error, Pos, Span};
 
 type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 

@@ -1,4 +1,4 @@
-use crate::toml::{MapNode, MapTable, MapTableEntries, MapTableEntryRepr};
+use crate::{MapNode, MapTable, MapTableEntries, MapTableEntryRepr};
 
 impl<'a> MapTable<'a> {
     pub(super) fn entry<'b>(&'b mut self, key: &'a str) -> MapEntry<'a, 'b> {
