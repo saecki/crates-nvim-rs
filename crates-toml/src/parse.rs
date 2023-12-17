@@ -286,19 +286,17 @@ impl InlineTable<'_> {
 
 #[derive(Debug, PartialEq)]
 pub struct InlineTableAssignment<'a> {
-    pub key: Key<'a>,
-    pub eq: Pos,
-    pub val: Value<'a>,
+    pub assignment: Assignment<'a>,
     pub comma: Option<Pos>,
 }
 
 impl InlineTableAssignment<'_> {
     pub fn span(&self) -> Span {
-        let start = self.key.span().start;
+        let start = self.assignment.key.span().start;
         let end = self
             .comma
             .map(|c| c.plus(1))
-            .unwrap_or_else(|| self.val.span().end);
+            .unwrap_or_else(|| self.assignment.val.span().end);
         Span { start, end }
     }
 }
@@ -770,9 +768,7 @@ impl Ctx {
                     };
 
                     let mut assignment = InlineTableAssignment {
-                        key,
-                        eq,
-                        val,
+                        assignment: Assignment { key, eq, val },
                         comma: None,
                     };
                     match parser.peek() {
@@ -784,7 +780,7 @@ impl Ctx {
                             break;
                         }
                         _ => {
-                            let pos = assignment.val.span().end;
+                            let pos = assignment.assignment.val.span().end;
                             self.errors.push(Error::ExpectedComma(pos));
                             // try to continue
                         }

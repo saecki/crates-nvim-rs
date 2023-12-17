@@ -39,19 +39,6 @@ fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Err
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
-fn check_errors<const AST_SIZE: usize, const ERR_SIZE: usize>(
-    input: &str,
-    expected: [Ast; AST_SIZE],
-    errors: [Error; ERR_SIZE],
-) {
-    let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(tokens);
-    assert_eq!(expected.as_slice(), asts);
-    assert_eq!(errors.as_slice(), ctx.errors);
-    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
-}
-
 #[test]
 fn assign_bool() {
     check(
@@ -743,52 +730,56 @@ fn inline_table() {
                 l_par: Pos { line: 0, char: 8 },
                 assignments: vec![
                     InlineTableAssignment {
-                        key: Key::One(Ident {
-                            lit: "a",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 10 },
-                                end: Pos { line: 0, char: 11 },
-                            },
-                            text: Cow::Borrowed("a"),
-                            text_span: Span {
-                                start: Pos { line: 0, char: 10 },
-                                end: Pos { line: 0, char: 11 },
-                            },
-                            kind: IdentKind::Plain,
-                        }),
-                        eq: Pos { line: 0, char: 12 },
-                        val: Value::Int(IntVal {
-                            lit: "3",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 14 },
-                                end: Pos { line: 0, char: 15 },
-                            },
-                            val: 3,
-                        }),
+                        assignment: Assignment {
+                            key: Key::One(Ident {
+                                lit: "a",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 10 },
+                                    end: Pos { line: 0, char: 11 },
+                                },
+                                text: Cow::Borrowed("a"),
+                                text_span: Span {
+                                    start: Pos { line: 0, char: 10 },
+                                    end: Pos { line: 0, char: 11 },
+                                },
+                                kind: IdentKind::Plain,
+                            }),
+                            eq: Pos { line: 0, char: 12 },
+                            val: Value::Int(IntVal {
+                                lit: "3",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 14 },
+                                    end: Pos { line: 0, char: 15 },
+                                },
+                                val: 3,
+                            }),
+                        },
                         comma: Some(Pos { line: 0, char: 15 }),
                     },
                     InlineTableAssignment {
-                        key: Key::One(Ident {
-                            lit: "b",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 17 },
-                                end: Pos { line: 0, char: 18 },
-                            },
-                            text: Cow::Borrowed("b"),
-                            text_span: Span {
-                                start: Pos { line: 0, char: 17 },
-                                end: Pos { line: 0, char: 18 },
-                            },
-                            kind: IdentKind::Plain,
-                        }),
-                        eq: Pos { line: 0, char: 19 },
-                        val: Value::Bool(BoolVal {
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 21 },
-                                end: Pos { line: 0, char: 25 },
-                            },
-                            val: true,
-                        }),
+                        assignment: Assignment {
+                            key: Key::One(Ident {
+                                lit: "b",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 17 },
+                                    end: Pos { line: 0, char: 18 },
+                                },
+                                text: Cow::Borrowed("b"),
+                                text_span: Span {
+                                    start: Pos { line: 0, char: 17 },
+                                    end: Pos { line: 0, char: 18 },
+                                },
+                                kind: IdentKind::Plain,
+                            }),
+                            eq: Pos { line: 0, char: 19 },
+                            val: Value::Bool(BoolVal {
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 21 },
+                                    end: Pos { line: 0, char: 25 },
+                                },
+                                val: true,
+                            }),
+                        },
                         comma: None,
                     },
                 ],
@@ -821,52 +812,56 @@ fn inline_table_recover_missing_comma() {
                 l_par: Pos { line: 0, char: 8 },
                 assignments: vec![
                     InlineTableAssignment {
-                        key: Key::One(Ident {
-                            lit: "a",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 10 },
-                                end: Pos { line: 0, char: 11 },
-                            },
-                            text: Cow::Borrowed("a"),
-                            text_span: Span {
-                                start: Pos { line: 0, char: 10 },
-                                end: Pos { line: 0, char: 11 },
-                            },
-                            kind: IdentKind::Plain,
-                        }),
-                        eq: Pos { line: 0, char: 12 },
-                        val: Value::Int(IntVal {
-                            lit: "3",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 14 },
-                                end: Pos { line: 0, char: 15 },
-                            },
-                            val: 3,
-                        }),
+                        assignment: Assignment {
+                            key: Key::One(Ident {
+                                lit: "a",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 10 },
+                                    end: Pos { line: 0, char: 11 },
+                                },
+                                text: Cow::Borrowed("a"),
+                                text_span: Span {
+                                    start: Pos { line: 0, char: 10 },
+                                    end: Pos { line: 0, char: 11 },
+                                },
+                                kind: IdentKind::Plain,
+                            }),
+                            eq: Pos { line: 0, char: 12 },
+                            val: Value::Int(IntVal {
+                                lit: "3",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 14 },
+                                    end: Pos { line: 0, char: 15 },
+                                },
+                                val: 3,
+                            }),
+                        },
                         comma: None,
                     },
                     InlineTableAssignment {
-                        key: Key::One(Ident {
-                            lit: "b",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 17 },
-                                end: Pos { line: 0, char: 18 },
-                            },
-                            text: Cow::Borrowed("b"),
-                            text_span: Span {
-                                start: Pos { line: 0, char: 17 },
-                                end: Pos { line: 0, char: 18 },
-                            },
-                            kind: IdentKind::Plain,
-                        }),
-                        eq: Pos { line: 0, char: 19 },
-                        val: Value::Bool(BoolVal {
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 21 },
-                                end: Pos { line: 0, char: 25 },
-                            },
-                            val: true,
-                        }),
+                        assignment: Assignment {
+                            key: Key::One(Ident {
+                                lit: "b",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 17 },
+                                    end: Pos { line: 0, char: 18 },
+                                },
+                                text: Cow::Borrowed("b"),
+                                text_span: Span {
+                                    start: Pos { line: 0, char: 17 },
+                                    end: Pos { line: 0, char: 18 },
+                                },
+                                kind: IdentKind::Plain,
+                            }),
+                            eq: Pos { line: 0, char: 19 },
+                            val: Value::Bool(BoolVal {
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 21 },
+                                    end: Pos { line: 0, char: 25 },
+                                },
+                                val: true,
+                            }),
+                        },
                         comma: None,
                     },
                 ],
@@ -900,52 +895,56 @@ fn inline_table_recover_invalid() {
                 l_par: Pos { line: 0, char: 8 },
                 assignments: vec![
                     InlineTableAssignment {
-                        key: Key::One(Ident {
-                            lit: "a",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 10 },
-                                end: Pos { line: 0, char: 11 },
-                            },
-                            text: Cow::Borrowed("a"),
-                            text_span: Span {
-                                start: Pos { line: 0, char: 10 },
-                                end: Pos { line: 0, char: 11 },
-                            },
-                            kind: IdentKind::Plain,
-                        }),
-                        eq: Pos { line: 0, char: 12 },
-                        val: Value::Int(IntVal {
-                            lit: "3",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 14 },
-                                end: Pos { line: 0, char: 15 },
-                            },
-                            val: 3,
-                        }),
+                        assignment: Assignment {
+                            key: Key::One(Ident {
+                                lit: "a",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 10 },
+                                    end: Pos { line: 0, char: 11 },
+                                },
+                                text: Cow::Borrowed("a"),
+                                text_span: Span {
+                                    start: Pos { line: 0, char: 10 },
+                                    end: Pos { line: 0, char: 11 },
+                                },
+                                kind: IdentKind::Plain,
+                            }),
+                            eq: Pos { line: 0, char: 12 },
+                            val: Value::Int(IntVal {
+                                lit: "3",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 14 },
+                                    end: Pos { line: 0, char: 15 },
+                                },
+                                val: 3,
+                            }),
+                        },
                         comma: Some(Pos { line: 0, char: 15 }),
                     },
                     InlineTableAssignment {
-                        key: Key::One(Ident {
-                            lit: "b",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 17 },
-                                end: Pos { line: 0, char: 18 },
-                            },
-                            text: Cow::Borrowed("b"),
-                            text_span: Span {
-                                start: Pos { line: 0, char: 17 },
-                                end: Pos { line: 0, char: 18 },
-                            },
-                            kind: IdentKind::Plain,
-                        }),
-                        eq: Pos { line: 0, char: 19 },
-                        val: Value::Bool(BoolVal {
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 21 },
-                                end: Pos { line: 0, char: 25 },
-                            },
-                            val: true,
-                        }),
+                        assignment: Assignment {
+                            key: Key::One(Ident {
+                                lit: "b",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 17 },
+                                    end: Pos { line: 0, char: 18 },
+                                },
+                                text: Cow::Borrowed("b"),
+                                text_span: Span {
+                                    start: Pos { line: 0, char: 17 },
+                                    end: Pos { line: 0, char: 18 },
+                                },
+                                kind: IdentKind::Plain,
+                            }),
+                            eq: Pos { line: 0, char: 19 },
+                            val: Value::Bool(BoolVal {
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 21 },
+                                    end: Pos { line: 0, char: 25 },
+                                },
+                                val: true,
+                            }),
+                        },
                         comma: Some(Pos { line: 0, char: 25 }),
                     },
                 ],
