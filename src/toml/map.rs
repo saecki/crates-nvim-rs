@@ -94,8 +94,8 @@ impl<'a> MapTableEntryRepr<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-enum MapTableEntryReprKind<'a> {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MapTableEntryReprKind<'a> {
     Table(&'a Table<'a>),
     ArrayEntry(&'a ArrayEntry<'a>),
     ToplevelAssignment(&'a Assignment<'a>),
@@ -103,13 +103,13 @@ enum MapTableEntryReprKind<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum MapTableKeyRepr<'a> {
+pub enum MapTableKeyRepr<'a> {
     One(&'a Ident<'a>),
     Dotted(u32, &'a [DottedIdent<'a>]),
 }
 
 impl<'a> MapTableKeyRepr<'a> {
-    fn referenced_ident(&self) -> &'a Ident<'a> {
+    pub fn referenced_ident(&self) -> &'a Ident<'a> {
         match self {
             MapTableKeyRepr::One(i) => i,
             MapTableKeyRepr::Dotted(idx, idents) => &idents[*idx as usize].ident,
@@ -271,7 +271,7 @@ impl Ctx {
                     let node = self.map_value(&value.val);
                     MapArrayInlineEntry::new(node, value)
                 });
-                let mut array = MapArrayInline::from_iter(inline_array, entries);
+                let array = MapArrayInline::from_iter(inline_array, entries);
                 MapNode::Array(MapArray::Inline(array))
             }
             Value::Invalid(s, r) => MapNode::Scalar(Scalar::Invalid(s, *r)),
@@ -381,7 +381,7 @@ fn insert_array_entry<'a>(
     map: &mut MapTable<'a>,
     key: &'a Key<'a>,
     node: MapTable<'a>,
-    array_entry: &ArrayEntry<'a>,
+    array_entry: &'a ArrayEntry<'a>,
 ) -> Result<(), Error> {
     fn insert<'a>(
         map: &mut MapTable<'a>,

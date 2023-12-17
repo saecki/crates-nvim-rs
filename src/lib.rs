@@ -1,9 +1,9 @@
-pub mod toml;
 mod onevec;
+pub mod toml;
 
 use nvim_oxi::{Dictionary, Function};
 
-use crate::toml::{Ctx, MapNode, MapTable, Scalar, StringVal};
+use crate::toml::{Ctx, Ident, MapNode, MapTable, MapTableEntries, Scalar, StringVal};
 
 #[nvim_oxi::module]
 pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
@@ -34,13 +34,13 @@ pub struct Section {
     pub invalid: bool,
     pub workspace: bool,
     pub target: Option<String>,
-    pub kind: Kind,
+    pub kind: SectionKind,
     pub name: Option<String>,
     pub name_col: Range,
     pub lines: Range,
 }
 
-pub enum Kind {
+pub enum SectionKind {
     Default,
     Dev,
     Build,
@@ -69,6 +69,30 @@ pub struct Crate {
     pub feat: Option<Feat>,
 }
 
+impl Crate {
+    pub fn plain(name: &Ident, version: &StringVal, section: Section) -> Self {
+        Self {
+            explicit_name: name.text.to_string(),
+            explicit_name_col: Range::new(name.lit_span.start.char, name.lit_span.end.char),
+            lines: Range::from_start_len(name.lit_span.start.line, 1),
+            syntax: Syntax::Plain,
+            section,
+            dep_kind: DepKind::Registry,
+            vers: Some(Vers::plain(version)),
+            registry: None,
+            path: None,
+            git: None,
+            branch: None,
+            rev: None,
+            pkg: None,
+            workspace: None,
+            opt: None,
+            def: None,
+            feat: None,
+        }
+    }
+}
+
 pub enum Syntax {
     Plain,
     InlineTable,
@@ -84,6 +108,20 @@ pub struct Vers {
     pub col: Range,
     pub decl_col: Range,
     pub quote: Quotes,
+}
+
+impl Vers {
+    fn plain(value: &StringVal) -> Self {
+        Self {
+            reqs: todo!(),
+            text: value.text.to_string(),
+            is_pre: todo!(),
+            line: value.lit_span.start.line,
+            col: Range::new(value.lit_span.start.char, value.lit_span.end.char),
+            decl_col: Range::new(0, value.lit_span.end.char),
+            quote: todo!(),
+        }
+    }
 }
 
 pub struct Registry {
@@ -235,41 +273,78 @@ pub struct Range {
     pub e: u32,
 }
 
+impl Range {
+    pub fn new(s: u32, e: u32) -> Self {
+        Self { s, e }
+    }
+
+    pub fn from_start_len(s: u32, len: u32) -> Self {
+        Self { s, e: s + len }
+    }
+}
+
 impl Ctx {
     fn find(&mut self, map: &MapTable) -> Vec<Crate> {
         let mut crates = Vec::new();
-        if let Some(MapNode::Table(dependencies)) = map.get("dependencies".into()) {
-            for (key, val) in dependencies.iter() {
-                match val {
-                    MapNode::Scalar(Scalar::String(s)) => todo!(),
-                    MapNode::Table(t) => {
-                        for (k, v) in t.iter() {
-                            match k.key {
-                                "version" => {
-                                    if let Some(s) = self.expect_string(v) {
-                                        todo!();
-                                    }
-                                }
-                                "registry" => todo!(),
-                                "path" => todo!(),
-                                "git" => todo!(),
-                                "branch" => todo!(),
-                                "rev" => todo!(),
-                                "package" => todo!(),
-                                "default-features" => todo!(),
-                                "default_features" => todo!("waring or error?"),
-                                "features" => todo!(),
-                                "workspace" => todo!(),
-                                "optional" => todo!(),
-                                _ => todo!(),
-                            }
-                        }
+        for (key, entries) in map.iter() {
+            match *key {
+                "dependencies" => {
+                    if let MapNode::Table(dependencies) = &entries.node {
+                        self.parse_dependencies(&mut crates, dependencies);
                     }
-                    _ => todo!("error"),
                 }
+                "dev-dependencies" => todo!(),
+                "build-dependencies" => todo!(),
+                "target" => todo!(),
+                _ => todo!(),
             }
         }
+        if let Some(MapTableEntries {
+            node: MapNode::Table(dependencies),
+            reprs,
+        }) = map.get("dependencies")
+        {}
         crates
+    }
+
+    fn parse_dependencies(&mut self, crates: &mut Vec<Crate>, dependencies: &MapTable) {
+        for (crate_name, entries) in dependencies.iter() {
+            let crt = match &entries.node {
+                MapNode::Scalar(Scalar::String(version)) => {
+                    let name = entries.reprs.first().key.referenced_ident();
+                    let section = todo!();
+                    Crate::plain(name, version, section)
+                }
+                MapNode::Scalar(_) => todo!("error"),
+                MapNode::Table(t) => {
+                    for (k, v) in t.iter() {
+                        match *k {
+                            "version" => {
+                                if let Some(s) = self.expect_string(&v.node) {
+                                    todo!();
+                                }
+                            }
+                            "registry" => todo!(),
+                            "path" => todo!(),
+                            "git" => todo!(),
+                            "branch" => todo!(),
+                            "rev" => todo!(),
+                            "package" => todo!(),
+                            "default-features" => todo!(),
+                            "default_features" => todo!("warning or error"),
+                            "features" => todo!(),
+                            "workspace" => todo!(),
+                            "optional" => todo!(),
+                            _ => todo!("warning"),
+                        }
+                    }
+                    todo!()
+                }
+                MapNode::Array(_) => todo!("error"),
+            };
+
+            crates.push(crt);
+        }
     }
 
     fn expect_string<'a>(&mut self, value: &'a MapNode<'a>) -> Option<&'a StringVal<'a>> {

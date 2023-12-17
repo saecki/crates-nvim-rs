@@ -1,7 +1,7 @@
 use crate::toml::{MapNode, MapTable, MapTableEntries, MapTableEntryRepr};
 
 impl<'a> MapTable<'a> {
-    pub(super) fn entry<'b>(&'b mut self, key: &'b str) -> MapEntry<'a, 'b> {
+    pub(super) fn entry<'b>(&'b mut self, key: &'a str) -> MapEntry<'a, 'b> {
         match self.inner.entry(key) {
             std::collections::hash_map::Entry::Occupied(inner) => {
                 MapEntry::Occupied(OccupiedEntry { inner })
@@ -48,7 +48,11 @@ where
 }
 
 impl<'a, 'b> VacantEntry<'a, 'b> {
-    pub fn insert(self, node: MapNode<'a>, repr: MapTableEntryRepr) -> &'b mut MapTableEntries<'a> {
+    pub fn insert(
+        self,
+        node: MapNode<'a>,
+        repr: MapTableEntryRepr<'a>,
+    ) -> &'b mut MapTableEntries<'a> {
         self.inner.insert(MapTableEntries::new(node, repr))
     }
 }
