@@ -24,6 +24,8 @@ macro_rules! recover_on {
     }};
 }
 
+// TODO: cursor to peek multiple tokens ahead and revert
+// -> use for heuristics to detect unclosed inline arrays
 #[derive(Debug)]
 struct Parser<'a> {
     tokens: std::iter::Peekable<std::vec::IntoIter<Token<'a>>>,
