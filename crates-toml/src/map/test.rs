@@ -555,3 +555,85 @@ fn super_table_declared_afterwards() {
         )]),
     );
 }
+
+#[test]
+fn table_extends_last_array_entry() {
+    check_values(
+        "\
+[[a.b]]
+1 = 'one'
+
+[a.b.c]
+2 = 'two'
+
+[[a.b]]
+1 = 'three'
+
+[a.b.c]
+2 = 'four'
+    ",
+        HashMap::from_iter([(
+            "a".into(),
+            TestVal::Table(HashMap::from_iter([(
+                "b".into(),
+                TestVal::Array(vec![
+                    TestVal::Table(HashMap::from_iter([
+                        ("1".into(), TestVal::String("one".into())),
+                        (
+                            "c".into(),
+                            TestVal::Table(HashMap::from_iter([(
+                                "2".into(),
+                                TestVal::String("two".into()),
+                            )])),
+                        ),
+                    ])),
+                    TestVal::Table(HashMap::from_iter([
+                        ("1".into(), TestVal::String("three".into())),
+                        (
+                            "c".into(),
+                            TestVal::Table(HashMap::from_iter([(
+                                "2".into(),
+                                TestVal::String("four".into()),
+                            )])),
+                        ),
+                    ])),
+                ]),
+            )])),
+        )]),
+    );
+}
+
+#[test]
+fn array_of_table_of_arrays() {
+    check_values(
+        "\
+[[a.b]]
+1 = false
+
+[[a.b]]
+1 = true
+
+[[a.b.c]]
+2 = false
+    ",
+        HashMap::from_iter([(
+            "a".into(),
+            TestVal::Table(HashMap::from_iter([(
+                "b".into(),
+                TestVal::Array(vec![
+                    TestVal::Table(HashMap::from_iter([("1".into(), TestVal::Bool(false))])),
+                    TestVal::Table(HashMap::from_iter([
+                        ("1".into(), TestVal::Bool(true)),
+                        (
+                            "c".into(),
+                            TestVal::Array(vec![TestVal::Table(HashMap::from_iter([(
+                                "2".into(),
+                                TestVal::Bool(false),
+                            )]))]),
+                        ),
+                    ])),
+                ]),
+            )])),
+        )]),
+    );
+}
