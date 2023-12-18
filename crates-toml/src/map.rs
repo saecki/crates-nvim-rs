@@ -2,11 +2,11 @@ use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
 use crate::onevec::OneVec;
-use crate::{
-    ArrayEntry, Assignment, Ast, BoolVal, Ctx, DateTimeVal, DottedIdent, Error, FloatVal, Ident,
-    InlineArray, InlineArrayValue, InlineTableAssignment, IntVal, Key, Span, StringVal, Table,
-    Value,
+use crate::parse::{
+    ArrayEntry, Assignment, Ast, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
+    InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, Value,
 };
+use crate::{Ctx, Error, Span};
 
 #[cfg(test)]
 mod test;

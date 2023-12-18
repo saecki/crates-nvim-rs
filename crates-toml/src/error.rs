@@ -1,7 +1,9 @@
+use crate::datetime::DateTimeField;
 use crate::{Pos, Quote, Span};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
+    // lex
     MissingQuote(Quote, Pos),
     InvalidLiteral(String, Span),
     InvalidEscapeChar(char, Pos),
@@ -10,6 +12,7 @@ pub enum Error {
     InvalidCharInIdentifier(char, Pos),
     UnfinishedEscapeSequence(Span),
 
+    // parse
     ExpectedEqFound(String, Span),
     ExpectedRightCurlyFound(String, Span),
     ExpectedRightSquareFound(String, Span),
@@ -50,21 +53,10 @@ pub enum Error {
     LocalDateTimeOffset(Pos),
     DateAndTimeTooFarApart(Span),
 
+    // map
     DuplicateKey(String, Span, Span),
     CannotExtendInlineArray(String, Span, Span),
     CannotExtendInlineTable(String, Span, Span),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DateTimeField {
-    Year,
-    Month,
-    Day,
-    Hour,
-    Minute,
-    Second,
-    OffsetHour,
-    OffsetMinute,
 }
 
 #[derive(Debug, PartialEq, Eq)]

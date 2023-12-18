@@ -1,6 +1,7 @@
 use pretty_assertions::assert_eq;
 
-use crate::{Ctx, Error, MapTable, Warning};
+use crate::map::MapTable;
+use crate::{Ctx, Error, Warning};
 
 fn check(input: &str, expected: MapTable) {
     let mut ctx = Ctx::default();

@@ -1,6 +1,8 @@
 use nvim_oxi::{Dictionary, Function};
 
-use crates_toml::{Ctx, Ident, MapNode, MapTable, MapTableEntries, Scalar, StringVal};
+use crates_toml::map::{MapNode, MapTable, MapTableEntries, Scalar};
+use crates_toml::parse::{Ident, StringVal};
+use crates_toml::Ctx;
 
 #[nvim_oxi::module]
 pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
