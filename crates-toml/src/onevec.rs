@@ -12,8 +12,16 @@ impl<T> OneVec<T> {
         self.inner.first().expect("at least one element")
     }
 
+    pub fn first_mut(&mut self) -> &mut T {
+        self.inner.first_mut().expect("at least one element")
+    }
+
     pub fn last(&self) -> &T {
         self.inner.last().expect("at least one element")
+    }
+
+    pub fn last_mut(&mut self) -> &mut T {
+        self.inner.last_mut().expect("at least one element")
     }
 
     pub fn push(&mut self, val: T) {

@@ -52,6 +52,7 @@ pub enum Error {
 
     DuplicateKey(String, Span, Span),
     CannotExtendInlineArray(String, Span, Span),
+    CannotExtendInlineTable(String, Span, Span),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

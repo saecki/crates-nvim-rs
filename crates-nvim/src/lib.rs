@@ -307,7 +307,7 @@ fn parse_dependencies(ctx: &mut Ctx, crates: &mut Vec<Crate>, dependencies: &Map
     for (crate_name, entries) in dependencies.iter() {
         let crt = match &entries.node {
             MapNode::Scalar(Scalar::String(version)) => {
-                let name = entries.reprs.first().key.referenced_ident();
+                let name = entries.reprs.first().key.repr_ident();
                 let section = todo!();
                 Crate::plain(name, version, section)
             }
