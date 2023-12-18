@@ -8,24 +8,41 @@ impl<T> OneVec<T> {
         Self { inner: vec![elem] }
     }
 
+    /// Constructs [`Self`] from a non-empty [`Vec`].
+    ///
+    /// # Safety
+    /// Calling this function with an empty [`Vec`] is undefined behavior.
     pub unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
         Self { inner: vec }
     }
 
+    #[inline]
+    #[must_use]
     pub fn first(&self) -> &T {
-        self.inner.first().expect("at least one element")
+        // SAFETY: inner should never be empty
+        unsafe { self.inner.get_unchecked(0) }
     }
 
+    #[inline]
+    #[must_use]
     pub fn first_mut(&mut self) -> &mut T {
-        self.inner.first_mut().expect("at least one element")
+        // SAFETY: inner should never be empty
+        unsafe { self.inner.get_unchecked_mut(0) }
     }
 
+    #[inline]
+    #[must_use]
     pub fn last(&self) -> &T {
-        self.inner.last().expect("at least one element")
+        // SAFETY: inner should never be empty
+        unsafe { self.inner.get_unchecked(self.inner.len() - 1) }
     }
 
+    #[inline]
+    #[must_use]
     pub fn last_mut(&mut self) -> &mut T {
-        self.inner.last_mut().expect("at least one element")
+        // SAFETY: inner should never be empty
+        let idx = self.inner.len() - 1;
+        unsafe { self.inner.get_unchecked_mut(idx) }
     }
 
     pub fn push(&mut self, val: T) {
@@ -46,17 +63,19 @@ impl<T> IntoIterator for OneVec<T> {
     }
 }
 
-impl<T> std::ops::Index<usize> for OneVec<T> {
-    type Output = T;
+impl<T, I: std::slice::SliceIndex<[T]>> std::ops::Index<I> for OneVec<T> {
+    type Output = I::Output;
 
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.inner[index]
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        std::ops::Index::index(&*self.inner, index)
     }
 }
 
-impl<T> std::ops::IndexMut<usize> for OneVec<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.inner[index]
+impl<T, I: std::slice::SliceIndex<[T]>> std::ops::IndexMut<I> for OneVec<T> {
+    #[inline]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        std::ops::IndexMut::index_mut(&mut *self.inner, index)
     }
 }
 
@@ -85,10 +104,11 @@ impl<T: Eq> Eq for OneVec<T> {}
 #[macro_export]
 macro_rules! onevec {
     ($($x:expr),+ $(,)?) => {
-         unsafe {
-             OneVec::from_vec_unchecked(
-                 Vec::from_iter([$($x),+])
-             )
-         }
+        // SAFETY: macro rules enforce at least one element
+        unsafe {
+            OneVec::from_vec_unchecked(
+                Vec::from_iter([$($x),+])
+            )
+        }
     };
 }
