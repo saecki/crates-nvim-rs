@@ -156,11 +156,11 @@ impl<'a> MapArrayInline<'a> {
 
     pub fn from_iter(
         repr: &'a InlineArray<'a>,
-        iter: impl Iterator<Item = MapArrayInlineEntry<'a>>,
+        iter: impl IntoIterator<Item = MapArrayInlineEntry<'a>>,
     ) -> Self {
         Self {
             repr,
-            inner: iter.collect(),
+            inner: Vec::from_iter(iter),
         }
     }
 }

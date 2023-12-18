@@ -8,6 +8,12 @@ impl<T> OneVec<T> {
         Self { inner: vec![elem] }
     }
 
+    pub fn from_iter(iter: impl IntoIterator<Item = T>) -> Self {
+        Self {
+            inner: Vec::from_iter(iter),
+        }
+    }
+
     pub fn first(&self) -> &T {
         self.inner.first().expect("at least one element")
     }
@@ -30,6 +36,10 @@ impl<T> OneVec<T> {
 
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.inner.iter()
+    }
+
+    pub fn into_iter(self) -> std::vec::IntoIter<T> {
+        self.inner.into_iter()
     }
 }
 

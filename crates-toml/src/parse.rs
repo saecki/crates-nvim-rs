@@ -116,7 +116,7 @@ pub struct ArrayHeader<'a> {
     pub r_pars: (Option<Pos>, Option<Pos>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Assignment<'a> {
     pub key: Key<'a>,
     pub eq: Pos,
@@ -180,7 +180,7 @@ pub enum IdentKind {
     String(Quote),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value<'a> {
     String(StringVal<'a>),
     Int(IntVal<'a>),
@@ -207,7 +207,7 @@ impl Value<'_> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StringVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
@@ -216,7 +216,7 @@ pub struct StringVal<'a> {
     pub quote: Quote,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IntVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
@@ -229,7 +229,7 @@ impl<'a> IntVal<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FloatVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
@@ -242,7 +242,7 @@ impl<'a> FloatVal<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BoolVal {
     pub lit_span: Span,
     pub val: bool,
@@ -254,7 +254,7 @@ impl BoolVal {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DateTimeVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
@@ -267,7 +267,7 @@ impl<'a> DateTimeVal<'a> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InlineTable<'a> {
     pub l_par: Pos,
     pub assignments: Vec<InlineTableAssignment<'a>>,
@@ -285,7 +285,7 @@ impl InlineTable<'_> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InlineTableAssignment<'a> {
     pub assignment: Assignment<'a>,
     pub comma: Option<Pos>,
@@ -302,7 +302,7 @@ impl InlineTableAssignment<'_> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InlineArray<'a> {
     pub l_par: Pos,
     pub values: Vec<InlineArrayValue<'a>>,
@@ -320,7 +320,7 @@ impl InlineArray<'_> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InlineArrayValue<'a> {
     pub val: Value<'a>,
     pub comma: Option<Pos>,
