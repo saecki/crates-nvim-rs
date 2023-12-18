@@ -23,9 +23,7 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
     assert_eq!(tokens.len(), 2);
-    if ctx.errors != [] {
-        assert_eq!(ctx.errors, []);
-    }
+    assert_eq!(ctx.errors, []);
     assert_eq!(ctx.warnings, []);
 
     let token = tokens.into_iter().next().unwrap();

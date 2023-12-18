@@ -8,10 +8,8 @@ impl<T> OneVec<T> {
         Self { inner: vec![elem] }
     }
 
-    pub fn from_iter(iter: impl IntoIterator<Item = T>) -> Self {
-        Self {
-            inner: Vec::from_iter(iter),
-        }
+    pub unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
+        Self { inner: vec }
     }
 
     pub fn first(&self) -> &T {
@@ -37,8 +35,13 @@ impl<T> OneVec<T> {
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.inner.iter()
     }
+}
 
-    pub fn into_iter(self) -> std::vec::IntoIter<T> {
+impl<T> IntoIterator for OneVec<T> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
     }
 }
@@ -78,3 +81,14 @@ impl<T: PartialEq> PartialEq for OneVec<T> {
 }
 
 impl<T: Eq> Eq for OneVec<T> {}
+
+#[macro_export]
+macro_rules! onevec {
+    ($($x:expr),+ $(,)?) => {
+         unsafe {
+             OneVec::from_vec_unchecked(
+                 Vec::from_iter([$($x),+])
+             )
+         }
+    };
+}

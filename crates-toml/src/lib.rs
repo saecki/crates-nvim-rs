@@ -1,12 +1,14 @@
+pub use error::{Error, Warning};
+pub use lex::{Pos, Quote, Span, Token, TokenType};
+
 pub mod datetime;
 pub mod error;
 mod lex;
 pub mod map;
+
+#[macro_use]
 pub mod onevec;
 pub mod parse;
-
-pub use error::{Error, Warning};
-pub use lex::{Pos, Quote, Span, Token, TokenType};
 
 #[derive(Default)]
 pub struct Ctx {

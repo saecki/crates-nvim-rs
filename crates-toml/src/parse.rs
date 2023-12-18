@@ -1067,7 +1067,7 @@ enum PartialValue {
 /// a date-time adhering to the RFC 3339 spec. The toml spec allows using a space instead of `T` to
 /// separate the date and time parts, in that case only the date is parsed since the time part is
 /// inside the next token.
-fn parse_num_or_date<'a>(literal: &'a str, span: Span) -> Result<PartialValue, Error> {
+fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
     #[derive(PartialEq, Eq)]
     enum NumParseState {
         Int,

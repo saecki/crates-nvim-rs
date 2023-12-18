@@ -2,7 +2,7 @@ use pretty_assertions::assert_eq;
 
 use crate::datetime::DateTime;
 use crate::parse::TableHeader;
-use crate::{Pos, Warning};
+use crate::{onevec, Pos, Warning};
 
 use super::*;
 
@@ -219,7 +219,7 @@ a.b.d = 2
                         ),
                     )),
                 ])),
-                OneVec::from_iter([
+                onevec![
                     MapTableEntryRepr::new(
                         MapTableKeyRepr::Dotted(1, &key1),
                         MapTableEntryReprKind::ToplevelAssignment(&assignment1),
@@ -228,9 +228,9 @@ a.b.d = 2
                         MapTableKeyRepr::Dotted(1, &key2),
                         MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                     ),
-                ]),
+                ],
             ))])),
-            OneVec::from_iter([
+            onevec![
                 MapTableEntryRepr::new(
                     MapTableKeyRepr::Dotted(0, &key1),
                     MapTableEntryReprKind::ToplevelAssignment(&assignment1),
@@ -239,7 +239,7 @@ a.b.d = 2
                     MapTableKeyRepr::Dotted(0, &key2),
                     MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                 ),
-            ]),
+            ],
         ))]),
     );
 }

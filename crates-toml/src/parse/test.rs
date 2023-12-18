@@ -1192,7 +1192,7 @@ fn offset_date_time_with_subsec() {
                     end: Pos { line: 0, char: 39 },
                 },
                 val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 05),
+                    Date::new(2023, 12, 5),
                     Time::new(10, 11, 12, 332_424_300),
                     Offset::Custom(-(4 * 60 + 30)),
                 ),
@@ -1227,7 +1227,7 @@ fn offset_date_time_without_subsec() {
                     end: Pos { line: 0, char: 31 },
                 },
                 val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 05),
+                    Date::new(2023, 12, 5),
                     Time::new(10, 11, 12, 0),
                     Offset::Custom(4 * 60 + 30),
                 ),
@@ -1262,7 +1262,7 @@ fn offset_date_time_with_z_suffix() {
                     end: Pos { line: 0, char: 26 },
                 },
                 val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 05),
+                    Date::new(2023, 12, 5),
                     Time::new(10, 11, 12, 0),
                     Offset::Utc,
                 ),
@@ -1296,7 +1296,7 @@ fn space_separated_time() {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 25 },
                 },
-                val: DateTime::LocalDateTime(Date::new(2023, 12, 05), Time::new(10, 11, 12, 0)),
+                val: DateTime::LocalDateTime(Date::new(2023, 12, 5), Time::new(10, 11, 12, 0)),
             }),
         })],
     );
@@ -1327,7 +1327,7 @@ fn local_date() {
                     start: Pos { line: 0, char: 6 },
                     end: Pos { line: 0, char: 16 },
                 },
-                val: DateTime::LocalDate(Date::new(2023, 12, 05)),
+                val: DateTime::LocalDate(Date::new(2023, 12, 5)),
             }),
         })],
     );

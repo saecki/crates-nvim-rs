@@ -190,7 +190,7 @@ fn try_to_parse_offset(chars: &mut CharIter, span: Span) -> Result<Option<Offset
             let minutes = parse_offset(chars, span)?;
             Ok(Some(Offset::Custom(-minutes)))
         }
-        Some((i, c)) => return invalid_char_error(c, span, i),
+        Some((i, c)) => invalid_char_error(c, span, i),
         None => Ok(None),
     }
 }
@@ -215,9 +215,9 @@ fn error_on_offset(chars: &mut CharIter, span: Span) -> Result<(), Error> {
     match chars.next() {
         Some((i, 'Z' | '+' | '-')) => {
             let pos = span.start.plus(i as u32);
-            return Err(Error::LocalDateTimeOffset(pos));
+            Err(Error::LocalDateTimeOffset(pos))
         }
-        Some((i, c)) => return invalid_char_error(c, span, i),
+        Some((i, c)) => invalid_char_error(c, span, i),
         None => Ok(()),
     }
 }

@@ -36,8 +36,13 @@ impl<'a> MapTable<'a> {
     pub fn iter(&self) -> impl Iterator<Item = (&&str, &MapTableEntries<'a>)> {
         self.inner.iter()
     }
+}
 
-    pub fn into_iter(self) -> impl Iterator<Item = (&'a str, MapTableEntries<'a>)> {
+impl<'a> IntoIterator for MapTable<'a> {
+    type Item = (&'a str, MapTableEntries<'a>);
+    type IntoIter = std::collections::hash_map::IntoIter<&'a str, MapTableEntries<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
     }
 }
@@ -292,7 +297,7 @@ impl Ctx {
                 Occupied(occupied) => occupied.into_mut(),
                 Vacant(vacant) => {
                     let mut node = node;
-                    for (j, o) in (&idents[(i + 1)..]).iter().enumerate().rev() {
+                    for (j, o) in idents[(i + 1)..].iter().enumerate().rev() {
                         let key_idx = (i + 1 + j) as u32;
                         let key_repr = MapTableKeyRepr::Dotted(key_idx, idents);
                         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
@@ -309,7 +314,7 @@ impl Ctx {
                 }
             };
 
-            let next = match get_table_to_extend(&mut entries.node, &mut entries.reprs, &o.ident) {
+            let next = match get_table_to_extend(&mut entries.node, &entries.reprs, &o.ident) {
                 Ok(t) => t,
                 Err(e) => return self.errors.push(e),
             };
@@ -425,7 +430,7 @@ impl Ctx {
                     let mut node = MapNode::Array(MapArray::Toplevel(toplevel_array));
 
                     let key_idx_offset = i + 1;
-                    for (j, o) in (&idents[key_idx_offset..]).iter().enumerate().rev() {
+                    for (j, o) in idents[key_idx_offset..].iter().enumerate().rev() {
                         let key_idx = (key_idx_offset + j) as u32;
                         let key_repr = MapTableKeyRepr::Dotted(key_idx, idents);
                         let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
@@ -444,7 +449,7 @@ impl Ctx {
                 }
             };
 
-            let next = match get_table_to_extend(&mut entries.node, &mut entries.reprs, &o.ident) {
+            let next = match get_table_to_extend(&mut entries.node, &entries.reprs, &o.ident) {
                 Ok(t) => t,
                 Err(e) => return self.errors.push(e),
             };
