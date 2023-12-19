@@ -273,7 +273,7 @@ impl Ctx {
                                 unicode.cp += (c as u32 - 'A' as u32 + 10) << offset;
                             }
                             '\n' => {
-                                self.errors.push(Error::UnfinishedEscapeSequence(Span {
+                                self.error(Error::UnfinishedEscapeSequence(Span {
                                     start: esc.start,
                                     end: lexer.pos.after(c),
                                 }));
@@ -289,7 +289,7 @@ impl Ctx {
                                 } else {
                                     // Recover state
                                     let quote = str.quote;
-                                    self.errors.push(Error::MissingQuote(quote, lexer.pos));
+                                    self.error(Error::MissingQuote(quote, lexer.pos));
                                     self.finish_string(&mut lexer, quote, ci, ci);
                                     lexer.str = None;
 
@@ -336,7 +336,7 @@ impl Ctx {
                         if unicode.count == 0 {
                             match char::from_u32(unicode.cp) {
                                 Some(char) => str.push_char(char),
-                                None => self.errors.push(Error::InvalidUnicodeScalar(
+                                None => self.error(Error::InvalidUnicodeScalar(
                                     unicode.cp,
                                     Span::new(esc.start, lexer.pos.after(c)),
                                 )),
@@ -361,7 +361,7 @@ impl Ctx {
                                 if !str.quote.is_multiline() {
                                     // Recover state
                                     let quote = str.quote;
-                                    self.errors.push(Error::MissingQuote(quote, lexer.pos));
+                                    self.error(Error::MissingQuote(quote, lexer.pos));
                                     self.finish_string(&mut lexer, quote, ci, ci);
 
                                     self.newline_token(&mut lexer, ci);
@@ -378,7 +378,7 @@ impl Ctx {
                                     lexer.pos.char += 1;
                                 }
                             }
-                            _ => self.errors.push(Error::InvalidEscapeChar(c, lexer.pos)),
+                            _ => self.error(Error::InvalidEscapeChar(c, lexer.pos)),
                         }
                     }
                 } else if str.quote.matches(c) {
@@ -409,7 +409,7 @@ impl Ctx {
                 } else if c == '\n' {
                     if !str.quote.is_multiline() {
                         // Recover state
-                        self.errors.push(Error::MissingQuote(str.quote, lexer.pos));
+                        self.error(Error::MissingQuote(str.quote, lexer.pos));
                         let quote = str.quote;
                         self.finish_string(&mut lexer, quote, ci, ci);
                         lexer.str = None;
@@ -548,13 +548,13 @@ impl Ctx {
         lexer.pos.char = (end - lexer.line_start) as u32;
         if let Some(str) = &mut lexer.str {
             if let Some(esc) = &mut str.esc {
-                self.errors.push(Error::UnfinishedEscapeSequence(Span {
+                self.error(Error::UnfinishedEscapeSequence(Span {
                     start: esc.start,
                     end: lexer.pos,
                 }));
             }
             let quote = str.quote;
-            self.errors.push(Error::MissingQuote(quote, lexer.pos));
+            self.error(Error::MissingQuote(quote, lexer.pos));
 
             self.finish_string(&mut lexer, quote, end, end);
         } else {

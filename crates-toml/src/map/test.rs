@@ -122,9 +122,9 @@ fn dotted_key() {
     #[rustfmt::skip]
     check(
         "a.b.c = 1",
-        MapTable::from_pairs([("a", MapTableEntries::from_one(
-            MapNode::Table(MapTable::from_pairs([("b", MapTableEntries::from_one(
-                MapNode::Table(MapTable::from_pairs([("c", MapTableEntries::from_one(
+        MapTable::from_pairs([("a", MapTableEntry::from_one(
+            MapNode::Table(MapTable::from_pairs([("b", MapTableEntry::from_one(
+                MapNode::Table(MapTable::from_pairs([("c", MapTableEntry::from_one(
                     MapNode::Scalar(Scalar::Int(&value)),
                     MapTableEntryRepr::new(
                         MapTableKeyRepr::Dotted(2, &key),
@@ -201,17 +201,17 @@ fn dotted_keys_extend() {
 a.b.c = 1
 a.b.d = 2
 ",
-        MapTable::from_pairs([("a", MapTableEntries::new(
-            MapNode::Table(MapTable::from_pairs([("b", MapTableEntries::new(
+        MapTable::from_pairs([("a", MapTableEntry::new(
+            MapNode::Table(MapTable::from_pairs([("b", MapTableEntry::new(
                 MapNode::Table(MapTable::from_pairs([
-                    ("c", MapTableEntries::from_one(
+                    ("c", MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Int(&value1)),
                         MapTableEntryRepr::new(
                             MapTableKeyRepr::Dotted(2, &key1),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                         ),
                     )),
-                    ("d", MapTableEntries::from_one(
+                    ("d", MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Int(&value2)),
                         MapTableEntryRepr::new(
                             MapTableKeyRepr::Dotted(2, &key2),
@@ -287,11 +287,11 @@ fn table() {
 abc = true
 def = 23.0
 ",
-        MapTable::from_pairs([("mytable", MapTableEntries::from_one(
+        MapTable::from_pairs([("mytable", MapTableEntry::from_one(
             MapNode::Table(MapTable::from_pairs([
                 (
                     "abc",
-                    MapTableEntries::from_one(
+                    MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Bool(&value1)),
                         MapTableEntryRepr::new(
                             MapTableKeyRepr::One(&key1),
@@ -301,7 +301,7 @@ def = 23.0
                 ),
                 (
                     "def",
-                    MapTableEntries::from_one(
+                    MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Float(&value2)),
                         MapTableEntryRepr::new(
                             MapTableKeyRepr::One(&key2),
@@ -369,7 +369,7 @@ fn inline_array() {
     #[rustfmt::skip]
     check(
         "array = [4, 8, 16]",
-        MapTable::from_pairs([("array", MapTableEntries::from_one(
+        MapTable::from_pairs([("array", MapTableEntry::from_one(
             MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(&array, [
                 MapArrayInlineEntry::new(
                     MapNode::Scalar(Scalar::Int(&value1)),
@@ -457,10 +457,10 @@ fruit.apple = 3
     ",
         MapTable::from_pairs([(
             "fruit",
-            MapTableEntries::from_one(
+            MapTableEntry::from_one(
                 MapNode::Table(MapTable::from_pairs([(
                     "apple",
-                    MapTableEntries::from_one(
+                    MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Int(&value)),
                         MapTableEntryRepr::new(
                             MapTableKeyRepr::Dotted(1, &key),

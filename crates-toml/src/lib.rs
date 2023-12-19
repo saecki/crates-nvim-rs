@@ -16,6 +16,16 @@ pub struct Ctx {
     pub warnings: Vec<Warning>,
 }
 
+impl Ctx {
+    fn error(&mut self, error: Error) {
+        self.errors.push(error);
+    }
+
+    fn warn(&mut self, warning: Warning) {
+        self.warnings.push(warning);
+    }
+}
+
 // pub struct Toml<'a /* 'b: 'a */> {
 //     input: Pin<Box<str>>,
 //     asts: Pin<Box<[Ast<'a>]>>,

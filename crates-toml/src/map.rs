@@ -13,7 +13,7 @@ mod test;
 
 #[derive(Debug, PartialEq)]
 pub struct MapTable<'a> {
-    inner: HashMap<&'a str, MapTableEntries<'a>>,
+    inner: HashMap<&'a str, MapTableEntry<'a>>,
 }
 
 impl<'a> MapTable<'a> {
@@ -23,24 +23,24 @@ impl<'a> MapTable<'a> {
         }
     }
 
-    pub fn get(&self, key: &'a str) -> Option<&MapTableEntries<'a>> {
+    pub fn get(&self, key: &'a str) -> Option<&MapTableEntry<'a>> {
         self.inner.get(key)
     }
 
-    pub fn from_pairs(pairs: impl IntoIterator<Item = (&'a str, MapTableEntries<'a>)>) -> Self {
+    pub fn from_pairs(pairs: impl IntoIterator<Item = (&'a str, MapTableEntry<'a>)>) -> Self {
         Self {
             inner: HashMap::from_iter(pairs),
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&&str, &MapTableEntries<'a>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&&str, &MapTableEntry<'a>)> {
         self.inner.iter()
     }
 }
 
 impl<'a> IntoIterator for MapTable<'a> {
-    type Item = (&'a str, MapTableEntries<'a>);
-    type IntoIter = std::collections::hash_map::IntoIter<&'a str, MapTableEntries<'a>>;
+    type Item = (&'a str, MapTableEntry<'a>);
+    type IntoIter = std::collections::hash_map::IntoIter<&'a str, MapTableEntry<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
@@ -48,13 +48,13 @@ impl<'a> IntoIterator for MapTable<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MapTableEntries<'a> {
+pub struct MapTableEntry<'a> {
     pub node: MapNode<'a>,
     /// References to the actual representations inside the toml file.
     pub reprs: OneVec<MapTableEntryRepr<'a>>,
 }
 
-impl<'a> MapTableEntries<'a> {
+impl<'a> MapTableEntry<'a> {
     fn new(node: MapNode<'a>, reprs: OneVec<MapTableEntryRepr<'a>>) -> Self {
         Self { node, reprs }
     }
@@ -85,6 +85,18 @@ pub enum MapTableEntryReprKind<'a> {
     ArrayEntry(&'a ArrayEntry<'a>),
     ToplevelAssignment(&'a Assignment<'a>),
     InlineTableAssignment(&'a InlineTableAssignment<'a>),
+}
+
+impl MapTableEntryReprKind<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        match self {
+            MapTableEntryReprKind::Table(t) => t.span(),
+            MapTableEntryReprKind::ArrayEntry(a) => a.span(),
+            MapTableEntryReprKind::ToplevelAssignment(a) => a.span(),
+            MapTableEntryReprKind::InlineTableAssignment(a) => a.span(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -168,6 +180,38 @@ impl<'a> MapArrayInline<'a> {
             inner: Vec::from_iter(iter),
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    pub fn get(&'a self, idx: usize) -> Option<&'a MapArrayInlineEntry<'a>> {
+        self.inner.get(idx)
+    }
+
+    pub fn iter(&'a self) -> impl Iterator<Item = &'a MapArrayInlineEntry<'a>> {
+        self.inner.iter()
+    }
+}
+
+impl<'a, I: std::slice::SliceIndex<[MapArrayInlineEntry<'a>]>> std::ops::Index<I>
+    for MapArrayInline<'a>
+{
+    type Output = I::Output;
+
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        std::ops::Index::index(&*self.inner, index)
+    }
+}
+
+impl<'a, I: std::slice::SliceIndex<[MapArrayInlineEntry<'a>]>> std::ops::IndexMut<I>
+    for MapArrayInline<'a>
+{
+    #[inline]
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        std::ops::IndexMut::index_mut(&mut *self.inner, index)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -197,6 +241,20 @@ pub enum Scalar<'a> {
     Bool(&'a BoolVal),
     DateTime(&'a DateTimeVal<'a>),
     Invalid(&'a str, Span),
+}
+
+impl Scalar<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        match self {
+            Scalar::String(s) => s.lit_span,
+            Scalar::Int(i) => i.lit_span,
+            Scalar::Float(f) => f.lit_span,
+            Scalar::Bool(b) => b.lit_span,
+            Scalar::DateTime(d) => d.lit_span,
+            Scalar::Invalid(_, span) => *span,
+        }
+    }
 }
 
 impl Ctx {
@@ -281,7 +339,7 @@ impl Ctx {
                 let key_repr = MapTableKeyRepr::One(i);
                 let repr = MapTableEntryRepr::new(key_repr, repr_kind);
                 if let Err(e) = self.insert_final_node(map, i.text(), node, repr) {
-                    self.errors.push(e);
+                    self.error(e);
                 }
                 return;
             }
@@ -293,7 +351,7 @@ impl Ctx {
         };
         let mut current = map;
         for (i, o) in other.iter().enumerate() {
-            let entries = match current.inner.entry(o.ident.text()) {
+            let entry = match current.inner.entry(o.ident.text()) {
                 Occupied(occupied) => occupied.into_mut(),
                 Vacant(vacant) => {
                     let mut node = node;
@@ -303,25 +361,25 @@ impl Ctx {
                         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
                         node = MapNode::Table(MapTable::from_pairs([(
                             o.ident.text(),
-                            MapTableEntries::from_one(node, repr),
+                            MapTableEntry::from_one(node, repr),
                         )]));
                     }
 
                     let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
                     let repr = MapTableEntryRepr::new(key_repr, repr_kind);
-                    vacant.insert(MapTableEntries::from_one(node, repr));
+                    vacant.insert(MapTableEntry::from_one(node, repr));
                     return;
                 }
             };
 
-            let next = match get_table_to_extend(&mut entries.node, &entries.reprs, &o.ident) {
+            let next = match get_table_to_extend(&mut entry.node, &entry.reprs, &o.ident) {
                 Ok(t) => t,
-                Err(e) => return self.errors.push(e),
+                Err(e) => return self.error(e),
             };
 
             let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
             let repr = MapTableEntryRepr::new(key_repr, repr_kind);
-            entries.reprs.push(repr);
+            entry.reprs.push(repr);
             current = next;
         }
 
@@ -329,7 +387,7 @@ impl Ctx {
         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
 
         if let Err(e) = self.insert_final_node(current, last.ident.text(), node, repr) {
-            self.errors.push(e);
+            self.error(e);
         }
     }
 
@@ -342,29 +400,29 @@ impl Ctx {
     ) -> Result<(), Error> {
         use std::collections::hash_map::Entry::*;
 
-        let existing_entries = match map.inner.entry(key) {
+        let existing_entry = match map.inner.entry(key) {
             Occupied(occupied) => occupied.into_mut(),
             Vacant(vacant) => {
-                vacant.insert(MapTableEntries::from_one(node, repr));
+                vacant.insert(MapTableEntry::from_one(node, repr));
                 return Ok(());
             }
         };
 
         if !matches!(repr.kind, MapTableEntryReprKind::Table(_)) {
-            return Err(duplicate_key_error(key, existing_entries, &repr.key));
+            return Err(duplicate_key_error(key, existing_entry, &repr.key));
         }
         let MapNode::Table(new_table) = node else {
             unreachable!()
         };
 
-        let existing_table = match &mut existing_entries.node {
+        let existing_table = match &mut existing_entry.node {
             MapNode::Table(t) => t,
             MapNode::Array(_) | MapNode::Scalar(_) => {
-                return Err(duplicate_key_error(key, existing_entries, &repr.key));
+                return Err(duplicate_key_error(key, existing_entry, &repr.key));
             }
         };
 
-        for existing_repr in existing_entries.reprs.iter() {
+        for existing_repr in existing_entry.reprs.iter() {
             match existing_repr.kind {
                 MapTableEntryReprKind::Table(_) if !existing_repr.key.is_last_ident() => {
                     // allow super tables, that are declared out of order
@@ -373,7 +431,7 @@ impl Ctx {
                 | MapTableEntryReprKind::ArrayEntry(_)
                 | MapTableEntryReprKind::ToplevelAssignment(_)
                 | MapTableEntryReprKind::InlineTableAssignment(_) => {
-                    return Err(duplicate_key_error(key, existing_entries, &repr.key))
+                    return Err(duplicate_key_error(key, existing_entry, &repr.key))
                 }
             }
         }
@@ -384,17 +442,17 @@ impl Ctx {
                 Occupied(_) => {
                     let err = Error::DuplicateKey(
                         key.to_string(),
-                        existing_entries.reprs.first().key.repr_ident().lit_span,
+                        existing_entry.reprs.first().key.repr_ident().lit_span,
                         repr.key.repr_ident().lit_span,
                     );
-                    self.errors.push(err);
+                    self.error(err);
                 }
                 Vacant(vacant) => {
-                    vacant.insert(MapTableEntries::new(e.node, e.reprs));
+                    vacant.insert(MapTableEntry::new(e.node, e.reprs));
                 }
             }
         }
-        existing_entries.reprs.push(repr);
+        existing_entry.reprs.push(repr);
 
         Ok(())
     }
@@ -411,7 +469,7 @@ impl Ctx {
                 let key_repr = MapTableKeyRepr::One(i);
                 let res = self.insert_final_array_entry(map, i.text(), node, key_repr, array_entry);
                 if let Err(e) = res {
-                    self.errors.push(e);
+                    self.error(e);
                 }
                 return;
             }
@@ -423,7 +481,7 @@ impl Ctx {
         };
         let mut current = map;
         for (i, o) in other.iter().enumerate() {
-            let entries = match current.inner.entry(o.ident.text()) {
+            let entry = match current.inner.entry(o.ident.text()) {
                 Occupied(occupied) => occupied.into_mut(),
                 Vacant(vacant) => {
                     let toplevel_array = MapArrayToplevel::new(node, array_entry);
@@ -437,27 +495,27 @@ impl Ctx {
                         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
                         node = MapNode::Table(MapTable::from_pairs([(
                             o.ident.text(),
-                            MapTableEntries::from_one(node, repr),
+                            MapTableEntry::from_one(node, repr),
                         )]));
                     }
 
                     let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
                     let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
                     let repr = MapTableEntryRepr::new(key_repr, repr_kind);
-                    vacant.insert(MapTableEntries::from_one(node, repr));
+                    vacant.insert(MapTableEntry::from_one(node, repr));
                     return;
                 }
             };
 
-            let next = match get_table_to_extend(&mut entries.node, &entries.reprs, &o.ident) {
+            let next = match get_table_to_extend(&mut entry.node, &entry.reprs, &o.ident) {
                 Ok(t) => t,
-                Err(e) => return self.errors.push(e),
+                Err(e) => return self.error(e),
             };
 
             let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
             let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
             let repr = MapTableEntryRepr::new(key_repr, repr_kind);
-            entries.reprs.push(repr);
+            entry.reprs.push(repr);
             current = next;
         }
 
@@ -465,7 +523,7 @@ impl Ctx {
         if let Err(e) =
             self.insert_final_array_entry(current, last.ident.text(), node, key_repr, array_entry)
         {
-            self.errors.push(e);
+            self.error(e);
         }
     }
 
@@ -482,32 +540,32 @@ impl Ctx {
 
         match map.inner.entry(key) {
             Occupied(occupied) => {
-                let entries = occupied.into_mut();
-                let array = match &mut entries.node {
+                let entry = occupied.into_mut();
+                let array = match &mut entry.node {
                     MapNode::Array(MapArray::Toplevel(a)) => a,
                     MapNode::Array(MapArray::Inline(_)) => {
                         return Err(Error::CannotExtendInlineArray(
                             key.to_string(),
-                            entries.reprs.first().key.repr_ident().lit_span,
+                            entry.reprs.first().key.repr_ident().lit_span,
                             repr.key.repr_ident().lit_span,
                         ));
                     }
                     MapNode::Table(_) | MapNode::Scalar(_) => {
                         return Err(Error::DuplicateKey(
                             key.to_string(),
-                            entries.reprs.first().key.repr_ident().lit_span,
+                            entry.reprs.first().key.repr_ident().lit_span,
                             repr.key.repr_ident().lit_span,
                         ));
                     }
                 };
 
-                entries.reprs.push(repr);
+                entry.reprs.push(repr);
                 array.push(node, array_entry);
             }
             Vacant(vacant) => {
                 let toplevel_array = MapArrayToplevel::new(node, array_entry);
                 let node = MapNode::Array(MapArray::Toplevel(toplevel_array));
-                vacant.insert(MapTableEntries::from_one(node, repr));
+                vacant.insert(MapTableEntry::from_one(node, repr));
             }
         }
 
@@ -575,12 +633,12 @@ where
 
 fn duplicate_key_error(
     key: &str,
-    entries: &MapTableEntries<'_>,
+    entry: &MapTableEntry<'_>,
     duplicate: &MapTableKeyRepr<'_>,
 ) -> Error {
     Error::DuplicateKey(
         key.to_string(),
-        entries.reprs.first().key.repr_ident().lit_span,
+        entry.reprs.first().key.repr_ident().lit_span,
         duplicate.repr_ident().lit_span,
     )
 }

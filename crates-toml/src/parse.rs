@@ -96,6 +96,18 @@ pub struct Table<'a> {
     pub assignments: Vec<Assignment<'a>>,
 }
 
+impl Table<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        let header_span = self.header.span();
+        let start = header_span.start;
+        let end = (self.assignments.last())
+            .map(|a| a.val.span().end)
+            .unwrap_or(header_span.end);
+        Span { start, end }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct TableHeader<'a> {
     pub l_par: Pos,
@@ -103,10 +115,33 @@ pub struct TableHeader<'a> {
     pub r_par: Option<Pos>,
 }
 
+impl TableHeader<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        let start = self.l_par;
+        let end = (self.r_par.map(|p| p.plus(1)))
+            .or_else(|| self.key.as_ref().map(|k| k.span().end))
+            .unwrap_or_else(|| self.l_par.plus(1));
+        Span { start, end }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct ArrayEntry<'a> {
     pub header: ArrayHeader<'a>,
     pub assignments: Vec<Assignment<'a>>,
+}
+
+impl ArrayEntry<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        let header_span = self.header.span();
+        let start = header_span.start;
+        let end = (self.assignments.last())
+            .map(|a| a.val.span().end)
+            .unwrap_or(header_span.end);
+        Span { start, end }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -116,11 +151,30 @@ pub struct ArrayHeader<'a> {
     pub r_pars: (Option<Pos>, Option<Pos>),
 }
 
+impl ArrayHeader<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        let start = self.l_pars.0;
+        let end = (self.r_pars.1.map(|p| p.plus(1)))
+            .or_else(|| self.r_pars.0.map(|p| p.plus(1)))
+            .or_else(|| self.key.as_ref().map(|k| k.span().end))
+            .unwrap_or_else(|| self.l_pars.1.plus(1));
+        Span { start, end }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Assignment<'a> {
     pub key: Key<'a>,
     pub eq: Pos,
     pub val: Value<'a>,
+}
+
+impl Assignment<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        Span::across(self.key.span(), self.val.span())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -136,6 +190,7 @@ pub struct DottedIdent<'a> {
 }
 
 impl Key<'_> {
+    #[inline]
     pub fn span(&self) -> Span {
         match self {
             Key::One(i) => i.lit_span,
@@ -193,6 +248,7 @@ pub enum Value<'a> {
 }
 
 impl Value<'_> {
+    #[inline]
     pub fn span(&self) -> Span {
         match self {
             Value::String(s) => s.lit_span,
@@ -214,6 +270,25 @@ pub struct StringVal<'a> {
     pub text: Cow<'a, str>,
     pub text_span: Span,
     pub quote: Quote,
+}
+
+impl<'a> StringVal<'a> {
+    pub fn l_quote(&'a self) -> &'a str {
+        let quote_end = self.text_span.start.char - self.lit_span.start.char;
+        &self.lit[0..quote_end as usize]
+    }
+
+    /// Returns either the right quote or none if the string literal is unclosed.
+    pub fn r_quote(&'a self) -> Option<&'a str> {
+        let quote_len = self.lit_span.end.char - self.text_span.end.char;
+        if quote_len == 0 {
+            None
+        } else {
+            let quote_end = self.lit.len();
+            let quote_start = quote_end - quote_len as usize;
+            Some(&self.lit[quote_start..quote_end])
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -275,6 +350,7 @@ pub struct InlineTable<'a> {
 }
 
 impl InlineTable<'_> {
+    #[inline]
     pub fn span(&self) -> Span {
         let start = self.l_par;
         let end = self
@@ -292,6 +368,7 @@ pub struct InlineTableAssignment<'a> {
 }
 
 impl InlineTableAssignment<'_> {
+    #[inline]
     pub fn span(&self) -> Span {
         let start = self.assignment.key.span().start;
         let end = self
@@ -310,6 +387,7 @@ pub struct InlineArray<'a> {
 }
 
 impl InlineArray<'_> {
+    #[inline]
     pub fn span(&self) -> Span {
         let start = self.l_par;
         let end = self
@@ -327,6 +405,7 @@ pub struct InlineArrayValue<'a> {
 }
 
 impl InlineArrayValue<'_> {
+    #[inline]
     pub fn span(&self) -> Span {
         let start = self.val.span().start;
         let end = self
@@ -377,7 +456,7 @@ impl Ctx {
                     }
                     t if t.ty == TokenType::EOF => break 'root,
                     t => {
-                        self.errors.push(Error::ExpectedNewline(t.span.start));
+                        self.error(Error::ExpectedNewline(t.span.start));
                     }
                 }
 
@@ -398,7 +477,7 @@ impl Ctx {
                     let key = match self.parse_key(&mut parser) {
                         Ok(k) => Some(k),
                         Err(e) => {
-                            self.errors.push(e);
+                            self.error(e);
                             loop {
                                 match parser.peek().ty {
                                     TokenType::SquareRight
@@ -485,7 +564,7 @@ impl Ctx {
             let key = match self.parse_key(&mut parser) {
                 Ok(k) => k,
                 Err(e) => {
-                    self.errors.push(e);
+                    self.error(e);
                     recover_on!(parser, Newline | EOF => continue 'root);
                 }
             };
@@ -493,8 +572,7 @@ impl Ctx {
             let eq = match parser.next() {
                 t if t.ty == TokenType::Equal => t.span.start,
                 t => {
-                    let error = Error::ExpectedEqFound(t.ty.to_string(), t.span);
-                    self.errors.push(error);
+                    self.error(Error::ExpectedEqFound(t.ty.to_string(), t.span));
                     recover_on!(parser, Newline | EOF => continue 'root);
                 }
             };
@@ -502,7 +580,7 @@ impl Ctx {
             let val = match self.parse_value(&mut parser) {
                 Ok(v) => v,
                 Err(e) => {
-                    self.errors.push(e);
+                    self.error(e);
                     recover_on!(parser, Newline | EOF => continue 'root);
                 }
             };
@@ -549,7 +627,7 @@ impl Ctx {
                     if let Some((i, c)) = invalid_char {
                         let mut pos = token.span.start;
                         pos.char += i as u32;
-                        self.errors.push(Error::InvalidCharInIdentifier(c, pos));
+                        self.error(Error::InvalidCharInIdentifier(c, pos));
                     }
 
                     Ident::from_plain_lit(lit, token.span)
@@ -640,7 +718,7 @@ impl Ctx {
                         Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
                             Ok(v) => Value::Float(FloatVal::new(lit, token.span, v)),
                             Err(_) => {
-                                self.errors.push(Error::FloatLiteralOverflow(token.span));
+                                self.error(Error::FloatLiteralOverflow(token.span));
                                 Value::Invalid(lit, token.span)
                             }
                         },
@@ -658,7 +736,7 @@ impl Ctx {
                             self.try_to_parse_subsecs(parser, lit, token.span, None, time)
                         }
                         Err(e) => {
-                            self.errors.push(e);
+                            self.error(e);
                             Value::Invalid(lit, token.span)
                         }
                     },
@@ -680,7 +758,7 @@ impl Ctx {
                     let val = match self.parse_value(parser) {
                         Ok(v) => v,
                         Err(e) => {
-                            self.errors.push(e);
+                            self.error(e);
                             recover_on!(parser,
                                 Comma | Newline => continue 'inline_array,
                                 SquareRight | EOF => break 'inline_array,
@@ -702,7 +780,7 @@ impl Ctx {
                         }
                         _ => {
                             let pos = value.val.span().end;
-                            self.errors.push(Error::ExpectedComma(pos));
+                            self.error(Error::ExpectedComma(pos));
                             // try to continue
                         }
                     };
@@ -737,7 +815,7 @@ impl Ctx {
                     let key = match self.parse_key(parser) {
                         Ok(k) => k,
                         Err(e) => {
-                            self.errors.push(e);
+                            self.error(e);
                             recover_on!(parser,
                                 Comma => continue 'inline_table,
                                 Newline | CurlyRight | EOF => break 'inline_table,
@@ -748,8 +826,7 @@ impl Ctx {
                     let eq = match parser.peek() {
                         t if t.ty == TokenType::Equal => parser.next().span.start,
                         t => {
-                            let error = Error::ExpectedEqFound(t.ty.to_string(), t.span);
-                            self.errors.push(error);
+                            self.error(Error::ExpectedEqFound(t.ty.to_string(), t.span));
                             recover_on!(parser,
                                 Comma => continue 'inline_table,
                                 Newline | CurlyRight | EOF => break 'inline_table,
@@ -760,7 +837,7 @@ impl Ctx {
                     let val = match self.parse_value(parser) {
                         Ok(v) => v,
                         Err(e) => {
-                            self.errors.push(e);
+                            self.error(e);
                             recover_on!(parser,
                                 Comma => continue 'inline_table,
                                 Newline | CurlyRight | EOF => break 'inline_table,
@@ -782,7 +859,7 @@ impl Ctx {
                         }
                         _ => {
                             let pos = assignment.assignment.val.span().end;
-                            self.errors.push(Error::ExpectedComma(pos));
+                            self.error(Error::ExpectedComma(pos));
                             // try to continue
                         }
                     };
@@ -835,7 +912,7 @@ impl Ctx {
             _ => match int_val {
                 Some(val) => return Value::Int(IntVal::new(int_lit, int_span, val)),
                 None => {
-                    self.errors.push(Error::IntLiteralOverflow(int_span));
+                    self.error(Error::IntLiteralOverflow(int_span));
                     return Value::Invalid(int_lit, int_span);
                 }
             },
@@ -843,7 +920,7 @@ impl Ctx {
 
         let mut missing_float_fractional_part_error = || {
             let pos = int_span.end.plus(1);
-            self.errors.push(Error::MissingFloatFractionalPart(pos));
+            self.error(Error::MissingFloatFractionalPart(pos));
 
             // SAFETY: we know there is a dot directly after int_lit.
             let lit = unsafe {
@@ -889,12 +966,12 @@ impl Ctx {
 
         // validate fractional part
         if let Err(e) = validate_float_fractional_part(frac_lit, frac.span) {
-            self.errors.push(e);
+            self.error(e);
             return Value::Invalid(lit, span);
         }
 
         let Ok(val) = lit.replace('_', "").parse() else {
-            self.errors.push(Error::FloatLiteralOverflow(span));
+            self.error(Error::FloatLiteralOverflow(span));
             return Value::Invalid(lit, span);
         };
 
@@ -929,7 +1006,7 @@ impl Ctx {
         // only need to compare columns, since we known there is no newline token in between
         if time_span.start.char > date_span.end.char + 1 {
             let span = Span::between(date_span, time_span);
-            self.errors.push(Error::DateAndTimeTooFarApart(span));
+            self.error(Error::DateAndTimeTooFarApart(span));
         }
 
         // SAFETY: the first and second literal reference the same string, are on the same line and
@@ -946,7 +1023,7 @@ impl Ctx {
         let (time, offset) = match datetime::parse_time_and_offset(&mut chars, time_span) {
             Ok(v) => v,
             Err(e) => {
-                self.errors.push(e);
+                self.error(e);
                 return Value::Invalid(lit, span);
             }
         };
@@ -984,7 +1061,7 @@ impl Ctx {
 
         let mut missing_date_time_subsec_part_error = || {
             let pos = date_time_span.end.plus(1);
-            self.errors.push(Error::DateTimeMissingSubsec(pos));
+            self.error(Error::DateTimeMissingSubsec(pos));
 
             // SAFETY: we know there is a dot directly after int_lit.
             let lit = unsafe {
@@ -1035,7 +1112,7 @@ impl Ctx {
         match parse_date_time_subsec_part(lit, span, subsec_lit, subsec.span, date, time) {
             Ok(date_time) => Value::DateTime(date_time),
             Err(e) => {
-                self.errors.push(e);
+                self.error(e);
                 Value::Invalid(lit, span)
             }
         }
