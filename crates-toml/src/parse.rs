@@ -769,23 +769,24 @@ impl Ctx {
                     while let Some(comment) = parser.eat_comment_and_newlines() {
                         todo!("store comment inside the array: {comment:?}");
                     }
-                    let mut value = InlineArrayValue { val, comma: None };
-                    match parser.peek() {
-                        t if t.ty == TokenType::Comma => {
-                            value.comma = Some(parser.next().span.start);
-                        }
+                    let comma = match parser.peek() {
+                        t if t.ty == TokenType::Comma => Some(parser.next().span.start),
                         t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
-                            values.push(value);
+                            values.push(InlineArrayValue { val, comma: None });
                             break;
                         }
                         _ => {
-                            let pos = value.val.span().end;
-                            self.error(Error::ExpectedComma(pos));
+                            self.error(Error::ExpectedComma(val.span().end));
                             // try to continue
+                            None
                         }
                     };
 
-                    values.push(value);
+                    while let Some(comment) = parser.eat_comment_and_newlines() {
+                        todo!("store comment inside the array: {comment:?}");
+                    }
+
+                    values.push(InlineArrayValue { val, comma });
                 }
 
                 let r_par = match parser.peek() {

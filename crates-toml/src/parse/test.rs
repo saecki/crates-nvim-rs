@@ -573,6 +573,68 @@ fn inline_array() {
 }
 
 #[test]
+fn multi_line_inline_array() {
+    check(
+        "array = [\n  0,\n  1,\n  2,\n]",
+        [Ast::Assignment(Assignment {
+            key: Key::One(Ident {
+                lit: "array",
+                lit_span: Span {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 5 },
+                },
+                text: Cow::Borrowed("array"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 0 },
+                    end: Pos { line: 0, char: 5 },
+                },
+                kind: IdentKind::Plain,
+            }),
+            eq: Pos { line: 0, char: 6 },
+            val: Value::InlineArray(InlineArray {
+                l_par: Pos { line: 0, char: 8 },
+                values: vec![
+                    InlineArrayValue {
+                        val: Value::Int(IntVal {
+                            lit: "0",
+                            lit_span: Span {
+                                start: Pos { line: 1, char: 2 },
+                                end: Pos { line: 1, char: 3 },
+                            },
+                            val: 0,
+                        }),
+                        comma: Some(Pos { line: 1, char: 3 }),
+                    },
+                    InlineArrayValue {
+                        val: Value::Int(IntVal {
+                            lit: "1",
+                            lit_span: Span {
+                                start: Pos { line: 2, char: 2 },
+                                end: Pos { line: 2, char: 3 },
+                            },
+                            val: 1,
+                        }),
+                        comma: Some(Pos { line: 2, char: 3 }),
+                    },
+                    InlineArrayValue {
+                        val: Value::Int(IntVal {
+                            lit: "2",
+                            lit_span: Span {
+                                start: Pos { line: 3, char: 2 },
+                                end: Pos { line: 3, char: 3 },
+                            },
+                            val: 2,
+                        }),
+                        comma: Some(Pos { line: 3, char: 3 }),
+                    },
+                ],
+                r_par: Some(Pos { line: 4, char: 0 }),
+            }),
+        })],
+    );
+}
+
+#[test]
 fn inline_array_recover_comma() {
     check_error(
         "array = [0, 1  2]",
