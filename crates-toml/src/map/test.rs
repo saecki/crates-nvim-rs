@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 
-use crate::datetime::DateTime;
+use crate::map::simple::SimpleVal;
 use crate::parse::TableHeader;
 use crate::{onevec, Pos, Warning};
 
@@ -20,55 +20,13 @@ fn check(input: &str, expected: MapTable) {
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
-#[derive(Debug, PartialEq)]
-enum TestVal {
-    Table(HashMap<String, TestVal>),
-    Array(Vec<TestVal>),
-    String(String),
-    Int(i64),
-    Float(f64),
-    Bool(bool),
-    DateTime(DateTime),
-    Invalid(String),
-}
-
-fn map_test_table(map: MapTable) -> HashMap<String, TestVal> {
-    let iter = map
-        .into_iter()
-        .map(|(k, e)| (k.to_string(), map_test_val(e.node)));
-    HashMap::from_iter(iter)
-}
-
-fn map_test_val(node: MapNode) -> TestVal {
-    match node {
-        MapNode::Table(t) => TestVal::Table(map_test_table(t)),
-        MapNode::Array(MapArray::Toplevel(a)) => TestVal::Array(
-            a.inner
-                .into_iter()
-                .map(|e| TestVal::Table(map_test_table(e.node)))
-                .collect(),
-        ),
-        MapNode::Array(MapArray::Inline(a)) => {
-            TestVal::Array(a.inner.into_iter().map(|e| map_test_val(e.node)).collect())
-        }
-        MapNode::Scalar(s) => match s {
-            Scalar::String(s) => TestVal::String(s.text.to_string()),
-            Scalar::Int(i) => TestVal::Int(i.val),
-            Scalar::Float(f) => TestVal::Float(f.val),
-            Scalar::Bool(b) => TestVal::Bool(b.val),
-            Scalar::DateTime(d) => TestVal::DateTime(d.val),
-            Scalar::Invalid(i, _) => TestVal::Invalid(i.to_string()),
-        },
-    }
-}
-
-fn check_values(input: &str, expected: HashMap<String, TestVal>) {
+fn check_values(input: &str, expected: HashMap<String, SimpleVal>) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
     let asts = ctx.parse(tokens);
     let map = ctx.map(&asts);
 
-    let test_table = map_test_table(map);
+    let test_table = crate::map::simple::map_table(map);
     assert_eq!(
         expected, test_table,
         "\nerrors: {:#?}\nwarnings: {:#?}",
@@ -410,18 +368,18 @@ symbol = '£'
 ",
         HashMap::from_iter([(
             "currencies".into(),
-            TestVal::Array(vec![
-                TestVal::Table(HashMap::from_iter([
-                    ("name".into(), TestVal::String("Euro".into())),
-                    ("symbol".into(), TestVal::String("€".into())),
+            SimpleVal::Array(vec![
+                SimpleVal::Table(HashMap::from_iter([
+                    ("name".into(), SimpleVal::String("Euro".into())),
+                    ("symbol".into(), SimpleVal::String("€".into())),
                 ])),
-                TestVal::Table(HashMap::from_iter([
-                    ("name".into(), TestVal::String("Dollar".into())),
-                    ("symbol".into(), TestVal::String("$".into())),
+                SimpleVal::Table(HashMap::from_iter([
+                    ("name".into(), SimpleVal::String("Dollar".into())),
+                    ("symbol".into(), SimpleVal::String("$".into())),
                 ])),
-                TestVal::Table(HashMap::from_iter([
-                    ("name".into(), TestVal::String("Pound".into())),
-                    ("symbol".into(), TestVal::String("£".into())),
+                SimpleVal::Table(HashMap::from_iter([
+                    ("name".into(), SimpleVal::String("Pound".into())),
+                    ("symbol".into(), SimpleVal::String("£".into())),
                 ])),
             ]),
         )]),
@@ -493,16 +451,19 @@ num = 8383
     ",
         HashMap::from_iter([(
             "fruit".into(),
-            TestVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(HashMap::from_iter([(
                 "berries".into(),
-                TestVal::Table(HashMap::from_iter([
+                SimpleVal::Table(HashMap::from_iter([
                     (
                         "strawberry".into(),
-                        TestVal::Table(HashMap::from_iter([("num".into(), TestVal::Int(3))])),
+                        SimpleVal::Table(HashMap::from_iter([("num".into(), SimpleVal::Int(3))])),
                     ),
                     (
                         "raspberry".into(),
-                        TestVal::Table(HashMap::from_iter([("num".into(), TestVal::Int(8383))])),
+                        SimpleVal::Table(HashMap::from_iter([(
+                            "num".into(),
+                            SimpleVal::Int(8383),
+                        )])),
                     ),
                 ])),
             )])),
@@ -522,11 +483,11 @@ fn table_extends_other_table() {
     ",
         HashMap::from_iter([(
             "a".into(),
-            TestVal::Table(HashMap::from_iter([
-                ("1".into(), TestVal::Bool(false)),
+            SimpleVal::Table(HashMap::from_iter([
+                ("1".into(), SimpleVal::Bool(false)),
                 (
                     "b".into(),
-                    TestVal::Table(HashMap::from_iter([("2".into(), TestVal::Bool(true))])),
+                    SimpleVal::Table(HashMap::from_iter([("2".into(), SimpleVal::Bool(true))])),
                 ),
             ])),
         )]),
@@ -545,11 +506,11 @@ fn super_table_declared_afterwards() {
     ",
         HashMap::from_iter([(
             "a".into(),
-            TestVal::Table(HashMap::from_iter([
-                ("1".into(), TestVal::Bool(false)),
+            SimpleVal::Table(HashMap::from_iter([
+                ("1".into(), SimpleVal::Bool(false)),
                 (
                     "b".into(),
-                    TestVal::Table(HashMap::from_iter([("2".into(), TestVal::Bool(true))])),
+                    SimpleVal::Table(HashMap::from_iter([("2".into(), SimpleVal::Bool(true))])),
                 ),
             ])),
         )]),
@@ -574,26 +535,26 @@ fn table_extends_last_array_entry() {
     ",
         HashMap::from_iter([(
             "a".into(),
-            TestVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(HashMap::from_iter([(
                 "b".into(),
-                TestVal::Array(vec![
-                    TestVal::Table(HashMap::from_iter([
-                        ("1".into(), TestVal::String("one".into())),
+                SimpleVal::Array(vec![
+                    SimpleVal::Table(HashMap::from_iter([
+                        ("1".into(), SimpleVal::String("one".into())),
                         (
                             "c".into(),
-                            TestVal::Table(HashMap::from_iter([(
+                            SimpleVal::Table(HashMap::from_iter([(
                                 "2".into(),
-                                TestVal::String("two".into()),
+                                SimpleVal::String("two".into()),
                             )])),
                         ),
                     ])),
-                    TestVal::Table(HashMap::from_iter([
-                        ("1".into(), TestVal::String("three".into())),
+                    SimpleVal::Table(HashMap::from_iter([
+                        ("1".into(), SimpleVal::String("three".into())),
                         (
                             "c".into(),
-                            TestVal::Table(HashMap::from_iter([(
+                            SimpleVal::Table(HashMap::from_iter([(
                                 "2".into(),
-                                TestVal::String("four".into()),
+                                SimpleVal::String("four".into()),
                             )])),
                         ),
                     ])),
@@ -618,17 +579,17 @@ fn array_of_table_of_arrays() {
     ",
         HashMap::from_iter([(
             "a".into(),
-            TestVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(HashMap::from_iter([(
                 "b".into(),
-                TestVal::Array(vec![
-                    TestVal::Table(HashMap::from_iter([("1".into(), TestVal::Bool(false))])),
-                    TestVal::Table(HashMap::from_iter([
-                        ("1".into(), TestVal::Bool(true)),
+                SimpleVal::Array(vec![
+                    SimpleVal::Table(HashMap::from_iter([("1".into(), SimpleVal::Bool(false))])),
+                    SimpleVal::Table(HashMap::from_iter([
+                        ("1".into(), SimpleVal::Bool(true)),
                         (
                             "c".into(),
-                            TestVal::Array(vec![TestVal::Table(HashMap::from_iter([(
+                            SimpleVal::Array(vec![SimpleVal::Table(HashMap::from_iter([(
                                 "2".into(),
-                                TestVal::Bool(false),
+                                SimpleVal::Bool(false),
                             )]))]),
                         ),
                     ])),
