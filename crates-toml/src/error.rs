@@ -59,12 +59,17 @@ pub enum Error {
         orig: Span,
         duplicate: Span,
     },
+    CannotExtendInlineTable {
+        path: String,
+        orig: Span,
+        new: Span,
+    },
     CannotExtendInlineArray {
         path: String,
         orig: Span,
         new: Span,
     },
-    CannotExtendInlineTable {
+    CannotExtendInlineArrayAsTable {
         path: String,
         orig: Span,
         new: Span,

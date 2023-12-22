@@ -506,12 +506,22 @@ impl Ctx {
         };
 
         let InsertValue::TableAssignments(assignments) = value else {
-            return Err(duplicate_key_error(mapper, key, existing_entry, &repr.key));
+            return Err(duplicate_key_error(
+                mapper,
+                repr.key.repr_ident(),
+                existing_entry,
+                &repr.key,
+            ));
         };
         let existing_table = match &mut existing_entry.node {
             MapNode::Table(t) => t,
             MapNode::Array(_) | MapNode::Scalar(_) => {
-                return Err(duplicate_key_error(mapper, key, existing_entry, &repr.key));
+                return Err(duplicate_key_error(
+                    mapper,
+                    repr.key.repr_ident(),
+                    existing_entry,
+                    &repr.key,
+                ));
             }
         };
         for existing_repr in existing_entry.reprs.iter() {
@@ -523,7 +533,12 @@ impl Ctx {
                 | MapTableEntryReprKind::ArrayEntry(_)
                 | MapTableEntryReprKind::ToplevelAssignment(_)
                 | MapTableEntryReprKind::InlineTableAssignment(_) => {
-                    return Err(duplicate_key_error(mapper, key, existing_entry, &repr.key))
+                    return Err(duplicate_key_error(
+                        mapper,
+                        repr.key.repr_ident(),
+                        existing_entry,
+                        &repr.key,
+                    ))
                 }
             }
         }
@@ -644,12 +659,12 @@ impl Ctx {
                         return Err(Error::CannotExtendInlineArray { path, orig, new });
                     }
                     MapNode::Table(_) | MapNode::Scalar(_) => {
-                        return Err(Error::DuplicateKey {
-                            path: mapper.path(),
-                            key: key.to_string(),
-                            orig: entry.reprs.first().key.repr_ident().lit_span,
-                            duplicate: repr.key.repr_ident().lit_span,
-                        });
+                        return Err(duplicate_key_error(
+                            mapper,
+                            repr.key.repr_ident(),
+                            entry,
+                            &repr.key,
+                        ));
                     }
                 };
 
@@ -731,12 +746,12 @@ where
             let path = mapper.with_key(ident.lit, |m| m.current_path.clone());
             let orig = reprs.first().key.repr_ident().lit_span;
             let new = ident.lit_span;
-            return Err(Error::CannotExtendInlineArray { path, orig, new });
+            return Err(Error::CannotExtendInlineArrayAsTable { path, orig, new });
         }
         MapNode::Scalar(_) => {
             return Err(Error::DuplicateKey {
                 path: mapper.path(),
-                key: ident.text.to_string(),
+                key: ident.lit.to_string(),
                 orig: reprs.first().key.repr_ident().lit_span,
                 duplicate: ident.lit_span,
             });
@@ -771,13 +786,13 @@ where
 
 fn duplicate_key_error(
     mapper: &Mapper,
-    key: &str,
+    ident: &Ident<'_>,
     entry: &MapTableEntry<'_>,
     duplicate: &MapTableKeyRepr<'_>,
 ) -> Error {
     Error::DuplicateKey {
         path: mapper.path(),
-        key: key.to_string(),
+        key: ident.lit.to_string(),
         orig: entry.reprs.first().key.repr_ident().lit_span,
         duplicate: duplicate.repr_ident().lit_span,
     }
