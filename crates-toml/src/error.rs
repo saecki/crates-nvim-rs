@@ -87,7 +87,7 @@ impl Error {
         match self {
             Error::MissingQuote(quote, _) => write!(f, "Unterminated string literal, missing `{quote}`"),
             Error::InvalidEscapeChar(char, _) => write!(f, "Invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`, `\\n`"),
-            Error::InvalidUnicodeEscapeChar(_, _) => todo!(),
+            Error::InvalidUnicodeEscapeChar(char, _) => todo!(),
             Error::InvalidUnicodeScalar(_, _) => todo!(),
             Error::UnfinishedEscapeSequence(_) => todo!(),
             Error::InvalidCharInIdentifier(char, _) => write!(f, "Invalid character `{char}` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`"),
@@ -142,7 +142,7 @@ impl Error {
             }
             Error::CannotExtendInlineTable { path, .. } => write!(f, "Cannot extend inline table `{path}`"),
             Error::CannotExtendInlineArray { path, .. } => write!(f, "Cannot extend inline array `{path}`"),
-            Error::CannotIndexInlineArray { path, .. } => write!(f, "Cannot index inline array `{path}`"),
+            Error::CannotExtendInlineArrayAsTable { path, .. } => write!(f, "Cannot extend inline array `{path}`, not a table"),
         }
     }
 }
