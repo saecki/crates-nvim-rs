@@ -161,6 +161,17 @@ pub enum Quote {
     LiteralMultiline,
 }
 
+impl std::fmt::Display for Quote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Quote::Basic => f.write_str("'"),
+            Quote::BasicMultiline => f.write_str("'''"),
+            Quote::Literal => f.write_str("\""),
+            Quote::LiteralMultiline => f.write_str("\"\"\""),
+        }
+    }
+}
+
 impl Quote {
     fn is_basic(&self) -> bool {
         matches!(self, Self::Basic | Self::BasicMultiline)
