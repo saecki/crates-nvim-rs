@@ -553,6 +553,7 @@ impl Ctx {
                         span: token.span,
                         text,
                     }));
+                    parser.next();
                     continue;
                 }
                 TokenType::Newline => {
