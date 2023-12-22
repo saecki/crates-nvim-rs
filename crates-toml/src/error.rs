@@ -53,10 +53,22 @@ pub enum Error {
     LocalDateTimeOffset(Pos),
     DateAndTimeTooFarApart(Span),
 
-    // map
-    DuplicateKey(String, Span, Span),
-    CannotExtendInlineArray(String, Span, Span),
-    CannotExtendInlineTable(String, Span, Span),
+    DuplicateKey {
+        path: Option<String>,
+        key: String,
+        orig: Span,
+        duplicate: Span,
+    },
+    CannotExtendInlineArray {
+        path: String,
+        orig: Span,
+        new: Span,
+    },
+    CannotExtendInlineTable {
+        path: String,
+        orig: Span,
+        new: Span,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]

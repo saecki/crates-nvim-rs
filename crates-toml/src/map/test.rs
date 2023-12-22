@@ -438,11 +438,12 @@ fruit.apple = 3
                 ),
             ),
         )]),
-        Error::DuplicateKey(
-            "fruit".into(),
-            Span::from_pos_len(Pos::new(0, 0), 5),
-            Span::from_pos_len(Pos::new(1, 1), 5),
-        ),
+        Error::DuplicateKey {
+            path: None,
+            key: "fruit".into(),
+            orig: Span::from_pos_len(Pos::new(0, 0), 5),
+            duplicate: Span::from_pos_len(Pos::new(1, 1), 5),
+        },
     );
 }
 

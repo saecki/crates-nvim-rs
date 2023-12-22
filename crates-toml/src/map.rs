@@ -60,6 +60,14 @@ impl Mapper {
         use std::fmt::Write;
         _ = write!(&mut self.current_path, "[{index}]");
     }
+
+    fn path(&self) -> Option<String> {
+        if self.current_path.is_empty() {
+            None
+        } else {
+            Some(self.current_path.clone())
+        }
+    }
 }
 
 /// Value to be lazily mapped and inserted
@@ -455,10 +463,11 @@ impl Ctx {
                     }
                 };
 
-                let next = match get_table_to_extend(&mut entry.node, &entry.reprs, &o.ident) {
-                    Ok(t) => t,
-                    Err(e) => return self.error(e),
-                };
+                let next =
+                    match get_table_to_extend(mapper, &mut entry.node, &entry.reprs, &o.ident) {
+                        Ok(t) => t,
+                        Err(e) => return self.error(e),
+                    };
 
                 let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
                 let repr = MapTableEntryRepr::new(key_repr, repr_kind);
@@ -497,12 +506,12 @@ impl Ctx {
         };
 
         let InsertValue::TableAssignments(assignments) = value else {
-            return Err(duplicate_key_error(key, existing_entry, &repr.key));
+            return Err(duplicate_key_error(mapper, key, existing_entry, &repr.key));
         };
         let existing_table = match &mut existing_entry.node {
             MapNode::Table(t) => t,
             MapNode::Array(_) | MapNode::Scalar(_) => {
-                return Err(duplicate_key_error(key, existing_entry, &repr.key));
+                return Err(duplicate_key_error(mapper, key, existing_entry, &repr.key));
             }
         };
         for existing_repr in existing_entry.reprs.iter() {
@@ -514,7 +523,7 @@ impl Ctx {
                 | MapTableEntryReprKind::ArrayEntry(_)
                 | MapTableEntryReprKind::ToplevelAssignment(_)
                 | MapTableEntryReprKind::InlineTableAssignment(_) => {
-                    return Err(duplicate_key_error(key, existing_entry, &repr.key))
+                    return Err(duplicate_key_error(mapper, key, existing_entry, &repr.key))
                 }
             }
         }
@@ -589,10 +598,11 @@ impl Ctx {
                     }
                 };
 
-                let next = match get_table_to_extend(&mut entry.node, &entry.reprs, &o.ident) {
-                    Ok(t) => t,
-                    Err(e) => return self.error(e),
-                };
+                let next =
+                    match get_table_to_extend(mapper, &mut entry.node, &entry.reprs, &o.ident) {
+                        Ok(t) => t,
+                        Err(e) => return self.error(e),
+                    };
 
                 let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
                 let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
@@ -628,18 +638,18 @@ impl Ctx {
                 let array = match &mut entry.node {
                     MapNode::Array(MapArray::Toplevel(a)) => a,
                     MapNode::Array(MapArray::Inline(_)) => {
-                        return Err(Error::CannotExtendInlineArray(
-                            key.to_string(),
-                            entry.reprs.first().key.repr_ident().lit_span,
-                            repr.key.repr_ident().lit_span,
-                        ));
+                        let path = mapper.with_key(key, |m| m.current_path.clone());
+                        let orig = entry.reprs.first().key.repr_ident().lit_span;
+                        let new = repr.key.repr_ident().lit_span;
+                        return Err(Error::CannotExtendInlineArray { path, orig, new });
                     }
                     MapNode::Table(_) | MapNode::Scalar(_) => {
-                        return Err(Error::DuplicateKey(
-                            key.to_string(),
-                            entry.reprs.first().key.repr_ident().lit_span,
-                            repr.key.repr_ident().lit_span,
-                        ));
+                        return Err(Error::DuplicateKey {
+                            path: mapper.path(),
+                            key: key.to_string(),
+                            orig: entry.reprs.first().key.repr_ident().lit_span,
+                            duplicate: repr.key.repr_ident().lit_span,
+                        });
                     }
                 };
 
@@ -699,6 +709,7 @@ impl Ctx {
 }
 
 fn get_table_to_extend<'a, 'b>(
+    mapper: &mut Mapper,
     node: &'b mut MapNode<'a>,
     reprs: &OneVec<MapTableEntryRepr<'a>>,
     ident: &'b Ident<'a>,
@@ -717,16 +728,18 @@ where
             &mut t.inner.last_mut().node
         }
         MapNode::Array(MapArray::Inline(_)) => {
-            let key = ident.text.to_string();
+            let path = mapper.with_key(ident.lit, |m| m.current_path.clone());
             let orig = reprs.first().key.repr_ident().lit_span;
             let new = ident.lit_span;
-            return Err(Error::CannotExtendInlineArray(key, orig, new));
+            return Err(Error::CannotExtendInlineArray { path, orig, new });
         }
         MapNode::Scalar(_) => {
-            let key = ident.text.to_string();
-            let orig = reprs.first().key.repr_ident().lit_span;
-            let new = ident.lit_span;
-            return Err(Error::DuplicateKey(key, orig, new));
+            return Err(Error::DuplicateKey {
+                path: mapper.path(),
+                key: ident.text.to_string(),
+                orig: reprs.first().key.repr_ident().lit_span,
+                duplicate: ident.lit_span,
+            });
         }
     };
 
@@ -737,18 +750,18 @@ where
             MapTableEntryReprKind::ToplevelAssignment(_) => {
                 if existing.key.is_last_ident() {
                     // `next` is an inline table
-                    let key = ident.text.to_string();
+                    let path = mapper.with_key(ident.lit, |m| m.current_path.clone());
                     let orig = existing.key.repr_ident().lit_span;
                     let new = ident.lit_span;
-                    return Err(Error::CannotExtendInlineTable(key, orig, new));
+                    return Err(Error::CannotExtendInlineTable { path, orig, new });
                 }
             }
             MapTableEntryReprKind::InlineTableAssignment(_) => {
                 // we're inside an inline table, which can't be extended
-                let key = ident.text.to_string();
+                let path = mapper.with_key(ident.lit, |m| m.current_path.clone());
                 let orig = existing.key.repr_ident().lit_span;
                 let new = ident.lit_span;
-                return Err(Error::CannotExtendInlineTable(key, orig, new));
+                return Err(Error::CannotExtendInlineTable { path, orig, new });
             }
         }
     }
@@ -757,13 +770,15 @@ where
 }
 
 fn duplicate_key_error(
+    mapper: &Mapper,
     key: &str,
     entry: &MapTableEntry<'_>,
     duplicate: &MapTableKeyRepr<'_>,
 ) -> Error {
-    Error::DuplicateKey(
-        key.to_string(),
-        entry.reprs.first().key.repr_ident().lit_span,
-        duplicate.repr_ident().lit_span,
-    )
+    Error::DuplicateKey {
+        path: mapper.path(),
+        key: key.to_string(),
+        orig: entry.reprs.first().key.repr_ident().lit_span,
+        duplicate: duplicate.repr_ident().lit_span,
+    }
 }
