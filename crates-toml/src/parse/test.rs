@@ -511,6 +511,24 @@ fn invalid_float_literal_as_identifier() {
 }
 
 #[test]
+fn multi_line_literal_string_identifier() {
+    check_error(
+        "'''abc''' = false",
+        [],
+        Error::MultilineLiteralStringIdent(Span::from_pos_len(Pos::new(0, 0), 9)),
+    );
+}
+
+#[test]
+fn multi_line_basic_string_identifier() {
+    check_error(
+        r#""""abc""" = false"#,
+        [],
+        Error::MultilineBasicStringIdent(Span::from_pos_len(Pos::new(0, 0), 9)),
+    );
+}
+
+#[test]
 fn inline_array() {
     check(
         "array = [0, 1, 2]",

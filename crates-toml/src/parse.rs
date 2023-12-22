@@ -232,7 +232,8 @@ impl<'a> Ident<'a> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IdentKind {
     Plain,
-    String(Quote),
+    BasicString,
+    LiteralString,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -613,13 +614,25 @@ impl Ctx {
                     lit,
                     text,
                     text_span,
-                } => Ident {
-                    lit_span: token.span,
-                    lit,
-                    text: std::mem::take(text),
-                    text_span: *text_span,
-                    kind: IdentKind::String(*quote),
-                },
+                } => {
+                    let kind = match quote {
+                        Quote::Basic => IdentKind::BasicString,
+                        Quote::Literal => IdentKind::LiteralString,
+                        Quote::BasicMultiline => {
+                            return Err(Error::MultilineBasicStringIdent(token.span))
+                        }
+                        Quote::LiteralMultiline => {
+                            return Err(Error::MultilineLiteralStringIdent(token.span))
+                        }
+                    };
+                    Ident {
+                        lit_span: token.span,
+                        lit,
+                        text: std::mem::take(text),
+                        text_span: *text_span,
+                        kind,
+                    }
+                }
                 TokenType::LiteralOrIdent(lit) => {
                     let invalid_char = lit
                         .char_indices()
