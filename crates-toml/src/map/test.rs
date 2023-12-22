@@ -6,6 +6,12 @@ use crate::{onevec, Pos, Warning};
 
 use super::*;
 
+impl<'a> MapTableEntry<'a> {
+    fn new(node: MapNode<'a>, reprs: OneVec<MapTableEntryRepr<'a>>) -> Self {
+        Self { node, reprs }
+    }
+}
+
 fn check(input: &str, expected: MapTable) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);

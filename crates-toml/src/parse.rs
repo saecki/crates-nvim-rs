@@ -477,6 +477,7 @@ impl Ctx {
                     let key = match self.parse_key(&mut parser) {
                         Ok(k) => Some(k),
                         Err(e) => {
+                            // TODO: push some sort of unused hint for the body of the table
                             self.error(e);
                             loop {
                                 match parser.peek().ty {

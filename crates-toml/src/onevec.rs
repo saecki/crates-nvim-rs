@@ -16,6 +16,10 @@ impl<T> OneVec<T> {
         Self { inner: vec }
     }
 
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
     #[inline]
     #[must_use]
     pub fn first(&self) -> &T {
