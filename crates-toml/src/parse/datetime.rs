@@ -1,8 +1,7 @@
 use crate::datetime::{Date, DateTime, DateTimeField, DateTimeField::*, Offset, Time};
+use crate::lex::CharIter;
 use crate::parse::PartialValue;
 use crate::{Error, Pos, Span};
-
-type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
 // Continue parsing a date-time after the first two digits. These digits could either be part of
 // the year in case of a date, or the hour in case of a time.

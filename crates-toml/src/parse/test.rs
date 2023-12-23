@@ -1,9 +1,12 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
 
 use super::*;
 use crate::datetime::{DateTimeField, Offset};
+use crate::map::simple::SimpleVal;
+use crate::test::check_simple;
 use crate::Warning;
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -34,6 +37,78 @@ fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Err
     );
     assert_eq!(vec![error], ctx.errors);
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
+}
+
+#[test]
+fn assign_negative_int() {
+    check_simple(
+        "num = -2",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(-2))]),
+    );
+}
+
+#[test]
+fn assign_positive_int() {
+    check_simple(
+        "num = +83",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(83))]),
+    );
+}
+
+#[test]
+fn assign_sgined_zero_ints() {
+    check_simple(
+        "num = 0",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(0))]),
+    );
+    check_simple(
+        "num = -0",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(0))]),
+    );
+    check_simple(
+        "num = +0",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(0))]),
+    );
+}
+
+#[test]
+fn assign_sgined_zero_floats() {
+    check_simple(
+        "num = 0.0",
+        HashMap::from_iter([("num".into(), SimpleVal::Float(0.0))]),
+    );
+    check_simple(
+        "num = -0.0",
+        HashMap::from_iter([("num".into(), SimpleVal::Float(-0.0))]),
+    );
+    check_simple(
+        "num = +0.0",
+        HashMap::from_iter([("num".into(), SimpleVal::Float(0.0))]),
+    );
+}
+
+#[test]
+fn negative_prefixed_binary_int() {
+    check_simple(
+        "num = -0b10100",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(-0b10100))]),
+    );
+}
+
+#[test]
+fn negative_prefixed_octal_int() {
+    check_simple(
+        "num = -0o361",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(-0o361))]),
+    );
+}
+
+#[test]
+fn negative_prefixed_hexadecimal_int() {
+    check_simple(
+        "num = -0xc20",
+        HashMap::from_iter([("num".into(), SimpleVal::Int(-0xc20))]),
+    );
 }
 
 #[test]
@@ -279,7 +354,7 @@ fn prefixed_int_digit_too_big() {
                 },
             ),
         })],
-        Error::IntDigitTooBig(3, '8', Pos { line: 0, char: 9 }),
+        Error::IntDigitTooBig(IntPrefix::Octal, '8', Pos { line: 0, char: 9 }),
     );
 }
 

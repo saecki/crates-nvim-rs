@@ -5,7 +5,7 @@ use crate::{Ctx, Error};
 #[cfg(test)]
 mod test;
 
-type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
+pub(crate) type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tokens<'a> {

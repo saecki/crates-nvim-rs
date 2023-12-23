@@ -1,7 +1,8 @@
 use std::borrow::Cow;
+use std::fmt::Write;
 
 use crate::datetime::{Date, DateTime, Time};
-use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
+use crate::lex::{CharIter, LiteralId, StringId, StringToken, Token, TokenType, Tokens};
 use crate::{Ctx, Error, Pos, Quote, Span};
 
 mod datetime;
@@ -1140,6 +1141,45 @@ impl Ctx {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Sign {
+    Positive,
+    Negative,
+}
+
+impl std::fmt::Display for Sign {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Sign::Positive => f.write_char('+'),
+            Sign::Negative => f.write_char('-'),
+        }
+    }
+}
+
+impl Sign {
+    #[inline(always)]
+    pub fn val(&self) -> i64 {
+        match self {
+            Sign::Positive => 1,
+            Sign::Negative => -1,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IntPrefix {
+    Binary = 1,
+    Octal = 3,
+    Hexadecimal = 4,
+}
+
+impl IntPrefix {
+    #[inline(always)]
+    pub fn bits(&self) -> u32 {
+        *self as u32
+    }
+}
+
 /// A possibly only partially parsed value
 enum PartialValue {
     /// An integer that is prefixed by either `0b`, `0o`, or `0x`.
@@ -1166,60 +1206,60 @@ enum PartialValue {
 /// separate the date and time parts, in that case only the date is parsed since the time part is
 /// inside the next token.
 fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
-    #[derive(PartialEq, Eq)]
-    enum NumParseState {
-        Int,
-        OverflowOrFloat,
-    }
-
     let mut chars = literal.char_indices().peekable();
     let c = match chars.next() {
         None => unreachable!("value literal should never be emtpy"),
         Some((_, c)) => c,
     };
 
-    let mut parse_state = NumParseState::Int;
-    let mut int_accum;
-
-    // TODO: support signs
     // TODO: better errors for uppercase radices
     match c {
-        '0' => match chars.next() {
-            Some((_, 'b')) => {
-                let val = parse_prefixed_int_literal(IntBits::Binary, chars, span)?;
-                return Ok(PartialValue::PrefixedInt(val));
+        '+' | '-' => {
+            let sign = match c {
+                '+' => Sign::Positive,
+                '-' => Sign::Negative,
+                _ => unsafe { core::hint::unreachable_unchecked() },
+            };
+
+            match chars.next() {
+                Some((_, '0')) => parse_prefixed_int_or_date(chars, span, Some(sign)),
+                Some((_, c @ '1'..='9')) => {
+                    let num = (c as u32 - '0' as u32) as i64;
+                    parse_num_or_date1(chars, span, num, Some(sign))
+                }
+                Some((i, c)) => {
+                    let pos = span.start.plus(i as u32);
+                    Err(Error::InvalidCharInNumLiteral(c, pos))
+                }
+                None => Err(Error::MissingNumDigitsAfterSign(sign, span.end)),
             }
-            Some((_, 'o')) => {
-                let val = parse_prefixed_int_literal(IntBits::Octal, chars, span)?;
-                return Ok(PartialValue::PrefixedInt(val));
-            }
-            Some((_, 'x')) => {
-                let val = parse_prefixed_int_literal(IntBits::Hexadecimal, chars, span)?;
-                return Ok(PartialValue::PrefixedInt(val));
-            }
-            Some((_, c @ ('0'..='9'))) => {
-                let two_digits = c as u16 - '0' as u16;
-                return datetime::continue_parsing_date_time(&mut chars, span, two_digits);
-            }
-            Some((i, radix)) => {
-                return Err(Error::InvalidIntRadix(radix, span.start.plus(i as u32)));
-            }
-            None => {
-                return Ok(PartialValue::Int(0));
-            }
-        },
-        '1'..='9' => {
-            int_accum = (c as u32 - '0' as u32) as i64;
         }
-        '_' => return Err(Error::NumOrDateLiteralStartsWithUnderscore(span.start)),
-        _ => return Err(Error::InvalidNumOrDateLiteralStart(c, span.start)),
+        '0' => parse_prefixed_int_or_date(chars, span, None),
+        '1'..='9' => {
+            let num = (c as u32 - '0' as u32) as i64;
+            parse_num_or_date1(chars, span, num, None)
+        }
+        '_' => Err(Error::NumOrDateLiteralStartsWithUnderscore(span.start)),
+        _ => Err(Error::InvalidNumOrDateLiteralStart(c, span.start)),
+    }
+}
+
+fn parse_num_or_date1(
+    mut chars: CharIter,
+    span: Span,
+    mut int_accum: i64,
+    sign_char: Option<Sign>,
+) -> Result<PartialValue, Error> {
+    #[derive(PartialEq, Eq)]
+    enum NumParseState {
+        Int,
+        OverflowOrFloat,
     }
 
+    let mut parse_state = NumParseState::Int;
     let mut last_underscore = false;
     loop {
-        let Some((i, c)) = chars.next() else {
-            break;
-        };
+        let Some((i, c)) = chars.next() else { break };
 
         last_underscore = false;
 
@@ -1242,49 +1282,13 @@ fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
                     NumParseState::OverflowOrFloat => {}
                 }
             }
-            'e' | 'E' => {
-                if let Some((_, '-' | '+')) = chars.peek() {
-                    chars.next();
-                }
-
-                let mut last_underscore = false;
-                for j in 0.. {
-                    let Some((i, c)) = chars.next() else {
-                        break;
-                    };
-
-                    last_underscore = false;
-
-                    match c {
-                        '0'..='9' => {}
-                        '_' => {
-                            if j == 0 {
-                                let pos = span.start.plus(i as u32);
-                                return Err(Error::FloatExponentStartsWithUnderscore(pos));
-                            }
-                            last_underscore = true;
-                            continue;
-                        }
-                        _ => {
-                            let pos = span.start.plus(i as u32);
-                            return Err(Error::InvalidCharInFloatExponent(c, pos));
-                        }
-                    }
-                }
-
-                if last_underscore {
-                    let pos = span.end.minus(1);
-                    return Err(Error::FloatExponentEndsWithUnderscore(pos));
-                }
-
-                return Ok(PartialValue::FloatWithExp);
-            }
-            ':' if i == 2 => {
+            'e' | 'E' => return parse_float_exponent(chars, span),
+            ':' if sign_char.is_none() && i == 2 => {
                 let hour = int_accum as u8;
                 return datetime::continue_parsing_local_time(&mut chars, span, hour)
                     .map(PartialValue::PartialTime);
             }
-            '-' if i == 4 => {
+            '-' if sign_char.is_none() && i == 4 => {
                 let year = int_accum as u16;
                 return datetime::continue_parsing_date_time_after_year(&mut chars, span, year);
             }
@@ -1305,24 +1309,48 @@ fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
     }
 
     match parse_state {
-        NumParseState::Int => Ok(PartialValue::Int(int_accum)),
+        NumParseState::Int => {
+            let sign = sign_char.map_or(1, |s| s.val());
+            Ok(PartialValue::Int(sign * int_accum))
+        }
         NumParseState::OverflowOrFloat => Ok(PartialValue::OverflowOrFloat),
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum IntBits {
-    Binary = 1,
-    Octal = 3,
-    Hexadecimal = 4,
+fn parse_prefixed_int_or_date(
+    mut chars: CharIter,
+    span: Span,
+    sign_char: Option<Sign>,
+) -> Result<PartialValue, Error> {
+    let sign = sign_char.map_or(1, |s| s.val());
+    match chars.next() {
+        Some((_, 'b')) if sign_char != Some(Sign::Positive) => {
+            let val = parse_prefixed_int_literal(chars, span, IntPrefix::Binary)?;
+            Ok(PartialValue::PrefixedInt(sign * val))
+        }
+        Some((_, 'o')) if sign_char != Some(Sign::Positive) => {
+            let val = parse_prefixed_int_literal(chars, span, IntPrefix::Octal)?;
+            Ok(PartialValue::PrefixedInt(sign * val))
+        }
+        Some((_, 'x')) if sign_char != Some(Sign::Positive) => {
+            let val = parse_prefixed_int_literal(chars, span, IntPrefix::Hexadecimal)?;
+            Ok(PartialValue::PrefixedInt(sign * val))
+        }
+        Some((_, c @ ('0'..='9'))) if sign_char.is_none() => {
+            let two_digits = c as u16 - '0' as u16;
+            datetime::continue_parsing_date_time(&mut chars, span, two_digits)
+        }
+        Some((i, radix)) => Err(Error::InvalidIntRadix(radix, span.start.plus(i as u32))),
+        None => Ok(PartialValue::Int(0)),
+    }
 }
 
 fn parse_prefixed_int_literal(
-    bits: IntBits,
-    mut chars: impl Iterator<Item = (usize, char)>,
+    mut chars: CharIter,
     span: Span,
+    prefix: IntPrefix,
 ) -> Result<i64, Error> {
-    let max_value: u32 = 1 << bits as u32;
+    let max_value: u32 = 1 << prefix.bits();
     let mut accum: i64 = 0;
     let mut last_underscore = false;
 
@@ -1339,26 +1367,26 @@ fn parse_prefixed_int_literal(
 
         let digit = match c {
             '0'..='9' => {
-                let n = (c as u32) - ('0' as u32);
+                let n = c as u32 - '0' as u32;
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(bits, c, pos));
+                    return Err(Error::IntDigitTooBig(prefix, c, pos));
                 }
                 n
             }
             'a'..='f' => {
-                let n = 10 + (c as u32) - ('a' as u32);
+                let n = 10 + c as u32 - 'a' as u32;
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(bits, c, pos));
+                    return Err(Error::IntDigitTooBig(prefix, c, pos));
                 }
                 n
             }
             'A'..='F' => {
-                let n = 10 + (c as u32) - ('A' as u32);
+                let n = 10 + (c as u32 - 'A' as u32);
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(bits, c, pos));
+                    return Err(Error::IntDigitTooBig(prefix, c, pos));
                 }
                 n
             }
@@ -1376,7 +1404,7 @@ fn parse_prefixed_int_literal(
             }
         };
 
-        let (val, overflow) = accum.overflowing_shl(bits as u32);
+        let (val, overflow) = accum.overflowing_shl(prefix.bits());
         if overflow {
             return Err(Error::IntLiteralOverflow(span));
         }
@@ -1391,6 +1419,44 @@ fn parse_prefixed_int_literal(
     }
 
     Ok(accum)
+}
+
+fn parse_float_exponent(mut chars: CharIter, span: Span) -> Result<PartialValue, Error> {
+    if let Some((_, '-' | '+')) = chars.peek() {
+        chars.next();
+    }
+
+    let mut last_underscore = false;
+    for j in 0.. {
+        let Some((i, c)) = chars.next() else {
+            break;
+        };
+
+        last_underscore = false;
+
+        match c {
+            '0'..='9' => {}
+            '_' => {
+                if j == 0 {
+                    let pos = span.start.plus(i as u32);
+                    return Err(Error::FloatExponentStartsWithUnderscore(pos));
+                }
+                last_underscore = true;
+                continue;
+            }
+            _ => {
+                let pos = span.start.plus(i as u32);
+                return Err(Error::InvalidCharInFloatExponent(c, pos));
+            }
+        }
+    }
+
+    if last_underscore {
+        let pos = span.end.minus(1);
+        return Err(Error::FloatExponentEndsWithUnderscore(pos));
+    }
+
+    Ok(PartialValue::FloatWithExp)
 }
 
 fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), Error> {

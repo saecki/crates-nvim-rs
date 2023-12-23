@@ -1,5 +1,5 @@
 use crate::datetime::DateTimeField;
-use crate::parse::IntBits;
+use crate::parse::{IntPrefix, Sign};
 use crate::{Pos, Quote, Span};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -26,6 +26,7 @@ pub enum Error {
     InvalidCharInNumLiteral(char, Pos),
     NumOrDateLiteralStartsWithUnderscore(Pos),
     NumLiteralEndsWithUnderscore(Pos),
+    MissingNumDigitsAfterSign(Sign, Pos),
 
     MissingFloatFractionalPart(Pos),
     FloatEndsWithUnderscore(Pos),
@@ -40,7 +41,7 @@ pub enum Error {
     PrefixedIntValueStartsWithUnderscore(Pos),
     PrefixedIntValueEndsWithUnderscore(Pos),
     InvalidCharInPrefixedInt(char, Pos),
-    IntDigitTooBig(IntBits, char, Pos),
+    IntDigitTooBig(IntPrefix, char, Pos),
     IntLiteralOverflow(Span),
 
     InvalidCharInDateTime(char, Pos),
@@ -110,6 +111,7 @@ impl Error {
             InvalidCharInNumLiteral(char, _) => write!(f, "Invalid character `{char}` in integer or float literal"),
             NumOrDateLiteralStartsWithUnderscore(_) => write!(f, "Literal cannot start with `_`"),
             NumLiteralEndsWithUnderscore(_) => write!(f, "Integer or float literal cannot end with `_`"),
+            MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing number after sign `{sign}`, expected at least one digit"),
 
             MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal, expected at least one digit"),
             FloatEndsWithUnderscore(_) => write!(f, "Float literal cannot end with `_`"),
@@ -124,11 +126,11 @@ impl Error {
             PrefixedIntValueStartsWithUnderscore(_) => write!(f, "Integer literal cannot start with `_`"),
             PrefixedIntValueEndsWithUnderscore(_) => write!(f, "Integer literal cannot end with `_`"),
             InvalidCharInPrefixedInt(char, _) => write!(f, "Invalid character `{char}` in integer literal"),
-            IntDigitTooBig(bits, char, _) => {
-                match bits {
-                    IntBits::Binary => write!(f, "Binary digit `{char}` out of range, valid digits are `0` and `1`"),
-                    IntBits::Octal => write!(f, "Octal digit `{char}` out of range, valid digits are `0-7`"),
-                    IntBits::Hexadecimal => write!(f, "Binary digit `{char}` out of range, valid digits are `0-9`, `a-f`, and `A-F`"),
+            IntDigitTooBig(prefix, char, _) => {
+                match prefix {
+                    IntPrefix::Binary => write!(f, "Binary digit `{char}` out of range, valid digits are `0` and `1`"),
+                    IntPrefix::Octal => write!(f, "Octal digit `{char}` out of range, valid digits are `0-7`"),
+                    IntPrefix::Hexadecimal => write!(f, "Binary digit `{char}` out of range, valid digits are `0-9`, `a-f`, and `A-F`"),
                 }
             }
             IntLiteralOverflow(_) => write!(f, "Integer literal overflow, number doesn't fit into a 64-bit signed integer"),

@@ -9,6 +9,8 @@ pub mod map;
 #[macro_use]
 pub mod onevec;
 pub mod parse;
+#[cfg(test)]
+mod test;
 
 #[derive(Default)]
 pub struct Ctx {

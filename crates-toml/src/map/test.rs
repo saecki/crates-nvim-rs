@@ -2,6 +2,7 @@ use pretty_assertions::assert_eq;
 
 use crate::map::simple::SimpleVal;
 use crate::parse::TableHeader;
+use crate::test::check_simple;
 use crate::{onevec, Pos, Warning};
 
 use super::*;
@@ -19,22 +20,6 @@ fn check(input: &str, expected: MapTable) {
     let map = ctx.map(&asts);
     assert_eq!(
         expected, map,
-        "\nerrors: {:#?}\nwarnings: {:#?}",
-        ctx.errors, ctx.warnings
-    );
-    assert_eq!(Vec::<Error>::new(), ctx.errors);
-    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
-}
-
-fn check_values(input: &str, expected: HashMap<String, SimpleVal>) {
-    let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(tokens);
-    let map = ctx.map(&asts);
-
-    let test_table = crate::map::simple::map_table(map);
-    assert_eq!(
-        expected, test_table,
         "\nerrors: {:#?}\nwarnings: {:#?}",
         ctx.errors, ctx.warnings
     );
@@ -358,7 +343,7 @@ fn inline_array() {
 
 #[test]
 fn array_of_tables() {
-    check_values(
+    check_simple(
         "\
 [[currencies]]
 name = 'Euro'
@@ -449,7 +434,7 @@ fruit.apple = 3
 
 #[test]
 fn table_can_share_part_of_assignments_dotted_key() {
-    check_values(
+    check_simple(
         "\
 fruit.berries.strawberry.num = 3
 
@@ -480,7 +465,7 @@ num = 8383
 
 #[test]
 fn table_extends_other_table() {
-    check_values(
+    check_simple(
         "\
 [a]
 1 = false
@@ -503,7 +488,7 @@ fn table_extends_other_table() {
 
 #[test]
 fn super_table_declared_afterwards() {
-    check_values(
+    check_simple(
         "\
 [a.b]
 2 = true
@@ -526,7 +511,7 @@ fn super_table_declared_afterwards() {
 
 #[test]
 fn table_extends_last_array_entry() {
-    check_values(
+    check_simple(
         "\
 [[a.b]]
 1 = 'one'
@@ -573,7 +558,7 @@ fn table_extends_last_array_entry() {
 
 #[test]
 fn array_of_table_of_arrays() {
-    check_values(
+    check_simple(
         "\
 [[a.b]]
 1 = false
