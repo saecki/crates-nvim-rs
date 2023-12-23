@@ -2,35 +2,39 @@ use super::*;
 
 use pretty_assertions::assert_eq;
 
-fn check<const SIZE: usize>(input: &str, expected: [Token; SIZE]) {
+fn check(input: &str, expected: Tokens<'_>) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
     assert_eq!(tokens, expected);
+    assert_eq!(ctx.errors, []);
+    assert_eq!(ctx.warnings, []);
 }
 
-fn check_err<const SIZE: usize, const ERR_SIZE: usize>(
+fn check_err<const ERR_SIZE: usize>(
     input: &str,
-    expected: [Token; SIZE],
+    expected: Tokens<'_>,
     expected_errors: [Error; ERR_SIZE],
 ) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
     assert_eq!(tokens, expected);
     assert_eq!(ctx.errors, expected_errors);
+    assert_eq!(ctx.warnings, []);
 }
 
 fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    assert_eq!(tokens.len(), 2);
+    assert_eq!(tokens.tokens.len(), 1, "{:#?}", tokens);
     assert_eq!(ctx.errors, []);
     assert_eq!(ctx.warnings, []);
 
-    let token = tokens.into_iter().next().unwrap();
+    let token = tokens.tokens.into_iter().next().unwrap();
     match token.ty {
-        TokenType::String { lit, text, .. } => {
-            assert_eq!(lit, expected_lit, "literals don't match");
-            assert_eq!(text, expected_text, "text doesn't match");
+        TokenType::String(id) => {
+            let str = &tokens.strings[id.0 as usize];
+            assert_eq!(str.lit, expected_lit, "literals don't match");
+            assert_eq!(str.text, expected_text, "text doesn't match");
         }
         t => panic!("Found tokentyp: {t:?}, expected string"),
     }
@@ -40,33 +44,37 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
 fn assign_int() {
     check(
         "my_int = 98742",
-        [
-            Token {
-                ty: TokenType::LiteralOrIdent("my_int"),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 6 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 6 },
+                    },
                 },
-            },
-            Token {
-                ty: TokenType::Equal,
-                span: Span {
-                    start: Pos { line: 0, char: 7 },
-                    end: Pos { line: 0, char: 8 },
+                Token {
+                    ty: TokenType::Equal,
+                    span: Span {
+                        start: Pos { line: 0, char: 7 },
+                        end: Pos { line: 0, char: 8 },
+                    },
                 },
-            },
-            Token {
-                ty: TokenType::LiteralOrIdent("98742"),
-                span: Span {
-                    start: Pos { line: 0, char: 9 },
-                    end: Pos { line: 0, char: 14 },
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(1)),
+                    span: Span {
+                        start: Pos { line: 0, char: 9 },
+                        end: Pos { line: 0, char: 14 },
+                    },
                 },
-            },
-            Token {
+            ],
+            strings: vec![],
+            literals: vec!["my_int", "98742"],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 14 }),
             },
-        ],
+        },
     );
 }
 
@@ -74,47 +82,51 @@ fn assign_int() {
 fn assign_float() {
     check(
         "my_float=0.23",
-        [
-            Token {
-                ty: TokenType::LiteralOrIdent("my_float"),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 8 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 8 },
+                    },
                 },
-            },
-            Token {
-                ty: TokenType::Equal,
-                span: Span {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 9 },
+                Token {
+                    ty: TokenType::Equal,
+                    span: Span {
+                        start: Pos { line: 0, char: 8 },
+                        end: Pos { line: 0, char: 9 },
+                    },
                 },
-            },
-            Token {
-                ty: TokenType::LiteralOrIdent("0"),
-                span: Span {
-                    start: Pos { line: 0, char: 9 },
-                    end: Pos { line: 0, char: 10 },
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(1)),
+                    span: Span {
+                        start: Pos { line: 0, char: 9 },
+                        end: Pos { line: 0, char: 10 },
+                    },
                 },
-            },
-            Token {
-                ty: TokenType::Dot,
-                span: Span {
-                    start: Pos { line: 0, char: 10 },
-                    end: Pos { line: 0, char: 11 },
+                Token {
+                    ty: TokenType::Dot,
+                    span: Span {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 11 },
+                    },
                 },
-            },
-            Token {
-                ty: TokenType::LiteralOrIdent("23"),
-                span: Span {
-                    start: Pos { line: 0, char: 11 },
-                    end: Pos { line: 0, char: 13 },
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(2)),
+                    span: Span {
+                        start: Pos { line: 0, char: 11 },
+                        end: Pos { line: 0, char: 13 },
+                    },
                 },
-            },
-            Token {
+            ],
+            strings: vec![],
+            literals: vec!["my_float", "0", "23"],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 13 }),
             },
-        ],
+        },
     );
 }
 
@@ -122,55 +134,59 @@ fn assign_float() {
 fn assign_literal_string() {
     check(
         "my.string = 'yeet\\'",
-        [
-            Token {
-                ty: TokenType::LiteralOrIdent("my"),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 2 },
-                },
-            },
-            Token {
-                ty: TokenType::Dot,
-                span: Span {
-                    start: Pos { line: 0, char: 2 },
-                    end: Pos { line: 0, char: 3 },
-                },
-            },
-            Token {
-                ty: TokenType::LiteralOrIdent("string"),
-                span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 0, char: 9 },
-                },
-            },
-            Token {
-                ty: TokenType::Equal,
-                span: Span {
-                    start: Pos { line: 0, char: 10 },
-                    end: Pos { line: 0, char: 11 },
-                },
-            },
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::Literal,
-                    lit: "'yeet\\'",
-                    text: Cow::Borrowed("yeet\\"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 13 },
-                        end: Pos { line: 0, char: 18 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 2 },
                     },
                 },
-                span: Span {
-                    start: Pos { line: 0, char: 12 },
-                    end: Pos { line: 0, char: 19 },
+                Token {
+                    ty: TokenType::Dot,
+                    span: Span {
+                        start: Pos { line: 0, char: 2 },
+                        end: Pos { line: 0, char: 3 },
+                    },
                 },
-            },
-            Token {
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(1)),
+                    span: Span {
+                        start: Pos { line: 0, char: 3 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                },
+                Token {
+                    ty: TokenType::Equal,
+                    span: Span {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                },
+                Token {
+                    ty: TokenType::String(StringId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 12 },
+                        end: Pos { line: 0, char: 19 },
+                    },
+                },
+            ],
+            strings: vec![StringToken {
+                quote: Quote::Literal,
+                lit: "'yeet\\'",
+                text: Cow::Borrowed("yeet\\"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 13 },
+                    end: Pos { line: 0, char: 18 },
+                },
+            }],
+            literals: vec!["my", "string"],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 19 }),
             },
-        ],
+        },
     );
 }
 
@@ -178,69 +194,73 @@ fn assign_literal_string() {
 fn assign_escaped_string() {
     check(
         "my.escaped.string = \"a\\u93f2nope\"",
-        [
-            Token {
-                ty: TokenType::LiteralOrIdent("my"),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 2 },
-                },
-            },
-            Token {
-                ty: TokenType::Dot,
-                span: Span {
-                    start: Pos { line: 0, char: 2 },
-                    end: Pos { line: 0, char: 3 },
-                },
-            },
-            Token {
-                ty: TokenType::LiteralOrIdent("escaped"),
-                span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 0, char: 10 },
-                },
-            },
-            Token {
-                ty: TokenType::Dot,
-                span: Span {
-                    start: Pos { line: 0, char: 10 },
-                    end: Pos { line: 0, char: 11 },
-                },
-            },
-            Token {
-                ty: TokenType::LiteralOrIdent("string"),
-                span: Span {
-                    start: Pos { line: 0, char: 11 },
-                    end: Pos { line: 0, char: 17 },
-                },
-            },
-            Token {
-                ty: TokenType::Equal,
-                span: Span {
-                    start: Pos { line: 0, char: 18 },
-                    end: Pos { line: 0, char: 19 },
-                },
-            },
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::Basic,
-                    lit: "\"a\\u93f2nope\"",
-                    text: Cow::Borrowed("a\u{93f2}nope"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 21 },
-                        end: Pos { line: 0, char: 32 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 2 },
                     },
                 },
-                span: Span {
-                    start: Pos { line: 0, char: 20 },
-                    end: Pos { line: 0, char: 33 },
+                Token {
+                    ty: TokenType::Dot,
+                    span: Span {
+                        start: Pos { line: 0, char: 2 },
+                        end: Pos { line: 0, char: 3 },
+                    },
                 },
-            },
-            Token {
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(1)),
+                    span: Span {
+                        start: Pos { line: 0, char: 3 },
+                        end: Pos { line: 0, char: 10 },
+                    },
+                },
+                Token {
+                    ty: TokenType::Dot,
+                    span: Span {
+                        start: Pos { line: 0, char: 10 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                },
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(2)),
+                    span: Span {
+                        start: Pos { line: 0, char: 11 },
+                        end: Pos { line: 0, char: 17 },
+                    },
+                },
+                Token {
+                    ty: TokenType::Equal,
+                    span: Span {
+                        start: Pos { line: 0, char: 18 },
+                        end: Pos { line: 0, char: 19 },
+                    },
+                },
+                Token {
+                    ty: TokenType::String(StringId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 20 },
+                        end: Pos { line: 0, char: 33 },
+                    },
+                },
+            ],
+            strings: vec![StringToken {
+                quote: Quote::Basic,
+                lit: "\"a\\u93f2nope\"",
+                text: Cow::Borrowed("a\u{93f2}nope"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 21 },
+                    end: Pos { line: 0, char: 32 },
+                },
+            }],
+            literals: vec!["my", "escaped", "string"],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 33 }),
             },
-        ],
+        },
     );
 }
 
@@ -268,28 +288,30 @@ fn unicode_escapes() {
 fn multiline_string_escaped_newline() {
     check(
         "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::BasicMultiline,
-                    lit:
-                        "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
-                    text: Cow::Borrowed("look the final string is just one line"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 4, char: 0 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 4, char: 3 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::BasicMultiline,
+                lit:
+                    "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
+                text: Cow::Borrowed("look the final string is just one line"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 4, char: 0 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 4, char: 3 }),
             },
-        ],
+        },
     );
 }
 
@@ -297,27 +319,29 @@ fn multiline_string_escaped_newline() {
 fn multiline_string_contains_up_to_two_quotes() {
     check(
         "'''this doesn't end the string: '' but this does: '''",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::LiteralMultiline,
-                    lit: "'''this doesn't end the string: '' but this does: '''",
-                    text: Cow::Borrowed("this doesn't end the string: '' but this does: "),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 50 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 53 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::LiteralMultiline,
+                lit: "'''this doesn't end the string: '' but this does: '''",
+                text: Cow::Borrowed("this doesn't end the string: '' but this does: "),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 0, char: 50 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 53 }),
             },
-        ],
+        },
     );
 }
 
@@ -325,41 +349,45 @@ fn multiline_string_contains_up_to_two_quotes() {
 fn assign_basic_multiline_string() {
     check(
         "m_string = \"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
-        [
-            Token {
-                ty: TokenType::LiteralOrIdent("m_string"),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 8 },
-                },
-            },
-            Token {
-                ty: TokenType::Equal,
-                span: Span {
-                    start: Pos { line: 0, char: 9 },
-                    end: Pos { line: 0, char: 10 },
-                },
-            },
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::BasicMultiline,
-                    lit: "\"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
-                    text: Cow::Borrowed("each\nword\nis\non\na\nnew\nline\n"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 14 },
-                        end: Pos { line: 8, char: 0 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 8 },
                     },
                 },
-                span: Span {
-                    start: Pos { line: 0, char: 11 },
-                    end: Pos { line: 8, char: 3 },
+                Token {
+                    ty: TokenType::Equal,
+                    span: Span {
+                        start: Pos { line: 0, char: 9 },
+                        end: Pos { line: 0, char: 10 },
+                    },
                 },
-            },
-            Token {
+                Token {
+                    ty: TokenType::String(StringId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 11 },
+                        end: Pos { line: 8, char: 3 },
+                    },
+                },
+            ],
+            strings: vec![StringToken {
+                quote: Quote::BasicMultiline,
+                lit: "\"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
+                text: Cow::Borrowed("each\nword\nis\non\na\nnew\nline\n"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 14 },
+                    end: Pos { line: 8, char: 0 },
+                },
+            }],
+            literals: vec!["m_string"],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 8, char: 3 }),
             },
-        ],
+        },
     );
 }
 
@@ -367,41 +395,45 @@ fn assign_basic_multiline_string() {
 fn assign_literal_multiline_string() {
     check(
         "m_string = '''\\\neach\nword\nis\non\na\nnew\nline\n'''",
-        [
-            Token {
-                ty: TokenType::LiteralOrIdent("m_string"),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 8 },
-                },
-            },
-            Token {
-                ty: TokenType::Equal,
-                span: Span {
-                    start: Pos { line: 0, char: 9 },
-                    end: Pos { line: 0, char: 10 },
-                },
-            },
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::LiteralMultiline,
-                    lit: "'''\\\neach\nword\nis\non\na\nnew\nline\n'''",
-                    text: Cow::Borrowed("\\\neach\nword\nis\non\na\nnew\nline\n"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 14 },
-                        end: Pos { line: 8, char: 0 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 8 },
                     },
                 },
-                span: Span {
-                    start: Pos { line: 0, char: 11 },
-                    end: Pos { line: 8, char: 3 },
+                Token {
+                    ty: TokenType::Equal,
+                    span: Span {
+                        start: Pos { line: 0, char: 9 },
+                        end: Pos { line: 0, char: 10 },
+                    },
                 },
-            },
-            Token {
+                Token {
+                    ty: TokenType::String(StringId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 11 },
+                        end: Pos { line: 8, char: 3 },
+                    },
+                },
+            ],
+            strings: vec![StringToken {
+                quote: Quote::LiteralMultiline,
+                lit: "'''\\\neach\nword\nis\non\na\nnew\nline\n'''",
+                text: Cow::Borrowed("\\\neach\nword\nis\non\na\nnew\nline\n"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 14 },
+                    end: Pos { line: 8, char: 0 },
+                },
+            }],
+            literals: vec!["m_string"],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 8, char: 3 }),
             },
-        ],
+        },
     );
 }
 
@@ -409,34 +441,38 @@ fn assign_literal_multiline_string() {
 fn unclosed_basic_single_line_string() {
     check_err(
         "\"some unclosed string\n",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::Basic,
-                    lit: "\"some unclosed string",
-                    text: Cow::Borrowed("some unclosed string"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 1 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::String(StringId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
                         end: Pos { line: 0, char: 21 },
                     },
                 },
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
+                Token {
+                    ty: TokenType::Newline,
+                    span: Span {
+                        start: Pos { line: 0, char: 21 },
+                        end: Pos { line: 1, char: 0 },
+                    },
+                },
+            ],
+            strings: vec![StringToken {
+                quote: Quote::Basic,
+                lit: "\"some unclosed string",
+                text: Cow::Borrowed("some unclosed string"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 1 },
                     end: Pos { line: 0, char: 21 },
                 },
-            },
-            Token {
-                ty: TokenType::Newline,
-                span: Span {
-                    start: Pos { line: 0, char: 21 },
-                    end: Pos { line: 1, char: 0 },
-                },
-            },
-            Token {
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 1, char: 0 }),
             },
-        ],
+        },
         [Error::MissingQuote(Quote::Basic, Pos { line: 0, char: 21 })],
     );
 }
@@ -445,27 +481,29 @@ fn unclosed_basic_single_line_string() {
 fn unclosed_basic_multi_line_string() {
     check_err(
         "\"\"\"some unclosed string\nthis is a new line",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::BasicMultiline,
-                    lit: "\"\"\"some unclosed string\nthis is a new line",
-                    text: Cow::Borrowed("some unclosed string\nthis is a new line"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 1, char: 18 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 1, char: 18 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::BasicMultiline,
+                lit: "\"\"\"some unclosed string\nthis is a new line",
+                text: Cow::Borrowed("some unclosed string\nthis is a new line"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 1, char: 18 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 1, char: 18 }),
             },
-        ],
+        },
         [Error::MissingQuote(
             Quote::BasicMultiline,
             Pos { line: 1, char: 18 },
@@ -477,27 +515,29 @@ fn unclosed_basic_multi_line_string() {
 fn not_fully_closed_basic_multi_line_string_1() {
     check_err(
         "\"\"\"some unclosed string\"",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::BasicMultiline,
-                    lit: "\"\"\"some unclosed string\"",
-                    text: Cow::Borrowed("some unclosed string\""),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 24 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 24 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::BasicMultiline,
+                lit: "\"\"\"some unclosed string\"",
+                text: Cow::Borrowed("some unclosed string\""),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 0, char: 24 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 24 }),
             },
-        ],
+        },
         [Error::MissingQuote(
             Quote::BasicMultiline,
             Pos { line: 0, char: 24 },
@@ -509,27 +549,29 @@ fn not_fully_closed_basic_multi_line_string_1() {
 fn not_fully_closed_basic_multi_line_string_2() {
     check_err(
         "\"\"\"some unclosed string\"\"",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::BasicMultiline,
-                    lit: "\"\"\"some unclosed string\"\"",
-                    text: Cow::Borrowed("some unclosed string\"\""),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 25 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 25 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::BasicMultiline,
+                lit: "\"\"\"some unclosed string\"\"",
+                text: Cow::Borrowed("some unclosed string\"\""),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 0, char: 25 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 25 }),
             },
-        ],
+        },
         [Error::MissingQuote(
             Quote::BasicMultiline,
             Pos { line: 0, char: 25 },
@@ -541,34 +583,38 @@ fn not_fully_closed_basic_multi_line_string_2() {
 fn unclosed_literal_single_line_string() {
     check_err(
         "'some unclosed string\n",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::Literal,
-                    lit: "'some unclosed string",
-                    text: Cow::Borrowed("some unclosed string"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 1 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::String(StringId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
                         end: Pos { line: 0, char: 21 },
                     },
                 },
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
+                Token {
+                    ty: TokenType::Newline,
+                    span: Span {
+                        start: Pos { line: 0, char: 21 },
+                        end: Pos { line: 1, char: 0 },
+                    },
+                },
+            ],
+            strings: vec![StringToken {
+                quote: Quote::Literal,
+                lit: "'some unclosed string",
+                text: Cow::Borrowed("some unclosed string"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 1 },
                     end: Pos { line: 0, char: 21 },
                 },
-            },
-            Token {
-                ty: TokenType::Newline,
-                span: Span {
-                    start: Pos { line: 0, char: 21 },
-                    end: Pos { line: 1, char: 0 },
-                },
-            },
-            Token {
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 1, char: 0 }),
             },
-        ],
+        },
         [Error::MissingQuote(
             Quote::Literal,
             Pos { line: 0, char: 21 },
@@ -580,27 +626,29 @@ fn unclosed_literal_single_line_string() {
 fn unclosed_literal_multi_line_string() {
     check_err(
         "'''some unclosed string\nthis is a new line",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::LiteralMultiline,
-                    lit: "'''some unclosed string\nthis is a new line",
-                    text: Cow::Borrowed("some unclosed string\nthis is a new line"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 1, char: 18 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 1, char: 18 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::LiteralMultiline,
+                lit: "'''some unclosed string\nthis is a new line",
+                text: Cow::Borrowed("some unclosed string\nthis is a new line"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 1, char: 18 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 1, char: 18 }),
             },
-        ],
+        },
         [Error::MissingQuote(
             Quote::LiteralMultiline,
             Pos { line: 1, char: 18 },
@@ -612,27 +660,29 @@ fn unclosed_literal_multi_line_string() {
 fn not_fully_closed_literal_multi_line_string_1() {
     check_err(
         "'''some unclosed string'",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::LiteralMultiline,
-                    lit: "'''some unclosed string'",
-                    text: Cow::Borrowed("some unclosed string'"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 24 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 24 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::LiteralMultiline,
+                lit: "'''some unclosed string'",
+                text: Cow::Borrowed("some unclosed string'"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 0, char: 24 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 24 }),
             },
-        ],
+        },
         [Error::MissingQuote(
             Quote::LiteralMultiline,
             Pos { line: 0, char: 24 },
@@ -644,27 +694,29 @@ fn not_fully_closed_literal_multi_line_string_1() {
 fn not_fully_closed_literal_multi_line_string_2() {
     check_err(
         "'''some unclosed string''",
-        [
-            Token {
-                ty: TokenType::String {
-                    quote: Quote::LiteralMultiline,
-                    lit: "'''some unclosed string''",
-                    text: Cow::Borrowed("some unclosed string''"),
-                    text_span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 25 },
-                    },
-                },
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::String(StringId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 25 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![StringToken {
+                quote: Quote::LiteralMultiline,
+                lit: "'''some unclosed string''",
+                text: Cow::Borrowed("some unclosed string''"),
+                text_span: Span {
+                    start: Pos { line: 0, char: 3 },
+                    end: Pos { line: 0, char: 25 },
+                },
+            }],
+            literals: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 25 }),
             },
-        ],
+        },
         [Error::MissingQuote(
             Quote::LiteralMultiline,
             Pos { line: 0, char: 25 },
@@ -676,19 +728,21 @@ fn not_fully_closed_literal_multi_line_string_2() {
 fn comment_without_newline() {
     check(
         "# hello there",
-        [
-            Token {
-                ty: TokenType::Comment(" hello there"),
+        Tokens {
+            tokens: vec![Token {
+                ty: TokenType::Comment(LiteralId(0)),
                 span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 13 },
                 },
-            },
-            Token {
+            }],
+            strings: vec![],
+            literals: vec![" hello there"],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 0, char: 13 }),
             },
-        ],
+        },
     )
 }
 
@@ -696,25 +750,29 @@ fn comment_without_newline() {
 fn comment_with_newline() {
     check(
         "# hello there\n",
-        [
-            Token {
-                ty: TokenType::Comment(" hello there"),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 13 },
+        Tokens {
+            tokens: vec![
+                Token {
+                    ty: TokenType::Comment(LiteralId(0)),
+                    span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 13 },
+                    },
                 },
-            },
-            Token {
-                ty: TokenType::Newline,
-                span: Span {
-                    start: Pos { line: 0, char: 13 },
-                    end: Pos { line: 1, char: 0 },
+                Token {
+                    ty: TokenType::Newline,
+                    span: Span {
+                        start: Pos { line: 0, char: 13 },
+                        end: Pos { line: 1, char: 0 },
+                    },
                 },
-            },
-            Token {
+            ],
+            literals: vec![" hello there"],
+            strings: vec![],
+            eof: Token {
                 ty: TokenType::EOF,
                 span: Span::pos(Pos { line: 1, char: 0 }),
             },
-        ],
+        },
     )
 }

@@ -7,6 +7,7 @@ mod test;
 
 type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tokens<'a> {
     pub tokens: Vec<Token>,
     pub strings: Vec<StringToken<'a>>,
@@ -14,13 +15,13 @@ pub struct Tokens<'a> {
     pub eof: Token,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Token {
     pub ty: TokenType,
     pub span: Span,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenType {
     String(StringId),
     LiteralOrIdent(LiteralId),
@@ -43,7 +44,7 @@ pub struct StringId(pub u32);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct LiteralId(pub u32);
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StringToken<'a> {
     pub quote: Quote,
     /// The literal exactly as it is written in the toml file.
