@@ -28,83 +28,6 @@ macro_rules! recover_on {
     }};
 }
 
-// TODO: cursor to peek multiple tokens ahead and revert
-// -> use for heuristics to detect unclosed inline arrays
-#[derive(Debug)]
-struct Parser<'a> {
-    strings: Vec<StringToken<'a>>,
-    literals: Vec<&'a str>,
-    tokens: std::iter::Peekable<std::vec::IntoIter<Token>>,
-    eof: Token,
-}
-
-impl<'a> Parser<'a> {
-    fn new(tokens: Tokens<'a>) -> Self {
-        Self {
-            strings: tokens.strings,
-            literals: tokens.literals,
-            tokens: tokens.tokens.into_iter().peekable(),
-            eof: tokens.eof,
-        }
-    }
-
-    fn next(&mut self) -> Token {
-        self.tokens.next().unwrap_or(self.eof)
-    }
-
-    fn peek(&mut self) -> Token {
-        match self.tokens.peek() {
-            Some(t) => *t,
-            None => self.eof,
-        }
-    }
-
-    fn eat_comment(&mut self) -> Option<Comment<'a>> {
-        let t = self.peek();
-        match t.ty {
-            TokenType::Comment(id) => {
-                let text = self.literal(id);
-                let c = Comment { span: t.span, text };
-                self.next();
-                Some(c)
-            }
-            _ => None,
-        }
-    }
-
-    fn eat_comment_and_newlines(&mut self) -> Option<Comment<'a>> {
-        loop {
-            let t = self.peek();
-            match t.ty {
-                TokenType::Comment(id) => {
-                    let text = self.literal(id);
-                    let c = Comment { span: t.span, text };
-                    self.next();
-                    return Some(c);
-                }
-                TokenType::Newline => {
-                    self.next();
-                }
-                _ => return None,
-            }
-        }
-    }
-
-    fn string_mut(&mut self, id: StringId) -> &mut StringToken<'a> {
-        &mut self.strings[id.0 as usize]
-    }
-
-    fn literal(&self, id: LiteralId) -> &'a str {
-        self.literals[id.0 as usize]
-    }
-
-    fn token_to_string(&self, ty: TokenType) -> String {
-        let mut string = String::new();
-        _ = ty.display(&mut string, &self.strings, &self.literals);
-        string
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum Ast<'a> {
     Assignment(Assignment<'a>),
@@ -458,6 +381,104 @@ impl<'a> Header<'a> {
             Header::Array(a) => Ast::Array(a),
         }
     }
+}
+
+// TODO: cursor to peek multiple tokens ahead and revert
+// -> use for heuristics to detect unclosed inline arrays
+#[derive(Debug)]
+struct Parser<'a> {
+    strings: Vec<StringToken<'a>>,
+    literals: Vec<&'a str>,
+    tokens: std::iter::Peekable<std::vec::IntoIter<Token>>,
+    eof: Token,
+}
+
+impl<'a> Parser<'a> {
+    fn new(tokens: Tokens<'a>) -> Self {
+        Self {
+            strings: tokens.strings,
+            literals: tokens.literals,
+            tokens: tokens.tokens.into_iter().peekable(),
+            eof: tokens.eof,
+        }
+    }
+
+    fn next(&mut self) -> Token {
+        self.tokens.next().unwrap_or(self.eof)
+    }
+
+    fn peek(&mut self) -> Token {
+        match self.tokens.peek() {
+            Some(t) => *t,
+            None => self.eof,
+        }
+    }
+
+    fn eat_comment(&mut self) -> Option<Comment<'a>> {
+        let t = self.peek();
+        match t.ty {
+            TokenType::Comment(id) => {
+                let text = self.literal(id);
+                let c = Comment { span: t.span, text };
+                self.next();
+                Some(c)
+            }
+            _ => None,
+        }
+    }
+
+    fn eat_comment_and_newlines(&mut self) -> Option<Comment<'a>> {
+        loop {
+            let t = self.peek();
+            match t.ty {
+                TokenType::Comment(id) => {
+                    let text = self.literal(id);
+                    let c = Comment { span: t.span, text };
+                    self.next();
+                    return Some(c);
+                }
+                TokenType::Newline => {
+                    self.next();
+                }
+                _ => return None,
+            }
+        }
+    }
+
+    fn string_mut(&mut self, id: StringId) -> &mut StringToken<'a> {
+        &mut self.strings[id.0 as usize]
+    }
+
+    fn literal(&self, id: LiteralId) -> &'a str {
+        self.literals[id.0 as usize]
+    }
+
+    fn token_to_string(&self, ty: TokenType) -> String {
+        let mut string = String::new();
+        _ = ty.display(&mut string, &self.strings, &self.literals);
+        string
+    }
+}
+
+/// A possibly only partially parsed value
+enum PartialValue {
+    /// An integer that is prefixed by either `0b`, `0o`, or `0x`.
+    PrefixedInt(i64),
+    /// A valid decimal integer, but could also be the integer part of a float.
+    Int(i64),
+    /// Possibly the integer part of a float, otherwise an error.
+    OverflowOrFloat,
+    /// A float with an exponent. There can't be a fractional part after this.
+    FloatWithExp,
+    /// A complete offset date-time, without the sub second part, but with an offset.
+    OffsetDateTime(DateTime),
+    /// A date-time without the subsecond part and an offset, might be followed by the subsecond
+    /// part.
+    PartialDateTime(Date, Time),
+    /// Just the date part, might be followed by the time part.
+    PartialDate(Date),
+    /// A local time without sub second part, might be followed by it.
+    PartialTime(Time),
 }
 
 impl Ctx {
@@ -1141,25 +1162,4 @@ impl Ctx {
             }
         }
     }
-}
-
-/// A possibly only partially parsed value
-enum PartialValue {
-    /// An integer that is prefixed by either `0b`, `0o`, or `0x`.
-    PrefixedInt(i64),
-    /// A valid decimal integer, but could also be the integer part of a float.
-    Int(i64),
-    /// Possibly the integer part of a float, otherwise an error.
-    OverflowOrFloat,
-    /// A float with an exponent. There can't be a fractional part after this.
-    FloatWithExp,
-    /// A complete offset date-time, without the sub second part, but with an offset.
-    OffsetDateTime(DateTime),
-    /// A date-time without the subsecond part and an offset, might be followed by the subsecond
-    /// part.
-    PartialDateTime(Date, Time),
-    /// Just the date part, might be followed by the time part.
-    PartialDate(Date),
-    /// A local time without sub second part, might be followed by it.
-    PartialTime(Time),
 }

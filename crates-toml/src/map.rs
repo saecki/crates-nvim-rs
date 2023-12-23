@@ -12,70 +12,6 @@ pub mod simple;
 #[cfg(test)]
 mod test;
 
-struct Mapper {
-    current_path: String,
-}
-
-impl Mapper {
-    fn new() -> Self {
-        Self {
-            current_path: String::new(),
-        }
-    }
-
-    #[inline]
-    fn with_path<T>(&mut self, f: impl FnOnce(&mut Mapper) -> T) -> T {
-        let len = self.current_path.len();
-        let val = f(self);
-        self.current_path.truncate(len);
-        val
-    }
-
-    #[inline]
-    fn with_key<T>(&mut self, key: &str, f: impl FnOnce(&mut Mapper) -> T) -> T {
-        let len = self.current_path.len();
-        self.push_key(key);
-        let val = f(self);
-        self.current_path.truncate(len);
-        val
-    }
-
-    #[inline]
-    fn with_index<T>(&mut self, index: usize, f: impl FnOnce(&mut Mapper) -> T) -> T {
-        let len = self.current_path.len();
-        self.push_index(index);
-        let val = f(self);
-        self.current_path.truncate(len);
-        val
-    }
-
-    fn push_key(&mut self, key: &str) {
-        if !self.current_path.is_empty() {
-            self.current_path.push('.');
-        }
-        self.current_path.push_str(key);
-    }
-
-    fn push_index(&mut self, index: usize) {
-        use std::fmt::Write;
-        _ = write!(&mut self.current_path, "[{index}]");
-    }
-
-    fn path(&self) -> Option<String> {
-        if self.current_path.is_empty() {
-            None
-        } else {
-            Some(self.current_path.clone())
-        }
-    }
-}
-
-/// Value to be lazily mapped and inserted
-enum InsertValue<'a> {
-    Value(&'a Value<'a>),
-    TableAssignments(&'a [Assignment<'a>]),
-}
-
 #[derive(Debug, PartialEq)]
 pub struct MapTable<'a> {
     inner: HashMap<&'a str, MapTableEntry<'a>>,
@@ -320,6 +256,70 @@ impl Scalar<'_> {
             Scalar::Invalid(_, span) => *span,
         }
     }
+}
+
+struct Mapper {
+    current_path: String,
+}
+
+impl Mapper {
+    fn new() -> Self {
+        Self {
+            current_path: String::new(),
+        }
+    }
+
+    #[inline]
+    fn with_path<T>(&mut self, f: impl FnOnce(&mut Mapper) -> T) -> T {
+        let len = self.current_path.len();
+        let val = f(self);
+        self.current_path.truncate(len);
+        val
+    }
+
+    #[inline]
+    fn with_key<T>(&mut self, key: &str, f: impl FnOnce(&mut Mapper) -> T) -> T {
+        let len = self.current_path.len();
+        self.push_key(key);
+        let val = f(self);
+        self.current_path.truncate(len);
+        val
+    }
+
+    #[inline]
+    fn with_index<T>(&mut self, index: usize, f: impl FnOnce(&mut Mapper) -> T) -> T {
+        let len = self.current_path.len();
+        self.push_index(index);
+        let val = f(self);
+        self.current_path.truncate(len);
+        val
+    }
+
+    fn push_key(&mut self, key: &str) {
+        if !self.current_path.is_empty() {
+            self.current_path.push('.');
+        }
+        self.current_path.push_str(key);
+    }
+
+    fn push_index(&mut self, index: usize) {
+        use std::fmt::Write;
+        _ = write!(&mut self.current_path, "[{index}]");
+    }
+
+    fn path(&self) -> Option<String> {
+        if self.current_path.is_empty() {
+            None
+        } else {
+            Some(self.current_path.clone())
+        }
+    }
+}
+
+/// Value to be lazily mapped and inserted
+enum InsertValue<'a> {
+    Value(&'a Value<'a>),
+    TableAssignments(&'a [Assignment<'a>]),
 }
 
 impl Ctx {
