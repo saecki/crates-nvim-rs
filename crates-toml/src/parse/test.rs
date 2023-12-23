@@ -711,7 +711,7 @@ fn inline_array_recover_comma() {
                 r_par: Some(Pos { line: 0, char: 16 }),
             }),
         })],
-        Error::ExpectedComma(Pos { line: 0, char: 13 }),
+        Error::MissingComma(Pos { line: 0, char: 13 }),
     );
 }
 
@@ -945,7 +945,7 @@ fn inline_table_recover_missing_comma() {
                 r_par: Some(Pos { line: 0, char: 26 }),
             }),
         })],
-        Error::ExpectedComma(Pos { line: 0, char: 15 }),
+        Error::MissingComma(Pos { line: 0, char: 15 }),
     );
 }
 
@@ -1185,7 +1185,7 @@ fn newline_is_required_after_table_header() {
                 }),
             }],
         })],
-        Error::ExpectedNewline(Pos { line: 0, char: 10 }),
+        Error::MissingNewline(Pos { line: 0, char: 10 }),
     )
 }
 
@@ -1242,7 +1242,7 @@ fn newline_is_required_after_assignment() {
                 }),
             }),
         ],
-        Error::ExpectedNewline(Pos { line: 0, char: 10 }),
+        Error::MissingNewline(Pos { line: 0, char: 10 }),
     )
 }
 

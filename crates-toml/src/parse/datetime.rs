@@ -29,7 +29,7 @@ pub fn continue_parsing_date_time(
     };
     let year = 100 * two_digits + 10 * y2 + y3;
 
-    expect_char(chars, span, '-')?;
+    expect_char(chars, span, DateTimeField::Year, '-')?;
 
     continue_parsing_date_time_after_year(chars, span, year)
 }
@@ -45,7 +45,7 @@ pub fn continue_parsing_date_time_after_year(
         .check_range(0..=12)
         .map_err(|e| e.kind(Month))?;
 
-    expect_char(chars, span, '-')?;
+    expect_char(chars, span, DateTimeField::Month, '-')?;
 
     let (day, _) = expect_two_digit_num(chars, span)
         .map_err(|e| e.kind(Day))?
@@ -96,7 +96,7 @@ pub fn parse_time_and_offset(
             .check_range(0..=23)
             .map_err(|e| e.kind(Hour))?;
 
-        expect_char(chars, span, ':')?;
+        expect_char(chars, span, DateTimeField::Hour, ':')?;
 
         continue_parsing_time(chars, span, hour)?
     };
@@ -114,7 +114,7 @@ fn continue_parsing_time(chars: &mut CharIter, span: Span, hour: u8) -> Result<T
         .check_range(0..=59)
         .map_err(|e| e.kind(Minute))?;
 
-    expect_char(chars, span, ':')?;
+    expect_char(chars, span, DateTimeField::Minute, ':')?;
 
     let (second, _) = expect_two_digit_num(chars, span)
         .map_err(|e| e.kind(Second))?
@@ -201,7 +201,7 @@ fn parse_offset(chars: &mut CharIter, span: Span) -> Result<i16, Error> {
         .check_range(0..=23)
         .map_err(|e| e.kind(OffsetHour))?;
 
-    expect_char(chars, span, ':')?;
+    expect_char(chars, span, DateTimeField::OffsetHour, ':')?;
 
     let (minute, _) = expect_two_digit_num(chars, span)
         .map_err(|e| e.kind(OffsetMinute))?
@@ -227,14 +227,19 @@ fn invalid_char_error<T>(char: char, span: Span, offset: usize) -> Result<T, Err
     Err(Error::InvalidCharInDateTime(char, pos))
 }
 
-fn expect_char(chars: &mut CharIter, span: Span, expected: char) -> Result<(), Error> {
+fn expect_char(
+    chars: &mut CharIter,
+    span: Span,
+    after: DateTimeField,
+    expected: char,
+) -> Result<(), Error> {
     match chars.next() {
         Some((_, c)) if c == expected => Ok(()),
         Some((i, c)) => {
             let pos = span.start.plus(i as u32);
-            Err(Error::DateTimeExpectedCharFound(expected, c, pos))
+            Err(Error::DateTimeExpectedCharFound(after, expected, c, pos))
         }
-        None => Err(Error::DateTimeMissingChar(expected, span.end)),
+        None => Err(Error::DateTimeMissingChar(after, expected, span.end)),
     }
 }
 

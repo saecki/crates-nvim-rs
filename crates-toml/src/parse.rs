@@ -477,7 +477,7 @@ impl Ctx {
                     }
                     t if t.ty == TokenType::EOF => break 'root,
                     t => {
-                        self.error(Error::ExpectedNewline(t.span.start));
+                        self.error(Error::MissingNewline(t.span.start));
                     }
                 }
 
@@ -800,7 +800,7 @@ impl Ctx {
                             break;
                         }
                         _ => {
-                            self.error(Error::ExpectedComma(val.span().end));
+                            self.error(Error::MissingComma(val.span().end));
                             // try to continue
                             None
                         }
@@ -885,7 +885,7 @@ impl Ctx {
                         }
                         _ => {
                             let pos = assignment.assignment.val.span().end;
-                            self.error(Error::ExpectedComma(pos));
+                            self.error(Error::MissingComma(pos));
                             // try to continue
                         }
                     };
@@ -1181,18 +1181,20 @@ fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
     let mut parse_state = NumParseState::Int;
     let mut int_accum;
 
+    // TODO: support signs
+    // TODO: better errors for uppercase radices
     match c {
         '0' => match chars.next() {
             Some((_, 'b')) => {
-                let val = parse_prefixed_int_literal::<1>(chars, span)?;
+                let val = parse_prefixed_int_literal(IntBits::Binary, chars, span)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'o')) => {
-                let val = parse_prefixed_int_literal::<3>(chars, span)?;
+                let val = parse_prefixed_int_literal(IntBits::Octal, chars, span)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, 'x')) => {
-                let val = parse_prefixed_int_literal::<4>(chars, span)?;
+                let val = parse_prefixed_int_literal(IntBits::Hexadecimal, chars, span)?;
                 return Ok(PartialValue::PrefixedInt(val));
             }
             Some((_, c @ ('0'..='9'))) => {
@@ -1209,7 +1211,7 @@ fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
         '1'..='9' => {
             int_accum = (c as u32 - '0' as u32) as i64;
         }
-        '_' => return Err(Error::NumLiteralStartsWithUnderscore(span.start)),
+        '_' => return Err(Error::NumOrDateLiteralStartsWithUnderscore(span.start)),
         _ => return Err(Error::InvalidNumOrDateLiteralStart(c, span.start)),
     }
 
@@ -1221,6 +1223,7 @@ fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
 
         last_underscore = false;
 
+        // TODO: better errors for hex digits
         match c {
             '0'..='9' => {
                 match parse_state {
@@ -1307,11 +1310,19 @@ fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
     }
 }
 
-fn parse_prefixed_int_literal<const BITS: u32>(
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IntBits {
+    Binary = 1,
+    Octal = 3,
+    Hexadecimal = 4,
+}
+
+fn parse_prefixed_int_literal(
+    bits: IntBits,
     mut chars: impl Iterator<Item = (usize, char)>,
     span: Span,
 ) -> Result<i64, Error> {
-    let max_value: u32 = 2u32.pow(BITS);
+    let max_value: u32 = 1 << bits as u32;
     let mut accum: i64 = 0;
     let mut last_underscore = false;
 
@@ -1331,7 +1342,7 @@ fn parse_prefixed_int_literal<const BITS: u32>(
                 let n = (c as u32) - ('0' as u32);
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
+                    return Err(Error::IntDigitTooBig(bits, c, pos));
                 }
                 n
             }
@@ -1339,7 +1350,7 @@ fn parse_prefixed_int_literal<const BITS: u32>(
                 let n = 10 + (c as u32) - ('a' as u32);
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
+                    return Err(Error::IntDigitTooBig(bits, c, pos));
                 }
                 n
             }
@@ -1347,7 +1358,7 @@ fn parse_prefixed_int_literal<const BITS: u32>(
                 let n = 10 + (c as u32) - ('A' as u32);
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(BITS as u8, c, pos));
+                    return Err(Error::IntDigitTooBig(bits, c, pos));
                 }
                 n
             }
@@ -1365,7 +1376,7 @@ fn parse_prefixed_int_literal<const BITS: u32>(
             }
         };
 
-        let (val, overflow) = accum.overflowing_shl(BITS);
+        let (val, overflow) = accum.overflowing_shl(bits as u32);
         if overflow {
             return Err(Error::IntLiteralOverflow(span));
         }

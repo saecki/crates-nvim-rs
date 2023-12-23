@@ -491,6 +491,7 @@ impl Ctx {
             return StringResult::Continue;
         };
 
+        // TODO: recover on space
         match c {
             'u' => {
                 return self.string_escape_unicode(lexer, str, esc_start, 4);
@@ -535,8 +536,9 @@ impl Ctx {
         lexer: &mut Lexer<'a>,
         str: &mut StrState,
         esc_start: Pos,
-        mut remaining: u8,
+        num_chars: u8,
     ) -> StringResult {
+        let mut remaining = num_chars;
         let mut unicode_cp = 0;
         loop {
             let Some(c) = lexer.next() else {
@@ -549,6 +551,7 @@ impl Ctx {
             remaining -= 1;
 
             let offset = remaining * 4;
+            // TODO: recover on space
             match c {
                 '0'..='9' => {
                     unicode_cp += (c as u32 - '0' as u32) << offset;
@@ -611,7 +614,8 @@ impl Ctx {
             if remaining == 0 {
                 match char::from_u32(unicode_cp) {
                     Some(char) => str.push_char(char),
-                    None => self.error(Error::InvalidUnicodeScalar(
+                    None => self.error(Error::InvalidUnicodeCodepoint(
+                        num_chars,
                         unicode_cp,
                         Span::new(esc_start, lexer.pos().after(c)),
                     )),
