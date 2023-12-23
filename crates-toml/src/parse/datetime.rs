@@ -1,6 +1,6 @@
 use crate::datetime::{Date, DateTime, DateTimeField, DateTimeField::*, Offset, Time};
 use crate::lex::CharIter;
-use crate::parse::PartialValue;
+use crate::parse::{DateTimeVal, PartialValue};
 use crate::{Error, Pos, Span};
 
 // Continue parsing a date-time after the first two digits. These digits could either be part of
@@ -135,8 +135,33 @@ fn continue_parsing_time(chars: &mut CharIter, span: Span, hour: u8) -> Result<T
     })
 }
 
+pub fn parse_subsec_part<'a>(
+    lit: &'a str,
+    span: Span,
+    subsec_lit: &str,
+    subsec_span: Span,
+    date: Option<Date>,
+    mut time: Time,
+) -> Result<DateTimeVal<'a>, Error> {
+    let mut chars = subsec_lit.char_indices().peekable();
+    let val = match date {
+        Some(date) => {
+            let (nanos, offset) = parse_subsec_and_offset(&mut chars, subsec_span)?;
+            time.nanos = nanos;
+            DateTime::from_optional_offset(date, time, offset)
+        }
+        None => {
+            let nanos = parse_subsec_without_offset(&mut chars, subsec_span)?;
+            time.nanos = nanos;
+            DateTime::LocalTime(time)
+        }
+    };
+
+    Ok(DateTimeVal::new(lit, span, val))
+}
+
 /// Parse the subsecond part up to nano seconds, truncating the rest, and an optional offset.
-pub fn parse_subsec_and_offset(
+fn parse_subsec_and_offset(
     chars: &mut CharIter,
     span: Span,
 ) -> Result<(u32, Option<Offset>), Error> {
@@ -146,7 +171,7 @@ pub fn parse_subsec_and_offset(
 }
 
 /// Parse the subsecond part up to nano seconds, truncating the rest, error on finding an offset.
-pub fn parse_subsec_without_offset(chars: &mut CharIter, span: Span) -> Result<u32, Error> {
+fn parse_subsec_without_offset(chars: &mut CharIter, span: Span) -> Result<u32, Error> {
     let nanos = parse_subsec(chars, span)?;
     error_on_offset(chars, span)?;
     Ok(nanos)
