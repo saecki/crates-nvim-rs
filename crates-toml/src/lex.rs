@@ -713,11 +713,15 @@ impl Ctx {
     fn comment(&mut self, lexer: &mut Lexer) {
         self.end_literal(lexer);
 
-        let start_pos = lexer.pos().plus(1);
+        let start_pos = lexer.pos();
         let text_start = lexer.byte_pos + 1;
-        while lexer.peek() != Some('\n') {
-            lexer.next();
-        }
+        let newline = loop {
+            match lexer.next() {
+                None => break false,
+                Some('\n') => break true,
+                Some(_) => (),
+            }
+        };
         let end_pos = lexer.pos();
         let text_end = lexer.byte_pos;
 
@@ -727,5 +731,10 @@ impl Ctx {
             span: Span::new(start_pos, end_pos),
             ty: TokenType::Comment(id),
         });
+
+        if newline {
+            self.newline_token(lexer);
+            lexer.newline();
+        }
     }
 }
