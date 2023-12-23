@@ -415,7 +415,7 @@ impl Ctx {
         }
     }
 
-    fn string<'a>(&mut self, lexer: &mut Lexer<'a>, str: &mut StrState) {
+    fn string(&mut self, lexer: &mut Lexer<'_>, str: &mut StrState) {
         loop {
             let Some(c) = lexer.next() else {
                 let quote = str.quote;
@@ -477,9 +477,9 @@ impl Ctx {
         }
     }
 
-    fn string_escape<'a>(
+    fn string_escape(
         &mut self,
-        lexer: &mut Lexer<'a>,
+        lexer: &mut Lexer<'_>,
         str: &mut StrState,
         esc_start: Pos,
     ) -> StringResult {
@@ -531,9 +531,9 @@ impl Ctx {
         StringResult::Continue
     }
 
-    fn string_escape_unicode<'a>(
+    fn string_escape_unicode(
         &mut self,
-        lexer: &mut Lexer<'a>,
+        lexer: &mut Lexer<'_>,
         str: &mut StrState,
         esc_start: Pos,
         num_chars: u8,

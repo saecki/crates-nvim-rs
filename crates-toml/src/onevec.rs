@@ -20,6 +20,10 @@ impl<T> OneVec<T> {
         self.inner.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     #[inline]
     #[must_use]
     pub fn first(&self) -> &T {
