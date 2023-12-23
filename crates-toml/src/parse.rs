@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use crate::datetime::{Date, DateTime, Time};
-use crate::lex::{Token, TokenType};
+use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
 use crate::{Ctx, Error, Pos, Quote, Span};
 
 mod datetime;
@@ -29,33 +29,38 @@ macro_rules! recover_on {
 // -> use for heuristics to detect unclosed inline arrays
 #[derive(Debug)]
 struct Parser<'a> {
-    tokens: std::iter::Peekable<std::vec::IntoIter<Token<'a>>>,
-    last: Token<'a>,
+    strings: Vec<StringToken<'a>>,
+    literals: Vec<&'a str>,
+    tokens: std::iter::Peekable<std::vec::IntoIter<Token>>,
+    eof: Token,
 }
 
 impl<'a> Parser<'a> {
-    fn new(tokens: Vec<Token<'a>>) -> Self {
-        let last = tokens.last().expect("there has to be an EOF token").clone();
-        let tokens = tokens.into_iter().peekable();
-        Self { tokens, last }
+    fn new(tokens: Tokens<'a>) -> Self {
+        Self {
+            strings: tokens.strings,
+            literals: tokens.literals,
+            tokens: tokens.tokens.into_iter().peekable(),
+            eof: tokens.eof,
+        }
     }
 
-    fn next(&mut self) -> Token<'a> {
-        self.tokens.next().unwrap_or(self.last.clone())
+    fn next(&mut self) -> Token {
+        self.tokens.next().unwrap_or(self.eof)
     }
 
-    fn peek(&mut self) -> &Token<'a> {
-        self.tokens.peek().unwrap_or(&self.last)
-    }
-
-    fn peek_mut(&mut self) -> &mut Token<'a> {
-        self.tokens.peek_mut().unwrap_or(&mut self.last)
+    fn peek(&mut self) -> Token {
+        match self.tokens.peek() {
+            Some(t) => *t,
+            None => self.eof,
+        }
     }
 
     fn eat_comment(&mut self) -> Option<Comment<'a>> {
         let t = self.peek();
-        match &t.ty {
-            TokenType::Comment(text) => {
+        match t.ty {
+            TokenType::Comment(id) => {
+                let text = self.literal(id);
                 let c = Comment { span: t.span, text };
                 self.next();
                 Some(c)
@@ -67,8 +72,9 @@ impl<'a> Parser<'a> {
     fn eat_comment_and_newlines(&mut self) -> Option<Comment<'a>> {
         loop {
             let t = self.peek();
-            match &t.ty {
-                TokenType::Comment(text) => {
+            match t.ty {
+                TokenType::Comment(id) => {
+                    let text = self.literal(id);
                     let c = Comment { span: t.span, text };
                     self.next();
                     return Some(c);
@@ -79,6 +85,20 @@ impl<'a> Parser<'a> {
                 _ => return None,
             }
         }
+    }
+
+    fn string_mut(&mut self, id: StringId) -> &mut StringToken<'a> {
+        &mut self.strings[id.0 as usize]
+    }
+
+    fn literal(&self, id: LiteralId) -> &'a str {
+        self.literals[id.0 as usize]
+    }
+
+    fn token_to_string(&self, ty: TokenType) -> String {
+        let mut string = String::new();
+        _ = ty.display(&mut string, &self.strings, &self.literals);
+        string
     }
 }
 
@@ -440,7 +460,7 @@ impl<'a> Header<'a> {
 impl Ctx {
     /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
     /// is returned, otherwise the possibly partially invalid ast is returned.
-    pub fn parse<'a>(&mut self, tokens: Vec<Token<'a>>) -> Vec<Ast<'a>> {
+    pub fn parse<'a>(&mut self, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
         let mut parser = Parser::new(tokens);
         let mut asts = Vec::new();
         let mut last_header = None;
@@ -497,8 +517,8 @@ impl Ctx {
                     let r_array_square = l_array_square.and_then(|_| match parser.peek() {
                         t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                         t => {
-                            self.errors
-                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.span));
+                            let string = parser.token_to_string(t.ty);
+                            self.error(Error::ExpectedRightSquareFound(string, t.span));
                             None
                         }
                     });
@@ -506,8 +526,8 @@ impl Ctx {
                     let r_table_square = match parser.peek() {
                         t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                         t => {
-                            self.errors
-                                .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.span));
+                            let string = parser.token_to_string(t.ty);
+                            self.error(Error::ExpectedRightSquareFound(string, t.span));
                             None
                         }
                     };
@@ -548,7 +568,8 @@ impl Ctx {
                     newline_required = true;
                     continue;
                 }
-                TokenType::Comment(text) => {
+                TokenType::Comment(id) => {
+                    let text = parser.literal(id);
                     asts.push(Ast::Comment(Comment {
                         span: token.span,
                         text,
@@ -575,7 +596,8 @@ impl Ctx {
             let eq = match parser.next() {
                 t if t.ty == TokenType::Equal => t.span.start,
                 t => {
-                    self.error(Error::ExpectedEqFound(t.ty.to_string(), t.span));
+                    let string = parser.token_to_string(t.ty);
+                    self.error(Error::ExpectedEqFound(string, t.span));
                     recover_on!(parser, Newline | EOF => continue 'root);
                 }
             };
@@ -608,15 +630,11 @@ impl Ctx {
     fn parse_key<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
         let mut idents = Vec::new();
         loop {
-            let token = parser.peek_mut();
-            let ident = match &mut token.ty {
-                TokenType::String {
-                    quote,
-                    lit,
-                    text,
-                    text_span,
-                } => {
-                    let kind = match quote {
+            let token = parser.peek();
+            let ident = match token.ty {
+                TokenType::String(id) => {
+                    let str = parser.string_mut(id);
+                    let kind = match str.quote {
                         Quote::Basic => IdentKind::BasicString,
                         Quote::Literal => IdentKind::LiteralString,
                         Quote::BasicMultiline => {
@@ -628,13 +646,14 @@ impl Ctx {
                     };
                     Ident {
                         lit_span: token.span,
-                        lit,
-                        text: std::mem::take(text),
-                        text_span: *text_span,
+                        lit: str.lit,
+                        text: std::mem::take(&mut str.text),
+                        text_span: str.text_span,
                         kind,
                     }
                 }
-                TokenType::LiteralOrIdent(lit) => {
+                TokenType::LiteralOrIdent(id) => {
+                    let lit = parser.literal(id);
                     let invalid_char = lit
                         .char_indices()
                         .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
@@ -657,7 +676,8 @@ impl Ctx {
                 | TokenType::Dot
                 | TokenType::Newline
                 | TokenType::EOF => {
-                    return Err(Error::ExpectedKeyFound(token.ty.to_string(), token.span))
+                    let string = parser.token_to_string(token.ty);
+                    return Err(Error::ExpectedKeyFound(string, token.span));
                 }
             };
             parser.next();
@@ -682,32 +702,21 @@ impl Ctx {
 
     fn parse_value<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
         let token = parser.peek();
-        let value = match &token.ty {
-            TokenType::String { .. } => {
+        let value = match token.ty {
+            TokenType::String(id) => {
                 let token = parser.next();
-                let TokenType::String {
-                    quote,
-                    lit,
-                    text,
-                    text_span,
-                } = token.ty
-                else {
-                    unreachable!()
-                };
-
+                let str = parser.string_mut(id);
                 Value::String(StringVal {
-                    lit,
+                    lit: str.lit,
                     lit_span: token.span,
-                    text,
-                    text_span,
-                    quote,
+                    text: std::mem::take(&mut str.text),
+                    text_span: str.text_span,
+                    quote: str.quote,
                 })
             }
-            TokenType::LiteralOrIdent(_) => {
+            TokenType::LiteralOrIdent(id) => {
                 let token = parser.next();
-                let TokenType::LiteralOrIdent(lit) = token.ty else {
-                    unreachable!()
-                };
+                let lit = parser.literal(id);
 
                 match lit {
                     "true" => Value::Bool(BoolVal::new(token.span, true)),
@@ -807,8 +816,8 @@ impl Ctx {
                 let r_par = match parser.peek() {
                     t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                     t => {
-                        self.errors
-                            .push(Error::ExpectedRightSquareFound(t.ty.to_string(), t.span));
+                        let string = parser.token_to_string(t.ty);
+                        self.error(Error::ExpectedRightSquareFound(string, t.span));
                         None
                     }
                 };
@@ -842,7 +851,8 @@ impl Ctx {
                     let eq = match parser.peek() {
                         t if t.ty == TokenType::Equal => parser.next().span.start,
                         t => {
-                            self.error(Error::ExpectedEqFound(t.ty.to_string(), t.span));
+                            let string = parser.token_to_string(t.ty);
+                            self.error(Error::ExpectedEqFound(string, t.span));
                             recover_on!(parser,
                                 Comma => continue 'inline_table,
                                 Newline | CurlyRight | EOF => break 'inline_table,
@@ -886,8 +896,8 @@ impl Ctx {
                 let r_par = match parser.peek() {
                     t if t.ty == TokenType::CurlyRight => Some(parser.next().span.start),
                     t => {
-                        self.errors
-                            .push(Error::ExpectedRightCurlyFound(t.ty.to_string(), t.span));
+                        let string = parser.token_to_string(t.ty);
+                        self.error(Error::ExpectedRightCurlyFound(string, t.span));
                         None
                     }
                 };
@@ -906,7 +916,8 @@ impl Ctx {
             | TokenType::Dot
             | TokenType::Newline
             | TokenType::EOF => {
-                return Err(Error::ExpectedValueFound(token.ty.to_string(), token.span))
+                let string = parser.token_to_string(token.ty);
+                return Err(Error::ExpectedValueFound(string, token.span));
             }
         };
 
@@ -952,11 +963,9 @@ impl Ctx {
 
         let frac;
         let frac_lit = match parser.peek().ty {
-            TokenType::LiteralOrIdent(..) => {
+            TokenType::LiteralOrIdent(id) => {
                 frac = parser.next();
-                let TokenType::LiteralOrIdent(frac_lit) = frac.ty else {
-                    unreachable!();
-                };
+                let frac_lit = parser.literal(id);
 
                 let int_end = int_lit.as_bytes().as_ptr_range().end;
                 let frac_start = frac_lit.as_bytes().as_ptr_range().start;
@@ -1005,11 +1014,9 @@ impl Ctx {
         date: Date,
     ) -> Value<'a> {
         let (time_lit, time_span) = match parser.peek().ty {
-            TokenType::LiteralOrIdent(_) => {
+            TokenType::LiteralOrIdent(id) => {
                 let token = parser.next();
-                let TokenType::LiteralOrIdent(lit) = token.ty else {
-                    unreachable!()
-                };
+                let lit = parser.literal(id);
                 (lit, token.span)
             }
             _ => {
@@ -1093,11 +1100,9 @@ impl Ctx {
 
         let subsec;
         let subsec_lit = match parser.peek().ty {
-            TokenType::LiteralOrIdent(..) => {
+            TokenType::LiteralOrIdent(id) => {
                 subsec = parser.next();
-                let TokenType::LiteralOrIdent(subsec_lit) = subsec.ty else {
-                    unreachable!();
-                };
+                let subsec_lit = parser.literal(id);
 
                 let time_end = date_time_lit.as_bytes().as_ptr_range().end;
                 let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
