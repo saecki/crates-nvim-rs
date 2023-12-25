@@ -307,11 +307,19 @@ impl Mapper {
         _ = write!(&mut self.current_path, "[{index}]");
     }
 
-    fn path(&self) -> Option<String> {
+    fn path(&self) -> Option<Box<str>> {
         if self.current_path.is_empty() {
             None
         } else {
-            Some(self.current_path.clone())
+            Some(self.current_path.clone().into_boxed_str())
+        }
+    }
+
+    fn joined_path(&self, key: &str) -> Box<str> {
+        if self.current_path.is_empty() {
+            key.into()
+        } else {
+            format!("{}.{}", self.current_path, key).into_boxed_str()
         }
     }
 }
@@ -653,7 +661,7 @@ impl Ctx {
                 let array = match &mut entry.node {
                     MapNode::Array(MapArray::Toplevel(a)) => a,
                     MapNode::Array(MapArray::Inline(_)) => {
-                        let path = mapper.with_key(key, |m| m.current_path.clone());
+                        let path = mapper.joined_path(key);
                         let orig = entry.reprs.first().key.repr_ident().lit_span;
                         let new = repr.key.repr_ident().lit_span;
                         return Err(Error::CannotExtendInlineArray { path, orig, new });
@@ -743,7 +751,7 @@ where
             &mut t.inner.last_mut().node
         }
         MapNode::Array(MapArray::Inline(_)) => {
-            let path = mapper.with_key(ident.lit, |m| m.current_path.clone());
+            let path = mapper.joined_path(ident.lit);
             let orig = reprs.first().key.repr_ident().lit_span;
             let new = ident.lit_span;
             return Err(Error::CannotExtendInlineArrayAsTable { path, orig, new });
@@ -751,7 +759,7 @@ where
         MapNode::Scalar(_) => {
             return Err(Error::DuplicateKey {
                 path: mapper.path(),
-                key: ident.lit.to_string(),
+                key: ident.lit.to_string().into_boxed_str(),
                 orig: reprs.first().key.repr_ident().lit_span,
                 duplicate: ident.lit_span,
             });
@@ -765,7 +773,7 @@ where
             MapTableEntryReprKind::ToplevelAssignment(_) => {
                 if existing.key.is_last_ident() {
                     // `next` is an inline table
-                    let path = mapper.with_key(ident.lit, |m| m.current_path.clone());
+                    let path = mapper.joined_path(ident.lit);
                     let orig = existing.key.repr_ident().lit_span;
                     let new = ident.lit_span;
                     return Err(Error::CannotExtendInlineTable { path, orig, new });
@@ -773,7 +781,7 @@ where
             }
             MapTableEntryReprKind::InlineTableAssignment(_) => {
                 // we're inside an inline table, which can't be extended
-                let path = mapper.with_key(ident.lit, |m| m.current_path.clone());
+                let path = mapper.joined_path(ident.lit);
                 let orig = existing.key.repr_ident().lit_span;
                 let new = ident.lit_span;
                 return Err(Error::CannotExtendInlineTable { path, orig, new });
@@ -792,7 +800,7 @@ fn duplicate_key_error(
 ) -> Error {
     Error::DuplicateKey {
         path: mapper.path(),
-        key: ident.lit.to_string(),
+        key: ident.lit.to_string().into_boxed_str(),
         orig: entry.reprs.first().key.repr_ident().lit_span,
         duplicate: duplicate.repr_ident().lit_span,
     }

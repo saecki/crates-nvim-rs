@@ -473,7 +473,11 @@ fn unclosed_basic_single_line_string() {
                 span: Span::pos(Pos { line: 1, char: 0 }),
             },
         },
-        [Error::MissingQuote(Quote::Basic, Pos { line: 0, char: 21 })],
+        [Error::MissingQuote(
+            Quote::Basic,
+            Pos { line: 0, char: 0 },
+            Pos { line: 0, char: 21 },
+        )],
     );
 }
 
@@ -506,6 +510,7 @@ fn unclosed_basic_multi_line_string() {
         },
         [Error::MissingQuote(
             Quote::BasicMultiline,
+            Pos { line: 0, char: 0 },
             Pos { line: 1, char: 18 },
         )],
     );
@@ -540,6 +545,7 @@ fn not_fully_closed_basic_multi_line_string_1() {
         },
         [Error::MissingQuote(
             Quote::BasicMultiline,
+            Pos { line: 0, char: 0 },
             Pos { line: 0, char: 24 },
         )],
     );
@@ -574,6 +580,7 @@ fn not_fully_closed_basic_multi_line_string_2() {
         },
         [Error::MissingQuote(
             Quote::BasicMultiline,
+            Pos { line: 0, char: 0 },
             Pos { line: 0, char: 25 },
         )],
     );
@@ -617,6 +624,7 @@ fn unclosed_literal_single_line_string() {
         },
         [Error::MissingQuote(
             Quote::Literal,
+            Pos { line: 0, char: 0 },
             Pos { line: 0, char: 21 },
         )],
     );
@@ -651,6 +659,7 @@ fn unclosed_literal_multi_line_string() {
         },
         [Error::MissingQuote(
             Quote::LiteralMultiline,
+            Pos { line: 0, char: 0 },
             Pos { line: 1, char: 18 },
         )],
     );
@@ -685,6 +694,7 @@ fn not_fully_closed_literal_multi_line_string_1() {
         },
         [Error::MissingQuote(
             Quote::LiteralMultiline,
+            Pos { line: 0, char: 0 },
             Pos { line: 0, char: 24 },
         )],
     );
@@ -719,6 +729,7 @@ fn not_fully_closed_literal_multi_line_string_2() {
         },
         [Error::MissingQuote(
             Quote::LiteralMultiline,
+            Pos { line: 0, char: 0 },
             Pos { line: 0, char: 25 },
         )],
     );

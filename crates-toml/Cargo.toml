@@ -3,9 +3,5 @@ name = "crates-toml"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "ctoml"
-path = "src/cli.rs"
-
 [dev-dependencies]
 pretty_assertions = "1.4.0"

@@ -141,7 +141,7 @@ impl Span {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Pos {
     /// 0-based index of line
     pub line: u32,
@@ -195,28 +195,35 @@ pub enum Quote {
 impl std::fmt::Display for Quote {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Quote::Basic => f.write_str("'"),
-            Quote::BasicMultiline => f.write_str("'''"),
-            Quote::Literal => f.write_str("\""),
-            Quote::LiteralMultiline => f.write_str("\"\"\""),
+            Quote::Basic => f.write_str("\""),
+            Quote::BasicMultiline => f.write_str("\"\"\""),
+            Quote::Literal => f.write_str("'"),
+            Quote::LiteralMultiline => f.write_str("'''"),
         }
     }
 }
 
 impl Quote {
-    fn is_basic(&self) -> bool {
+    pub fn len(&self) -> u32 {
+        match self {
+            Quote::Basic | Quote::Literal => 1,
+            Quote::BasicMultiline | Quote::LiteralMultiline => 3,
+        }
+    }
+
+    pub fn is_basic(&self) -> bool {
         matches!(self, Self::Basic | Self::BasicMultiline)
     }
 
-    fn is_multiline(&self) -> bool {
+    pub fn is_multiline(&self) -> bool {
         matches!(self, Self::BasicMultiline | Self::LiteralMultiline)
     }
 
-    fn matches(&self, c: char) -> bool {
+    pub fn matches(&self, c: char) -> bool {
         self.char() == c
     }
 
-    fn char(&self) -> char {
+    pub fn char(&self) -> char {
         match self {
             Quote::Basic | Quote::BasicMultiline => '"',
             Quote::Literal | Quote::LiteralMultiline => '\'',
@@ -418,8 +425,7 @@ impl Ctx {
     fn string(&mut self, lexer: &mut Lexer<'_>, str: &mut StrState) {
         loop {
             let Some(c) = lexer.next() else {
-                let quote = str.quote;
-                self.error(Error::MissingQuote(quote, lexer.pos()));
+                self.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
 
                 let end = lexer.byte_pos;
                 self.end_string(lexer, str, end, end);
@@ -451,7 +457,7 @@ impl Ctx {
             } else if c == '\n' {
                 if !str.quote.is_multiline() {
                     // Recover state
-                    self.error(Error::MissingQuote(str.quote, lexer.pos()));
+                    self.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
                     self.end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
                     self.newline_token(lexer);
                     lexer.newline();
@@ -509,8 +515,7 @@ impl Ctx {
             '\n' => {
                 if !str.quote.is_multiline() {
                     // Recover state
-                    let quote = str.quote;
-                    self.error(Error::MissingQuote(quote, lexer.pos()));
+                    self.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
                     self.end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
                     self.newline_token(lexer);
                     lexer.newline();
@@ -573,8 +578,7 @@ impl Ctx {
                         return StringResult::Continue;
                     } else {
                         // Recover state
-                        let quote = str.quote;
-                        self.error(Error::MissingQuote(quote, lexer.pos()));
+                        self.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
                         self.end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
                         self.newline_token(lexer);
                         lexer.newline();

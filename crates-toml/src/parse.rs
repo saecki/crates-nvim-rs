@@ -453,10 +453,10 @@ impl<'a> Parser<'a> {
         self.literals[id.0 as usize]
     }
 
-    fn token_to_string(&self, ty: TokenType) -> String {
+    fn token_to_string(&self, ty: TokenType) -> Box<str> {
         let mut string = String::new();
         _ = ty.display(&mut string, &self.strings, &self.literals);
-        string
+        string.into_boxed_str()
     }
 }
 

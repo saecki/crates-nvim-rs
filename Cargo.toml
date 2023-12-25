@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates-nvim",
     "crates-toml",
+    "crates-cli",
 ]
 
 [workspace.dependencies]

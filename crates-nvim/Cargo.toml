@@ -1,5 +1,5 @@
 [package]
-name = "crates_nvim"
+name = "crates-nvim"
 version = "0.1.0"
 edition = "2021"
 
