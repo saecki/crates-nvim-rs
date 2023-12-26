@@ -40,6 +40,24 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     }
 }
 
+fn check_str_error(input: &str, expected_lit: &str, expected_text: &str, error: Error) {
+    let mut ctx = Ctx::default();
+    let tokens = ctx.lex(input);
+    assert_eq!(tokens.tokens.len(), 1, "{:#?}", tokens);
+    assert_eq!(ctx.errors, [error]);
+    assert_eq!(ctx.warnings, []);
+
+    let token = tokens.tokens.into_iter().next().unwrap();
+    match token.ty {
+        TokenType::String(id) => {
+            let str = &tokens.strings[id.0 as usize];
+            assert_eq!(str.lit, expected_lit, "literals don't match");
+            assert_eq!(str.text, expected_text, "text doesn't match");
+        }
+        t => panic!("Found tokentyp: {t:?}, expected string"),
+    }
+}
+
 #[test]
 fn assign_int() {
     check(
@@ -282,6 +300,18 @@ fn unicode_escapes() {
     check_str(r#""\u03a0""#, r#""\u03a0""#, "\u{03a0}");
     check_str(r#""\U00102230""#, r#""\U00102230""#, "\u{102230}");
     check_str(r#"  "\u03c0"  "#, r#""\u03c0""#, "\u{03c0}");
+}
+
+#[test]
+fn multiline_string_unfinished_escape_sequence_on_newline() {
+    check_str_error(
+        r#""""\t abc \u324
+this should be on a new line""""#,
+        r#""""\t abc \u324
+this should be on a new line""""#,
+        "\t abc \nthis should be on a new line",
+        Error::UnfinishedEscapeSequence(Span::from_pos_len(Pos::new(0, 10), 5)),
+    );
 }
 
 #[test]

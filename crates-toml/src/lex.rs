@@ -490,14 +490,13 @@ impl Ctx {
         esc_start: Pos,
     ) -> StringResult {
         let Some(c) = lexer.next() else {
-            self.error(Error::UnfinishedEscapeSequence(Span {
-                start: esc_start,
-                end: lexer.pos(),
-            }));
+            self.error(Error::UnfinishedEscapeSequence(Span::new(
+                esc_start,
+                lexer.pos(),
+            )));
             return StringResult::Continue;
         };
 
-        // TODO: recover on space
         match c {
             'u' => {
                 return self.string_escape_unicode(lexer, str, esc_start, 4);
@@ -512,6 +511,13 @@ impl Ctx {
             'r' => str.push_char('\r'),
             '"' => str.push_char('"'),
             '\\' => str.push_char('\\'),
+            ' ' => {
+                self.error(Error::UnfinishedEscapeSequence(Span::new(
+                    esc_start,
+                    lexer.pos(),
+                )));
+                str.push_char(c);
+            }
             '\n' => {
                 if !str.quote.is_multiline() {
                     // Recover state
@@ -556,7 +562,6 @@ impl Ctx {
             remaining -= 1;
 
             let offset = remaining * 4;
-            // TODO: recover on space
             match c {
                 '0'..='9' => {
                     unicode_cp += (c as u32 - '0' as u32) << offset;
@@ -567,13 +572,21 @@ impl Ctx {
                 'A'..='F' => {
                     unicode_cp += (c as u32 - 'A' as u32 + 10) << offset;
                 }
+                ' ' => {
+                    self.error(Error::UnfinishedEscapeSequence(Span::new(
+                        esc_start,
+                        lexer.pos(),
+                    )));
+                    str.push_char(c);
+                }
                 '\n' => {
-                    self.error(Error::UnfinishedEscapeSequence(Span {
-                        start: esc_start,
-                        end: lexer.pos().after(c),
-                    }));
+                    self.error(Error::UnfinishedEscapeSequence(Span::new(
+                        esc_start,
+                        lexer.pos(),
+                    )));
 
                     if str.quote.is_multiline() {
+                        str.push_char(c);
                         lexer.newline();
                         return StringResult::Continue;
                     } else {
