@@ -1,3 +1,5 @@
+use crate::Warning;
+
 use super::*;
 
 use pretty_assertions::assert_eq;
@@ -5,29 +7,36 @@ use pretty_assertions::assert_eq;
 fn check(input: &str, expected: Tokens<'_>) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    assert_eq!(tokens, expected);
-    assert_eq!(ctx.errors, []);
-    assert_eq!(ctx.warnings, []);
+    assert_eq!(expected, tokens);
+    assert_eq!(Vec::<Error>::new(), ctx.errors);
+    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
-fn check_err<const ERR_SIZE: usize>(
-    input: &str,
-    expected: Tokens<'_>,
-    expected_errors: [Error; ERR_SIZE],
-) {
+fn check_error(input: &str, expected: Tokens<'_>, error: Error) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    assert_eq!(tokens, expected);
-    assert_eq!(ctx.errors, expected_errors);
-    assert_eq!(ctx.warnings, []);
+    assert_eq!(
+        tokens, expected,
+        "\nerrors: {:#?}\nwarnings: {:#?}",
+        ctx.errors, ctx.warnings,
+    );
+    assert_eq!(vec![error], ctx.errors);
+    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
 fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    assert_eq!(tokens.tokens.len(), 1, "{:#?}", tokens);
-    assert_eq!(ctx.errors, []);
-    assert_eq!(ctx.warnings, []);
+    assert_eq!(
+        tokens.tokens.len(),
+        1,
+        "\ntokens: {:#?}\nerrors: {:#?}\nwarnings: {:#?}",
+        tokens,
+        ctx.errors,
+        ctx.warnings,
+    );
+    assert_eq!(Vec::<Error>::new(), ctx.errors);
+    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 
     let token = tokens.tokens.into_iter().next().unwrap();
     match token.ty {
@@ -43,9 +52,16 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
 fn check_str_error(input: &str, expected_lit: &str, expected_text: &str, error: Error) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    assert_eq!(tokens.tokens.len(), 1, "{:#?}", tokens);
-    assert_eq!(ctx.errors, [error]);
-    assert_eq!(ctx.warnings, []);
+    assert_eq!(
+        tokens.tokens.len(),
+        1,
+        "\ntokens: {:#?}\nerrors: {:#?}\nwarnings: {:#?}",
+        tokens,
+        ctx.errors,
+        ctx.warnings,
+    );
+    assert_eq!(vec![error], ctx.errors);
+    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 
     let token = tokens.tokens.into_iter().next().unwrap();
     match token.ty {
@@ -469,7 +485,7 @@ fn assign_literal_multiline_string() {
 
 #[test]
 fn unclosed_basic_single_line_string() {
-    check_err(
+    check_error(
         "\"some unclosed string\n",
         Tokens {
             tokens: vec![
@@ -503,17 +519,17 @@ fn unclosed_basic_single_line_string() {
                 span: Span::pos(Pos { line: 1, char: 0 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::Basic,
             Pos { line: 0, char: 0 },
             Pos { line: 0, char: 21 },
-        )],
+        ),
     );
 }
 
 #[test]
 fn unclosed_basic_multi_line_string() {
-    check_err(
+    check_error(
         "\"\"\"some unclosed string\nthis is a new line",
         Tokens {
             tokens: vec![Token {
@@ -538,17 +554,17 @@ fn unclosed_basic_multi_line_string() {
                 span: Span::pos(Pos { line: 1, char: 18 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::BasicMultiline,
             Pos { line: 0, char: 0 },
             Pos { line: 1, char: 18 },
-        )],
+        ),
     );
 }
 
 #[test]
 fn not_fully_closed_basic_multi_line_string_1() {
-    check_err(
+    check_error(
         "\"\"\"some unclosed string\"",
         Tokens {
             tokens: vec![Token {
@@ -573,17 +589,17 @@ fn not_fully_closed_basic_multi_line_string_1() {
                 span: Span::pos(Pos { line: 0, char: 24 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::BasicMultiline,
             Pos { line: 0, char: 0 },
             Pos { line: 0, char: 24 },
-        )],
+        ),
     );
 }
 
 #[test]
 fn not_fully_closed_basic_multi_line_string_2() {
-    check_err(
+    check_error(
         "\"\"\"some unclosed string\"\"",
         Tokens {
             tokens: vec![Token {
@@ -608,17 +624,17 @@ fn not_fully_closed_basic_multi_line_string_2() {
                 span: Span::pos(Pos { line: 0, char: 25 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::BasicMultiline,
             Pos { line: 0, char: 0 },
             Pos { line: 0, char: 25 },
-        )],
+        ),
     );
 }
 
 #[test]
 fn unclosed_literal_single_line_string() {
-    check_err(
+    check_error(
         "'some unclosed string\n",
         Tokens {
             tokens: vec![
@@ -652,17 +668,17 @@ fn unclosed_literal_single_line_string() {
                 span: Span::pos(Pos { line: 1, char: 0 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::Literal,
             Pos { line: 0, char: 0 },
             Pos { line: 0, char: 21 },
-        )],
+        ),
     );
 }
 
 #[test]
 fn unclosed_literal_multi_line_string() {
-    check_err(
+    check_error(
         "'''some unclosed string\nthis is a new line",
         Tokens {
             tokens: vec![Token {
@@ -687,17 +703,17 @@ fn unclosed_literal_multi_line_string() {
                 span: Span::pos(Pos { line: 1, char: 18 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::LiteralMultiline,
             Pos { line: 0, char: 0 },
             Pos { line: 1, char: 18 },
-        )],
+        ),
     );
 }
 
 #[test]
 fn not_fully_closed_literal_multi_line_string_1() {
-    check_err(
+    check_error(
         "'''some unclosed string'",
         Tokens {
             tokens: vec![Token {
@@ -722,17 +738,17 @@ fn not_fully_closed_literal_multi_line_string_1() {
                 span: Span::pos(Pos { line: 0, char: 24 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::LiteralMultiline,
             Pos { line: 0, char: 0 },
             Pos { line: 0, char: 24 },
-        )],
+        ),
     );
 }
 
 #[test]
 fn not_fully_closed_literal_multi_line_string_2() {
-    check_err(
+    check_error(
         "'''some unclosed string''",
         Tokens {
             tokens: vec![Token {
@@ -757,11 +773,11 @@ fn not_fully_closed_literal_multi_line_string_2() {
                 span: Span::pos(Pos { line: 0, char: 25 }),
             },
         },
-        [Error::MissingQuote(
+        Error::MissingQuote(
             Quote::LiteralMultiline,
             Pos { line: 0, char: 0 },
             Pos { line: 0, char: 25 },
-        )],
+        ),
     );
 }
 
