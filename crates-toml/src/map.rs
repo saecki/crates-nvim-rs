@@ -662,7 +662,7 @@ impl Ctx {
                     MapNode::Array(MapArray::Toplevel(a)) => a,
                     MapNode::Array(MapArray::Inline(_)) => {
                         let path = mapper.joined_path(key);
-                        let orig = entry.reprs.first().key.repr_ident().lit_span;
+                        let orig = entry.reprs.first().kind.span();
                         let new = repr.key.repr_ident().lit_span;
                         return Err(Error::CannotExtendInlineArray { path, orig, new });
                     }
@@ -752,7 +752,7 @@ where
         }
         MapNode::Array(MapArray::Inline(_)) => {
             let path = mapper.joined_path(ident.lit);
-            let orig = reprs.first().key.repr_ident().lit_span;
+            let orig = reprs.first().kind.span();
             let new = ident.lit_span;
             return Err(Error::CannotExtendInlineArrayAsTable { path, orig, new });
         }
@@ -774,7 +774,7 @@ where
                 if existing.key.is_last_ident() {
                     // `next` is an inline table
                     let path = mapper.joined_path(ident.lit);
-                    let orig = existing.key.repr_ident().lit_span;
+                    let orig = existing.kind.span();
                     let new = ident.lit_span;
                     return Err(Error::CannotExtendInlineTable { path, orig, new });
                 }
@@ -782,7 +782,7 @@ where
             MapTableEntryReprKind::InlineTableAssignment(_) => {
                 // we're inside an inline table, which can't be extended
                 let path = mapper.joined_path(ident.lit);
-                let orig = existing.key.repr_ident().lit_span;
+                let orig = existing.kind.span();
                 let new = ident.lit_span;
                 return Err(Error::CannotExtendInlineTable { path, orig, new });
             }
