@@ -63,6 +63,8 @@ pub enum Error {
     FloatLiteralOverflow(Span),
 
     EmptyPrefixedIntValue(Pos),
+    PrefixedIntPositiveSignNotAllowed(Pos),
+    UppercaseIntRadix(IntPrefix, Pos),
     PrefixedIntValueStartsWithUnderscore(Pos),
     PrefixedIntValueEndsWithUnderscore(Pos),
     InvalidCharInPrefixedInt(char, Pos),
@@ -146,6 +148,8 @@ impl Diagnostic for Error {
             FloatLiteralOverflow(s) => *s,
 
             EmptyPrefixedIntValue(p) => Span::pos(*p),
+            PrefixedIntPositiveSignNotAllowed(p) => Span::pos(*p),
+            UppercaseIntRadix(_, p) => Span::pos(*p),
             PrefixedIntValueStartsWithUnderscore(p) => Span::pos(*p),
             PrefixedIntValueEndsWithUnderscore(p) => Span::pos(*p),
             InvalidCharInPrefixedInt(_, p) => Span::pos(*p),
@@ -207,6 +211,14 @@ impl Diagnostic for Error {
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow, number doesn't fit into a 64-bit IEEE float"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits, expected at least one"),
+            PrefixedIntPositiveSignNotAllowed(_) => write!(f, "Positive sign `+` not permitted for binary, octal, and Hexadecimal integers"),
+            UppercaseIntRadix(prefix, _) => {
+                match prefix {
+                    IntPrefix::Binary => write!(f, "Found uppercase binary int prefix `B`, only lowercase `b` is permitted"),
+                    IntPrefix::Octal => write!(f, "Found uppercase binary int prefix `O`, only lowercase `o` is permitted"),
+                    IntPrefix::Hexadecimal => write!(f, "Found uppercase binary int prefix `X`, only lowercase `x` is permitted"),
+                }
+            }
             PrefixedIntValueStartsWithUnderscore(_) => write!(f, "Integer literal cannot start with `_`"),
             PrefixedIntValueEndsWithUnderscore(_) => write!(f, "Integer literal cannot end with `_`"),
             InvalidCharInPrefixedInt(char, _) => write!(f, "Invalid character `{char}` in integer literal"),
@@ -301,6 +313,8 @@ impl Diagnostic for Error {
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits"),
+            PrefixedIntPositiveSignNotAllowed(_) => write!(f, "Positve sign not allowed"),
+            UppercaseIntRadix(_, _) => write!(f, "Uppercase radix"),
             PrefixedIntValueStartsWithUnderscore(_) => {
                 write!(f, "Integer literal cannot start with `_`")
             }
@@ -374,6 +388,8 @@ impl Error {
             FloatLiteralOverflow(_) => None,
 
             EmptyPrefixedIntValue(_) => None,
+            PrefixedIntPositiveSignNotAllowed(_) => None,
+            UppercaseIntRadix(_, _) => None,
             PrefixedIntValueStartsWithUnderscore(_) => None,
             PrefixedIntValueEndsWithUnderscore(_) => None,
             InvalidCharInPrefixedInt(_, _) => None,

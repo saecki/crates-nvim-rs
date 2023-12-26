@@ -54,7 +54,6 @@ pub fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Erro
         Some((_, c)) => c,
     };
 
-    // TODO: better errors for uppercase radices
     match c {
         '+' | '-' => {
             let sign = match c {
@@ -164,26 +163,36 @@ fn parse_prefixed_int_or_date(
     span: Span,
     sign_char: Option<Sign>,
 ) -> Result<PartialValue, Error> {
-    let sign = sign_char.map_or(1, |s| s.val());
-    match chars.next() {
-        Some((_, 'b')) if sign_char != Some(Sign::Positive) => {
-            let val = parse_prefixed_int_literal(chars, span, IntPrefix::Binary)?;
+    let Some((i, c)) = chars.next() else {
+        return Ok(PartialValue::Int(0));
+    };
+    let sign = match sign_char {
+        Some(Sign::Positive) => {
+            return Err(Error::PrefixedIntPositiveSignNotAllowed(span.start));
+        }
+        Some(Sign::Negative) => -1,
+        None => 1,
+    };
+    match c {
+        'b' | 'B' | 'o' | 'O' | 'x' | 'X' => {
+            let prefix = match c {
+                'b' | 'B' => IntPrefix::Binary,
+                'o' | 'O' => IntPrefix::Octal,
+                'x' | 'X' => IntPrefix::Hexadecimal,
+                _ => unsafe { core::hint::unreachable_unchecked() },
+            };
+            if c.is_uppercase() {
+                let pos = span.start.plus(i as u32);
+                return Err(Error::UppercaseIntRadix(prefix, pos));
+            }
+            let val = parse_prefixed_int_literal(chars, span, prefix)?;
             Ok(PartialValue::PrefixedInt(sign * val))
         }
-        Some((_, 'o')) if sign_char != Some(Sign::Positive) => {
-            let val = parse_prefixed_int_literal(chars, span, IntPrefix::Octal)?;
-            Ok(PartialValue::PrefixedInt(sign * val))
-        }
-        Some((_, 'x')) if sign_char != Some(Sign::Positive) => {
-            let val = parse_prefixed_int_literal(chars, span, IntPrefix::Hexadecimal)?;
-            Ok(PartialValue::PrefixedInt(sign * val))
-        }
-        Some((_, c @ ('0'..='9'))) if sign_char.is_none() => {
+        '0'..='9' if sign_char.is_none() => {
             let two_digits = c as u16 - '0' as u16;
             datetime::continue_parsing_date_time(&mut chars, span, two_digits)
         }
-        Some((i, radix)) => Err(Error::InvalidIntRadix(radix, span.start.plus(i as u32))),
-        None => Ok(PartialValue::Int(0)),
+        _ => Err(Error::InvalidIntRadix(c, span.start.plus(i as u32))),
     }
 }
 

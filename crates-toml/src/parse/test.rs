@@ -6,7 +6,7 @@ use pretty_assertions::assert_eq;
 use super::*;
 use crate::datetime::{DateTimeField, Offset};
 use crate::map::simple::SimpleVal;
-use crate::test::check_simple;
+use crate::test::{check_simple, check_simple_error};
 use crate::Warning;
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
@@ -108,6 +108,42 @@ fn negative_prefixed_hexadecimal_int() {
     check_simple(
         "num = -0xc20",
         HashMap::from_iter([("num".into(), SimpleVal::Int(-0xc20))]),
+    );
+}
+
+#[test]
+fn positive_sign_not_allowed_for_prefixed_int() {
+    check_simple_error(
+        "num = +0xc20",
+        HashMap::from_iter([("num".into(), SimpleVal::Invalid("+0xc20".into()))]),
+        Error::PrefixedIntPositiveSignNotAllowed(Pos::new(0, 6)),
+    );
+}
+
+#[test]
+fn uppercase_binray_radix_not_allowed() {
+    check_simple_error(
+        "num = 0B10",
+        HashMap::from_iter([("num".into(), SimpleVal::Invalid("0B10".into()))]),
+        Error::UppercaseIntRadix(IntPrefix::Binary, Pos::new(0, 7)),
+    );
+}
+
+#[test]
+fn uppercase_octal_radix_not_allowed() {
+    check_simple_error(
+        "num = 0O10",
+        HashMap::from_iter([("num".into(), SimpleVal::Invalid("0O10".into()))]),
+        Error::UppercaseIntRadix(IntPrefix::Octal, Pos::new(0, 7)),
+    );
+}
+
+#[test]
+fn uppercase_hexadecimal_radix_not_allowed() {
+    check_simple_error(
+        "num = 0X10",
+        HashMap::from_iter([("num".into(), SimpleVal::Invalid("0X10".into()))]),
+        Error::UppercaseIntRadix(IntPrefix::Hexadecimal, Pos::new(0, 7)),
     );
 }
 
