@@ -58,9 +58,9 @@ fn main() -> ExitCode {
 
 trait DisplayDiagnostic: Diagnostic + Sized {
     fn header<'a>(&'a self) -> DiagnosticHeader<'a, Self>;
-
     fn display<'a, T>(&'a self, text: &'a [T]) -> DiagnosticFmt<'a, Self, T>;
 }
+
 impl<D: Diagnostic> DisplayDiagnostic for D {
     fn header<'a>(&'a self) -> DiagnosticHeader<'a, D> {
         DiagnosticHeader { diagnostic: self }
