@@ -1,13 +1,13 @@
-use crates_toml::Span;
+use toml::Span;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
-    Toml(crates_toml::Error),
+    Toml(toml::Error),
     Cargo(CargoError),
 }
 
-impl From<crates_toml::Error> for Error {
-    fn from(value: crates_toml::Error) -> Self {
+impl From<toml::Error> for Error {
+    fn from(value: toml::Error) -> Self {
         Self::Toml(value)
     }
 }
@@ -28,12 +28,12 @@ pub enum CargoError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Warning {
-    Toml(crates_toml::Warning),
+    Toml(toml::Warning),
     Cargo(CargoWarning),
 }
 
-impl From<crates_toml::Warning> for Warning {
-    fn from(value: crates_toml::Warning) -> Self {
+impl From<toml::Warning> for Warning {
+    fn from(value: toml::Warning) -> Self {
         Self::Toml(value)
     }
 }

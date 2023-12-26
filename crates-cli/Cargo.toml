@@ -8,5 +8,5 @@ name = "ctoml"
 path = "src/main.rs"
 
 [dependencies]
-crates-toml = { workspace = true }
+toml = { workspace = true }
 unicode-width = "0.1.11"

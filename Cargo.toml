@@ -7,4 +7,4 @@ members = [
 ]
 
 [workspace.dependencies]
-crates-toml = { path = "crates-toml" }
+toml = { package = "crates-toml", path = "crates-toml" }

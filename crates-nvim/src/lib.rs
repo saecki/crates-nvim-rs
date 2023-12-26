@@ -1,13 +1,12 @@
-use crates_toml::Span;
 use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
 use nvim_oxi::{Dictionary, Function, Object};
-
-use crates_toml::map::{
+use serde::{Deserialize, Serialize};
+use toml::map::{
     MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryReprKind, Scalar,
 };
-use crates_toml::parse::{Ident, StringVal};
-use serde::{Deserialize, Serialize};
+use toml::parse::{Ident, StringVal};
+use toml::Span;
 
 use crate::error::{CargoError, Error, Warning};
 
@@ -18,8 +17,8 @@ struct Ctx {
     warnings: Vec<Warning>,
 }
 
-impl From<crates_toml::Ctx> for Ctx {
-    fn from(value: crates_toml::Ctx) -> Self {
+impl From<toml::Ctx> for Ctx {
+    fn from(value: toml::Ctx) -> Self {
         Self {
             errors: value.errors.into_iter().map(Into::into).collect(),
             warnings: value.warnings.into_iter().map(Into::into).collect(),
@@ -50,7 +49,7 @@ pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
             text.push('\n');
         }
 
-        let mut toml_ctx = crates_toml::Ctx::default();
+        let mut toml_ctx = toml::Ctx::default();
         let tokens = toml_ctx.lex(&text);
         let asts = toml_ctx.parse(tokens);
         let map = toml_ctx.map(&asts);

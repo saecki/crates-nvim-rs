@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
-use crates_toml::error::{Diagnostic, Severity};
-use crates_toml::Pos;
+use toml::error::{Diagnostic, Severity};
+use toml::Pos;
 use unicode_width::UnicodeWidthStr;
 
 fn main() -> ExitCode {
@@ -20,14 +20,14 @@ fn main() -> ExitCode {
     let lines = text.split('\n').collect::<Vec<_>>();
 
     let start = std::time::SystemTime::now();
-    let mut ctx = crates_toml::Ctx::default();
+    let mut ctx = toml::Ctx::default();
     let tokens = ctx.lex(&text);
     let lexing = std::time::SystemTime::now();
     let asts = ctx.parse(tokens);
     let parsing = std::time::SystemTime::now();
     let map = ctx.map(&asts);
     let mapping = std::time::SystemTime::now();
-    let simple = crates_toml::map::simple::map_table(map);
+    let simple = toml::map::simple::map_table(map);
     let end = std::time::SystemTime::now();
 
     println!("{:#?}", simple);
