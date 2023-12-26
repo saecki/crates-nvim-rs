@@ -300,8 +300,7 @@ impl InlineTable<'_> {
     #[inline]
     pub fn span(&self) -> Span {
         let start = self.l_par;
-        let end = self
-            .r_par
+        let end = (self.r_par.map(|p| p.plus(1)))
             .or_else(|| self.assignments.last().map(|a| a.span().end))
             .unwrap_or_else(|| self.l_par.plus(1));
         Span { start, end }
@@ -337,8 +336,7 @@ impl InlineArray<'_> {
     #[inline]
     pub fn span(&self) -> Span {
         let start = self.l_par;
-        let end = self
-            .r_par
+        let end = (self.r_par.map(|p| p.plus(1)))
             .or_else(|| self.values.last().map(|a| a.span().end))
             .unwrap_or_else(|| self.l_par.plus(1));
         Span { start, end }
