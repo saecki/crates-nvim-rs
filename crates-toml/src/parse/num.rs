@@ -66,7 +66,7 @@ pub fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Erro
                 Some((_, '0')) => parse_prefixed_int_or_date(chars, span, Some(sign)),
                 Some((_, c @ '1'..='9')) => {
                     let num = (c as u32 - '0' as u32) as i64;
-                    parse_num_or_date1(chars, span, num, Some(sign))
+                    parse_decimal_int_float_or_date(chars, span, num, Some(sign))
                 }
                 Some((i, c)) => {
                     let pos = span.start.plus(i as u32);
@@ -78,14 +78,14 @@ pub fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Erro
         '0' => parse_prefixed_int_or_date(chars, span, None),
         '1'..='9' => {
             let num = (c as u32 - '0' as u32) as i64;
-            parse_num_or_date1(chars, span, num, None)
+            parse_decimal_int_float_or_date(chars, span, num, None)
         }
         '_' => Err(Error::NumOrDateLiteralStartsWithUnderscore(span.start)),
         _ => Err(Error::InvalidNumOrDateLiteralStart(c, span.start)),
     }
 }
 
-fn parse_num_or_date1(
+fn parse_decimal_int_float_or_date(
     mut chars: CharIter,
     span: Span,
     mut int_accum: i64,
