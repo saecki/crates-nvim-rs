@@ -1,7 +1,6 @@
 use std::process::ExitCode;
 
 use toml::error::{Diagnostic, Severity};
-use toml::Pos;
 use unicode_width::UnicodeWidthStr;
 
 fn main() -> ExitCode {
@@ -32,7 +31,7 @@ fn main() -> ExitCode {
 
     println!("{:#?}", simple);
     for error in ctx.errors.iter() {
-        println!("{}", error.header());
+        println!("{}", error.header(&lines));
         if let Some(hint) = error.hint() {
             print!("{}", hint.display(&lines));
         }
@@ -57,13 +56,16 @@ fn main() -> ExitCode {
 }
 
 trait DisplayDiagnostic: Diagnostic + Sized {
-    fn header<'a>(&'a self) -> DiagnosticHeader<'a, Self>;
+    fn header<'a, T>(&'a self, text: &'a [T]) -> DiagnosticHeader<'a, Self, T>;
     fn display<'a, T>(&'a self, text: &'a [T]) -> DiagnosticFmt<'a, Self, T>;
 }
 
 impl<D: Diagnostic> DisplayDiagnostic for D {
-    fn header<'a>(&'a self) -> DiagnosticHeader<'a, D> {
-        DiagnosticHeader { diagnostic: self }
+    fn header<'a, T>(&'a self, text: &'a [T]) -> DiagnosticHeader<'a, D, T> {
+        DiagnosticHeader {
+            diagnostic: self,
+            text,
+        }
     }
 
     fn display<'a, T>(&'a self, text: &'a [T]) -> DiagnosticFmt<'a, D, T> {
@@ -74,13 +76,14 @@ impl<D: Diagnostic> DisplayDiagnostic for D {
     }
 }
 
-pub struct DiagnosticHeader<'a, D: Diagnostic> {
+pub struct DiagnosticHeader<'a, D: Diagnostic, T> {
     diagnostic: &'a D,
+    text: &'a [T],
 }
 
-impl<'a, D: Diagnostic> std::fmt::Display for DiagnosticHeader<'a, D> {
+impl<'a, D: Diagnostic, T: AsRef<str>> std::fmt::Display for DiagnosticHeader<'a, D, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        display_header(f, self.diagnostic)
+        display_header(f, self.diagnostic, self.text)
     }
 }
 
@@ -95,14 +98,22 @@ impl<'a, D: Diagnostic, T: AsRef<str> + 'a> std::fmt::Display for DiagnosticFmt<
     }
 }
 
-fn display_header<D: Diagnostic>(f: &mut impl std::fmt::Write, diagnostic: &D) -> std::fmt::Result {
+fn display_header<D: Diagnostic>(
+    f: &mut impl std::fmt::Write,
+    diagnostic: &D,
+    text: &[impl AsRef<str>],
+) -> std::fmt::Result {
     let severity = D::SEVERITY;
     let color = ansii_esc_color(severity);
     write!(f, "{color}{severity}{ANSII_CLEAR}: ")?;
     diagnostic.description(f)?;
     f.write_char('\n')?;
-    let Pos { line, char } = diagnostic.span().start;
-    write!(f, " {ANSII_COLOR_BLUE}-->{ANSII_CLEAR} {line}:{char}")
+    let pos = diagnostic.span().start;
+    let line_nr = pos.line + 1;
+    let char = text[pos.line as usize].as_ref()[0..pos.char as usize]
+        .chars()
+        .count();
+    write!(f, " {ANSII_COLOR_BLUE}-->{ANSII_CLEAR} {line_nr}:{char}")
 }
 
 fn display_in_text<D: Diagnostic>(
