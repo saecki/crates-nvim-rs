@@ -855,8 +855,12 @@ impl Ctx {
                 parser.next();
 
                 let mut assignments = Vec::new();
+                let mut comma = None;
                 'inline_table: loop {
                     if matches!(parser.peek().ty, TokenType::CurlyRight | TokenType::EOF) {
+                        if let Some(pos) = comma {
+                            self.error(Error::InlineTableTrailingComma(pos));
+                        }
                         break;
                     }
                     let key = match self.parse_key(parser) {
@@ -893,26 +897,25 @@ impl Ctx {
                         }
                     };
 
-                    let mut assignment = InlineTableAssignment {
-                        assignment: Assignment { key, eq, val },
-                        comma: None,
-                    };
-                    match parser.peek() {
-                        t if t.ty == TokenType::Comma => {
-                            assignment.comma = Some(parser.next().span.start);
-                        }
+                    let assignment = Assignment { key, eq, val };
+                    comma = match parser.peek() {
+                        t if t.ty == TokenType::Comma => Some(parser.next().span.start),
                         t if t.ty == TokenType::CurlyRight || t.ty == TokenType::EOF => {
-                            assignments.push(assignment);
+                            assignments.push(InlineTableAssignment {
+                                assignment,
+                                comma: None,
+                            });
                             break;
                         }
                         _ => {
-                            let pos = assignment.assignment.val.span().end;
+                            let pos = assignment.val.span().end;
                             self.error(Error::MissingComma(pos));
                             // try to continue
+                            None
                         }
                     };
 
-                    assignments.push(assignment);
+                    assignments.push(InlineTableAssignment { assignment, comma });
                 }
 
                 let r_par = match parser.peek() {
