@@ -215,8 +215,8 @@ impl Diagnostic for Error {
             UppercaseIntRadix(prefix, _) => {
                 match prefix {
                     IntPrefix::Binary => write!(f, "Found uppercase binary int prefix `B`, only lowercase `b` is permitted"),
-                    IntPrefix::Octal => write!(f, "Found uppercase binary int prefix `O`, only lowercase `o` is permitted"),
-                    IntPrefix::Hexadecimal => write!(f, "Found uppercase binary int prefix `X`, only lowercase `x` is permitted"),
+                    IntPrefix::Octal => write!(f, "Found uppercase octal int prefix `O`, only lowercase `o` is permitted"),
+                    IntPrefix::Hexadecimal => write!(f, "Found uppercase hexadecimal int prefix `X`, only lowercase `x` is permitted"),
                 }
             }
             PrefixedIntValueStartsWithUnderscore(_) => write!(f, "Integer literal cannot start with `_`"),
