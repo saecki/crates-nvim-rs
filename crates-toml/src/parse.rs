@@ -479,462 +479,217 @@ enum PartialValue {
     PartialTime(Time),
 }
 
-impl Ctx {
-    /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
-    /// is returned, otherwise the possibly partially invalid ast is returned.
-    pub fn parse<'a>(&mut self, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
-        let mut parser = Parser::new(tokens);
-        let mut asts = Vec::new();
-        let mut last_header = None;
-        let mut newline_required = false;
+/// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
+/// is returned, otherwise the possibly partially invalid ast is returned.
+pub fn parse<'a>(ctx: &mut Ctx, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
+    let mut parser = Parser::new(tokens);
+    let mut asts = Vec::new();
+    let mut last_header = None;
+    let mut newline_required = false;
 
-        'root: loop {
-            if newline_required {
-                while let Some(comment) = parser.eat_comment() {
-                    asts.push(Ast::Comment(comment));
-                }
-                match parser.peek() {
-                    t if t.ty == TokenType::Newline => {
-                        parser.next();
-                    }
-                    t if t.ty == TokenType::EOF => break 'root,
-                    t => {
-                        self.error(Error::MissingNewline(t.span.start));
-                    }
-                }
-
-                newline_required = false;
+    'root: loop {
+        if newline_required {
+            while let Some(comment) = parser.eat_comment() {
+                asts.push(Ast::Comment(comment));
             }
-
-            let token = parser.peek();
-            match token.ty {
-                TokenType::SquareLeft => {
-                    let l_table_square = token.span;
-                    parser.next();
-
-                    let l_array_square = match parser.peek() {
-                        t if t.ty == TokenType::SquareLeft => Some(parser.next().span),
-                        _ => None,
-                    };
-
-                    let key = match self.parse_key(&mut parser) {
-                        Ok(k) => Some(k),
-                        Err(e) => {
-                            // TODO: push some sort of unused hint for the body of the table
-                            self.error(e);
-                            loop {
-                                match parser.peek().ty {
-                                    TokenType::SquareRight
-                                    | TokenType::Newline
-                                    | TokenType::EOF => break,
-                                    _ => {
-                                        parser.next();
-                                    }
-                                }
-                            }
-                            None
-                        }
-                    };
-
-                    let r_array_square = l_array_square.and_then(|_| match parser.peek() {
-                        t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
-                        t => {
-                            let string = parser.token_to_string(t.ty);
-                            self.error(Error::ExpectedRightSquareFound(string, t.span));
-                            None
-                        }
-                    });
-
-                    let r_table_square = match parser.peek() {
-                        t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
-                        t => {
-                            let string = parser.token_to_string(t.ty);
-                            self.error(Error::ExpectedRightSquareFound(string, t.span));
-                            None
-                        }
-                    };
-
-                    let header = match l_array_square {
-                        Some(l_array_square) => {
-                            let header = ArrayHeader {
-                                l_pars: (l_table_square.start, l_array_square.start),
-                                key,
-                                r_pars: (r_array_square, r_table_square),
-                            };
-                            Header::Array(ArrayEntry {
-                                header,
-                                assignments: Vec::new(),
-                            })
-                        }
-                        None => {
-                            let header = TableHeader {
-                                l_par: l_table_square.start,
-                                key,
-                                r_par: r_table_square,
-                            };
-                            Header::Table(Table {
-                                header,
-                                assignments: Vec::new(),
-                            })
-                        }
-                    };
-
-                    match &mut last_header {
-                        Some(last) => {
-                            let last = std::mem::replace(last, header);
-                            asts.push(last.into_ast());
-                        }
-                        None => last_header = Some(header),
-                    }
-
-                    newline_required = true;
-                    continue;
-                }
-                TokenType::Comment(id) => {
-                    let text = parser.literal(id);
-                    asts.push(Ast::Comment(Comment {
-                        span: token.span,
-                        text,
-                    }));
-                    parser.next();
-                    continue;
-                }
-                TokenType::Newline => {
-                    parser.next();
-                    continue;
-                }
-                TokenType::EOF => break 'root,
-                _ => (),
-            }
-
-            let key = match self.parse_key(&mut parser) {
-                Ok(k) => k,
-                Err(e) => {
-                    self.error(e);
-                    recover_on!(parser, Newline | EOF => continue 'root);
-                }
-            };
-
-            let eq = match parser.next() {
-                t if t.ty == TokenType::Equal => t.span.start,
-                t => {
-                    let string = parser.token_to_string(t.ty);
-                    self.error(Error::ExpectedEqFound(string, t.span));
-                    recover_on!(parser, Newline | EOF => continue 'root);
-                }
-            };
-
-            let val = match self.parse_value(&mut parser) {
-                Ok(v) => v,
-                Err(e) => {
-                    self.error(e);
-                    recover_on!(parser, Newline | EOF => continue 'root);
-                }
-            };
-
-            let assignment = Assignment { key, eq, val };
-            match &mut last_header {
-                Some(Header::Table(t)) => t.assignments.push(assignment),
-                Some(Header::Array(a)) => a.assignments.push(assignment),
-                None => asts.push(Ast::Assignment(assignment)),
-            }
-
-            newline_required = true;
-        }
-
-        if let Some(last) = last_header {
-            asts.push(last.into_ast());
-        }
-
-        asts
-    }
-
-    fn parse_key<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
-        let mut idents = Vec::new();
-        loop {
-            let token = parser.peek();
-            let ident = match token.ty {
-                TokenType::String(id) => {
-                    let str = parser.string_mut(id);
-                    let kind = match str.quote {
-                        Quote::Basic => IdentKind::BasicString,
-                        Quote::Literal => IdentKind::LiteralString,
-                        Quote::BasicMultiline => {
-                            return Err(Error::MultilineBasicStringIdent(token.span))
-                        }
-                        Quote::LiteralMultiline => {
-                            return Err(Error::MultilineLiteralStringIdent(token.span))
-                        }
-                    };
-                    Ident {
-                        lit_span: token.span,
-                        lit: str.lit,
-                        text: std::mem::take(&mut str.text),
-                        text_span: str.text_span,
-                        kind,
-                    }
-                }
-                TokenType::LiteralOrIdent(id) => {
-                    let lit = parser.literal(id);
-                    let invalid_char = lit
-                        .char_indices()
-                        .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
-
-                    if let Some((i, c)) = invalid_char {
-                        let mut pos = token.span.start;
-                        pos.char += i as u32;
-                        self.error(Error::InvalidCharInIdentifier(c, pos));
-                    }
-
-                    Ident::from_plain_lit(lit, token.span)
-                }
-                TokenType::Comment(_)
-                | TokenType::SquareLeft
-                | TokenType::SquareRight
-                | TokenType::CurlyLeft
-                | TokenType::CurlyRight
-                | TokenType::Equal
-                | TokenType::Comma
-                | TokenType::Dot
-                | TokenType::Newline
-                | TokenType::EOF => {
-                    let string = parser.token_to_string(token.ty);
-                    return Err(Error::ExpectedKeyFound(string, token.span));
-                }
-            };
-            parser.next();
-
             match parser.peek() {
-                t if t.ty == TokenType::Dot => {
-                    let dot = Some(t.span.start);
-                    idents.push(DottedIdent { ident, dot });
+                t if t.ty == TokenType::Newline => {
                     parser.next();
                 }
-                _ => {
-                    if idents.is_empty() {
-                        return Ok(Key::One(ident));
-                    } else {
-                        idents.push(DottedIdent { ident, dot: None });
-                        return Ok(Key::Dotted(idents));
-                    }
+                t if t.ty == TokenType::EOF => break 'root,
+                t => {
+                    ctx.error(Error::MissingNewline(t.span.start));
                 }
             }
+
+            newline_required = false;
         }
-    }
 
-    fn parse_value<'a>(&mut self, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
         let token = parser.peek();
-        let value = match token.ty {
-            TokenType::String(id) => {
-                let token = parser.next();
-                let str = parser.string_mut(id);
-                Value::String(StringVal {
-                    lit: str.lit,
-                    lit_span: token.span,
-                    text: std::mem::take(&mut str.text),
-                    text_span: str.text_span,
-                    quote: str.quote,
-                })
-            }
-            TokenType::LiteralOrIdent(id) => {
-                let token = parser.next();
-                let lit = parser.literal(id);
-
-                match lit {
-                    "true" => Value::Bool(BoolVal::new(token.span, true)),
-                    "false" => Value::Bool(BoolVal::new(token.span, false)),
-                    "nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
-                    "+nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
-                    "-nan" => Value::Float(FloatVal::new(lit, token.span, -f64::NAN)),
-                    "inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
-                    "+inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
-                    "-inf" => Value::Float(FloatVal::new(lit, token.span, f64::NEG_INFINITY)),
-                    _ => match num::parse_num_or_date(lit, token.span) {
-                        Ok(PartialValue::PrefixedInt(i)) => {
-                            Value::Int(IntVal::new(lit, token.span, i))
-                        }
-                        Ok(PartialValue::Int(i)) => self.try_to_parse_fractional_part_of_float(
-                            parser,
-                            lit,
-                            token.span,
-                            Some(i),
-                        ),
-                        Ok(PartialValue::OverflowOrFloat) => self
-                            .try_to_parse_fractional_part_of_float(parser, lit, token.span, None),
-                        Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
-                            Ok(v) => Value::Float(FloatVal::new(lit, token.span, v)),
-                            Err(_) => {
-                                self.error(Error::FloatLiteralOverflow(token.span));
-                                Value::Invalid(lit, token.span)
-                            }
-                        },
-                        Ok(PartialValue::OffsetDateTime(val)) => {
-                            let date_time = DateTimeVal::new(lit, token.span, val);
-                            Value::DateTime(date_time)
-                        }
-                        Ok(PartialValue::PartialDate(date)) => {
-                            self.try_to_parse_time_part(parser, lit, token.span, date)
-                        }
-                        Ok(PartialValue::PartialDateTime(date, time)) => {
-                            self.try_to_parse_subsecs(parser, lit, token.span, Some(date), time)
-                        }
-                        Ok(PartialValue::PartialTime(time)) => {
-                            self.try_to_parse_subsecs(parser, lit, token.span, None, time)
-                        }
-                        Err(e) => {
-                            self.error(e);
-                            Value::Invalid(lit, token.span)
-                        }
-                    },
-                }
-            }
+        match token.ty {
             TokenType::SquareLeft => {
-                let l_par = token.span.start;
+                let l_table_square = token.span;
                 parser.next();
 
-                let mut values = Vec::new();
-                'inline_array: loop {
-                    if matches!(parser.peek().ty, TokenType::SquareRight | TokenType::EOF) {
-                        break;
-                    }
+                let l_array_square = match parser.peek() {
+                    t if t.ty == TokenType::SquareLeft => Some(parser.next().span),
+                    _ => None,
+                };
 
-                    while let Some(comment) = parser.eat_comment_and_newlines() {
-                        todo!("store comment inside the array: {comment:?}");
-                    }
-                    let val = match self.parse_value(parser) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            self.error(e);
-                            recover_on!(parser,
-                                Comma | Newline => continue 'inline_array,
-                                SquareRight | EOF => break 'inline_array,
-                            );
+                let key = match parse_key(ctx, &mut parser) {
+                    Ok(k) => Some(k),
+                    Err(e) => {
+                        ctx.error(e);
+                        loop {
+                            match parser.peek().ty {
+                                TokenType::SquareRight | TokenType::Newline | TokenType::EOF => {
+                                    break
+                                }
+                                _ => {
+                                    parser.next();
+                                }
+                            }
                         }
-                    };
-
-                    while let Some(comment) = parser.eat_comment_and_newlines() {
-                        todo!("store comment inside the array: {comment:?}");
+                        None
                     }
-                    let comma = match parser.peek() {
-                        t if t.ty == TokenType::Comma => Some(parser.next().span.start),
-                        t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
-                            values.push(InlineArrayValue { val, comma: None });
-                            break;
-                        }
-                        _ => {
-                            self.error(Error::MissingComma(val.span().end));
-                            // try to continue
-                            None
-                        }
-                    };
+                };
 
-                    while let Some(comment) = parser.eat_comment_and_newlines() {
-                        todo!("store comment inside the array: {comment:?}");
-                    }
-
-                    values.push(InlineArrayValue { val, comma });
-                }
-
-                let r_par = match parser.peek() {
+                let r_array_square = l_array_square.and_then(|_| match parser.peek() {
                     t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                     t => {
                         let string = parser.token_to_string(t.ty);
-                        self.error(Error::ExpectedRightSquareFound(string, t.span));
+                        ctx.error(Error::ExpectedRightSquareFound(string, t.span));
                         None
                     }
-                };
+                });
 
-                Value::InlineArray(InlineArray {
-                    l_par,
-                    values,
-                    r_par,
-                })
-            }
-            TokenType::CurlyLeft => {
-                let l_par = token.span.start;
-                parser.next();
-
-                let mut assignments = Vec::new();
-                let mut comma = None;
-                'inline_table: loop {
-                    if matches!(parser.peek().ty, TokenType::CurlyRight | TokenType::EOF) {
-                        if let Some(pos) = comma {
-                            self.error(Error::InlineTableTrailingComma(pos));
-                        }
-                        break;
-                    }
-                    let key = match self.parse_key(parser) {
-                        Ok(k) => k,
-                        Err(e) => {
-                            self.error(e);
-                            recover_on!(parser,
-                                Comma => continue 'inline_table,
-                                Newline | CurlyRight | EOF => break 'inline_table,
-                            )
-                        }
-                    };
-
-                    let eq = match parser.peek() {
-                        t if t.ty == TokenType::Equal => parser.next().span.start,
-                        t => {
-                            let string = parser.token_to_string(t.ty);
-                            self.error(Error::ExpectedEqFound(string, t.span));
-                            recover_on!(parser,
-                                Comma => continue 'inline_table,
-                                Newline | CurlyRight | EOF => break 'inline_table,
-                            )
-                        }
-                    };
-
-                    let val = match self.parse_value(parser) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            self.error(e);
-                            recover_on!(parser,
-                                Comma => continue 'inline_table,
-                                Newline | CurlyRight | EOF => break 'inline_table,
-                            )
-                        }
-                    };
-
-                    let assignment = Assignment { key, eq, val };
-                    comma = match parser.peek() {
-                        t if t.ty == TokenType::Comma => Some(parser.next().span.start),
-                        t if t.ty == TokenType::CurlyRight || t.ty == TokenType::EOF => {
-                            assignments.push(InlineTableAssignment {
-                                assignment,
-                                comma: None,
-                            });
-                            break;
-                        }
-                        _ => {
-                            let pos = assignment.val.span().end;
-                            self.error(Error::MissingComma(pos));
-                            // try to continue
-                            None
-                        }
-                    };
-
-                    assignments.push(InlineTableAssignment { assignment, comma });
-                }
-
-                let r_par = match parser.peek() {
-                    t if t.ty == TokenType::CurlyRight => Some(parser.next().span.start),
+                let r_table_square = match parser.peek() {
+                    t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                     t => {
                         let string = parser.token_to_string(t.ty);
-                        self.error(Error::ExpectedRightCurlyFound(string, t.span));
+                        ctx.error(Error::ExpectedRightSquareFound(string, t.span));
                         None
                     }
                 };
 
-                Value::InlineTable(InlineTable {
-                    l_par,
-                    assignments,
-                    r_par,
-                })
+                let header = match l_array_square {
+                    Some(l_array_square) => {
+                        let header = ArrayHeader {
+                            l_pars: (l_table_square.start, l_array_square.start),
+                            key,
+                            r_pars: (r_array_square, r_table_square),
+                        };
+                        Header::Array(ArrayEntry {
+                            header,
+                            assignments: Vec::new(),
+                        })
+                    }
+                    None => {
+                        let header = TableHeader {
+                            l_par: l_table_square.start,
+                            key,
+                            r_par: r_table_square,
+                        };
+                        Header::Table(Table {
+                            header,
+                            assignments: Vec::new(),
+                        })
+                    }
+                };
+
+                match &mut last_header {
+                    Some(last) => {
+                        let last = std::mem::replace(last, header);
+                        asts.push(last.into_ast());
+                    }
+                    None => last_header = Some(header),
+                }
+
+                newline_required = true;
+                continue;
+            }
+            TokenType::Comment(id) => {
+                let text = parser.literal(id);
+                asts.push(Ast::Comment(Comment {
+                    span: token.span,
+                    text,
+                }));
+                parser.next();
+                continue;
+            }
+            TokenType::Newline => {
+                parser.next();
+                continue;
+            }
+            TokenType::EOF => break 'root,
+            _ => (),
+        }
+
+        let key = match parse_key(ctx, &mut parser) {
+            Ok(k) => k,
+            Err(e) => {
+                ctx.error(e);
+                recover_on!(parser, Newline | EOF => continue 'root);
+            }
+        };
+
+        let eq = match parser.next() {
+            t if t.ty == TokenType::Equal => t.span.start,
+            t => {
+                let string = parser.token_to_string(t.ty);
+                ctx.error(Error::ExpectedEqFound(string, t.span));
+                recover_on!(parser, Newline | EOF => continue 'root);
+            }
+        };
+
+        let val = match parse_value(ctx, &mut parser) {
+            Ok(v) => v,
+            Err(e) => {
+                ctx.error(e);
+                recover_on!(parser, Newline | EOF => continue 'root);
+            }
+        };
+
+        let assignment = Assignment { key, eq, val };
+        match &mut last_header {
+            Some(Header::Table(t)) => t.assignments.push(assignment),
+            Some(Header::Array(a)) => a.assignments.push(assignment),
+            None => asts.push(Ast::Assignment(assignment)),
+        }
+
+        newline_required = true;
+    }
+
+    if let Some(last) = last_header {
+        asts.push(last.into_ast());
+    }
+
+    asts
+}
+
+fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
+    let mut idents = Vec::new();
+    loop {
+        let token = parser.peek();
+        let ident = match token.ty {
+            TokenType::String(id) => {
+                let str = parser.string_mut(id);
+                let kind = match str.quote {
+                    Quote::Basic => IdentKind::BasicString,
+                    Quote::Literal => IdentKind::LiteralString,
+                    Quote::BasicMultiline => {
+                        return Err(Error::MultilineBasicStringIdent(token.span))
+                    }
+                    Quote::LiteralMultiline => {
+                        return Err(Error::MultilineLiteralStringIdent(token.span))
+                    }
+                };
+                Ident {
+                    lit_span: token.span,
+                    lit: str.lit,
+                    text: std::mem::take(&mut str.text),
+                    text_span: str.text_span,
+                    kind,
+                }
+            }
+            TokenType::LiteralOrIdent(id) => {
+                let lit = parser.literal(id);
+                let invalid_char = lit
+                    .char_indices()
+                    .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
+
+                if let Some((i, c)) = invalid_char {
+                    let mut pos = token.span.start;
+                    pos.char += i as u32;
+                    ctx.error(Error::InvalidCharInIdentifier(c, pos));
+                }
+
+                Ident::from_plain_lit(lit, token.span)
             }
             TokenType::Comment(_)
+            | TokenType::SquareLeft
             | TokenType::SquareRight
+            | TokenType::CurlyLeft
             | TokenType::CurlyRight
             | TokenType::Equal
             | TokenType::Comma
@@ -942,225 +697,463 @@ impl Ctx {
             | TokenType::Newline
             | TokenType::EOF => {
                 let string = parser.token_to_string(token.ty);
-                return Err(Error::ExpectedValueFound(string, token.span));
+                return Err(Error::ExpectedKeyFound(string, token.span));
             }
         };
+        parser.next();
 
-        Ok(value)
-    }
-
-    fn try_to_parse_fractional_part_of_float<'a>(
-        &mut self,
-        parser: &mut Parser<'a>,
-        int_lit: &'a str,
-        int_span: Span,
-        int_val: Option<i64>,
-    ) -> Value<'a> {
-        // Check this is actually a floating point literal separated by a dot
         match parser.peek() {
-            t if t.ty == TokenType::Dot && int_span.end == t.span.start => {
+            t if t.ty == TokenType::Dot => {
+                let dot = Some(t.span.start);
+                idents.push(DottedIdent { ident, dot });
                 parser.next();
             }
-            _ => match int_val {
-                Some(val) => return Value::Int(IntVal::new(int_lit, int_span, val)),
-                None => {
-                    self.error(Error::IntLiteralOverflow(int_span));
-                    return Value::Invalid(int_lit, int_span);
+            _ => {
+                if idents.is_empty() {
+                    return Ok(Key::One(ident));
+                } else {
+                    idents.push(DottedIdent { ident, dot: None });
+                    return Ok(Key::Dotted(idents));
                 }
-            },
-        }
-
-        let mut missing_float_fractional_part_error = || {
-            let pos = int_span.end.plus(1);
-            self.error(Error::MissingFloatFractionalPart(pos));
-
-            // SAFETY: we know there is a dot directly after int_lit.
-            let lit = unsafe {
-                let ptr = int_lit.as_ptr();
-                let len = int_lit.len() + 1;
-                let slice = std::slice::from_raw_parts(ptr, len);
-                std::str::from_utf8_unchecked(slice)
-            };
-            let mut span = int_span;
-            span.end.char += 1;
-            Value::Invalid(lit, span)
-        };
-
-        let frac;
-        let frac_lit = match parser.peek().ty {
-            TokenType::LiteralOrIdent(id) => {
-                frac = parser.next();
-                let frac_lit = parser.literal(id);
-
-                let int_end = int_lit.as_bytes().as_ptr_range().end;
-                let frac_start = frac_lit.as_bytes().as_ptr_range().start;
-                // SAFETY: we know there is a dot directly after int_lit.
-                let dot_end = unsafe { int_end.add(1) };
-                if dot_end != frac_start {
-                    return missing_float_fractional_part_error();
-                }
-                frac_lit
             }
-            _ => return missing_float_fractional_part_error(),
-        };
+        }
+    }
+}
 
-        // SAFETY: the first and second literal reference the same string and
-        // are only separated by a single dot. See above.
+fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
+    let token = parser.peek();
+    let value = match token.ty {
+        TokenType::String(id) => {
+            let token = parser.next();
+            let str = parser.string_mut(id);
+            Value::String(StringVal {
+                lit: str.lit,
+                lit_span: token.span,
+                text: std::mem::take(&mut str.text),
+                text_span: str.text_span,
+                quote: str.quote,
+            })
+        }
+        TokenType::LiteralOrIdent(id) => {
+            let token = parser.next();
+            let lit = parser.literal(id);
+
+            match lit {
+                "true" => Value::Bool(BoolVal::new(token.span, true)),
+                "false" => Value::Bool(BoolVal::new(token.span, false)),
+                "nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
+                "+nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
+                "-nan" => Value::Float(FloatVal::new(lit, token.span, -f64::NAN)),
+                "inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
+                "+inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
+                "-inf" => Value::Float(FloatVal::new(lit, token.span, f64::NEG_INFINITY)),
+                _ => match num::parse_num_or_date(lit, token.span) {
+                    Ok(PartialValue::PrefixedInt(i)) => Value::Int(IntVal::new(lit, token.span, i)),
+                    Ok(PartialValue::Int(i)) => {
+                        try_to_parse_fractional_part_of_float(ctx, parser, lit, token.span, Some(i))
+                    }
+                    Ok(PartialValue::OverflowOrFloat) => {
+                        try_to_parse_fractional_part_of_float(ctx, parser, lit, token.span, None)
+                    }
+                    Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
+                        Ok(v) => Value::Float(FloatVal::new(lit, token.span, v)),
+                        Err(_) => {
+                            ctx.error(Error::FloatLiteralOverflow(token.span));
+                            Value::Invalid(lit, token.span)
+                        }
+                    },
+                    Ok(PartialValue::OffsetDateTime(val)) => {
+                        let date_time = DateTimeVal::new(lit, token.span, val);
+                        Value::DateTime(date_time)
+                    }
+                    Ok(PartialValue::PartialDate(date)) => {
+                        try_to_parse_time_part(ctx, parser, lit, token.span, date)
+                    }
+                    Ok(PartialValue::PartialDateTime(date, time)) => {
+                        try_to_parse_subsecs(ctx, parser, lit, token.span, Some(date), time)
+                    }
+                    Ok(PartialValue::PartialTime(time)) => {
+                        try_to_parse_subsecs(ctx, parser, lit, token.span, None, time)
+                    }
+                    Err(e) => {
+                        ctx.error(e);
+                        Value::Invalid(lit, token.span)
+                    }
+                },
+            }
+        }
+        TokenType::SquareLeft => {
+            let l_par = token.span.start;
+            parser.next();
+
+            let mut values = Vec::new();
+            'inline_array: loop {
+                if matches!(parser.peek().ty, TokenType::SquareRight | TokenType::EOF) {
+                    break;
+                }
+
+                while let Some(comment) = parser.eat_comment_and_newlines() {
+                    todo!("store comment inside the array: {comment:?}");
+                }
+                let val = match parse_value(ctx, parser) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        ctx.error(e);
+                        recover_on!(parser,
+                            Comma | Newline => continue 'inline_array,
+                            SquareRight | EOF => break 'inline_array,
+                        );
+                    }
+                };
+
+                while let Some(comment) = parser.eat_comment_and_newlines() {
+                    todo!("store comment inside the array: {comment:?}");
+                }
+                let comma = match parser.peek() {
+                    t if t.ty == TokenType::Comma => Some(parser.next().span.start),
+                    t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
+                        values.push(InlineArrayValue { val, comma: None });
+                        break;
+                    }
+                    _ => {
+                        ctx.error(Error::MissingComma(val.span().end));
+                        // try to continue
+                        None
+                    }
+                };
+
+                while let Some(comment) = parser.eat_comment_and_newlines() {
+                    todo!("store comment inside the array: {comment:?}");
+                }
+
+                values.push(InlineArrayValue { val, comma });
+            }
+
+            let r_par = match parser.peek() {
+                t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
+                t => {
+                    let string = parser.token_to_string(t.ty);
+                    ctx.error(Error::ExpectedRightSquareFound(string, t.span));
+                    None
+                }
+            };
+
+            Value::InlineArray(InlineArray {
+                l_par,
+                values,
+                r_par,
+            })
+        }
+        TokenType::CurlyLeft => {
+            let l_par = token.span.start;
+            parser.next();
+
+            let mut assignments = Vec::new();
+            let mut comma = None;
+            'inline_table: loop {
+                if matches!(parser.peek().ty, TokenType::CurlyRight | TokenType::EOF) {
+                    if let Some(pos) = comma {
+                        ctx.error(Error::InlineTableTrailingComma(pos));
+                    }
+                    break;
+                }
+                let key = match parse_key(ctx, parser) {
+                    Ok(k) => k,
+                    Err(e) => {
+                        ctx.error(e);
+                        recover_on!(parser,
+                            Comma => continue 'inline_table,
+                            Newline | CurlyRight | EOF => break 'inline_table,
+                        )
+                    }
+                };
+
+                let eq = match parser.peek() {
+                    t if t.ty == TokenType::Equal => parser.next().span.start,
+                    t => {
+                        let string = parser.token_to_string(t.ty);
+                        ctx.error(Error::ExpectedEqFound(string, t.span));
+                        recover_on!(parser,
+                            Comma => continue 'inline_table,
+                            Newline | CurlyRight | EOF => break 'inline_table,
+                        )
+                    }
+                };
+
+                let val = match parse_value(ctx, parser) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        ctx.error(e);
+                        recover_on!(parser,
+                            Comma => continue 'inline_table,
+                            Newline | CurlyRight | EOF => break 'inline_table,
+                        )
+                    }
+                };
+
+                let assignment = Assignment { key, eq, val };
+                comma = match parser.peek() {
+                    t if t.ty == TokenType::Comma => Some(parser.next().span.start),
+                    t if t.ty == TokenType::CurlyRight || t.ty == TokenType::EOF => {
+                        assignments.push(InlineTableAssignment {
+                            assignment,
+                            comma: None,
+                        });
+                        break;
+                    }
+                    _ => {
+                        let pos = assignment.val.span().end;
+                        ctx.error(Error::MissingComma(pos));
+                        // try to continue
+                        None
+                    }
+                };
+
+                assignments.push(InlineTableAssignment { assignment, comma });
+            }
+
+            let r_par = match parser.peek() {
+                t if t.ty == TokenType::CurlyRight => Some(parser.next().span.start),
+                t => {
+                    let string = parser.token_to_string(t.ty);
+                    ctx.error(Error::ExpectedRightCurlyFound(string, t.span));
+                    None
+                }
+            };
+
+            Value::InlineTable(InlineTable {
+                l_par,
+                assignments,
+                r_par,
+            })
+        }
+        TokenType::Comment(_)
+        | TokenType::SquareRight
+        | TokenType::CurlyRight
+        | TokenType::Equal
+        | TokenType::Comma
+        | TokenType::Dot
+        | TokenType::Newline
+        | TokenType::EOF => {
+            let string = parser.token_to_string(token.ty);
+            return Err(Error::ExpectedValueFound(string, token.span));
+        }
+    };
+
+    Ok(value)
+}
+
+fn try_to_parse_fractional_part_of_float<'a>(
+    ctx: &mut Ctx,
+    parser: &mut Parser<'a>,
+    int_lit: &'a str,
+    int_span: Span,
+    int_val: Option<i64>,
+) -> Value<'a> {
+    // Check this is actually a floating point literal separated by a dot
+    match parser.peek() {
+        t if t.ty == TokenType::Dot && int_span.end == t.span.start => {
+            parser.next();
+        }
+        _ => match int_val {
+            Some(val) => return Value::Int(IntVal::new(int_lit, int_span, val)),
+            None => {
+                ctx.error(Error::IntLiteralOverflow(int_span));
+                return Value::Invalid(int_lit, int_span);
+            }
+        },
+    }
+
+    let mut missing_float_fractional_part_error = || {
+        let pos = int_span.end.plus(1);
+        ctx.error(Error::MissingFloatFractionalPart(pos));
+
+        // SAFETY: we know there is a dot directly after int_lit.
         let lit = unsafe {
             let ptr = int_lit.as_ptr();
-            let len = int_lit.len() + 1 + frac_lit.len();
+            let len = int_lit.len() + 1;
             let slice = std::slice::from_raw_parts(ptr, len);
             std::str::from_utf8_unchecked(slice)
         };
-        let span = Span::across(int_span, frac.span);
+        let mut span = int_span;
+        span.end.char += 1;
+        Value::Invalid(lit, span)
+    };
 
-        // validate fractional part
-        if let Err(e) = num::validate_float_fractional_part(frac_lit, frac.span) {
-            self.error(e);
-            return Value::Invalid(lit, span);
+    let frac;
+    let frac_lit = match parser.peek().ty {
+        TokenType::LiteralOrIdent(id) => {
+            frac = parser.next();
+            let frac_lit = parser.literal(id);
+
+            let int_end = int_lit.as_bytes().as_ptr_range().end;
+            let frac_start = frac_lit.as_bytes().as_ptr_range().start;
+            // SAFETY: we know there is a dot directly after int_lit.
+            let dot_end = unsafe { int_end.add(1) };
+            if dot_end != frac_start {
+                return missing_float_fractional_part_error();
+            }
+            frac_lit
         }
+        _ => return missing_float_fractional_part_error(),
+    };
 
-        let Ok(val) = lit.replace('_', "").parse() else {
-            self.error(Error::FloatLiteralOverflow(span));
-            return Value::Invalid(lit, span);
-        };
+    // SAFETY: the first and second literal reference the same string and
+    // are only separated by a single dot. See above.
+    let lit = unsafe {
+        let ptr = int_lit.as_ptr();
+        let len = int_lit.len() + 1 + frac_lit.len();
+        let slice = std::slice::from_raw_parts(ptr, len);
+        std::str::from_utf8_unchecked(slice)
+    };
+    let span = Span::across(int_span, frac.span);
 
-        Value::Float(FloatVal::new(lit, span, val))
+    // validate fractional part
+    if let Err(e) = num::validate_float_fractional_part(frac_lit, frac.span) {
+        ctx.error(e);
+        return Value::Invalid(lit, span);
     }
 
-    /// toml permits using spaces instead of `T` to separate date and time in and rfc3339
-    /// timestamp, if the previous token just contained the date then check if the next token
-    /// contains the time.
-    fn try_to_parse_time_part<'a>(
-        &mut self,
-        parser: &mut Parser<'a>,
-        date_lit: &'a str,
-        date_span: Span,
-        date: Date,
-    ) -> Value<'a> {
-        let (time_lit, time_span) = match parser.peek().ty {
-            TokenType::LiteralOrIdent(id) => {
-                let token = parser.next();
-                let lit = parser.literal(id);
-                (lit, token.span)
-            }
-            _ => {
-                let val = DateTime::LocalDate(date);
-                let date_time = DateTimeVal::new(date_lit, date_span, val);
-                return Value::DateTime(date_time);
-            }
-        };
+    let Ok(val) = lit.replace('_', "").parse() else {
+        ctx.error(Error::FloatLiteralOverflow(span));
+        return Value::Invalid(lit, span);
+    };
 
-        // only need to compare columns, since we known there is no newline token in between
-        if time_span.start.char > date_span.end.char + 1 {
-            let span = Span::between(date_span, time_span);
-            self.error(Error::DateAndTimeTooFarApart(span));
+    Value::Float(FloatVal::new(lit, span, val))
+}
+
+/// toml permits using spaces instead of `T` to separate date and time in and rfc3339
+/// timestamp, if the previous token just contained the date then check if the next token
+/// contains the time.
+fn try_to_parse_time_part<'a>(
+    ctx: &mut Ctx,
+    parser: &mut Parser<'a>,
+    date_lit: &'a str,
+    date_span: Span,
+    date: Date,
+) -> Value<'a> {
+    let (time_lit, time_span) = match parser.peek().ty {
+        TokenType::LiteralOrIdent(id) => {
+            let token = parser.next();
+            let lit = parser.literal(id);
+            (lit, token.span)
         }
-
-        // SAFETY: the first and second literal reference the same string, are on the same line and
-        // are only separated by whitespace. See above.
-        let lit = unsafe {
-            let ptr = date_lit.as_ptr();
-            let len = (time_span.end.char - date_span.start.char) as usize;
-            let slice = std::slice::from_raw_parts(ptr, len);
-            std::str::from_utf8_unchecked(slice)
-        };
-        let span = Span::across(date_span, time_span);
-
-        let mut chars = time_lit.char_indices().peekable();
-        let (time, offset) = match datetime::parse_time_and_offset(&mut chars, time_span) {
-            Ok(v) => v,
-            Err(e) => {
-                self.error(e);
-                return Value::Invalid(lit, span);
-            }
-        };
-
-        if let Some(offset) = offset {
-            let val = DateTime::OffsetDateTime(date, time, offset);
-            let date_time = DateTimeVal::new(lit, span, val);
+        _ => {
+            let val = DateTime::LocalDate(date);
+            let date_time = DateTimeVal::new(date_lit, date_span, val);
             return Value::DateTime(date_time);
         }
+    };
 
-        self.try_to_parse_subsecs(parser, lit, span, Some(date), time)
+    // only need to compare columns, since we known there is no newline token in between
+    if time_span.start.char > date_span.end.char + 1 {
+        let span = Span::between(date_span, time_span);
+        ctx.error(Error::DateAndTimeTooFarApart(span));
     }
 
-    fn try_to_parse_subsecs<'a>(
-        &mut self,
-        parser: &mut Parser<'a>,
-        date_time_lit: &'a str,
-        date_time_span: Span,
-        date: Option<Date>,
-        time: Time,
-    ) -> Value<'a> {
-        match parser.peek() {
-            t if t.ty == TokenType::Dot && date_time_span.end == t.span.start => {
-                parser.next();
-            }
-            _ => {
-                let val = match date {
-                    Some(date) => DateTime::LocalDateTime(date, time),
-                    None => DateTime::LocalTime(time),
-                };
-                let date_time = DateTimeVal::new(date_time_lit, date_time_span, val);
-                return Value::DateTime(date_time);
-            }
+    // SAFETY: the first and second literal reference the same string, are on the same line and
+    // are only separated by whitespace. See above.
+    let lit = unsafe {
+        let ptr = date_lit.as_ptr();
+        let len = (time_span.end.char - date_span.start.char) as usize;
+        let slice = std::slice::from_raw_parts(ptr, len);
+        std::str::from_utf8_unchecked(slice)
+    };
+    let span = Span::across(date_span, time_span);
+
+    let mut chars = time_lit.char_indices().peekable();
+    let (time, offset) = match datetime::parse_time_and_offset(&mut chars, time_span) {
+        Ok(v) => v,
+        Err(e) => {
+            ctx.error(e);
+            return Value::Invalid(lit, span);
         }
+    };
 
-        let mut missing_date_time_subsec_part_error = || {
-            let pos = date_time_span.end.plus(1);
-            self.error(Error::DateTimeMissingSubsec(pos));
+    if let Some(offset) = offset {
+        let val = DateTime::OffsetDateTime(date, time, offset);
+        let date_time = DateTimeVal::new(lit, span, val);
+        return Value::DateTime(date_time);
+    }
 
-            // SAFETY: we know there is a dot directly after int_lit.
-            let lit = unsafe {
-                let ptr = date_time_lit.as_ptr();
-                let len = date_time_lit.len() + 1;
-                let slice = std::slice::from_raw_parts(ptr, len);
-                std::str::from_utf8_unchecked(slice)
+    try_to_parse_subsecs(ctx, parser, lit, span, Some(date), time)
+}
+
+fn try_to_parse_subsecs<'a>(
+    ctx: &mut Ctx,
+    parser: &mut Parser<'a>,
+    date_time_lit: &'a str,
+    date_time_span: Span,
+    date: Option<Date>,
+    time: Time,
+) -> Value<'a> {
+    match parser.peek() {
+        t if t.ty == TokenType::Dot && date_time_span.end == t.span.start => {
+            parser.next();
+        }
+        _ => {
+            let val = match date {
+                Some(date) => DateTime::LocalDateTime(date, time),
+                None => DateTime::LocalTime(time),
             };
-            let mut span = date_time_span;
-            span.end.char += 1;
-            Value::Invalid(lit, span)
-        };
+            let date_time = DateTimeVal::new(date_time_lit, date_time_span, val);
+            return Value::DateTime(date_time);
+        }
+    }
 
-        let subsec;
-        let subsec_lit = match parser.peek().ty {
-            TokenType::LiteralOrIdent(id) => {
-                subsec = parser.next();
-                let subsec_lit = parser.literal(id);
+    let mut missing_date_time_subsec_part_error = || {
+        let pos = date_time_span.end.plus(1);
+        ctx.error(Error::DateTimeMissingSubsec(pos));
 
-                let time_end = date_time_lit.as_bytes().as_ptr_range().end;
-                let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
-                // SAFETY: we know there is a dot directly after date_time_lit.
-                let dot_end = unsafe { time_end.add(1) };
-                if dot_end != subsec_start {
-                    return missing_date_time_subsec_part_error();
-                }
-                subsec_lit
-            }
-            _ => return missing_date_time_subsec_part_error(),
-        };
-
-        // SAFETY: the first and second literal reference the same string and
-        // are only separated by a single dot. See above.
+        // SAFETY: we know there is a dot directly after int_lit.
         let lit = unsafe {
             let ptr = date_time_lit.as_ptr();
-            let len = date_time_lit.len() + 1 + subsec_lit.len();
+            let len = date_time_lit.len() + 1;
             let slice = std::slice::from_raw_parts(ptr, len);
             std::str::from_utf8_unchecked(slice)
         };
-        let span = Span {
-            start: date_time_span.start,
-            end: subsec.span.end,
-        };
+        let mut span = date_time_span;
+        span.end.char += 1;
+        Value::Invalid(lit, span)
+    };
 
-        // parse subsec part
-        match datetime::parse_subsec_part(lit, span, subsec_lit, subsec.span, date, time) {
-            Ok(date_time) => Value::DateTime(date_time),
-            Err(e) => {
-                self.error(e);
-                Value::Invalid(lit, span)
+    let subsec;
+    let subsec_lit = match parser.peek().ty {
+        TokenType::LiteralOrIdent(id) => {
+            subsec = parser.next();
+            let subsec_lit = parser.literal(id);
+
+            let time_end = date_time_lit.as_bytes().as_ptr_range().end;
+            let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
+            // SAFETY: we know there is a dot directly after date_time_lit.
+            let dot_end = unsafe { time_end.add(1) };
+            if dot_end != subsec_start {
+                return missing_date_time_subsec_part_error();
             }
+            subsec_lit
+        }
+        _ => return missing_date_time_subsec_part_error(),
+    };
+
+    // SAFETY: the first and second literal reference the same string and
+    // are only separated by a single dot. See above.
+    let lit = unsafe {
+        let ptr = date_time_lit.as_ptr();
+        let len = date_time_lit.len() + 1 + subsec_lit.len();
+        let slice = std::slice::from_raw_parts(ptr, len);
+        std::str::from_utf8_unchecked(slice)
+    };
+    let span = Span {
+        start: date_time_span.start,
+        end: subsec.span.end,
+    };
+
+    // parse subsec part
+    match datetime::parse_subsec_part(lit, span, subsec_lit, subsec.span, date, time) {
+        Ok(date_time) => Value::DateTime(date_time),
+        Err(e) => {
+            ctx.error(e);
+            Value::Invalid(lit, span)
         }
     }
 }

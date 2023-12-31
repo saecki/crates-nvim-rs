@@ -1,5 +1,7 @@
-pub use error::{Error, Warning};
-pub use lex::{Pos, Quote, Span, Token, TokenType};
+pub use error::{Error, Hint, Warning};
+pub use lex::{lex, Pos, Quote, Span, Token, TokenType, Tokens};
+pub use map::{map, MapTable};
+pub use parse::{parse, Ast};
 
 pub mod datetime;
 pub mod error;
@@ -16,20 +18,31 @@ mod test;
 pub struct Ctx {
     pub errors: Vec<Error>,
     pub warnings: Vec<Warning>,
+    pub hints: Vec<Hint>,
 }
 
 impl Ctx {
-    fn error(&mut self, error: Error) {
+    pub fn error(&mut self, error: Error) {
         self.errors.push(error);
     }
 
-    fn warn(&mut self, warning: Warning) {
+    pub fn warn(&mut self, warning: Warning) {
         self.warnings.push(warning);
     }
-}
 
-// pub struct Toml<'a /* 'b: 'a */> {
-//     input: Pin<Box<str>>,
-//     asts: Pin<Box<[Ast<'a>]>>,
-//     // map: HashMap<&'b str, (&'b Ast<'a>, MapEntry<'b>)>,
-// }
+    pub fn hint(&mut self, hint: Hint) {
+        self.hints.push(hint);
+    }
+
+    pub fn lex<'a>(&mut self, input: &'a str) -> Tokens<'a> {
+        lex(self, input)
+    }
+
+    pub fn parse<'a>(&mut self, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
+        parse(self, tokens)
+    }
+
+    pub fn map<'a>(&mut self, asts: &'a [Ast<'a>]) -> MapTable<'a> {
+        map(self, asts)
+    }
+}
