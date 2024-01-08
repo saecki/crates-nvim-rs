@@ -8,3 +8,6 @@ members = [
 
 [workspace.dependencies]
 toml = { package = "crates-toml", path = "crates-toml" }
+
+[profile.release]
+strip = true

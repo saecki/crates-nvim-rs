@@ -37,7 +37,7 @@ impl Ctx {
 }
 
 #[nvim_oxi::module]
-pub fn libcrates_nvim() -> nvim_oxi::Result<Dictionary> {
+pub fn crates_nvim() -> nvim_oxi::Result<Dictionary> {
     let parse_toml = Function::from_fn::<_, nvim_oxi::Error>(move |()| {
         let buf = nvim_oxi::api::get_current_buf();
         let num_lines = buf.line_count()?;
