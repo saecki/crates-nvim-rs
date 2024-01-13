@@ -367,10 +367,11 @@ pub fn lex<'a>(ctx: &mut Ctx, input: &'a str) -> Tokens<'a> {
                     } else {
                         // It's just an empty string
                         let text_span = Span::pos(lexer.pos());
+                        let str_start = lexer.lit_byte_start;
                         let id = lexer.store_string(StringToken {
                             quote,
-                            lit: &input[lexer.byte_pos..lexer.byte_pos + 2],
-                            text: Cow::Borrowed(&input[lexer.byte_pos + 1..lexer.byte_pos + 1]),
+                            lit: &input[str_start..str_start + 2],
+                            text: Cow::Borrowed(&input[str_start + 1..str_start + 1]),
                             text_span,
                         });
                         let token = Token {

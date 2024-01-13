@@ -317,6 +317,11 @@ fn unicode_escapes() {
     check_str(r#""\U00102230""#, r#""\U00102230""#, "\u{102230}");
     check_str(r#"  "\u03c0"  "#, r#""\u03c0""#, "\u{03c0}");
 }
+#[test]
+fn empty_strings() {
+    check_str(r#" '' "#, r#"''"#, "");
+    check_str(r#" "" "#, r#""""#, "");
+}
 
 #[test]
 fn multiline_string_unfinished_escape_sequence_on_newline() {
