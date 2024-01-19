@@ -41,12 +41,17 @@ pub fn crates_nvim() -> nvim_oxi::Result<Dictionary> {
     let parse_toml = Function::from_fn::<_, nvim_oxi::Error>(move |()| {
         let buf = nvim_oxi::api::get_current_buf();
         let num_lines = buf.line_count()?;
-        let lines = buf.get_lines(0..num_lines, true)?;
+        let raw_lines = buf.get_lines(0..num_lines, true)?;
         let mut text = String::new();
-        for line in lines {
+        let mut lines = Vec::with_capacity(raw_lines.len());
+        for line in raw_lines.into_iter() {
+            // HACK
             let str = unsafe { std::str::from_utf8_unchecked(line.as_bytes()) };
             text.push_str(str);
             text.push('\n');
+
+            // HACK
+            lines.push(str.to_string());
         }
 
         let mut toml_ctx = toml::Ctx::default();
@@ -55,7 +60,7 @@ pub fn crates_nvim() -> nvim_oxi::Result<Dictionary> {
         let map = toml_ctx.map(&asts);
 
         let mut ctx = Ctx::from(toml_ctx);
-        let crates = find(&mut ctx, &map);
+        let crates = find(&mut ctx, &lines, &map);
 
         crates
             .into_iter()
@@ -68,8 +73,6 @@ pub fn crates_nvim() -> nvim_oxi::Result<Dictionary> {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Section {
-    pub text: String,
-    pub invalid: bool,
     pub workspace: bool,
     pub target: Option<String>,
     pub kind: SectionKind,
@@ -94,19 +97,19 @@ pub struct CrateBuilder {
     pub explicit_name: String,
     pub explicit_name_col: Range,
     pub lines: Range,
-    pub syntax: Syntax,
+    pub syntax: TomlCrateSyntax,
     pub section: Section,
-    pub vers: Option<Vers>,
-    pub registry: Option<Registry>,
-    pub path: Option<Path>,
-    pub git: Option<Git>,
-    pub branch: Option<Branch>,
-    pub rev: Option<Rev>,
-    pub pkg: Option<Pkg>,
-    pub workspace: Option<Workspace>,
-    pub opt: Option<Opt>,
-    pub def: Option<Def>,
-    pub feat: Option<Feat>,
+    pub vers: Option<TomlCrateVers>,
+    pub registry: Option<TomlCrateRegistry>,
+    pub path: Option<TomlCratePath>,
+    pub git: Option<TomlCrateGit>,
+    pub branch: Option<TomlCrateBranch>,
+    pub rev: Option<TomlCrateRev>,
+    pub pkg: Option<TomlCratePkg>,
+    pub workspace: Option<TomlCrateWorkspace>,
+    pub opt: Option<TomlCrateOpt>,
+    pub def: Option<TomlCrateDef>,
+    pub feat: Option<TomlCrateFeat>,
 }
 
 impl CrateBuilder {
@@ -114,7 +117,7 @@ impl CrateBuilder {
         explicit_name: String,
         explicit_name_col: Range,
         lines: Range,
-        syntax: Syntax,
+        syntax: TomlCrateSyntax,
         section: Section,
     ) -> Self {
         Self {
@@ -137,7 +140,7 @@ impl CrateBuilder {
         }
     }
 
-    fn try_build(self, ctx: &mut Ctx) -> Option<Crate> {
+    fn try_build(self, ctx: &mut Ctx) -> Option<TomlCrate> {
         let dep_kind = (self.workspace.is_some().then_some(DepKind::Workspace))
             .or_else(|| self.path.is_some().then_some(DepKind::Path))
             .or_else(|| self.git.is_some().then_some(DepKind::Git))
@@ -147,7 +150,7 @@ impl CrateBuilder {
             todo!("warning");
         };
 
-        Some(Crate {
+        Some(TomlCrate {
             explicit_name: self.explicit_name,
             explicit_name_col: self.explicit_name_col,
             lines: self.lines,
@@ -170,45 +173,45 @@ impl CrateBuilder {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Crate {
+pub struct TomlCrate {
     /// The explicit name is either the name of the package, or a rename
     /// if the following syntax is used:
     /// explicit_name = { package = "package" }
     pub explicit_name: String,
     pub explicit_name_col: Range,
     pub lines: Range,
-    pub syntax: Syntax,
+    pub syntax: TomlCrateSyntax,
     pub section: Section,
     pub dep_kind: DepKind,
-    pub vers: Option<Vers>,
-    pub registry: Option<Registry>,
-    pub path: Option<Path>,
-    pub git: Option<Git>,
-    pub branch: Option<Branch>,
-    pub rev: Option<Rev>,
-    pub pkg: Option<Pkg>,
-    pub workspace: Option<Workspace>,
-    pub opt: Option<Opt>,
-    pub def: Option<Def>,
-    pub feat: Option<Feat>,
+    pub vers: Option<TomlCrateVers>,
+    pub registry: Option<TomlCrateRegistry>,
+    pub path: Option<TomlCratePath>,
+    pub git: Option<TomlCrateGit>,
+    pub branch: Option<TomlCrateBranch>,
+    pub rev: Option<TomlCrateRev>,
+    pub pkg: Option<TomlCratePkg>,
+    pub workspace: Option<TomlCrateWorkspace>,
+    pub opt: Option<TomlCrateOpt>,
+    pub def: Option<TomlCrateDef>,
+    pub feat: Option<TomlCrateFeat>,
 }
 
-impl ToObject for Crate {
+impl ToObject for TomlCrate {
     fn to_object(self) -> Result<Object, nvim_oxi::conversion::Error> {
         self.serialize(Serializer::new()).map_err(Into::into)
     }
 }
 
-impl Crate {
+impl TomlCrate {
     pub fn plain(name: &Ident, version: &StringVal, section: Section) -> Self {
         Self {
             explicit_name: name.text.to_string(),
             explicit_name_col: Range::new(name.lit_span.start.char, name.lit_span.end.char),
             lines: Range::from_start_len(name.lit_span.start.line, 1),
-            syntax: Syntax::Plain,
+            syntax: TomlCrateSyntax::Plain,
             section,
             dep_kind: DepKind::Registry,
-            vers: Some(Vers::plain(version)),
+            vers: Some(TomlCrateVers::plain(version)),
             registry: None,
             path: None,
             git: None,
@@ -225,14 +228,14 @@ impl Crate {
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Syntax {
+pub enum TomlCrateSyntax {
     Plain,
     InlineTable,
     Table,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Vers {
+pub struct TomlCrateVers {
     pub reqs: Vec<Requirement>,
     pub text: String,
     pub is_pre: bool,
@@ -243,7 +246,7 @@ pub struct Vers {
     pub quote: Quotes,
 }
 
-impl Vers {
+impl TomlCrateVers {
     fn plain(value: &StringVal) -> Self {
         Self {
             reqs: todo!(),
@@ -258,7 +261,7 @@ impl Vers {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Registry {
+pub struct TomlCrateRegistry {
     pub text: String,
     pub is_pre: bool,
     /// 0-indexed
@@ -269,7 +272,7 @@ pub struct Registry {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Path {
+pub struct TomlCratePath {
     pub text: String,
     /// 0-indexed
     pub line: u32,
@@ -279,7 +282,7 @@ pub struct Path {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Git {
+pub struct TomlCrateGit {
     pub text: String,
     /// 0-indexed
     pub line: u32,
@@ -289,7 +292,7 @@ pub struct Git {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Branch {
+pub struct TomlCrateBranch {
     pub text: String,
     pub line: u32,
     /// 0-indexed
@@ -299,7 +302,7 @@ pub struct Branch {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Rev {
+pub struct TomlCrateRev {
     pub text: String,
     pub line: u32,
     /// 0-indexed
@@ -309,7 +312,7 @@ pub struct Rev {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Pkg {
+pub struct TomlCratePkg {
     pub text: String,
     /// 0-indexed
     pub line: u32,
@@ -319,7 +322,7 @@ pub struct Pkg {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Workspace {
+pub struct TomlCrateWorkspace {
     pub enabled: bool,
     pub text: String,
     /// 0-indexed
@@ -329,7 +332,7 @@ pub struct Workspace {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Opt {
+pub struct TomlCrateOpt {
     pub enabled: bool,
     pub text: String,
     /// 0-indexed
@@ -339,7 +342,7 @@ pub struct Opt {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Def {
+pub struct TomlCrateDef {
     pub enabled: bool,
     pub text: String,
     /// 0-indexed
@@ -349,8 +352,8 @@ pub struct Def {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Feat {
-    pub items: Vec<Feature>,
+pub struct TomlCrateFeat {
+    pub items: Vec<TomlFeature>,
     pub text: String,
     /// 0-indexed
     pub line: u32,
@@ -368,7 +371,7 @@ pub enum DepKind {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Feature {
+pub struct TomlFeature {
     pub name: String,
     /// relative to to the start of the features text
     pub col: Range,
@@ -449,7 +452,7 @@ impl Range {
     }
 }
 
-fn find(ctx: &mut Ctx, map: &MapTable) -> Vec<Crate> {
+fn find(ctx: &mut Ctx, lines: &[impl AsRef<str>], map: &MapTable) -> Vec<TomlCrate> {
     let mut crates = Vec::new();
     for (key, entry) in map.iter() {
         match *key {
@@ -470,7 +473,7 @@ fn find(ctx: &mut Ctx, map: &MapTable) -> Vec<Crate> {
 
             "dependencies" => match &entry.node {
                 MapNode::Table(dependencies) => {
-                    parse_dependencies(ctx, &mut crates, dependencies, SectionKind::Default)
+                    parse_dependencies(ctx, &mut crates, lines, dependencies, SectionKind::Default)
                 }
                 _ => ctx.error(CargoError::ExpectedTable(
                     key.to_string(),
@@ -488,7 +491,8 @@ fn find(ctx: &mut Ctx, map: &MapTable) -> Vec<Crate> {
 
 fn parse_dependencies(
     ctx: &mut Ctx,
-    crates: &mut Vec<Crate>,
+    crates: &mut Vec<TomlCrate>,
+    lines: &[impl AsRef<str>],
     dependencies: &MapTable,
     kind: SectionKind,
 ) {
@@ -497,13 +501,13 @@ fn parse_dependencies(
             MapNode::Scalar(Scalar::String(version)) => {
                 let name = entry.reprs.first().key.repr_ident();
                 let section = todo!();
-                Crate::plain(name, version, section)
+                TomlCrate::plain(name, version, section)
             }
             MapNode::Scalar(_) => todo!("error"),
             MapNode::Table(t) => {
                 let repr = entry.reprs.first();
                 let syntax = match &repr.kind {
-                    MapTableEntryReprKind::Table(_) => Syntax::Table,
+                    MapTableEntryReprKind::Table(_) => TomlCrateSyntax::Table,
                     MapTableEntryReprKind::ArrayEntry(_) => todo!(),
                     MapTableEntryReprKind::ToplevelAssignment(_) => todo!(),
                     MapTableEntryReprKind::InlineTableAssignment(_) => todo!(),
@@ -530,7 +534,7 @@ fn parse_dependencies(
                         "package" => todo!(),
                         "default-features" => todo!(),
                         "default_features" => todo!("warning or error"),
-                        "features" => builder.feat = parse_dependency_features(ctx, e),
+                        "features" => builder.feat = parse_dependency_features(ctx, lines, e),
                         "workspace" => todo!(),
                         "optional" => todo!(),
                         _ => todo!("warning"),
@@ -549,12 +553,21 @@ fn parse_dependencies(
     }
 }
 
-fn parse_dependency_features(ctx: &mut Ctx, entry: &MapTableEntry) -> Option<Feat> {
+fn parse_dependency_features(
+    ctx: &mut Ctx,
+    lines: &[impl AsRef<str>],
+    entry: &MapTableEntry,
+) -> Option<TomlCrateFeat> {
     let array = expect_array_in_table(ctx, entry)?;
     let features = match array {
         MapArray::Toplevel(_) => todo!("error"),
         MapArray::Inline(i) => i,
     };
+
+    let features_span = features.repr.span();
+    if features_span.start.line != features_span.end.line {
+        todo!("multiline arrays")
+    }
 
     let mut items = Vec::with_capacity(features.len());
     for (i, e) in features.iter().enumerate() {
@@ -572,7 +585,7 @@ fn parse_dependency_features(ctx: &mut Ctx, entry: &MapTableEntry) -> Option<Fea
             .or_else(|| features.repr.r_par.map(|p| p.char))
             .unwrap_or(features.repr.span().end.char);
 
-        items.push(Feature {
+        items.push(TomlFeature {
             name: f.text.to_string(),
             col: Range::from_span_cols(f.text_span),
             decl_col: Range::new(decl_start_col, decl_end_col),
@@ -584,12 +597,18 @@ fn parse_dependency_features(ctx: &mut Ctx, entry: &MapTableEntry) -> Option<Fea
         });
     }
 
-    Some(Feat {
+    let line = features_span.start.line;
+    let col = Range::from_span_cols(features_span);
+    let decl_col = Range::from_span_cols(entry.reprs.first().kind.span());
+
+    let text = lines[line as usize].as_ref()[col.s as usize..col.e as usize].to_string();
+
+    Some(TomlCrateFeat {
         items,
-        text: todo!(),
-        line: todo!(),
-        col: todo!(),
-        decl_col: todo!(),
+        text,
+        line,
+        col,
+        decl_col,
     })
 }
 
