@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::datetime::DateTime;
 use crate::map::{MapArray, MapNode, MapTable, Scalar};
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum SimpleVal {
     Table(HashMap<String, SimpleVal>),
     Array(Vec<SimpleVal>),
@@ -13,6 +13,21 @@ pub enum SimpleVal {
     Bool(bool),
     DateTime(DateTime),
     Invalid(String),
+}
+
+impl std::fmt::Debug for SimpleVal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SimpleVal::Table(t) => f.debug_map().entries(t.iter()).finish(),
+            SimpleVal::Array(a) => f.debug_list().entries(a.iter()).finish(),
+            SimpleVal::String(s) => std::fmt::Debug::fmt(s, f),
+            SimpleVal::Int(s) => std::fmt::Debug::fmt(s, f),
+            SimpleVal::Float(s) => std::fmt::Debug::fmt(s, f),
+            SimpleVal::Bool(s) => std::fmt::Debug::fmt(s, f),
+            SimpleVal::DateTime(s) => std::fmt::Debug::fmt(s, f),
+            SimpleVal::Invalid(s) => std::fmt::Debug::fmt(s, f),
+        }
+    }
 }
 
 pub fn map_table(map: MapTable) -> HashMap<String, SimpleVal> {
