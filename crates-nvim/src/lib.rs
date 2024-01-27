@@ -2,9 +2,12 @@ use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
 use nvim_oxi::{Dictionary, Function, Object};
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use toml::map::{
-    MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryReprKind, Scalar,
+    MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
+    MapTableEntryReprKind, MapTableKeyRepr, Scalar,
 };
+use toml::onevec::OneVec;
 use toml::parse::{Ident, StringVal};
 use toml::Span;
 
@@ -81,12 +84,12 @@ pub struct Section {
     pub lines: Range,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
 pub enum SectionKind {
-    Default,
-    Dev,
-    Build,
+    Default = 1,
+    Dev = 2,
+    Build = 3,
 }
 
 #[derive(Debug)]
@@ -226,12 +229,12 @@ impl TomlCrate {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
 pub enum TomlCrateSyntax {
-    Plain,
-    InlineTable,
-    Table,
+    Plain = 1,
+    InlineTable = 2,
+    Table = 3,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -361,13 +364,13 @@ pub struct TomlCrateFeat {
     pub decl_col: Range,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
 pub enum DepKind {
-    Registry,
-    Path,
-    Git,
-    Workspace,
+    Registry = 1,
+    Path = 2,
+    Git = 3,
+    Workspace = 4,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -406,21 +409,22 @@ pub struct SemVer {
     pub meta: String,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, Deserialize_repr, Serialize_repr)]
+#[repr(u8)]
 pub enum Cond {
-    Eq,
-    Lt,
-    Le,
-    Gt,
-    Ge,
-    Cr,
-    Tl,
-    Wl,
-    Bl,
+    Eq = 1,
+    Lt = 2,
+    Le = 3,
+    Gt = 4,
+    Ge = 5,
+    Cr = 6,
+    Tl = 7,
+    Wl = 8,
+    Bl = 9,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename = "Span")]
 pub struct Range {
     /// 0-indexed inclusive
     pub s: u32,
@@ -472,9 +476,16 @@ fn find(ctx: &mut Ctx, lines: &[impl AsRef<str>], map: &MapTable) -> Vec<TomlCra
             "workspace" => (),
 
             "dependencies" => match &entry.node {
-                MapNode::Table(dependencies) => {
-                    parse_dependencies(ctx, &mut crates, lines, dependencies, SectionKind::Default)
-                }
+                MapNode::Table(dependencies) => parse_dependencies(
+                    ctx,
+                    &mut crates,
+                    lines,
+                    &entry.reprs,
+                    dependencies,
+                    SectionKind::Default,
+                    false,
+                    None,
+                ),
                 _ => ctx.error(CargoError::ExpectedTable(
                     key.to_string(),
                     entry.reprs.first().key.repr_ident().lit_span,
@@ -493,14 +504,24 @@ fn parse_dependencies(
     ctx: &mut Ctx,
     crates: &mut Vec<TomlCrate>,
     lines: &[impl AsRef<str>],
+    dependencies_reprs: &OneVec<MapTableEntryRepr>,
     dependencies: &MapTable,
     kind: SectionKind,
+    workspace: bool,
+    target: Option<String>,
 ) {
     for (crate_name, entry) in dependencies.iter() {
         let crt = match &entry.node {
             MapNode::Scalar(Scalar::String(version)) => {
                 let name = entry.reprs.first().key.repr_ident();
-                let section = todo!();
+                let section = Section {
+                    workspace,
+                    target,
+                    kind,
+                    name: todo!(),
+                    name_col: todo!(),
+                    lines: todo!(),
+                };
                 TomlCrate::plain(name, version, section)
             }
             MapNode::Scalar(_) => todo!("error"),
@@ -508,7 +529,7 @@ fn parse_dependencies(
                 let repr = entry.reprs.first();
                 let syntax = match &repr.kind {
                     MapTableEntryReprKind::Table(_) => TomlCrateSyntax::Table,
-                    MapTableEntryReprKind::ArrayEntry(_) => todo!(),
+                    MapTableEntryReprKind::ArrayEntry(_) => todo!("error"),
                     MapTableEntryReprKind::ToplevelAssignment(_) => todo!(),
                     MapTableEntryReprKind::InlineTableAssignment(_) => todo!(),
                 };
@@ -560,7 +581,7 @@ fn parse_dependency_features(
 ) -> Option<TomlCrateFeat> {
     let array = expect_array_in_table(ctx, entry)?;
     let features = match array {
-        MapArray::Toplevel(_) => todo!("error"),
+        MapArray::Toplevel(_) => todo!("error: array of tables"),
         MapArray::Inline(i) => i,
     };
 
@@ -571,9 +592,8 @@ fn parse_dependency_features(
 
     let mut items = Vec::with_capacity(features.len());
     for (i, e) in features.iter().enumerate() {
-        let f = match expect_string_in_array(ctx, e) {
-            Some(f) => f,
-            None => todo!(),
+        let Some(f) = expect_string_in_array(ctx, e) else {
+            continue;
         };
 
         let decl_start_col = (i.checked_sub(1))
