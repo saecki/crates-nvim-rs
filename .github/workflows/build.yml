@@ -1,0 +1,16 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - 'main'
+  schedule:
+  - cron:  '0 0 1 * *' # monthly
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - run: cargo test
