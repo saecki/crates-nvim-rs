@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use crate::datetime::{Date, DateTime, Time};
+use crate::error::{FmtChar, FmtStr};
 use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
 use crate::{Ctx, Error, Pos, Quote, Span};
 
@@ -451,10 +452,10 @@ impl<'a> Parser<'a> {
         self.literals[id.0 as usize]
     }
 
-    fn token_to_string(&self, ty: TokenType) -> Box<str> {
+    fn token_to_fmt_str(&self, ty: TokenType) -> FmtStr {
         let mut string = String::new();
         _ = ty.display(&mut string, &self.strings, &self.literals);
-        string.into_boxed_str()
+        FmtStr::from_string(string)
     }
 }
 
@@ -537,7 +538,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
                 let r_array_square = l_array_square.and_then(|_| match parser.peek() {
                     t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                     t => {
-                        let string = parser.token_to_string(t.ty);
+                        let string = parser.token_to_fmt_str(t.ty);
                         ctx.error(Error::ExpectedRightSquareFound(string, t.span));
                         None
                     }
@@ -546,7 +547,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
                 let r_table_square = match parser.peek() {
                     t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                     t => {
-                        let string = parser.token_to_string(t.ty);
+                        let string = parser.token_to_fmt_str(t.ty);
                         ctx.error(Error::ExpectedRightSquareFound(string, t.span));
                         None
                     }
@@ -616,7 +617,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
         let eq = match parser.next() {
             t if t.ty == TokenType::Equal => t.span.start,
             t => {
-                let string = parser.token_to_string(t.ty);
+                let string = parser.token_to_fmt_str(t.ty);
                 ctx.error(Error::ExpectedEqFound(string, t.span));
                 recover_on!(parser, Newline | EOF => continue 'root);
             }
@@ -681,7 +682,7 @@ fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Erro
                 if let Some((i, c)) = invalid_char {
                     let mut pos = token.span.start;
                     pos.char += i as u32;
-                    ctx.error(Error::InvalidCharInIdentifier(c, pos));
+                    ctx.error(Error::InvalidCharInIdentifier(FmtChar(c), pos));
                 }
 
                 Ident::from_plain_lit(lit, token.span)
@@ -696,7 +697,7 @@ fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Erro
             | TokenType::Dot
             | TokenType::Newline
             | TokenType::EOF => {
-                let string = parser.token_to_string(token.ty);
+                let string = parser.token_to_fmt_str(token.ty);
                 return Err(Error::ExpectedKeyFound(string, token.span));
             }
         };
@@ -832,7 +833,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
             let r_par = match parser.peek() {
                 t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
                 t => {
-                    let string = parser.token_to_string(t.ty);
+                    let string = parser.token_to_fmt_str(t.ty);
                     ctx.error(Error::ExpectedRightSquareFound(string, t.span));
                     None
                 }
@@ -871,7 +872,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                 let eq = match parser.peek() {
                     t if t.ty == TokenType::Equal => parser.next().span.start,
                     t => {
-                        let string = parser.token_to_string(t.ty);
+                        let string = parser.token_to_fmt_str(t.ty);
                         ctx.error(Error::ExpectedEqFound(string, t.span));
                         recover_on!(parser,
                             Comma => continue 'inline_table,
@@ -915,7 +916,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
             let r_par = match parser.peek() {
                 t if t.ty == TokenType::CurlyRight => Some(parser.next().span.start),
                 t => {
-                    let string = parser.token_to_string(t.ty);
+                    let string = parser.token_to_fmt_str(t.ty);
                     ctx.error(Error::ExpectedRightCurlyFound(string, t.span));
                     None
                 }
@@ -935,7 +936,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
         | TokenType::Dot
         | TokenType::Newline
         | TokenType::EOF => {
-            let string = parser.token_to_string(token.ty);
+            let string = parser.token_to_fmt_str(token.ty);
             return Err(Error::ExpectedValueFound(string, token.span));
         }
     };

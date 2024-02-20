@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::error::FmtChar;
 use crate::{Ctx, Error};
 
 #[cfg(test)]
@@ -534,7 +535,7 @@ fn string_escape(
                 lexer.next();
             }
         }
-        _ => ctx.error(Error::InvalidEscapeChar(c, lexer.pos())),
+        _ => ctx.error(Error::InvalidEscapeChar(FmtChar(c), lexer.pos())),
     }
 
     StringResult::Continue
@@ -597,7 +598,7 @@ fn string_escape_unicode(
                 }
             }
             _ => {
-                ctx.error(Error::InvalidUnicodeEscapeChar(c, lexer.pos()));
+                ctx.error(Error::InvalidUnicodeEscapeChar(FmtChar(c), lexer.pos()));
 
                 if str.quote.matches(c) {
                     let text_end = lexer.byte_pos;

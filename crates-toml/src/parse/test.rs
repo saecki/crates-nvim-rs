@@ -359,7 +359,7 @@ fn invalid_prefixed_int_radix() {
                 },
             ),
         })],
-        Error::InvalidIntRadix('c', Pos { line: 0, char: 7 }),
+        Error::InvalidIntRadix(FmtChar('c'), Pos { line: 0, char: 7 }),
     );
 }
 
@@ -390,7 +390,7 @@ fn prefixed_int_digit_too_big() {
                 },
             ),
         })],
-        Error::IntDigitTooBig(IntPrefix::Octal, '8', Pos { line: 0, char: 9 }),
+        Error::IntDigitTooBig(IntPrefix::Octal, FmtChar('8'), Pos { line: 0, char: 9 }),
     );
 }
 
@@ -580,7 +580,7 @@ fn invalid_int_identifier() {
                 val: false,
             }),
         })],
-        Error::InvalidCharInIdentifier('+', Pos { line: 0, char: 0 }),
+        Error::InvalidCharInIdentifier(FmtChar('+'), Pos { line: 0, char: 0 }),
     );
 }
 
@@ -617,7 +617,7 @@ fn invalid_float_literal_as_identifier() {
                 quote: Quote::Literal,
             }),
         })],
-        Error::InvalidCharInIdentifier('+', Pos { line: 0, char: 3 }),
+        Error::InvalidCharInIdentifier(FmtChar('+'), Pos { line: 0, char: 3 }),
     );
 }
 

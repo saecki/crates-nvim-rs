@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use crate::datetime::DateTimeField;
 use crate::parse::{IntPrefix, Sign};
 use crate::{Pos, Quote, Span};
@@ -30,26 +32,26 @@ impl std::fmt::Display for Severity {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     MissingQuote(Quote, Pos, Pos),
-    InvalidEscapeChar(char, Pos),
-    InvalidUnicodeEscapeChar(char, Pos),
+    InvalidEscapeChar(FmtChar, Pos),
+    InvalidUnicodeEscapeChar(FmtChar, Pos),
     InvalidUnicodeCodepoint(u8, u32, Span),
     UnfinishedEscapeSequence(Span),
-    InvalidCharInIdentifier(char, Pos),
+    InvalidCharInIdentifier(FmtChar, Pos),
     MultilineBasicStringIdent(Span),
     MultilineLiteralStringIdent(Span),
 
-    ExpectedEqFound(Box<str>, Span),
-    ExpectedRightCurlyFound(Box<str>, Span),
-    ExpectedRightSquareFound(Box<str>, Span),
-    ExpectedKeyFound(Box<str>, Span),
-    ExpectedValueFound(Box<str>, Span),
+    ExpectedEqFound(FmtStr, Span),
+    ExpectedRightCurlyFound(FmtStr, Span),
+    ExpectedRightSquareFound(FmtStr, Span),
+    ExpectedKeyFound(FmtStr, Span),
+    ExpectedValueFound(FmtStr, Span),
     MissingComma(Pos),
     MissingNewline(Pos),
     InlineTableTrailingComma(Pos),
 
-    InvalidIntRadix(char, Pos),
-    InvalidNumOrDateLiteralStart(char, Pos),
-    InvalidCharInNumLiteral(char, Pos),
+    InvalidIntRadix(FmtChar, Pos),
+    InvalidNumOrDateLiteralStart(FmtChar, Pos),
+    InvalidCharInNumLiteral(FmtChar, Pos),
     NumOrDateLiteralStartsWithUnderscore(Pos),
     NumLiteralEndsWithUnderscore(Pos),
     MissingNumDigitsAfterSign(Sign, Pos),
@@ -57,10 +59,10 @@ pub enum Error {
     MissingFloatFractionalPart(Pos),
     FloatEndsWithUnderscore(Pos),
     FloatFractEndsWithUnderscore(Pos),
-    InvalidCharInFloatLiteral(char, Pos),
+    InvalidCharInFloatLiteral(FmtChar, Pos),
     FloatExponentStartsWithUnderscore(Pos),
     FloatExponentEndsWithUnderscore(Pos),
-    InvalidCharInFloatExponent(char, Pos),
+    InvalidCharInFloatExponent(FmtChar, Pos),
     FloatLiteralOverflow(Span),
 
     EmptyPrefixedIntValue(Pos),
@@ -68,13 +70,13 @@ pub enum Error {
     UppercaseIntRadix(IntPrefix, Pos),
     PrefixedIntValueStartsWithUnderscore(Pos),
     PrefixedIntValueEndsWithUnderscore(Pos),
-    InvalidCharInPrefixedInt(char, Pos),
-    IntDigitTooBig(IntPrefix, char, Pos),
+    InvalidCharInPrefixedInt(FmtChar, Pos),
+    IntDigitTooBig(IntPrefix, FmtChar, Pos),
     IntLiteralOverflow(Span),
 
-    InvalidCharInDateTime(char, Pos),
-    DateTimeExpectedCharFound(DateTimeField, char, char, Pos),
-    DateTimeMissingChar(DateTimeField, char, Pos),
+    InvalidCharInDateTime(FmtChar, Pos),
+    DateTimeExpectedCharFound(DateTimeField, FmtChar, FmtChar, Pos),
+    DateTimeMissingChar(DateTimeField, FmtChar, Pos),
     DateTimeIncomplete(DateTimeField, Pos),
     DateTimeMissing(DateTimeField, Pos),
     DateTimeOutOfBounds(DateTimeField, u8, Span),
@@ -83,23 +85,23 @@ pub enum Error {
     DateAndTimeTooFarApart(Span),
 
     DuplicateKey {
-        path: Option<Box<str>>,
-        key: Box<str>,
+        path: Option<FmtStr>,
+        key: FmtStr,
         orig: Span,
         duplicate: Span,
     },
     CannotExtendInlineTable {
-        path: Box<str>,
+        path: FmtStr,
         orig: Span,
         new: Span,
     },
     CannotExtendInlineArray {
-        path: Box<str>,
+        path: FmtStr,
         orig: Span,
         new: Span,
     },
     CannotExtendInlineArrayAsTable {
-        path: Box<str>,
+        path: FmtStr,
         orig: Span,
         new: Span,
     },
@@ -459,5 +461,49 @@ impl Diagnostic for Hint {
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         self.description(f)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FmtChar(pub char);
+
+impl std::fmt::Display for FmtChar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            '\u{8}' => f.write_str("\\b"),
+            '\t' => f.write_str("\\t"),
+            '\n' => f.write_str("\\n"),
+            '\u{C}' => f.write_str("\\f"),
+            '\r' => f.write_str("\\r"),
+            c => f.write_char(c),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FmtStr(pub Box<str>);
+
+impl std::fmt::Display for FmtStr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for c in self.0.chars() {
+            std::fmt::Display::fmt(&FmtChar(c), f)?;
+        }
+        Ok(())
+    }
+}
+
+impl FmtStr {
+    pub fn from_string(value: String) -> Self {
+        Self(value.into_boxed_str())
+    }
+
+    pub fn from_str(value: &str) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<&str> for FmtStr {
+    fn from(value: &str) -> Self {
+        Self::from_str(value)
     }
 }

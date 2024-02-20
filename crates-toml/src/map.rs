@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
+use crate::error::FmtStr;
 use crate::onevec::OneVec;
 use crate::parse::{
     ArrayEntry, Assignment, Ast, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
@@ -307,19 +308,19 @@ impl Mapper {
         _ = write!(&mut self.current_path, "[{index}]");
     }
 
-    fn path(&self) -> Option<Box<str>> {
+    fn path(&self) -> Option<FmtStr> {
         if self.current_path.is_empty() {
             None
         } else {
-            Some(self.current_path.clone().into_boxed_str())
+            Some(FmtStr::from_str(&self.current_path))
         }
     }
 
-    fn joined_path(&self, key: &str) -> Box<str> {
+    fn joined_path(&self, key: &str) -> FmtStr {
         if self.current_path.is_empty() {
-            key.into()
+            FmtStr::from_str(key)
         } else {
-            format!("{}.{}", self.current_path, key).into_boxed_str()
+            FmtStr::from_string(format!("{}.{}", self.current_path, key))
         }
     }
 }
@@ -753,7 +754,7 @@ where
         MapNode::Scalar(_) => {
             return Err(Error::DuplicateKey {
                 path: mapper.path(),
-                key: ident.lit.to_string().into_boxed_str(),
+                key: FmtStr::from_str(ident.lit),
                 orig: reprs.first().key.repr_ident().lit_span,
                 duplicate: ident.lit_span,
             });
@@ -794,7 +795,7 @@ fn duplicate_key_error(
 ) -> Error {
     Error::DuplicateKey {
         path: mapper.path(),
-        key: ident.lit.to_string().into_boxed_str(),
+        key: FmtStr::from_str(ident.lit),
         orig: entry.reprs.first().key.repr_ident().lit_span,
         duplicate: duplicate.repr_ident().lit_span,
     }

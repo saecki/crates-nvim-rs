@@ -1,4 +1,5 @@
 use crate::datetime::{Date, DateTime, DateTimeField, DateTimeField::*, Offset, Time};
+use crate::error::FmtChar;
 use crate::lex::CharIter;
 use crate::parse::{DateTimeVal, PartialValue};
 use crate::{Error, Pos, Span};
@@ -248,7 +249,7 @@ fn error_on_offset(chars: &mut CharIter, span: Span) -> Result<(), Error> {
 
 fn invalid_char_error<T>(char: char, span: Span, offset: usize) -> Result<T, Error> {
     let pos = span.start.plus(offset as u32);
-    Err(Error::InvalidCharInDateTime(char, pos))
+    Err(Error::InvalidCharInDateTime(FmtChar(char), pos))
 }
 
 fn expect_char(
@@ -261,9 +262,9 @@ fn expect_char(
         Some((_, c)) if c == expected => Ok(()),
         Some((i, c)) => {
             let pos = span.start.plus(i as u32);
-            Err(Error::DateTimeExpectedCharFound(after, expected, c, pos))
+            Err(Error::DateTimeExpectedCharFound(after, FmtChar(expected), FmtChar(c), pos))
         }
-        None => Err(Error::DateTimeMissingChar(after, expected, span.end)),
+        None => Err(Error::DateTimeMissingChar(after, FmtChar(expected), span.end)),
     }
 }
 
@@ -279,7 +280,7 @@ impl ExpectNumError {
         match self.0 {
             ExpectNumErrorKind::Incomplete => Error::DateTimeIncomplete(field, self.1),
             ExpectNumErrorKind::Missing => Error::DateTimeMissing(field, self.1),
-            ExpectNumErrorKind::Invalid(c) => Error::InvalidCharInDateTime(c, self.1),
+            ExpectNumErrorKind::Invalid(c) => Error::InvalidCharInDateTime(FmtChar(c), self.1),
         }
     }
 }

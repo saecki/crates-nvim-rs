@@ -1,3 +1,4 @@
+use crate::error::FmtChar;
 use crate::lex::CharIter;
 use crate::parse::{datetime, PartialValue};
 use crate::{Error, Span};
@@ -70,7 +71,7 @@ pub fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Erro
                 }
                 Some((i, c)) => {
                     let pos = span.start.plus(i as u32);
-                    Err(Error::InvalidCharInNumLiteral(c, pos))
+                    Err(Error::InvalidCharInNumLiteral(FmtChar(c), pos))
                 }
                 None => Err(Error::MissingNumDigitsAfterSign(sign, span.end)),
             }
@@ -81,7 +82,7 @@ pub fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Erro
             parse_decimal_int_float_or_date(chars, span, num, None)
         }
         '_' => Err(Error::NumOrDateLiteralStartsWithUnderscore(span.start)),
-        _ => Err(Error::InvalidNumOrDateLiteralStart(c, span.start)),
+        _ => Err(Error::InvalidNumOrDateLiteralStart(FmtChar(c), span.start)),
     }
 }
 
@@ -139,7 +140,7 @@ fn parse_decimal_int_float_or_date(
             }
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInNumLiteral(c, pos));
+                return Err(Error::InvalidCharInNumLiteral(FmtChar(c), pos));
             }
         }
     }
@@ -192,7 +193,7 @@ fn parse_prefixed_int_or_date(
             let two_digits = c as u16 - '0' as u16;
             datetime::continue_parsing_date_time(&mut chars, span, two_digits)
         }
-        _ => Err(Error::InvalidIntRadix(c, span.start.plus(i as u32))),
+        _ => Err(Error::InvalidIntRadix(FmtChar(c), span.start.plus(i as u32))),
     }
 }
 
@@ -221,7 +222,7 @@ fn parse_prefixed_int_literal(
                 let n = c as u32 - '0' as u32;
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(prefix, c, pos));
+                    return Err(Error::IntDigitTooBig(prefix, FmtChar(c), pos));
                 }
                 n
             }
@@ -229,7 +230,7 @@ fn parse_prefixed_int_literal(
                 let n = 10 + c as u32 - 'a' as u32;
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(prefix, c, pos));
+                    return Err(Error::IntDigitTooBig(prefix, FmtChar(c), pos));
                 }
                 n
             }
@@ -237,7 +238,7 @@ fn parse_prefixed_int_literal(
                 let n = 10 + (c as u32 - 'A' as u32);
                 if n >= max_value {
                     let pos = span.start.plus(i as u32);
-                    return Err(Error::IntDigitTooBig(prefix, c, pos));
+                    return Err(Error::IntDigitTooBig(prefix, FmtChar(c), pos));
                 }
                 n
             }
@@ -251,7 +252,7 @@ fn parse_prefixed_int_literal(
             }
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInPrefixedInt(c, pos));
+                return Err(Error::InvalidCharInPrefixedInt(FmtChar(c), pos));
             }
         };
 
@@ -297,7 +298,7 @@ fn parse_float_exponent(mut chars: CharIter, span: Span) -> Result<PartialValue,
             }
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInFloatExponent(c, pos));
+                return Err(Error::InvalidCharInFloatExponent(FmtChar(c), pos));
             }
         }
     }
@@ -345,7 +346,7 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
                         }
                         _ => {
                             let pos = span.start.plus(i as u32);
-                            return Err(Error::InvalidCharInFloatExponent(c, pos));
+                            return Err(Error::InvalidCharInFloatExponent(FmtChar(c), pos));
                         }
                     }
                 }
@@ -360,7 +361,7 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
             '_' => (),
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInFloatLiteral(c, pos));
+                return Err(Error::InvalidCharInFloatLiteral(FmtChar(c), pos));
             }
         }
 
