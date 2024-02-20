@@ -75,7 +75,12 @@ pub enum Error {
     IntLiteralOverflow(Span),
 
     InvalidCharInDateTime(FmtChar, Pos),
-    DateTimeExpectedCharFound(DateTimeField, FmtChar, FmtChar, Pos),
+    DateTimeExpectedCharFound {
+        after: DateTimeField,
+        expected: FmtChar,
+        found: FmtChar,
+        pos: Pos,
+    },
     DateTimeMissingChar(DateTimeField, FmtChar, Pos),
     DateTimeIncomplete(DateTimeField, Pos),
     DateTimeMissing(DateTimeField, Pos),
@@ -161,7 +166,7 @@ impl Diagnostic for Error {
             IntLiteralOverflow(s) => *s,
 
             InvalidCharInDateTime(_, p) => Span::pos(*p),
-            DateTimeExpectedCharFound(_, _, _, p) => Span::pos(*p),
+            DateTimeExpectedCharFound { pos, .. } => Span::pos(*pos),
             DateTimeMissingChar(_, _, p) => Span::pos(*p),
             DateTimeIncomplete(_, p) => Span::pos(*p),
             DateTimeMissing(_, p) => Span::pos(*p),
@@ -237,7 +242,7 @@ impl Diagnostic for Error {
             IntLiteralOverflow(_) => write!(f, "Integer literal overflow, number doesn't fit into a 64-bit signed integer"),
 
             InvalidCharInDateTime(char, _) => write!(f, "Invalid character `{char}` in date-time"),
-            DateTimeExpectedCharFound(field, found, expected, _) => write!(f, "Invalid character `{found}` in date-time after {field}, expected `{expected}`"),
+            DateTimeExpectedCharFound { after, found, expected, .. } => write!(f, "Invalid character `{found}` in date-time after {after}, expected `{expected}`"),
             DateTimeMissingChar(field, expected, _) => write!(f, "Incomplete date-time, missing character `{expected}` after {field}"),
             DateTimeIncomplete(field, _) => write!(f, "Incomplete date-time, {field} is missing digits"),
             DateTimeMissing(field, _) => write!(f, "Incomplete date-time, missing {field}"),
@@ -336,7 +341,7 @@ impl Diagnostic for Error {
             IntLiteralOverflow(_) => write!(f, "Integer literal overflow"),
 
             InvalidCharInDateTime(..) => write!(f, "Invalid character in date-time"),
-            DateTimeExpectedCharFound(..) => write!(f, "Invalid date-time character"),
+            DateTimeExpectedCharFound { .. } => write!(f, "Invalid date-time character"),
             DateTimeMissingChar(..) => write!(f, "Missing character"),
             DateTimeIncomplete(..) => write!(f, "Missing digits"),
             DateTimeMissing(field, _) => write!(f, "Missing {field}"),
@@ -404,7 +409,7 @@ impl Error {
             IntLiteralOverflow(_) => None,
 
             InvalidCharInDateTime(_, _) => None,
-            DateTimeExpectedCharFound(_, _, _, _) => None,
+            DateTimeExpectedCharFound { .. } => None,
             DateTimeMissingChar(_, _, _) => None,
             DateTimeIncomplete(_, _) => None,
             DateTimeMissing(_, _) => None,

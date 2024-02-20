@@ -193,7 +193,10 @@ fn parse_prefixed_int_or_date(
             let two_digits = c as u16 - '0' as u16;
             datetime::continue_parsing_date_time(&mut chars, span, two_digits)
         }
-        _ => Err(Error::InvalidIntRadix(FmtChar(c), span.start.plus(i as u32))),
+        _ => {
+            let pos = span.start.plus(i as u32);
+            Err(Error::InvalidIntRadix(FmtChar(c), pos))
+        }
     }
 }
 

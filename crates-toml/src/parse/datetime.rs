@@ -262,9 +262,18 @@ fn expect_char(
         Some((_, c)) if c == expected => Ok(()),
         Some((i, c)) => {
             let pos = span.start.plus(i as u32);
-            Err(Error::DateTimeExpectedCharFound(after, FmtChar(expected), FmtChar(c), pos))
+            Err(Error::DateTimeExpectedCharFound {
+                after,
+                expected: FmtChar(expected),
+                found: FmtChar(c),
+                pos,
+            })
         }
-        None => Err(Error::DateTimeMissingChar(after, FmtChar(expected), span.end)),
+        None => Err(Error::DateTimeMissingChar(
+            after,
+            FmtChar(expected),
+            span.end,
+        )),
     }
 }
 
