@@ -453,7 +453,9 @@ fn string(ctx: &mut Ctx, lexer: &mut Lexer<'_>, str: &mut StrState) {
             let lit_end = lexer.byte_pos + 1;
             end_string(lexer, str, text_end, lit_end);
             return;
-        } else if c == '\n' {
+        }
+
+        if c == '\n' {
             if !str.quote.is_multiline() {
                 // Recover state
                 ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
@@ -584,11 +586,7 @@ fn string_escape_unicode(
                     lexer.pos(),
                 )));
 
-                if str.quote.is_multiline() {
-                    str.push_char(c);
-                    lexer.newline();
-                    return StringResult::Continue;
-                } else {
+                if !str.quote.is_multiline() {
                     // Recover state
                     ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
                     end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
@@ -596,6 +594,10 @@ fn string_escape_unicode(
                     lexer.newline();
                     return StringResult::Ended;
                 }
+
+                str.push_char(c);
+                lexer.newline();
+                return StringResult::Continue;
             }
             _ => {
                 ctx.error(Error::InvalidUnicodeEscapeChar(FmtChar(c), lexer.pos()));
