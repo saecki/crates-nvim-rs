@@ -713,13 +713,8 @@ fn char_token(lexer: &mut Lexer, ty: TokenType) {
 fn newline_token(lexer: &mut Lexer) {
     end_literal(lexer);
 
-    let start = lexer.pos();
-    let end = Pos {
-        line: start.line + 1,
-        char: 0,
-    };
     lexer.tokens.push(Token {
-        span: Span { start, end },
+        span: Span::pos(lexer.pos()),
         ty: TokenType::Newline,
     });
 }

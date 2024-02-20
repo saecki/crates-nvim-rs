@@ -503,10 +503,7 @@ fn unclosed_basic_single_line_string() {
                 },
                 Token {
                     ty: TokenType::Newline,
-                    span: Span {
-                        start: Pos { line: 0, char: 21 },
-                        end: Pos { line: 1, char: 0 },
-                    },
+                    span: Span::pos(Pos { line: 0, char: 21 }),
                 },
             ],
             strings: vec![StringToken {
@@ -652,10 +649,7 @@ fn unclosed_literal_single_line_string() {
                 },
                 Token {
                     ty: TokenType::Newline,
-                    span: Span {
-                        start: Pos { line: 0, char: 21 },
-                        end: Pos { line: 1, char: 0 },
-                    },
+                    span: Span::pos(Pos { line: 0, char: 21 }),
                 },
             ],
             strings: vec![StringToken {
@@ -823,10 +817,7 @@ fn comment_with_newline() {
                 },
                 Token {
                     ty: TokenType::Newline,
-                    span: Span {
-                        start: Pos { line: 0, char: 13 },
-                        end: Pos { line: 1, char: 0 },
-                    },
+                    span: Span::pos(Pos { line: 0, char: 13 }),
                 },
             ],
             literals: vec![" hello there"],
