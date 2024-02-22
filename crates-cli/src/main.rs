@@ -57,7 +57,7 @@ fn main() -> ExitCode {
 
 trait DisplayDiagnostic: Diagnostic + Sized {
     fn header<'a, T>(&'a self, text: &'a [T]) -> DiagnosticHeader<'a, Self, T>;
-    fn display<'a, T>(&'a self, text: &'a [T]) -> DiagnosticFmt<'a, Self, T>;
+    fn display<'a, T>(&'a self, text: &'a [T]) -> FmtDiagnostic<'a, Self, T>;
 }
 
 impl<D: Diagnostic> DisplayDiagnostic for D {
@@ -68,8 +68,8 @@ impl<D: Diagnostic> DisplayDiagnostic for D {
         }
     }
 
-    fn display<'a, T>(&'a self, text: &'a [T]) -> DiagnosticFmt<'a, D, T> {
-        DiagnosticFmt {
+    fn display<'a, T>(&'a self, text: &'a [T]) -> FmtDiagnostic<'a, D, T> {
+        FmtDiagnostic {
             diagnostic: self,
             text,
         }
@@ -87,12 +87,12 @@ impl<'a, D: Diagnostic, T: AsRef<str>> std::fmt::Display for DiagnosticHeader<'a
     }
 }
 
-pub struct DiagnosticFmt<'a, D: Diagnostic, T> {
+pub struct FmtDiagnostic<'a, D: Diagnostic, T> {
     diagnostic: &'a D,
     text: &'a [T],
 }
 
-impl<'a, D: Diagnostic, T: AsRef<str> + 'a> std::fmt::Display for DiagnosticFmt<'a, D, T> {
+impl<'a, D: Diagnostic, T: AsRef<str> + 'a> std::fmt::Display for FmtDiagnostic<'a, D, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         display_in_text(f, self.diagnostic, self.text)
     }
