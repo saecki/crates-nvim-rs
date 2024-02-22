@@ -692,12 +692,12 @@ fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Erro
                 parser.next();
             }
             _ => {
-                if idents.is_empty() {
-                    return Ok(Key::One(ident));
+                return if idents.is_empty() {
+                    Ok(Key::One(ident))
                 } else {
                     idents.push(DottedIdent { ident, dot: None });
-                    return Ok(Key::Dotted(idents));
-                }
+                    Ok(Key::Dotted(idents))
+                };
             }
         }
     }

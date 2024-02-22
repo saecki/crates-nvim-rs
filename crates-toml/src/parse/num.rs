@@ -213,9 +213,9 @@ fn parse_prefixed_int_literal(
         let Some((i, c)) = chars.next() else {
             if j == 0 {
                 return Err(Error::EmptyPrefixedIntValue(span.end));
-            } else {
-                break;
             }
+
+            break;
         };
 
         last_underscore = false;
