@@ -368,20 +368,6 @@ pub struct Comment<'a> {
     pub text: &'a str,
 }
 
-enum Header<'a> {
-    Table(Table<'a>),
-    Array(ArrayEntry<'a>),
-}
-
-impl<'a> Header<'a> {
-    fn into_ast(self) -> Ast<'a> {
-        match self {
-            Header::Table(t) => Ast::Table(t),
-            Header::Array(a) => Ast::Array(a),
-        }
-    }
-}
-
 // TODO: cursor to peek multiple tokens ahead and revert
 // -> use for heuristics to detect unclosed inline arrays
 #[derive(Debug)]
@@ -494,7 +480,6 @@ enum PartialValue {
 pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
     let mut parser = Parser::new(tokens);
     let mut asts = Vec::new();
-    let mut last_header = None;
     let mut newline_required = false;
 
     'root: loop {
@@ -562,17 +547,17 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                     }
                 };
 
-                let header = match l_array_square {
+                match l_array_square {
                     Some(l_array_square) => {
                         let header = ArrayHeader {
                             l_pars: (l_table_square.start, l_array_square.start),
                             key,
                             r_pars: (r_array_square, r_table_square),
                         };
-                        Header::Array(ArrayEntry {
+                        asts.push(Ast::Array(ArrayEntry {
                             header,
                             assignments: Vec::new(),
-                        })
+                        }));
                     }
                     None => {
                         let header = TableHeader {
@@ -580,19 +565,11 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                             key,
                             r_par: r_table_square,
                         };
-                        Header::Table(Table {
+                        asts.push(Ast::Table(Table {
                             header,
                             assignments: Vec::new(),
-                        })
+                        }));
                     }
-                };
-
-                match &mut last_header {
-                    Some(last) => {
-                        let last = std::mem::replace(last, header);
-                        asts.push(last.into_ast());
-                    }
-                    None => last_header = Some(header),
                 }
 
                 newline_required = true;
@@ -641,17 +618,13 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
         };
 
         let assignment = Assignment { key, eq, val };
-        match &mut last_header {
-            Some(Header::Table(t)) => t.assignments.push(assignment),
-            Some(Header::Array(a)) => a.assignments.push(assignment),
-            None => asts.push(Ast::Assignment(assignment)),
+        match asts.last_mut() {
+            Some(Ast::Table(t)) => t.assignments.push(assignment),
+            Some(Ast::Array(a)) => a.assignments.push(assignment),
+            _ => asts.push(Ast::Assignment(assignment)),
         }
 
         newline_required = true;
-    }
-
-    if let Some(last) = last_header {
-        asts.push(last.into_ast());
     }
 
     asts
