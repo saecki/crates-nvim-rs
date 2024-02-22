@@ -16,7 +16,7 @@ impl<'a> MapTableEntry<'a> {
 fn check(input: &str, expected: MapTable) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    let asts = ctx.parse(tokens);
+    let asts = ctx.parse(&tokens);
     let map = ctx.map(&asts);
     assert_eq!(
         expected, map,
@@ -30,7 +30,7 @@ fn check(input: &str, expected: MapTable) {
 fn check_error(input: &str, expected: MapTable, error: Error) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    let asts = ctx.parse(tokens);
+    let asts = ctx.parse(&tokens);
     let map = ctx.map(&asts);
     assert_eq!(
         expected, map,

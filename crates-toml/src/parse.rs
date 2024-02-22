@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::borrow::Borrow;
 
 use crate::datetime::{Date, DateTime, Time};
 use crate::error::{FmtChar, FmtStr};
@@ -155,7 +155,7 @@ impl Key<'_> {
 pub struct Ident<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
-    pub text: Cow<'a, str>,
+    pub text: &'a str,
     pub text_span: Span,
     pub kind: IdentKind,
 }
@@ -165,7 +165,7 @@ impl<'a> Ident<'a> {
         Ident {
             lit,
             lit_span: span,
-            text: Cow::Borrowed(lit),
+            text: lit,
             text_span: span,
             kind: IdentKind::Plain,
         }
@@ -215,7 +215,7 @@ impl Value<'_> {
 pub struct StringVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
-    pub text: Cow<'a, str>,
+    pub text: &'a str,
     pub text_span: Span,
     pub quote: Quote,
 }
@@ -386,30 +386,39 @@ impl<'a> Header<'a> {
 // -> use for heuristics to detect unclosed inline arrays
 #[derive(Debug)]
 struct Parser<'a> {
-    strings: Vec<StringToken<'a>>,
-    literals: Vec<&'a str>,
-    tokens: std::iter::Peekable<std::vec::IntoIter<Token>>,
+    strings: &'a [StringToken<'a>],
+    literals: &'a [&'a str],
+    tokens: &'a [Token],
+    cursor: usize,
     eof: Token,
 }
 
 impl<'a> Parser<'a> {
-    fn new(tokens: Tokens<'a>) -> Self {
+    fn new(tokens: &'a Tokens<'a>) -> Self {
         Self {
-            strings: tokens.strings,
-            literals: tokens.literals,
-            tokens: tokens.tokens.into_iter().peekable(),
+            strings: &tokens.strings,
+            literals: &tokens.literals,
+            tokens: &tokens.tokens,
+            cursor: 0,
             eof: tokens.eof,
         }
     }
 
     fn next(&mut self) -> Token {
-        self.tokens.next().unwrap_or(self.eof)
+        if self.cursor < self.tokens.len() {
+            let t = self.tokens[self.cursor];
+            self.cursor += 1;
+            t
+        } else {
+            self.eof
+        }
     }
 
     fn peek(&mut self) -> Token {
-        match self.tokens.peek() {
-            Some(t) => *t,
-            None => self.eof,
+        if self.cursor < self.tokens.len() {
+            self.tokens[self.cursor]
+        } else {
+            self.eof
         }
     }
 
@@ -444,8 +453,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn string_mut(&mut self, id: StringId) -> &mut StringToken<'a> {
-        &mut self.strings[id.0 as usize]
+    fn string(&self, id: StringId) -> &'a StringToken<'a> {
+        &self.strings[id.0 as usize]
     }
 
     fn literal(&self, id: LiteralId) -> &'a str {
@@ -482,7 +491,7 @@ enum PartialValue {
 
 /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
 /// is returned, otherwise the possibly partially invalid ast is returned.
-pub fn parse<'a>(ctx: &mut Ctx, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
+pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
     let mut parser = Parser::new(tokens);
     let mut asts = Vec::new();
     let mut last_header = None;
@@ -654,7 +663,7 @@ fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Erro
         let token = parser.peek();
         let ident = match token.ty {
             TokenType::String(id) => {
-                let str = parser.string_mut(id);
+                let str = parser.string(id);
                 let kind = match str.quote {
                     Quote::Basic => IdentKind::BasicString,
                     Quote::Literal => IdentKind::LiteralString,
@@ -668,7 +677,7 @@ fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Erro
                 Ident {
                     lit_span: token.span,
                     lit: str.lit,
-                    text: std::mem::take(&mut str.text),
+                    text: str.text.borrow(),
                     text_span: str.text_span,
                     kind,
                 }
@@ -726,11 +735,11 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
     let value = match token.ty {
         TokenType::String(id) => {
             let token = parser.next();
-            let str = parser.string_mut(id);
+            let str = parser.string(id);
             Value::String(StringVal {
                 lit: str.lit,
                 lit_span: token.span,
-                text: std::mem::take(&mut str.text),
+                text: str.text.borrow(),
                 text_span: str.text_span,
                 quote: str.quote,
             })

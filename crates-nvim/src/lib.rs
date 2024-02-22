@@ -59,7 +59,7 @@ pub fn crates_nvim() -> nvim_oxi::Result<Dictionary> {
 
         let mut toml_ctx = toml::Ctx::default();
         let tokens = toml_ctx.lex(&text);
-        let asts = toml_ctx.parse(tokens);
+        let asts = toml_ctx.parse(&tokens);
         let map = toml_ctx.map(&asts);
 
         let mut ctx = Ctx::from(toml_ctx);

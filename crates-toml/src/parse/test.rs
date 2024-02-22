@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 use pretty_assertions::assert_eq;
@@ -12,7 +11,7 @@ use crate::Warning;
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    let asts = ctx.parse(tokens);
+    let asts = ctx.parse(&tokens);
     assert_eq!(
         expected.as_slice(),
         asts,
@@ -27,7 +26,7 @@ fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
 fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Error) {
     let mut ctx = Ctx::default();
     let tokens = ctx.lex(input);
-    let asts = ctx.parse(tokens);
+    let asts = ctx.parse(&tokens);
     assert_eq!(
         expected.as_slice(),
         asts,
@@ -158,7 +157,7 @@ fn assign_bool() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -188,7 +187,7 @@ fn assign_float() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -219,7 +218,7 @@ fn assign_float_with_exp1() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -250,7 +249,7 @@ fn assign_float_with_exp2() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -281,7 +280,7 @@ fn float_fractional_part_ends_with_underscore() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -312,7 +311,7 @@ fn int_with_underscore() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -343,7 +342,7 @@ fn invalid_prefixed_int_radix() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -374,7 +373,7 @@ fn prefixed_int_digit_too_big() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -405,7 +404,7 @@ fn prefixed_int_starts_with_underscore() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -436,7 +435,7 @@ fn prefixed_int_ends_with_underscore() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -469,7 +468,7 @@ fn dotted_key() {
                             start: Pos { line: 0, char: 0 },
                             end: Pos { line: 0, char: 1 },
                         },
-                        text: Cow::Borrowed("a"),
+                        text: "a",
                         text_span: Span {
                             start: Pos { line: 0, char: 0 },
                             end: Pos { line: 0, char: 1 },
@@ -485,7 +484,7 @@ fn dotted_key() {
                             start: Pos { line: 0, char: 2 },
                             end: Pos { line: 0, char: 3 },
                         },
-                        text: Cow::Borrowed("b"),
+                        text: "b",
                         text_span: Span {
                             start: Pos { line: 0, char: 2 },
                             end: Pos { line: 0, char: 3 },
@@ -501,7 +500,7 @@ fn dotted_key() {
                             start: Pos { line: 0, char: 4 },
                             end: Pos { line: 0, char: 5 },
                         },
-                        text: Cow::Borrowed("c"),
+                        text: "c",
                         text_span: Span {
                             start: Pos { line: 0, char: 4 },
                             end: Pos { line: 0, char: 5 },
@@ -534,7 +533,7 @@ fn int_identifier() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("123"),
+                text: "123",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -564,7 +563,7 @@ fn invalid_int_identifier() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("+99"),
+                text: "+99",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -595,7 +594,7 @@ fn invalid_float_literal_as_identifier() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("23e+3"),
+                text: "23e+3",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -609,7 +608,7 @@ fn invalid_float_literal_as_identifier() {
                     start: Pos { line: 0, char: 8 },
                     end: Pos { line: 0, char: 15 },
                 },
-                text: Cow::Borrowed("hello"),
+                text: "hello",
                 text_span: Span {
                     start: Pos { line: 0, char: 9 },
                     end: Pos { line: 0, char: 14 },
@@ -650,7 +649,7 @@ fn inline_array() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("array"),
+                text: "array",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -712,7 +711,7 @@ fn multi_line_inline_array() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("array"),
+                text: "array",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -774,7 +773,7 @@ fn inline_array_recover_comma() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("array"),
+                text: "array",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -837,7 +836,7 @@ fn inline_array_recover_invalid() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("array"),
+                text: "array",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -906,7 +905,7 @@ fn inline_table() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("table"),
+                text: "table",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -925,7 +924,7 @@ fn inline_table() {
                                     start: Pos { line: 0, char: 10 },
                                     end: Pos { line: 0, char: 11 },
                                 },
-                                text: Cow::Borrowed("a"),
+                                text: "a",
                                 text_span: Span {
                                     start: Pos { line: 0, char: 10 },
                                     end: Pos { line: 0, char: 11 },
@@ -952,7 +951,7 @@ fn inline_table() {
                                     start: Pos { line: 0, char: 17 },
                                     end: Pos { line: 0, char: 18 },
                                 },
-                                text: Cow::Borrowed("b"),
+                                text: "b",
                                 text_span: Span {
                                     start: Pos { line: 0, char: 17 },
                                     end: Pos { line: 0, char: 18 },
@@ -988,7 +987,7 @@ fn inline_table_recover_missing_comma() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("table"),
+                text: "table",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -1007,7 +1006,7 @@ fn inline_table_recover_missing_comma() {
                                     start: Pos { line: 0, char: 10 },
                                     end: Pos { line: 0, char: 11 },
                                 },
-                                text: Cow::Borrowed("a"),
+                                text: "a",
                                 text_span: Span {
                                     start: Pos { line: 0, char: 10 },
                                     end: Pos { line: 0, char: 11 },
@@ -1034,7 +1033,7 @@ fn inline_table_recover_missing_comma() {
                                     start: Pos { line: 0, char: 17 },
                                     end: Pos { line: 0, char: 18 },
                                 },
-                                text: Cow::Borrowed("b"),
+                                text: "b",
                                 text_span: Span {
                                     start: Pos { line: 0, char: 17 },
                                     end: Pos { line: 0, char: 18 },
@@ -1071,7 +1070,7 @@ fn inline_table_recover_invalid() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
                 },
-                text: Cow::Borrowed("table"),
+                text: "table",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 5 },
@@ -1090,7 +1089,7 @@ fn inline_table_recover_invalid() {
                                     start: Pos { line: 0, char: 10 },
                                     end: Pos { line: 0, char: 11 },
                                 },
-                                text: Cow::Borrowed("a"),
+                                text: "a",
                                 text_span: Span {
                                     start: Pos { line: 0, char: 10 },
                                     end: Pos { line: 0, char: 11 },
@@ -1117,7 +1116,7 @@ fn inline_table_recover_invalid() {
                                     start: Pos { line: 0, char: 17 },
                                     end: Pos { line: 0, char: 18 },
                                 },
-                                text: Cow::Borrowed("b"),
+                                text: "b",
                                 text_span: Span {
                                     start: Pos { line: 0, char: 17 },
                                     end: Pos { line: 0, char: 18 },
@@ -1162,7 +1161,7 @@ fn table_header() {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
                     },
-                    text: Cow::Borrowed("my_table"),
+                    text: "my_table",
                     text_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
@@ -1178,7 +1177,7 @@ fn table_header() {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
                     },
-                    text: Cow::Borrowed("entry"),
+                    text: "entry",
                     text_span: Span {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
@@ -1211,7 +1210,7 @@ fn array_header() {
                         start: Pos { line: 0, char: 2 },
                         end: Pos { line: 0, char: 10 },
                     },
-                    text: Cow::Borrowed("my_array"),
+                    text: "my_array",
                     text_span: Span {
                         start: Pos { line: 0, char: 2 },
                         end: Pos { line: 0, char: 10 },
@@ -1230,7 +1229,7 @@ fn array_header() {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
                     },
-                    text: Cow::Borrowed("entry"),
+                    text: "entry",
                     text_span: Span {
                         start: Pos { line: 1, char: 0 },
                         end: Pos { line: 1, char: 5 },
@@ -1263,7 +1262,7 @@ fn newline_is_required_after_table_header() {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
                     },
-                    text: Cow::Borrowed("my_table"),
+                    text: "my_table",
                     text_span: Span {
                         start: Pos { line: 0, char: 1 },
                         end: Pos { line: 0, char: 9 },
@@ -1279,7 +1278,7 @@ fn newline_is_required_after_table_header() {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 15 },
                     },
-                    text: Cow::Borrowed("entry"),
+                    text: "entry",
                     text_span: Span {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 15 },
@@ -1312,7 +1311,7 @@ fn newline_is_required_after_assignment() {
                         start: Pos { line: 0, char: 0 },
                         end: Pos { line: 0, char: 1 },
                     },
-                    text: Cow::Borrowed("a"),
+                    text: "a",
                     text_span: Span {
                         start: Pos { line: 0, char: 0 },
                         end: Pos { line: 0, char: 1 },
@@ -1335,7 +1334,7 @@ fn newline_is_required_after_assignment() {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 11 },
                     },
-                    text: Cow::Borrowed("b"),
+                    text: "b",
                     text_span: Span {
                         start: Pos { line: 0, char: 10 },
                         end: Pos { line: 0, char: 11 },
@@ -1368,7 +1367,7 @@ fn offset_date_time_with_subsec() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -1403,7 +1402,7 @@ fn offset_date_time_without_subsec() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -1438,7 +1437,7 @@ fn offset_date_time_with_z_suffix() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -1473,7 +1472,7 @@ fn space_separated_time() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -1504,7 +1503,7 @@ fn local_date() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -1535,7 +1534,7 @@ fn local_time() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
@@ -1566,7 +1565,7 @@ fn local_time_hour_out_of_range() {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },
                 },
-                text: Cow::Borrowed("abc"),
+                text: "abc",
                 text_span: Span {
                     start: Pos { line: 0, char: 0 },
                     end: Pos { line: 0, char: 3 },

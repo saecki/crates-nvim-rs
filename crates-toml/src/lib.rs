@@ -38,7 +38,7 @@ impl Ctx {
         lex(self, input)
     }
 
-    pub fn parse<'a>(&mut self, tokens: Tokens<'a>) -> Vec<Ast<'a>> {
+    pub fn parse<'a>(&mut self, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
         parse(self, tokens)
     }
 

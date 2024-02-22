@@ -22,7 +22,7 @@ fn main() -> ExitCode {
     let mut ctx = toml::Ctx::default();
     let tokens = ctx.lex(&text);
     let lexing = std::time::SystemTime::now();
-    let asts = ctx.parse(tokens);
+    let asts = ctx.parse(&tokens);
     let parsing = std::time::SystemTime::now();
     let map = ctx.map(&asts);
     let mapping = std::time::SystemTime::now();
