@@ -1357,6 +1357,55 @@ fn newline_is_required_after_assignment() {
 }
 
 #[test]
+fn comment_after_table_header() {
+    check(
+        "[my_table] # comment\nentry = false\n",
+        [Ast::Table(Table {
+            header: TableHeader {
+                l_par: Pos { line: 0, char: 0 },
+                key: Some(Key::One(Ident {
+                    lit: "my_table",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 1 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    text: "my_table",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 1 },
+                        end: Pos { line: 0, char: 9 },
+                    },
+                    kind: IdentKind::Plain,
+                })),
+                r_par: Some(Pos { line: 0, char: 9 }),
+            },
+            assignments: vec![Assignment {
+                key: Key::One(Ident {
+                    lit: "entry",
+                    lit_span: Span {
+                        start: Pos { line: 1, char: 0 },
+                        end: Pos { line: 1, char: 5 },
+                    },
+                    text: "entry",
+                    text_span: Span {
+                        start: Pos { line: 1, char: 0 },
+                        end: Pos { line: 1, char: 5 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 1, char: 6 },
+                val: Value::Bool(BoolVal {
+                    lit_span: Span {
+                        start: Pos { line: 1, char: 8 },
+                        end: Pos { line: 1, char: 13 },
+                    },
+                    val: false,
+                }),
+            }],
+        })],
+    )
+}
+
+#[test]
 fn offset_date_time_with_subsec() {
     check(
         "abc = 2023-12-05T10:11:12.3324243-04:30",

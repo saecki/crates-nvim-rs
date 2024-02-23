@@ -53,6 +53,10 @@ impl Table<'_> {
             .unwrap_or(header_span.end);
         Span { start, end }
     }
+
+    pub fn push_comment(&mut self, comment: Comment<'_>) {
+        todo!("add comment");
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -88,6 +92,10 @@ impl ArrayEntry<'_> {
             .map(|a| a.val.span().end)
             .unwrap_or(header_span.end);
         Span { start, end }
+    }
+
+    pub fn push_comment(&mut self, comment: Comment<'_>) {
+        todo!("add comment");
     }
 }
 
@@ -485,7 +493,11 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
     'root: loop {
         if newline_required {
             while let Some(comment) = parser.eat_comment() {
-                asts.push(Ast::Comment(comment));
+                match asts.last_mut() {
+                    Some(Ast::Table(t)) => t.push_comment(comment),
+                    Some(Ast::Array(a)) => a.push_comment(comment),
+                    _ => asts.push(Ast::Comment(comment)),
+                }
             }
             match parser.peek() {
                 t if t.ty == TokenType::Newline => {
@@ -576,11 +588,15 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                 continue;
             }
             TokenType::Comment(id) => {
-                let text = parser.literal(id);
-                asts.push(Ast::Comment(Comment {
+                let comment = Comment {
                     span: token.span,
-                    text,
-                }));
+                    text: parser.literal(id),
+                };
+                match asts.last_mut() {
+                    Some(Ast::Table(t)) => t.push_comment(comment),
+                    Some(Ast::Array(a)) => a.push_comment(comment),
+                    _ => asts.push(Ast::Comment(comment)),
+                }
                 parser.next();
                 continue;
             }
