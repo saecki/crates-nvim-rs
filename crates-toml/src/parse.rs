@@ -787,13 +787,14 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
 
             let mut values = Vec::new();
             'inline_array: loop {
+                while let Some(comment) = parser.eat_comment_and_newlines() {
+                    todo!("store comment inside the array: {comment:?}");
+                }
+
                 if matches!(parser.peek().ty, TokenType::SquareRight | TokenType::EOF) {
                     break;
                 }
 
-                while let Some(comment) = parser.eat_comment_and_newlines() {
-                    todo!("store comment inside the array: {comment:?}");
-                }
                 let val = match parse_value(ctx, parser) {
                     Ok(v) => v,
                     Err(e) => {
@@ -820,10 +821,6 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                         None
                     }
                 };
-
-                while let Some(comment) = parser.eat_comment_and_newlines() {
-                    todo!("store comment inside the array: {comment:?}");
-                }
 
                 values.push(InlineArrayValue { val, comma });
             }
