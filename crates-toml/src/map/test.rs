@@ -221,7 +221,7 @@ fn table() {
     };
 
     let table = Table {
-        prev_comments: Vec::new(),
+        comments: Vec::new(),
         header: TableHeader {
             l_par: Pos::new(0, 0),
             key: Some(Key::One(table_key.clone())),

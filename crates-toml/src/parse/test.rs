@@ -1153,7 +1153,7 @@ fn table_header() {
     check(
         "[my_table]\nentry = false\n",
         [Ast::Table(Table {
-            prev_comments: Vec::new(),
+            comments: Vec::new(),
             header: TableHeader {
                 l_par: Pos { line: 0, char: 0 },
                 key: Some(Key::One(Ident {
@@ -1203,7 +1203,7 @@ fn array_header() {
     check(
         "[[my_array]]\nentry = false\n",
         [Ast::Array(ArrayEntry {
-            prev_comments: Vec::new(),
+            comments: Vec::new(),
             header: ArrayHeader {
                 l_pars: (Pos { line: 0, char: 0 }, Pos { line: 0, char: 1 }),
                 key: Some(Key::One(Ident {
@@ -1256,7 +1256,7 @@ fn newline_is_required_after_table_header() {
     check_error(
         "[my_table]entry = false\n",
         [Ast::Table(Table {
-            prev_comments: Vec::new(),
+            comments: Vec::new(),
             header: TableHeader {
                 l_par: Pos { line: 0, char: 0 },
                 key: Some(Key::One(Ident {
@@ -1364,9 +1364,12 @@ fn table_header_with_associated_comment() {
     check(
         "# associated\n[my_table]\n",
         [Ast::Table(Table {
-            prev_comments: vec![Comment {
-                span: Span::from_pos_len(Pos { line: 0, char: 0 }, 12),
-                text: " associated",
+            comments: vec![AssociatedComment {
+                pos: AssociatedPos::Above,
+                comment: Comment {
+                    span: Span::from_pos_len(Pos { line: 0, char: 0 }, 12),
+                    text: " associated",
+                },
             }],
             header: TableHeader {
                 l_par: Pos { line: 1, char: 0 },
@@ -1394,7 +1397,7 @@ fn non_associated_comment() {
                 text: " free standing",
             }),
             Ast::Table(Table {
-                prev_comments: Vec::new(),
+                comments: Vec::new(),
                 header: TableHeader {
                     l_par: Pos { line: 2, char: 0 },
                     key: Some(Key::One(Ident {
@@ -1417,7 +1420,13 @@ fn comment_after_table_header() {
     check(
         "[my_table] # comment\nentry = false\n",
         [Ast::Table(Table {
-            prev_comments: Vec::new(),
+            comments: vec![AssociatedComment {
+                pos: AssociatedPos::SameLine,
+                comment: Comment {
+                    span: Span::from_pos_len(Pos { line: 0, char: 11 }, 9),
+                    text: " comment",
+                },
+            }],
             header: TableHeader {
                 l_par: Pos { line: 0, char: 0 },
                 key: Some(Key::One(Ident {
