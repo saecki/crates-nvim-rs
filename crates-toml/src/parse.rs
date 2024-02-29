@@ -39,6 +39,8 @@ pub enum Ast<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct Table<'a> {
+    /// Comments associated with the table (directly above without any blank lines)
+    pub prev_comments: Vec<Comment<'a>>,
     pub header: TableHeader<'a>,
     pub assignments: Vec<Assignment<'a>>,
 }
@@ -54,8 +56,9 @@ impl Table<'_> {
         Span { start, end }
     }
 
-    pub fn push_comment(&mut self, comment: Comment<'_>) {
-        todo!("add comment");
+    /// Comment on the same line as the last item of this table
+    pub fn append_comment(&mut self, comment: Comment<'_>) {
+        todo!("add {comment:?}");
     }
 }
 
@@ -79,6 +82,8 @@ impl TableHeader<'_> {
 
 #[derive(Debug, PartialEq)]
 pub struct ArrayEntry<'a> {
+    /// Comments associated with the array entry (directly above without any blank lines)
+    pub prev_comments: Vec<Comment<'a>>,
     pub header: ArrayHeader<'a>,
     pub assignments: Vec<Assignment<'a>>,
 }
@@ -94,8 +99,9 @@ impl ArrayEntry<'_> {
         Span { start, end }
     }
 
-    pub fn push_comment(&mut self, comment: Comment<'_>) {
-        todo!("add comment");
+    /// Comment on the same line as the last item of this table
+    pub fn append_comment(&mut self, comment: Comment<'_>) {
+        todo!("add {comment:?}");
     }
 }
 
@@ -370,7 +376,7 @@ impl InlineArrayValue<'_> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Comment<'a> {
     pub span: Span,
     pub text: &'a str,
@@ -489,14 +495,15 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
     let mut parser = Parser::new(tokens);
     let mut asts = Vec::new();
     let mut newline_required = false;
+    let mut comments = Vec::new();
 
     'root: loop {
         if newline_required {
             while let Some(comment) = parser.eat_comment() {
                 match asts.last_mut() {
-                    Some(Ast::Table(t)) => t.push_comment(comment),
-                    Some(Ast::Array(a)) => a.push_comment(comment),
-                    _ => asts.push(Ast::Comment(comment)),
+                    Some(Ast::Table(t)) => t.append_comment(comment),
+                    Some(Ast::Array(a)) => a.append_comment(comment),
+                    _ => todo!("append {comment:?} to last assignment"),
                 }
             }
             match parser.peek() {
@@ -527,16 +534,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                     Ok(k) => Some(k),
                     Err(e) => {
                         ctx.error(e);
-                        loop {
-                            match parser.peek().ty {
-                                TokenType::SquareRight | TokenType::Newline | TokenType::EOF => {
-                                    break
-                                }
-                                _ => {
-                                    parser.next();
-                                }
-                            }
-                        }
+                        recover_on!(parser, SquareRight | Newline | EOF => break);
                         None
                     }
                 };
@@ -561,23 +559,35 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
 
                 match l_array_square {
                     Some(l_array_square) => {
+                        let prev_comments = find_associated_comments(
+                            &mut asts,
+                            &mut comments,
+                            l_table_square.start.line,
+                        );
                         let header = ArrayHeader {
                             l_pars: (l_table_square.start, l_array_square.start),
                             key,
                             r_pars: (r_array_square, r_table_square),
                         };
                         asts.push(Ast::Array(ArrayEntry {
+                            prev_comments,
                             header,
                             assignments: Vec::new(),
                         }));
                     }
                     None => {
+                        let prev_comments = find_associated_comments(
+                            &mut asts,
+                            &mut comments,
+                            l_table_square.start.line,
+                        );
                         let header = TableHeader {
                             l_par: l_table_square.start,
                             key,
                             r_par: r_table_square,
                         };
                         asts.push(Ast::Table(Table {
+                            prev_comments,
                             header,
                             assignments: Vec::new(),
                         }));
@@ -592,11 +602,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                     span: token.span,
                     text: parser.literal(id),
                 };
-                match asts.last_mut() {
-                    Some(Ast::Table(t)) => t.push_comment(comment),
-                    Some(Ast::Array(a)) => a.push_comment(comment),
-                    _ => asts.push(Ast::Comment(comment)),
-                }
+                comments.push(comment);
                 parser.next();
                 continue;
             }
@@ -644,6 +650,26 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
     }
 
     asts
+}
+
+fn find_associated_comments<'a>(
+    asts: &mut Vec<Ast<'a>>,
+    comments: &mut Vec<Comment<'a>>,
+    mut line: u32,
+) -> Vec<Comment<'a>> {
+    let i = comments.iter().rev().position(|c| {
+        let contigous = c.span.start.line + 1 == line;
+        if contigous {
+            line -= 1;
+        }
+        !contigous
+    });
+    if let Some(i) = i {
+        for c in comments.drain(0..=i) {
+            asts.push(Ast::Comment(c));
+        }
+    }
+    comments.drain(..).collect()
 }
 
 fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
