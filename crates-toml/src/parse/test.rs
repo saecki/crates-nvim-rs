@@ -150,29 +150,32 @@ fn uppercase_hexadecimal_radix_not_allowed() {
 fn assign_bool() {
     check(
         "abc = false",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Bool(BoolVal {
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-                val: false,
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Bool(BoolVal {
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    val: false,
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -180,30 +183,33 @@ fn assign_bool() {
 fn assign_float() {
     check(
         "abc = 23.5",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Float(FloatVal {
-                lit: "23.5",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 10 },
-                },
-                val: 23.5,
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Float(FloatVal {
+                    lit: "23.5",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 10 },
+                    },
+                    val: 23.5,
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -211,30 +217,33 @@ fn assign_float() {
 fn assign_float_with_exp1() {
     check(
         "abc = 23.5e+9",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Float(FloatVal {
-                lit: "23.5e+9",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 13 },
-                },
-                val: 23.5e+9,
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Float(FloatVal {
+                    lit: "23.5e+9",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 13 },
+                    },
+                    val: 23.5e+9,
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -242,30 +251,33 @@ fn assign_float_with_exp1() {
 fn assign_float_with_exp2() {
     check(
         "abc = 23.5e-1_2",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Float(FloatVal {
-                lit: "23.5e-1_2",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 15 },
-                },
-                val: 23.5e-12,
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Float(FloatVal {
+                    lit: "23.5e-1_2",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 15 },
+                    },
+                    val: 23.5e-12,
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -273,29 +285,32 @@ fn assign_float_with_exp2() {
 fn float_fractional_part_ends_with_underscore() {
     check_error(
         "abc = 23.5_e9",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Invalid(
-                "23.5_e9",
-                Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 13 },
-                },
-            ),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Invalid(
+                    "23.5_e9",
+                    Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 13 },
+                    },
+                ),
+            }
+            .into(),
+        )],
         Error::FloatFractEndsWithUnderscore(Pos { line: 0, char: 10 }),
     );
 }
@@ -304,30 +319,33 @@ fn float_fractional_part_ends_with_underscore() {
 fn int_with_underscore() {
     check(
         "abc = 1_000",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Int(IntVal {
-                val: 1000,
-                lit: "1_000",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Int(IntVal {
+                    val: 1000,
+                    lit: "1_000",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -335,29 +353,32 @@ fn int_with_underscore() {
 fn invalid_prefixed_int_radix() {
     check_error(
         "abc = 0c324",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Invalid(
-                "0c324",
-                Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-            ),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Invalid(
+                    "0c324",
+                    Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                ),
+            }
+            .into(),
+        )],
         Error::InvalidIntRadix(FmtChar('c'), Pos { line: 0, char: 7 }),
     );
 }
@@ -366,29 +387,32 @@ fn invalid_prefixed_int_radix() {
 fn prefixed_int_digit_too_big() {
     check_error(
         "abc = 0o384",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Invalid(
-                "0o384",
-                Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-            ),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Invalid(
+                    "0o384",
+                    Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                ),
+            }
+            .into(),
+        )],
         Error::IntDigitTooBig(IntPrefix::Octal, FmtChar('8'), Pos { line: 0, char: 9 }),
     );
 }
@@ -397,29 +421,32 @@ fn prefixed_int_digit_too_big() {
 fn prefixed_int_starts_with_underscore() {
     check_error(
         "abc = 0o_43",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Invalid(
-                "0o_43",
-                Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-            ),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Invalid(
+                    "0o_43",
+                    Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                ),
+            }
+            .into(),
+        )],
         Error::PrefixedIntValueStartsWithUnderscore(Pos { line: 0, char: 8 }),
     );
 }
@@ -428,29 +455,32 @@ fn prefixed_int_starts_with_underscore() {
 fn prefixed_int_ends_with_underscore() {
     check_error(
         "abc = 0o43_",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Invalid(
-                "0o43_",
-                Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-            ),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Invalid(
+                    "0o43_",
+                    Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                ),
+            }
+            .into(),
+        )],
         Error::PrefixedIntValueEndsWithUnderscore(Pos { line: 0, char: 10 }),
     );
 }
@@ -459,66 +489,69 @@ fn prefixed_int_ends_with_underscore() {
 fn dotted_key() {
     check(
         "a.b.c = false",
-        [Ast::Assignment(Assignment {
-            key: Key::Dotted(vec![
-                DottedIdent {
-                    ident: Ident {
-                        lit: "a",
-                        lit_span: Span {
-                            start: Pos { line: 0, char: 0 },
-                            end: Pos { line: 0, char: 1 },
+        [Ast::Assignment(
+            Assignment {
+                key: Key::Dotted(vec![
+                    DottedIdent {
+                        ident: Ident {
+                            lit: "a",
+                            lit_span: Span {
+                                start: Pos { line: 0, char: 0 },
+                                end: Pos { line: 0, char: 1 },
+                            },
+                            text: "a",
+                            text_span: Span {
+                                start: Pos { line: 0, char: 0 },
+                                end: Pos { line: 0, char: 1 },
+                            },
+                            kind: IdentKind::Plain,
                         },
-                        text: "a",
-                        text_span: Span {
-                            start: Pos { line: 0, char: 0 },
-                            end: Pos { line: 0, char: 1 },
-                        },
-                        kind: IdentKind::Plain,
+                        dot: Some(Pos { line: 0, char: 1 }),
                     },
-                    dot: Some(Pos { line: 0, char: 1 }),
-                },
-                DottedIdent {
-                    ident: Ident {
-                        lit: "b",
-                        lit_span: Span {
-                            start: Pos { line: 0, char: 2 },
-                            end: Pos { line: 0, char: 3 },
+                    DottedIdent {
+                        ident: Ident {
+                            lit: "b",
+                            lit_span: Span {
+                                start: Pos { line: 0, char: 2 },
+                                end: Pos { line: 0, char: 3 },
+                            },
+                            text: "b",
+                            text_span: Span {
+                                start: Pos { line: 0, char: 2 },
+                                end: Pos { line: 0, char: 3 },
+                            },
+                            kind: IdentKind::Plain,
                         },
-                        text: "b",
-                        text_span: Span {
-                            start: Pos { line: 0, char: 2 },
-                            end: Pos { line: 0, char: 3 },
-                        },
-                        kind: IdentKind::Plain,
+                        dot: Some(Pos { line: 0, char: 3 }),
                     },
-                    dot: Some(Pos { line: 0, char: 3 }),
-                },
-                DottedIdent {
-                    ident: Ident {
-                        lit: "c",
-                        lit_span: Span {
-                            start: Pos { line: 0, char: 4 },
-                            end: Pos { line: 0, char: 5 },
+                    DottedIdent {
+                        ident: Ident {
+                            lit: "c",
+                            lit_span: Span {
+                                start: Pos { line: 0, char: 4 },
+                                end: Pos { line: 0, char: 5 },
+                            },
+                            text: "c",
+                            text_span: Span {
+                                start: Pos { line: 0, char: 4 },
+                                end: Pos { line: 0, char: 5 },
+                            },
+                            kind: IdentKind::Plain,
                         },
-                        text: "c",
-                        text_span: Span {
-                            start: Pos { line: 0, char: 4 },
-                            end: Pos { line: 0, char: 5 },
-                        },
-                        kind: IdentKind::Plain,
+                        dot: None,
                     },
-                    dot: None,
-                },
-            ]),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::Bool(BoolVal {
-                lit_span: Span {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 13 },
-                },
-                val: false,
-            }),
-        })],
+                ]),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::Bool(BoolVal {
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 8 },
+                        end: Pos { line: 0, char: 13 },
+                    },
+                    val: false,
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -526,29 +559,32 @@ fn dotted_key() {
 fn int_identifier() {
     check(
         "123 = false",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "123",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "123",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Bool(BoolVal {
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-                val: false,
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "123",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "123",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Bool(BoolVal {
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    val: false,
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -556,29 +592,32 @@ fn int_identifier() {
 fn invalid_int_identifier() {
     check_error(
         "+99 = false",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "+99",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "+99",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Bool(BoolVal {
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 11 },
-                },
-                val: false,
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "+99",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "+99",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Bool(BoolVal {
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    val: false,
+                }),
+            }
+            .into(),
+        )],
         Error::InvalidCharInIdentifier(FmtChar('+'), Pos { line: 0, char: 0 }),
     );
 }
@@ -587,35 +626,38 @@ fn invalid_int_identifier() {
 fn invalid_float_literal_as_identifier() {
     check_error(
         "23e+3 = 'hello'",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "23e+3",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "23e+3",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::String(StringVal {
-                lit: "'hello'",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 8 },
-                    end: Pos { line: 0, char: 15 },
-                },
-                text: "hello",
-                text_span: Span {
-                    start: Pos { line: 0, char: 9 },
-                    end: Pos { line: 0, char: 14 },
-                },
-                quote: Quote::Literal,
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "23e+3",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
+                    },
+                    text: "23e+3",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::String(StringVal {
+                    lit: "'hello'",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 8 },
+                        end: Pos { line: 0, char: 15 },
+                    },
+                    text: "hello",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 9 },
+                        end: Pos { line: 0, char: 14 },
+                    },
+                    quote: Quote::Literal,
+                }),
+            }
+            .into(),
+        )],
         Error::InvalidCharInIdentifier(FmtChar('+'), Pos { line: 0, char: 3 }),
     );
 }
@@ -642,61 +684,64 @@ fn multi_line_basic_string_identifier() {
 fn inline_array() {
     check(
         "array = [0, 1, 2]",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "array",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "array",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::InlineArray(InlineArray {
-                l_par: Pos { line: 0, char: 8 },
-                values: vec![
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "0",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 9 },
-                                end: Pos { line: 0, char: 10 },
-                            },
-                            val: 0,
-                        }),
-                        comma: Some(Pos { line: 0, char: 10 }),
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "array",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "1",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 12 },
-                                end: Pos { line: 0, char: 13 },
-                            },
-                            val: 1,
-                        }),
-                        comma: Some(Pos { line: 0, char: 13 }),
+                    text: "array",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "2",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 15 },
-                                end: Pos { line: 0, char: 16 },
-                            },
-                            val: 2,
-                        }),
-                        comma: None,
-                    },
-                ],
-                r_par: Some(Pos { line: 0, char: 16 }),
-            }),
-        })],
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::InlineArray(InlineArray {
+                    l_par: Pos { line: 0, char: 8 },
+                    values: vec![
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "0",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 9 },
+                                    end: Pos { line: 0, char: 10 },
+                                },
+                                val: 0,
+                            }),
+                            comma: Some(Pos { line: 0, char: 10 }),
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "1",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 12 },
+                                    end: Pos { line: 0, char: 13 },
+                                },
+                                val: 1,
+                            }),
+                            comma: Some(Pos { line: 0, char: 13 }),
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "2",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 15 },
+                                    end: Pos { line: 0, char: 16 },
+                                },
+                                val: 2,
+                            }),
+                            comma: None,
+                        },
+                    ],
+                    r_par: Some(Pos { line: 0, char: 16 }),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -704,61 +749,64 @@ fn inline_array() {
 fn multi_line_inline_array() {
     check(
         "array = [\n  0,\n  1,\n  2,\n]",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "array",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "array",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::InlineArray(InlineArray {
-                l_par: Pos { line: 0, char: 8 },
-                values: vec![
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "0",
-                            lit_span: Span {
-                                start: Pos { line: 1, char: 2 },
-                                end: Pos { line: 1, char: 3 },
-                            },
-                            val: 0,
-                        }),
-                        comma: Some(Pos { line: 1, char: 3 }),
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "array",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "1",
-                            lit_span: Span {
-                                start: Pos { line: 2, char: 2 },
-                                end: Pos { line: 2, char: 3 },
-                            },
-                            val: 1,
-                        }),
-                        comma: Some(Pos { line: 2, char: 3 }),
+                    text: "array",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "2",
-                            lit_span: Span {
-                                start: Pos { line: 3, char: 2 },
-                                end: Pos { line: 3, char: 3 },
-                            },
-                            val: 2,
-                        }),
-                        comma: Some(Pos { line: 3, char: 3 }),
-                    },
-                ],
-                r_par: Some(Pos { line: 4, char: 0 }),
-            }),
-        })],
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::InlineArray(InlineArray {
+                    l_par: Pos { line: 0, char: 8 },
+                    values: vec![
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "0",
+                                lit_span: Span {
+                                    start: Pos { line: 1, char: 2 },
+                                    end: Pos { line: 1, char: 3 },
+                                },
+                                val: 0,
+                            }),
+                            comma: Some(Pos { line: 1, char: 3 }),
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "1",
+                                lit_span: Span {
+                                    start: Pos { line: 2, char: 2 },
+                                    end: Pos { line: 2, char: 3 },
+                                },
+                                val: 1,
+                            }),
+                            comma: Some(Pos { line: 2, char: 3 }),
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "2",
+                                lit_span: Span {
+                                    start: Pos { line: 3, char: 2 },
+                                    end: Pos { line: 3, char: 3 },
+                                },
+                                val: 2,
+                            }),
+                            comma: Some(Pos { line: 3, char: 3 }),
+                        },
+                    ],
+                    r_par: Some(Pos { line: 4, char: 0 }),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -766,61 +814,64 @@ fn multi_line_inline_array() {
 fn inline_array_recover_comma() {
     check_error(
         "array = [0, 1  2]",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "array",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "array",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::InlineArray(InlineArray {
-                l_par: Pos { line: 0, char: 8 },
-                values: vec![
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "0",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 9 },
-                                end: Pos { line: 0, char: 10 },
-                            },
-                            val: 0,
-                        }),
-                        comma: Some(Pos { line: 0, char: 10 }),
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "array",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "1",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 12 },
-                                end: Pos { line: 0, char: 13 },
-                            },
-                            val: 1,
-                        }),
-                        comma: None,
+                    text: "array",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "2",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 15 },
-                                end: Pos { line: 0, char: 16 },
-                            },
-                            val: 2,
-                        }),
-                        comma: None,
-                    },
-                ],
-                r_par: Some(Pos { line: 0, char: 16 }),
-            }),
-        })],
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::InlineArray(InlineArray {
+                    l_par: Pos { line: 0, char: 8 },
+                    values: vec![
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "0",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 9 },
+                                    end: Pos { line: 0, char: 10 },
+                                },
+                                val: 0,
+                            }),
+                            comma: Some(Pos { line: 0, char: 10 }),
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "1",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 12 },
+                                    end: Pos { line: 0, char: 13 },
+                                },
+                                val: 1,
+                            }),
+                            comma: None,
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "2",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 15 },
+                                    end: Pos { line: 0, char: 16 },
+                                },
+                                val: 2,
+                            }),
+                            comma: None,
+                        },
+                    ],
+                    r_par: Some(Pos { line: 0, char: 16 }),
+                }),
+            }
+            .into(),
+        )],
         Error::MissingComma(Pos { line: 0, char: 13 }),
     );
 }
@@ -829,61 +880,64 @@ fn inline_array_recover_comma() {
 fn inline_array_recover_invalid() {
     check_error(
         "array = [0, 1, 2, =]",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "array",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "array",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::InlineArray(InlineArray {
-                l_par: Pos { line: 0, char: 8 },
-                values: vec![
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "0",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 9 },
-                                end: Pos { line: 0, char: 10 },
-                            },
-                            val: 0,
-                        }),
-                        comma: Some(Pos { line: 0, char: 10 }),
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "array",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "1",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 12 },
-                                end: Pos { line: 0, char: 13 },
-                            },
-                            val: 1,
-                        }),
-                        comma: Some(Pos { line: 0, char: 13 }),
+                    text: "array",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineArrayValue {
-                        val: Value::Int(IntVal {
-                            lit: "2",
-                            lit_span: Span {
-                                start: Pos { line: 0, char: 15 },
-                                end: Pos { line: 0, char: 16 },
-                            },
-                            val: 2,
-                        }),
-                        comma: Some(Pos { line: 0, char: 16 }),
-                    },
-                ],
-                r_par: Some(Pos { line: 0, char: 19 }),
-            }),
-        })],
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::InlineArray(InlineArray {
+                    l_par: Pos { line: 0, char: 8 },
+                    values: vec![
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "0",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 9 },
+                                    end: Pos { line: 0, char: 10 },
+                                },
+                                val: 0,
+                            }),
+                            comma: Some(Pos { line: 0, char: 10 }),
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "1",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 12 },
+                                    end: Pos { line: 0, char: 13 },
+                                },
+                                val: 1,
+                            }),
+                            comma: Some(Pos { line: 0, char: 13 }),
+                        },
+                        InlineArrayValue {
+                            val: Value::Int(IntVal {
+                                lit: "2",
+                                lit_span: Span {
+                                    start: Pos { line: 0, char: 15 },
+                                    end: Pos { line: 0, char: 16 },
+                                },
+                                val: 2,
+                            }),
+                            comma: Some(Pos { line: 0, char: 16 }),
+                        },
+                    ],
+                    r_par: Some(Pos { line: 0, char: 19 }),
+                }),
+            }
+            .into(),
+        )],
         Error::ExpectedValueFound(
             "=".into(),
             Span {
@@ -898,81 +952,84 @@ fn inline_array_recover_invalid() {
 fn inline_table() {
     check(
         "table = { a = 3, b = true }",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "table",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "table",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::InlineTable(InlineTable {
-                l_par: Pos { line: 0, char: 8 },
-                assignments: vec![
-                    InlineTableAssignment {
-                        assignment: Assignment {
-                            key: Key::One(Ident {
-                                lit: "a",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 10 },
-                                    end: Pos { line: 0, char: 11 },
-                                },
-                                text: "a",
-                                text_span: Span {
-                                    start: Pos { line: 0, char: 10 },
-                                    end: Pos { line: 0, char: 11 },
-                                },
-                                kind: IdentKind::Plain,
-                            }),
-                            eq: Pos { line: 0, char: 12 },
-                            val: Value::Int(IntVal {
-                                lit: "3",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 14 },
-                                    end: Pos { line: 0, char: 15 },
-                                },
-                                val: 3,
-                            }),
-                        },
-                        comma: Some(Pos { line: 0, char: 15 }),
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "table",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineTableAssignment {
-                        assignment: Assignment {
-                            key: Key::One(Ident {
-                                lit: "b",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 17 },
-                                    end: Pos { line: 0, char: 18 },
-                                },
-                                text: "b",
-                                text_span: Span {
-                                    start: Pos { line: 0, char: 17 },
-                                    end: Pos { line: 0, char: 18 },
-                                },
-                                kind: IdentKind::Plain,
-                            }),
-                            eq: Pos { line: 0, char: 19 },
-                            val: Value::Bool(BoolVal {
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 21 },
-                                    end: Pos { line: 0, char: 25 },
-                                },
-                                val: true,
-                            }),
-                        },
-                        comma: None,
+                    text: "table",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                ],
-                r_par: Some(Pos { line: 0, char: 26 }),
-            }),
-        })],
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::InlineTable(InlineTable {
+                    l_par: Pos { line: 0, char: 8 },
+                    assignments: vec![
+                        InlineTableAssignment {
+                            assignment: Assignment {
+                                key: Key::One(Ident {
+                                    lit: "a",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 10 },
+                                        end: Pos { line: 0, char: 11 },
+                                    },
+                                    text: "a",
+                                    text_span: Span {
+                                        start: Pos { line: 0, char: 10 },
+                                        end: Pos { line: 0, char: 11 },
+                                    },
+                                    kind: IdentKind::Plain,
+                                }),
+                                eq: Pos { line: 0, char: 12 },
+                                val: Value::Int(IntVal {
+                                    lit: "3",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 14 },
+                                        end: Pos { line: 0, char: 15 },
+                                    },
+                                    val: 3,
+                                }),
+                            },
+                            comma: Some(Pos { line: 0, char: 15 }),
+                        },
+                        InlineTableAssignment {
+                            assignment: Assignment {
+                                key: Key::One(Ident {
+                                    lit: "b",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 17 },
+                                        end: Pos { line: 0, char: 18 },
+                                    },
+                                    text: "b",
+                                    text_span: Span {
+                                        start: Pos { line: 0, char: 17 },
+                                        end: Pos { line: 0, char: 18 },
+                                    },
+                                    kind: IdentKind::Plain,
+                                }),
+                                eq: Pos { line: 0, char: 19 },
+                                val: Value::Bool(BoolVal {
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 21 },
+                                        end: Pos { line: 0, char: 25 },
+                                    },
+                                    val: true,
+                                }),
+                            },
+                            comma: None,
+                        },
+                    ],
+                    r_par: Some(Pos { line: 0, char: 26 }),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -980,81 +1037,84 @@ fn inline_table() {
 fn inline_table_recover_missing_comma() {
     check_error(
         "table = { a = 3  b = true }",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "table",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "table",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::InlineTable(InlineTable {
-                l_par: Pos { line: 0, char: 8 },
-                assignments: vec![
-                    InlineTableAssignment {
-                        assignment: Assignment {
-                            key: Key::One(Ident {
-                                lit: "a",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 10 },
-                                    end: Pos { line: 0, char: 11 },
-                                },
-                                text: "a",
-                                text_span: Span {
-                                    start: Pos { line: 0, char: 10 },
-                                    end: Pos { line: 0, char: 11 },
-                                },
-                                kind: IdentKind::Plain,
-                            }),
-                            eq: Pos { line: 0, char: 12 },
-                            val: Value::Int(IntVal {
-                                lit: "3",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 14 },
-                                    end: Pos { line: 0, char: 15 },
-                                },
-                                val: 3,
-                            }),
-                        },
-                        comma: None,
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "table",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineTableAssignment {
-                        assignment: Assignment {
-                            key: Key::One(Ident {
-                                lit: "b",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 17 },
-                                    end: Pos { line: 0, char: 18 },
-                                },
-                                text: "b",
-                                text_span: Span {
-                                    start: Pos { line: 0, char: 17 },
-                                    end: Pos { line: 0, char: 18 },
-                                },
-                                kind: IdentKind::Plain,
-                            }),
-                            eq: Pos { line: 0, char: 19 },
-                            val: Value::Bool(BoolVal {
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 21 },
-                                    end: Pos { line: 0, char: 25 },
-                                },
-                                val: true,
-                            }),
-                        },
-                        comma: None,
+                    text: "table",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                ],
-                r_par: Some(Pos { line: 0, char: 26 }),
-            }),
-        })],
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::InlineTable(InlineTable {
+                    l_par: Pos { line: 0, char: 8 },
+                    assignments: vec![
+                        InlineTableAssignment {
+                            assignment: Assignment {
+                                key: Key::One(Ident {
+                                    lit: "a",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 10 },
+                                        end: Pos { line: 0, char: 11 },
+                                    },
+                                    text: "a",
+                                    text_span: Span {
+                                        start: Pos { line: 0, char: 10 },
+                                        end: Pos { line: 0, char: 11 },
+                                    },
+                                    kind: IdentKind::Plain,
+                                }),
+                                eq: Pos { line: 0, char: 12 },
+                                val: Value::Int(IntVal {
+                                    lit: "3",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 14 },
+                                        end: Pos { line: 0, char: 15 },
+                                    },
+                                    val: 3,
+                                }),
+                            },
+                            comma: None,
+                        },
+                        InlineTableAssignment {
+                            assignment: Assignment {
+                                key: Key::One(Ident {
+                                    lit: "b",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 17 },
+                                        end: Pos { line: 0, char: 18 },
+                                    },
+                                    text: "b",
+                                    text_span: Span {
+                                        start: Pos { line: 0, char: 17 },
+                                        end: Pos { line: 0, char: 18 },
+                                    },
+                                    kind: IdentKind::Plain,
+                                }),
+                                eq: Pos { line: 0, char: 19 },
+                                val: Value::Bool(BoolVal {
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 21 },
+                                        end: Pos { line: 0, char: 25 },
+                                    },
+                                    val: true,
+                                }),
+                            },
+                            comma: None,
+                        },
+                    ],
+                    r_par: Some(Pos { line: 0, char: 26 }),
+                }),
+            }
+            .into(),
+        )],
         Error::MissingComma(Pos { line: 0, char: 15 }),
     );
 }
@@ -1063,81 +1123,84 @@ fn inline_table_recover_missing_comma() {
 fn inline_table_recover_invalid() {
     check_error(
         "table = { a = 3, b = true, = }",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "table",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                text: "table",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 5 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 6 },
-            val: Value::InlineTable(InlineTable {
-                l_par: Pos { line: 0, char: 8 },
-                assignments: vec![
-                    InlineTableAssignment {
-                        assignment: Assignment {
-                            key: Key::One(Ident {
-                                lit: "a",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 10 },
-                                    end: Pos { line: 0, char: 11 },
-                                },
-                                text: "a",
-                                text_span: Span {
-                                    start: Pos { line: 0, char: 10 },
-                                    end: Pos { line: 0, char: 11 },
-                                },
-                                kind: IdentKind::Plain,
-                            }),
-                            eq: Pos { line: 0, char: 12 },
-                            val: Value::Int(IntVal {
-                                lit: "3",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 14 },
-                                    end: Pos { line: 0, char: 15 },
-                                },
-                                val: 3,
-                            }),
-                        },
-                        comma: Some(Pos { line: 0, char: 15 }),
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "table",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                    InlineTableAssignment {
-                        assignment: Assignment {
-                            key: Key::One(Ident {
-                                lit: "b",
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 17 },
-                                    end: Pos { line: 0, char: 18 },
-                                },
-                                text: "b",
-                                text_span: Span {
-                                    start: Pos { line: 0, char: 17 },
-                                    end: Pos { line: 0, char: 18 },
-                                },
-                                kind: IdentKind::Plain,
-                            }),
-                            eq: Pos { line: 0, char: 19 },
-                            val: Value::Bool(BoolVal {
-                                lit_span: Span {
-                                    start: Pos { line: 0, char: 21 },
-                                    end: Pos { line: 0, char: 25 },
-                                },
-                                val: true,
-                            }),
-                        },
-                        comma: Some(Pos { line: 0, char: 25 }),
+                    text: "table",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 5 },
                     },
-                ],
-                r_par: Some(Pos { line: 0, char: 29 }),
-            }),
-        })],
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 6 },
+                val: Value::InlineTable(InlineTable {
+                    l_par: Pos { line: 0, char: 8 },
+                    assignments: vec![
+                        InlineTableAssignment {
+                            assignment: Assignment {
+                                key: Key::One(Ident {
+                                    lit: "a",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 10 },
+                                        end: Pos { line: 0, char: 11 },
+                                    },
+                                    text: "a",
+                                    text_span: Span {
+                                        start: Pos { line: 0, char: 10 },
+                                        end: Pos { line: 0, char: 11 },
+                                    },
+                                    kind: IdentKind::Plain,
+                                }),
+                                eq: Pos { line: 0, char: 12 },
+                                val: Value::Int(IntVal {
+                                    lit: "3",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 14 },
+                                        end: Pos { line: 0, char: 15 },
+                                    },
+                                    val: 3,
+                                }),
+                            },
+                            comma: Some(Pos { line: 0, char: 15 }),
+                        },
+                        InlineTableAssignment {
+                            assignment: Assignment {
+                                key: Key::One(Ident {
+                                    lit: "b",
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 17 },
+                                        end: Pos { line: 0, char: 18 },
+                                    },
+                                    text: "b",
+                                    text_span: Span {
+                                        start: Pos { line: 0, char: 17 },
+                                        end: Pos { line: 0, char: 18 },
+                                    },
+                                    kind: IdentKind::Plain,
+                                }),
+                                eq: Pos { line: 0, char: 19 },
+                                val: Value::Bool(BoolVal {
+                                    lit_span: Span {
+                                        start: Pos { line: 0, char: 21 },
+                                        end: Pos { line: 0, char: 25 },
+                                    },
+                                    val: true,
+                                }),
+                            },
+                            comma: Some(Pos { line: 0, char: 25 }),
+                        },
+                    ],
+                    r_par: Some(Pos { line: 0, char: 29 }),
+                }),
+            }
+            .into(),
+        )],
         Error::ExpectedKeyFound(
             "=".into(),
             Span {
@@ -1193,7 +1256,8 @@ fn table_header() {
                     },
                     val: false,
                 }),
-            }],
+            }
+            .into()],
         })],
     )
 }
@@ -1246,7 +1310,8 @@ fn array_header() {
                     },
                     val: false,
                 }),
-            }],
+            }
+            .into()],
         })],
     )
 }
@@ -1296,7 +1361,8 @@ fn newline_is_required_after_table_header() {
                     },
                     val: false,
                 }),
-            }],
+            }
+            .into()],
         })],
         Error::MissingNewline(Pos { line: 0, char: 10 }),
     )
@@ -1307,53 +1373,59 @@ fn newline_is_required_after_assignment() {
     check_error(
         "a = false b = 87",
         [
-            Ast::Assignment(Assignment {
-                key: Key::One(Ident {
-                    lit: "a",
-                    lit_span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 1 },
-                    },
-                    text: "a",
-                    text_span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 1 },
-                    },
-                    kind: IdentKind::Plain,
-                }),
-                eq: Pos { line: 0, char: 2 },
-                val: Value::Bool(BoolVal {
-                    lit_span: Span {
-                        start: Pos { line: 0, char: 4 },
-                        end: Pos { line: 0, char: 9 },
-                    },
-                    val: false,
-                }),
-            }),
-            Ast::Assignment(Assignment {
-                key: Key::One(Ident {
-                    lit: "b",
-                    lit_span: Span {
-                        start: Pos { line: 0, char: 10 },
-                        end: Pos { line: 0, char: 11 },
-                    },
-                    text: "b",
-                    text_span: Span {
-                        start: Pos { line: 0, char: 10 },
-                        end: Pos { line: 0, char: 11 },
-                    },
-                    kind: IdentKind::Plain,
-                }),
-                eq: Pos { line: 0, char: 12 },
-                val: Value::Int(IntVal {
-                    lit: "87",
-                    lit_span: Span {
-                        start: Pos { line: 0, char: 14 },
-                        end: Pos { line: 0, char: 16 },
-                    },
-                    val: 87,
-                }),
-            }),
+            Ast::Assignment(
+                Assignment {
+                    key: Key::One(Ident {
+                        lit: "a",
+                        lit_span: Span {
+                            start: Pos { line: 0, char: 0 },
+                            end: Pos { line: 0, char: 1 },
+                        },
+                        text: "a",
+                        text_span: Span {
+                            start: Pos { line: 0, char: 0 },
+                            end: Pos { line: 0, char: 1 },
+                        },
+                        kind: IdentKind::Plain,
+                    }),
+                    eq: Pos { line: 0, char: 2 },
+                    val: Value::Bool(BoolVal {
+                        lit_span: Span {
+                            start: Pos { line: 0, char: 4 },
+                            end: Pos { line: 0, char: 9 },
+                        },
+                        val: false,
+                    }),
+                }
+                .into(),
+            ),
+            Ast::Assignment(
+                Assignment {
+                    key: Key::One(Ident {
+                        lit: "b",
+                        lit_span: Span {
+                            start: Pos { line: 0, char: 10 },
+                            end: Pos { line: 0, char: 11 },
+                        },
+                        text: "b",
+                        text_span: Span {
+                            start: Pos { line: 0, char: 10 },
+                            end: Pos { line: 0, char: 11 },
+                        },
+                        kind: IdentKind::Plain,
+                    }),
+                    eq: Pos { line: 0, char: 12 },
+                    val: Value::Int(IntVal {
+                        lit: "87",
+                        lit_span: Span {
+                            start: Pos { line: 0, char: 14 },
+                            end: Pos { line: 0, char: 16 },
+                        },
+                        val: 87,
+                    }),
+                }
+                .into(),
+            ),
         ],
         Error::MissingNewline(Pos { line: 0, char: 10 }),
     )
@@ -1466,7 +1538,41 @@ fn comment_after_table_header() {
                     },
                     val: false,
                 }),
+            }
+            .into()],
+        })],
+    )
+}
+
+#[test]
+fn comment_after_assignment() {
+    check(
+        "abc = false # comment\n",
+        [Ast::Assignment(ToplevelAssignment {
+            comments: vec![AssociatedComment {
+                pos: AssociatedPos::SameLine,
+                comment: Comment {
+                    span: Span::from_pos_len(Pos { line: 0, char: 12 }, 9),
+                    text: " comment",
+                },
             }],
+            assignment: Assignment {
+                key: Key::One(Ident::from_plain_lit(
+                    "abc",
+                    Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                )),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Bool(BoolVal {
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 11 },
+                    },
+                    val: false,
+                }),
+            },
         })],
     )
 }
@@ -1475,34 +1581,37 @@ fn comment_after_table_header() {
 fn offset_date_time_with_subsec() {
     check(
         "abc = 2023-12-05T10:11:12.3324243-04:30",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::DateTime(DateTimeVal {
-                lit: "2023-12-05T10:11:12.3324243-04:30",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 39 },
-                },
-                val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 5),
-                    Time::new(10, 11, 12, 332_424_300),
-                    Offset::Custom(-(4 * 60 + 30)),
-                ),
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::DateTime(DateTimeVal {
+                    lit: "2023-12-05T10:11:12.3324243-04:30",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 39 },
+                    },
+                    val: DateTime::OffsetDateTime(
+                        Date::new(2023, 12, 5),
+                        Time::new(10, 11, 12, 332_424_300),
+                        Offset::Custom(-(4 * 60 + 30)),
+                    ),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -1510,34 +1619,37 @@ fn offset_date_time_with_subsec() {
 fn offset_date_time_without_subsec() {
     check(
         "abc = 2023-12-05T10:11:12+04:30",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::DateTime(DateTimeVal {
-                lit: "2023-12-05T10:11:12+04:30",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 31 },
-                },
-                val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 5),
-                    Time::new(10, 11, 12, 0),
-                    Offset::Custom(4 * 60 + 30),
-                ),
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::DateTime(DateTimeVal {
+                    lit: "2023-12-05T10:11:12+04:30",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 31 },
+                    },
+                    val: DateTime::OffsetDateTime(
+                        Date::new(2023, 12, 5),
+                        Time::new(10, 11, 12, 0),
+                        Offset::Custom(4 * 60 + 30),
+                    ),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -1545,34 +1657,37 @@ fn offset_date_time_without_subsec() {
 fn offset_date_time_with_z_suffix() {
     check(
         "abc = 2023-12-05T10:11:12Z",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::DateTime(DateTimeVal {
-                lit: "2023-12-05T10:11:12Z",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 26 },
-                },
-                val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 5),
-                    Time::new(10, 11, 12, 0),
-                    Offset::Utc,
-                ),
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::DateTime(DateTimeVal {
+                    lit: "2023-12-05T10:11:12Z",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 26 },
+                    },
+                    val: DateTime::OffsetDateTime(
+                        Date::new(2023, 12, 5),
+                        Time::new(10, 11, 12, 0),
+                        Offset::Utc,
+                    ),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -1580,30 +1695,33 @@ fn offset_date_time_with_z_suffix() {
 fn space_separated_time() {
     check(
         "abc = 2023-12-05 10:11:12",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::DateTime(DateTimeVal {
-                lit: "2023-12-05 10:11:12",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 25 },
-                },
-                val: DateTime::LocalDateTime(Date::new(2023, 12, 5), Time::new(10, 11, 12, 0)),
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::DateTime(DateTimeVal {
+                    lit: "2023-12-05 10:11:12",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 25 },
+                    },
+                    val: DateTime::LocalDateTime(Date::new(2023, 12, 5), Time::new(10, 11, 12, 0)),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -1611,30 +1729,33 @@ fn space_separated_time() {
 fn local_date() {
     check(
         "abc = 2023-12-05",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::DateTime(DateTimeVal {
-                lit: "2023-12-05",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 16 },
-                },
-                val: DateTime::LocalDate(Date::new(2023, 12, 5)),
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::DateTime(DateTimeVal {
+                    lit: "2023-12-05",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 16 },
+                    },
+                    val: DateTime::LocalDate(Date::new(2023, 12, 5)),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -1642,30 +1763,33 @@ fn local_date() {
 fn local_time() {
     check(
         "abc = 10:11:12",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::DateTime(DateTimeVal {
-                lit: "10:11:12",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 14 },
-                },
-                val: DateTime::LocalTime(Time::new(10, 11, 12, 0)),
-            }),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::DateTime(DateTimeVal {
+                    lit: "10:11:12",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 14 },
+                    },
+                    val: DateTime::LocalTime(Time::new(10, 11, 12, 0)),
+                }),
+            }
+            .into(),
+        )],
     );
 }
 
@@ -1673,29 +1797,32 @@ fn local_time() {
 fn local_time_hour_out_of_range() {
     check_error(
         "abc = 25:00:00",
-        [Ast::Assignment(Assignment {
-            key: Key::One(Ident {
-                lit: "abc",
-                lit_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                text: "abc",
-                text_span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 3 },
-                },
-                kind: IdentKind::Plain,
-            }),
-            eq: Pos { line: 0, char: 4 },
-            val: Value::Invalid(
-                "25:00:00",
-                Span {
-                    start: Pos { line: 0, char: 6 },
-                    end: Pos { line: 0, char: 14 },
-                },
-            ),
-        })],
+        [Ast::Assignment(
+            Assignment {
+                key: Key::One(Ident {
+                    lit: "abc",
+                    lit_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    text: "abc",
+                    text_span: Span {
+                        start: Pos { line: 0, char: 0 },
+                        end: Pos { line: 0, char: 3 },
+                    },
+                    kind: IdentKind::Plain,
+                }),
+                eq: Pos { line: 0, char: 4 },
+                val: Value::Invalid(
+                    "25:00:00",
+                    Span {
+                        start: Pos { line: 0, char: 6 },
+                        end: Pos { line: 0, char: 14 },
+                    },
+                ),
+            }
+            .into(),
+        )],
         Error::DateTimeOutOfBounds(
             DateTimeField::Hour,
             25,

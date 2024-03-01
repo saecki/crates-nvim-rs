@@ -4,8 +4,9 @@ use std::collections::HashMap;
 use crate::error::FmtStr;
 use crate::onevec::OneVec;
 use crate::parse::{
-    ArrayEntry, Assignment, Ast, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
-    InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, Value,
+    ArrayEntry, Ast, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
+    InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, ToplevelAssignment,
+    Value,
 };
 use crate::{Ctx, Error, Span};
 
@@ -81,7 +82,7 @@ impl<'a> MapTableEntryRepr<'a> {
 pub enum MapTableEntryReprKind<'a> {
     Table(&'a Table<'a>),
     ArrayEntry(&'a ArrayEntry<'a>),
-    ToplevelAssignment(&'a Assignment<'a>),
+    ToplevelAssignment(&'a ToplevelAssignment<'a>),
     InlineTableAssignment(&'a InlineTableAssignment<'a>),
 }
 
@@ -328,7 +329,7 @@ impl Mapper {
 /// Value to be lazily mapped and inserted
 enum InsertValue<'a> {
     Value(&'a Value<'a>),
-    TableAssignments(&'a [Assignment<'a>]),
+    TableAssignments(&'a [ToplevelAssignment<'a>]),
 }
 
 pub fn map<'a>(ctx: &mut Ctx, asts: &'a [Ast<'a>]) -> MapTable<'a> {
@@ -342,8 +343,8 @@ pub fn map<'a>(ctx: &mut Ctx, asts: &'a [Ast<'a>]) -> MapTable<'a> {
                     ctx,
                     mapper,
                     &mut root,
-                    &assignment.key,
-                    InsertValue::Value(&assignment.val),
+                    &assignment.assignment.key,
+                    InsertValue::Value(&assignment.assignment.val),
                     repr_kind,
                 );
             }
@@ -711,7 +712,7 @@ fn insert_top_level_assignments<'a>(
     ctx: &mut Ctx,
     mapper: &mut Mapper,
     map: &mut MapTable<'a>,
-    assignments: &'a [Assignment<'a>],
+    assignments: &'a [ToplevelAssignment<'a>],
 ) {
     for assignment in assignments.iter() {
         let repr_kind = MapTableEntryReprKind::ToplevelAssignment(assignment);
@@ -719,8 +720,8 @@ fn insert_top_level_assignments<'a>(
             ctx,
             mapper,
             map,
-            &assignment.key,
-            InsertValue::Value(&assignment.val),
+            &assignment.assignment.key,
+            InsertValue::Value(&assignment.assignment.val),
             repr_kind,
         );
     }

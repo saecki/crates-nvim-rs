@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 
 use crate::map::simple::SimpleVal;
-use crate::parse::TableHeader;
+use crate::parse::{Assignment, TableHeader};
 use crate::test::check_simple;
 use crate::{onevec, Pos, Warning};
 
@@ -66,7 +66,8 @@ fn dotted_key() {
         key: Key::Dotted(key.to_vec()),
         eq: Pos::new(0, 6),
         val: Value::Int(value.clone()),
-    };
+    }
+    .into();
 
     #[rustfmt::skip]
     check(
@@ -118,7 +119,8 @@ fn dotted_keys_extend() {
         key: Key::Dotted(key1.to_vec()),
         eq: Pos::new(0, 6),
         val: Value::Int(value1.clone()),
-    };
+    }
+    .into();
 
     let key2 = [
         DottedIdent {
@@ -143,7 +145,8 @@ fn dotted_keys_extend() {
         key: Key::Dotted(key2.to_vec()),
         eq: Pos::new(1, 6),
         val: Value::Int(value2.clone()),
-    };
+    }
+    .into();
 
     #[rustfmt::skip]
     check("\
@@ -202,11 +205,11 @@ fn table() {
         lit_span: Span::from_pos_len(Pos::new(1, 6), 4),
         val: true,
     };
-    let assignment1 = Assignment {
+    let assignment1 = ToplevelAssignment::from(Assignment {
         key: Key::One(key1.clone()),
         eq: Pos::new(1, 4),
         val: Value::Bool(value1.clone()),
-    };
+    });
 
     let key2 = Ident::from_plain_lit("def", Span::from_pos_len(Pos::new(2, 0), 3));
     let value2 = FloatVal {
@@ -214,11 +217,11 @@ fn table() {
         lit_span: Span::from_pos_len(Pos::new(2, 6), 4),
         val: 23.0,
     };
-    let assignment2 = Assignment {
+    let assignment2 = ToplevelAssignment::from(Assignment {
         key: Key::One(key2.clone()),
         eq: Pos::new(2, 4),
         val: Value::Float(value2.clone()),
-    };
+    });
 
     let table = Table {
         comments: Vec::new(),
@@ -314,7 +317,8 @@ fn inline_array() {
         key: Key::One(array_key.clone()),
         eq: Pos::new(0, 6),
         val: Value::InlineArray(array.clone()),
-    };
+    }
+    .into();
 
     #[rustfmt::skip]
     check(
@@ -399,7 +403,8 @@ fn table_cannot_extend_dotted_key_of_assignment() {
         key: Key::Dotted(key.to_vec()),
         eq: Pos::new(0, 12),
         val: Value::Int(value.clone()),
-    };
+    }
+    .into();
     check_error(
         "\
 fruit.apple = 3

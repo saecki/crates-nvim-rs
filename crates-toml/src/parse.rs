@@ -31,13 +31,13 @@ macro_rules! recover_on {
 
 #[derive(Debug, PartialEq)]
 pub enum Ast<'a> {
-    Assignment(Assignment<'a>),
+    Assignment(ToplevelAssignment<'a>),
     Table(Table<'a>),
     Array(ArrayEntry<'a>),
     Comment(Comment<'a>),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AssociatedComment<'a> {
     pub pos: AssociatedPos,
     pub comment: Comment<'a>,
@@ -55,7 +55,7 @@ pub enum AssociatedPos {
 pub struct Table<'a> {
     pub comments: Vec<AssociatedComment<'a>>,
     pub header: TableHeader<'a>,
-    pub assignments: Vec<Assignment<'a>>,
+    pub assignments: Vec<ToplevelAssignment<'a>>,
 }
 
 impl<'a> Table<'a> {
@@ -64,19 +64,15 @@ impl<'a> Table<'a> {
         let header_span = self.header.span();
         let start = header_span.start;
         let end = (self.assignments.last())
-            .map(|a| a.val.span().end)
+            .map(|a| a.assignment.val.span().end)
             .unwrap_or(header_span.end);
         Span { start, end }
     }
 
-    pub fn append_comment(&mut self, comment: Comment<'a>) {
-        if self.header.l_par.line == comment.span.start.line {
-            self.comments.push(AssociatedComment {
-                pos: AssociatedPos::SameLine,
-                comment,
-            });
-        } else {
-            todo!("add {comment:?} to last assignment");
+    pub fn append_comment(&mut self, comment: AssociatedComment<'a>) {
+        match self.assignments.last_mut() {
+            Some(a) => a.comments.push(comment),
+            None => self.comments.push(comment),
         }
     }
 }
@@ -103,7 +99,7 @@ impl TableHeader<'_> {
 pub struct ArrayEntry<'a> {
     pub comments: Vec<AssociatedComment<'a>>,
     pub header: ArrayHeader<'a>,
-    pub assignments: Vec<Assignment<'a>>,
+    pub assignments: Vec<ToplevelAssignment<'a>>,
 }
 
 impl<'a> ArrayEntry<'a> {
@@ -112,20 +108,16 @@ impl<'a> ArrayEntry<'a> {
         let header_span = self.header.span();
         let start = header_span.start;
         let end = (self.assignments.last())
-            .map(|a| a.val.span().end)
+            .map(|a| a.assignment.val.span().end)
             .unwrap_or(header_span.end);
         Span { start, end }
     }
 
     /// Comment on the same line as the last item of this table
-    pub fn append_comment(&mut self, comment: Comment<'a>) {
-        if self.header.l_pars.0.line == comment.span.start.line {
-            self.comments.push(AssociatedComment {
-                pos: AssociatedPos::SameLine,
-                comment,
-            });
-        } else {
-            todo!("add {comment:?} to last assignment");
+    pub fn append_comment(&mut self, comment: AssociatedComment<'a>) {
+        match self.assignments.last_mut() {
+            Some(a) => a.comments.push(comment),
+            None => self.comments.push(comment),
         }
     }
 }
@@ -146,6 +138,28 @@ impl ArrayHeader<'_> {
             .or_else(|| self.key.as_ref().map(|k| k.span().end))
             .unwrap_or_else(|| self.l_pars.1.plus(1));
         Span { start, end }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToplevelAssignment<'a> {
+    pub comments: Vec<AssociatedComment<'a>>,
+    pub assignment: Assignment<'a>,
+}
+
+impl<'a> From<Assignment<'a>> for ToplevelAssignment<'a> {
+    fn from(assignment: Assignment<'a>) -> Self {
+        Self {
+            comments: Vec::new(),
+            assignment,
+        }
+    }
+}
+
+impl ToplevelAssignment<'_> {
+    #[inline]
+    pub fn span(&self) -> Span {
+        self.assignment.span()
     }
 }
 
@@ -525,11 +539,17 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
     'root: loop {
         if newline_required {
             while let Some(comment) = parser.eat_comment() {
-                // comment on the same line as the last item
+                let comment = AssociatedComment {
+                    pos: AssociatedPos::SameLine,
+                    comment,
+                };
                 match asts.last_mut() {
                     Some(Ast::Table(t)) => t.append_comment(comment),
                     Some(Ast::Array(a)) => a.append_comment(comment),
-                    _ => todo!("append {comment:?} to last assignment"),
+                    Some(Ast::Assignment(a)) => a.comments.push(comment),
+                    Some(Ast::Comment(_)) | None => unreachable!(
+                        "newline is only required after table/array headers and assignments"
+                    ),
                 }
             }
             match parser.peek() {
@@ -665,7 +685,12 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
             }
         };
 
+        let comments = find_associated_comments(&mut asts, &mut prev_comments, eq.line);
         let assignment = Assignment { key, eq, val };
+        let assignment = ToplevelAssignment {
+            comments,
+            assignment,
+        };
         match asts.last_mut() {
             Some(Ast::Table(t)) => t.assignments.push(assignment),
             Some(Ast::Array(a)) => a.assignments.push(assignment),
