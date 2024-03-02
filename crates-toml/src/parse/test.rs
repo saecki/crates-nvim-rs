@@ -779,6 +779,32 @@ fn comment_after_table_header() {
 }
 
 #[test]
+fn associated_comments_above_assignment() {
+    check(
+        "# comment 1\n# comment 2\nabc = false",
+        [Ast::Assignment(ToplevelAssignment {
+            comments: vec![
+                AssociatedComment {
+                    pos: AssociatedPos::Above,
+                    comment: Comment {
+                        span: Span::from_pos_len(Pos { line: 0, char: 0 }, 11),
+                        text: " comment 1",
+                    },
+                },
+                AssociatedComment {
+                    pos: AssociatedPos::Above,
+                    comment: Comment {
+                        span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
+                        text: " comment 2",
+                    },
+                },
+            ],
+            assignment: abool(2, 0, "abc", false),
+        })],
+    )
+}
+
+#[test]
 fn comment_after_assignment() {
     check(
         "abc = false # comment\n",
@@ -792,6 +818,29 @@ fn comment_after_assignment() {
             }],
             assignment: abool(0, 0, "abc", false),
         })],
+    )
+}
+
+#[test]
+fn comment_separated_by_blank_line_is_not_associated() {
+    check(
+        "# free standing\n\n# associated\nabc = false",
+        [
+            Ast::Comment(Comment {
+                span: Span::from_pos_len(Pos { line: 0, char: 0 }, 15),
+                text: " free standing",
+            }),
+            Ast::Assignment(ToplevelAssignment {
+                comments: vec![AssociatedComment {
+                    pos: AssociatedPos::Above,
+                    comment: Comment {
+                        span: Span::from_pos_len(Pos { line: 2, char: 0 }, 12),
+                        text: " associated",
+                    },
+                }],
+                assignment: abool(3, 0, "abc", false),
+            }),
+        ],
     )
 }
 

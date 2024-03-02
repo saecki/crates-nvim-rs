@@ -603,13 +603,14 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                     }
                 };
 
+                let comments = find_associated_comments(
+                    &mut asts,
+                    &mut prev_comments,
+                    l_table_square.start.line,
+                );
+
                 match l_array_square {
                     Some(l_array_square) => {
-                        let comments = find_associated_comments(
-                            &mut asts,
-                            &mut prev_comments,
-                            l_table_square.start.line,
-                        );
                         let header = ArrayHeader {
                             l_pars: (l_table_square.start, l_array_square.start),
                             key,
@@ -622,18 +623,13 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                         }));
                     }
                     None => {
-                        let associated_comments = find_associated_comments(
-                            &mut asts,
-                            &mut prev_comments,
-                            l_table_square.start.line,
-                        );
                         let header = TableHeader {
                             l_par: l_table_square.start,
                             key,
                             r_par: r_table_square,
                         };
                         asts.push(Ast::Table(Table {
-                            comments: associated_comments,
+                            comments,
                             header,
                             assignments: Vec::new(),
                         }));
@@ -710,13 +706,12 @@ fn find_associated_comments<'a>(
 ) -> Vec<AssociatedComment<'a>> {
     let i = comments.iter().rev().position(|c| {
         let contigous = c.span.start.line + 1 == line;
-        if contigous {
-            line -= 1;
-        }
+        line -= 1;
         !contigous
     });
     if let Some(i) = i {
-        for c in comments.drain(0..=i) {
+        let end = comments.len() - i;
+        for c in comments.drain(0..end) {
             asts.push(Ast::Comment(c));
         }
     }
