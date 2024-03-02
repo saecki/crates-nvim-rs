@@ -681,6 +681,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
             }
         };
 
+        // TODO: add free standing comments to array/table
         let comments = find_associated_comments(&mut asts, &mut prev_comments, eq.line);
         let assignment = Assignment { key, eq, val };
         let assignment = ToplevelAssignment {
