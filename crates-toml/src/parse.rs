@@ -51,6 +51,13 @@ impl<'a> AssociatedComment<'a> {
         }
     }
 
+    pub fn line_end(comment: Comment<'a>) -> AssociatedComment<'a> {
+        AssociatedComment {
+            pos: AssociatedPos::LineEnd,
+            comment,
+        }
+    }
+
     pub fn contained(comment: Comment<'a>) -> AssociatedComment<'a> {
         AssociatedComment {
             pos: AssociatedPos::Contained,
@@ -63,8 +70,8 @@ impl<'a> AssociatedComment<'a> {
 pub enum AssociatedPos {
     /// Directly above the associated item, without any blank lines
     Above,
-    /// On the same line as the associated item.
-    SameLine,
+    /// At the end of the same line as the associated item.
+    LineEnd,
     /// Contained inside the item.
     Contained,
 }
@@ -399,6 +406,8 @@ impl InlineTableAssignment<'_> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineArray<'a> {
+    /// Associated comments, but all are contained.
+    pub comments: Vec<Comment<'a>>,
     pub l_par: Pos,
     pub values: Vec<InlineArrayValue<'a>>,
     pub r_par: Option<Pos>,
@@ -417,6 +426,7 @@ impl InlineArray<'_> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineArrayValue<'a> {
+    pub comments: Vec<AssociatedComment<'a>>,
     pub val: Value<'a>,
     pub comma: Option<Pos>,
 }
@@ -558,7 +568,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
         if newline_required {
             while let Some(comment) = parser.eat_comment() {
                 let comment = AssociatedComment {
-                    pos: AssociatedPos::SameLine,
+                    pos: AssociatedPos::LineEnd,
                     comment,
                 };
                 match asts.last_mut() {
@@ -621,8 +631,8 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                     }
                 };
 
-                let end = find_associated_comments(&prev_comments, l_table_square.start.line);
-                let freestanding_comments = prev_comments.drain(0..end).map(Ast::Comment);
+                let pos = find_associated_comments(&prev_comments, l_table_square.start.line);
+                let freestanding_comments = prev_comments.drain(0..pos).map(Ast::Comment);
                 asts.extend(freestanding_comments);
 
                 let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
@@ -700,11 +710,11 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
 
         let assignment = Assignment { key, eq, val };
 
-        let end = find_associated_comments(&prev_comments, eq.line);
+        let pos = find_associated_comments(&prev_comments, eq.line);
         match asts.last_mut() {
             Some(Ast::Table(t)) => {
                 let contained_comments = prev_comments
-                    .drain(0..end)
+                    .drain(0..pos)
                     .map(AssociatedComment::contained);
                 t.comments.extend(contained_comments);
 
@@ -717,7 +727,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
             }
             Some(Ast::Array(a)) => {
                 let contained_comments = prev_comments
-                    .drain(0..end)
+                    .drain(0..pos)
                     .map(AssociatedComment::contained);
                 a.comments.extend(contained_comments);
 
@@ -729,7 +739,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                 a.assignments.push(assignment);
             }
             Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
-                let contained_comments = prev_comments.drain(0..end).map(Ast::Comment);
+                let contained_comments = prev_comments.drain(0..pos).map(Ast::Comment);
                 asts.extend(contained_comments);
 
                 let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
@@ -897,10 +907,12 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
             let l_par = token.span.start;
             parser.next();
 
+            let mut array_comments = Vec::new();
+            let mut prev_comments = Vec::new();
             let mut values = Vec::new();
             'inline_array: loop {
                 while let Some(comment) = parser.eat_comment_and_newlines() {
-                    todo!("store comment inside the array: {comment:?}");
+                    prev_comments.push(comment);
                 }
 
                 if matches!(parser.peek().ty, TokenType::SquareRight | TokenType::EOF) {
@@ -918,13 +930,45 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                     }
                 };
 
+                let val_line = val.span().start.line;
+                let pos = find_associated_comments(&prev_comments, val_line);
+                array_comments.extend(prev_comments.drain(0..pos));
+
+                let mut associated_comments = prev_comments
+                    .drain(..)
+                    .map(AssociatedComment::above)
+                    .collect::<Vec<_>>();
+
                 while let Some(comment) = parser.eat_comment_and_newlines() {
-                    todo!("store comment inside the array: {comment:?}");
+                    if comment.span.start.line == val_line {
+                        associated_comments.push(AssociatedComment::line_end(comment));
+                    } else {
+                        prev_comments.push(comment);
+                    }
                 }
                 let comma = match parser.peek() {
-                    t if t.ty == TokenType::Comma => Some(parser.next().span.start),
+                    t if t.ty == TokenType::Comma => {
+                        let contained = prev_comments.drain(..).map(AssociatedComment::contained);
+                        associated_comments.extend(contained);
+
+                        let comma = parser.next().span.start;
+
+                        if let Some(comment) = parser.eat_comment_and_newlines() {
+                            if comma.line == comment.span.start.line {
+                                associated_comments.push(AssociatedComment::line_end(comment));
+                            } else {
+                                prev_comments.push(comment);
+                            }
+                        }
+
+                        Some(comma)
+                    }
                     t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
-                        values.push(InlineArrayValue { val, comma: None });
+                        values.push(InlineArrayValue {
+                            comments: associated_comments,
+                            val,
+                            comma: None,
+                        });
                         break;
                     }
                     _ => {
@@ -934,7 +978,11 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                     }
                 };
 
-                values.push(InlineArrayValue { val, comma });
+                values.push(InlineArrayValue {
+                    comments: associated_comments,
+                    val,
+                    comma,
+                });
             }
 
             let r_par = match parser.peek() {
@@ -946,7 +994,10 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                 }
             };
 
+            array_comments.extend(prev_comments);
+
             Value::InlineArray(InlineArray {
+                comments: array_comments,
                 l_par,
                 values,
                 r_par,

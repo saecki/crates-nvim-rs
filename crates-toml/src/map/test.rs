@@ -279,6 +279,7 @@ fn inline_array() {
         val: 4,
     };
     let inline_array_value1 = InlineArrayValue {
+        comments: Vec::new(),
         val: Value::Int(value1.clone()),
         comma: Some(Pos::new(0, 10)),
     };
@@ -289,6 +290,7 @@ fn inline_array() {
         val: 8,
     };
     let inline_array_value2 = InlineArrayValue {
+        comments: Vec::new(),
         val: Value::Int(value2.clone()),
         comma: Some(Pos::new(0, 13)),
     };
@@ -299,12 +301,14 @@ fn inline_array() {
         val: 16,
     };
     let inline_array_value3 = InlineArrayValue {
+        comments: Vec::new(),
         val: Value::Int(value3.clone()),
         comma: None,
     };
 
     let array_key = Ident::from_plain_lit("array", Span::from_pos_len(Pos::new(0, 0), 5));
     let array = InlineArray {
+        comments: Vec::new(),
         l_par: Pos::new(0, 8),
         values: vec![
             inline_array_value1.clone(),

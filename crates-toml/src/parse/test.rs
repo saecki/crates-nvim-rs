@@ -437,17 +437,21 @@ fn inline_array() {
             0,
             "array",
             Value::InlineArray(InlineArray {
+                comments: Vec::new(),
                 l_par: Pos { line: 0, char: 8 },
                 values: vec![
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 9, "0"),
                         comma: Some(Pos { line: 0, char: 10 }),
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 12, "1"),
                         comma: Some(Pos { line: 0, char: 13 }),
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 15, "2"),
                         comma: None,
                     },
@@ -466,17 +470,21 @@ fn multi_line_inline_array() {
             0,
             "array",
             Value::InlineArray(InlineArray {
+                comments: Vec::new(),
                 l_par: Pos { line: 0, char: 8 },
                 values: vec![
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(1, 2, "0"),
                         comma: Some(Pos { line: 1, char: 3 }),
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(2, 2, "1"),
                         comma: Some(Pos { line: 2, char: 3 }),
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(3, 2, "2"),
                         comma: Some(Pos { line: 3, char: 3 }),
                     },
@@ -495,17 +503,21 @@ fn inline_array_recover_comma() {
             0,
             "array",
             Value::InlineArray(InlineArray {
+                comments: Vec::new(),
                 l_par: Pos { line: 0, char: 8 },
                 values: vec![
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 9, "0"),
                         comma: Some(Pos { line: 0, char: 10 }),
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 12, "1"),
                         comma: None,
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 15, "2"),
                         comma: None,
                     },
@@ -525,17 +537,21 @@ fn inline_array_recover_invalid() {
             0,
             "array",
             Value::InlineArray(InlineArray {
+                comments: Vec::new(),
                 l_par: Pos { line: 0, char: 8 },
                 values: vec![
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 9, "0"),
                         comma: Some(Pos { line: 0, char: 10 }),
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 12, "1"),
                         comma: Some(Pos { line: 0, char: 13 }),
                     },
                     InlineArrayValue {
+                        comments: Vec::new(),
                         val: int(0, 15, "2"),
                         comma: Some(Pos { line: 0, char: 16 }),
                     },
@@ -759,7 +775,7 @@ fn comment_after_table_header() {
         "[my_table] # comment\nentry = false\n",
         [Ast::Table(Table {
             comments: vec![AssociatedComment {
-                pos: AssociatedPos::SameLine,
+                pos: AssociatedPos::LineEnd,
                 comment: Comment {
                     span: Span::from_pos_len(Pos { line: 0, char: 11 }, 9),
                     text: " comment",
@@ -810,7 +826,7 @@ fn comment_after_assignment() {
         "abc = false # comment\n",
         [Ast::Assignment(ToplevelAssignment {
             comments: vec![AssociatedComment {
-                pos: AssociatedPos::SameLine,
+                pos: AssociatedPos::LineEnd,
                 comment: Comment {
                     span: Span::from_pos_len(Pos { line: 0, char: 12 }, 9),
                     text: " comment",
@@ -881,6 +897,66 @@ fn comment_contained_by_table() {
             assignments: vec![tabool(4, "abc", false)],
         })],
     )
+}
+
+#[test]
+fn associated_comments_in_inline_array() {
+    check(
+        "array = [\n# comment 1\n# comment 2\n\n# above value\n1 # after value\n# contained comment\n, # after comma\n# comment 3\n]",
+        [Ast::Assignment(ta(0, "array", Value::InlineArray(InlineArray {
+            comments: vec![
+                 Comment {
+                     span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
+                     text: " comment 1",
+                 },
+                 Comment {
+                     span: Span::from_pos_len(Pos { line: 2, char: 0 }, 11),
+                     text: " comment 2",
+                 },
+                 Comment {
+                     span: Span::from_pos_len(Pos { line: 8, char: 0 }, 11),
+                     text: " comment 3",
+                 },
+            ],
+            l_par: Pos { line: 0, char: 8 },
+            values: vec![
+                InlineArrayValue {
+                    comments: vec![
+                        AssociatedComment{
+                            pos: AssociatedPos::Above,
+                            comment: Comment {
+                                span: Span::from_pos_len(Pos { line: 4, char: 0 }, 13),
+                                text: " above value",
+                            },
+                        },
+                        AssociatedComment{
+                            pos: AssociatedPos::LineEnd,
+                            comment: Comment {
+                                span: Span::from_pos_len(Pos { line: 5, char: 2 }, 13),
+                                text: " after value",
+                            },
+                        },
+                        AssociatedComment{
+                            pos: AssociatedPos::Contained,
+                            comment: Comment {
+                                span: Span::from_pos_len(Pos { line: 6, char: 0 }, 19),
+                                text: " contained comment",
+                            },
+                        },
+                        AssociatedComment{
+                            pos: AssociatedPos::LineEnd,
+                            comment: Comment {
+                                span: Span::from_pos_len(Pos { line: 7, char: 2 }, 13),
+                                text: " after comma",
+                            },
+                        },
+                    ],
+                    val: int(5, 0, "1"), comma: Some(Pos { line: 7, char: 0 }),
+                }
+            ],
+            r_par: Some(Pos { line: 9, char: 0 }),
+        })))]
+    );
 }
 
 #[test]
