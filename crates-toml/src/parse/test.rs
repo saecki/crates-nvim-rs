@@ -845,6 +845,45 @@ fn comment_separated_by_blank_line_is_not_associated() {
 }
 
 #[test]
+fn comment_is_last_token() {
+    check(
+        "abc = false\n# free standing",
+        [
+            Ast::Assignment(tabool(0, "abc", false)),
+            Ast::Comment(Comment {
+                span: Span::from_pos_len(Pos { line: 1, char: 0 }, 15),
+                text: " free standing",
+            }),
+        ],
+    )
+}
+
+#[test]
+fn comment_contained_by_table() {
+    check(
+        "[my_table]\n\n# contained comment\n\nabc = false",
+        [Ast::Table(Table {
+            comments: vec![AssociatedComment {
+                pos: AssociatedPos::Contained,
+                comment: Comment {
+                    span: Span::from_pos_len(Pos { line: 2, char: 0 }, 19),
+                    text: " contained comment",
+                },
+            }],
+            header: TableHeader {
+                l_par: Pos { line: 0, char: 0 },
+                key: Some(Key::One(Ident::from_plain_lit(
+                    "my_table",
+                    Span::from_pos_len(Pos { line: 0, char: 1 }, 8),
+                ))),
+                r_par: Some(Pos { line: 0, char: 9 }),
+            },
+            assignments: vec![tabool(4, "abc", false)],
+        })],
+    )
+}
+
+#[test]
 fn offset_date_time_with_subsec() {
     check(
         "abc = 2023-12-05T10:11:12.3324243-04:30",
