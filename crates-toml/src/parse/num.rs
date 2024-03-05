@@ -105,7 +105,6 @@ fn parse_decimal_int_float_or_date(
 
         last_underscore = false;
 
-        // TODO: better errors for hex digits
         match c {
             '0'..='9' => {
                 match parse_state {

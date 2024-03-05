@@ -206,7 +206,13 @@ impl Diagnostic for Error {
 
             InvalidIntRadix(char, _) => write!(f, "Invalid integer radix: `{char}`, valid radices are `b`, `o` and `x`"),
             InvalidNumOrDateLiteralStart(char, _) => write!(f, "Invalid character `{char}` at start of literal"),
-            InvalidCharInNumLiteral(char, _) => write!(f, "Invalid character `{char}` in integer or float literal"),
+            InvalidCharInNumLiteral(char, _) => {
+                write!(f, "Invalid character `{char}` in integer or float literal")?;
+                if let 'a'..='f' | 'A'..='F' = char.0 {
+                    write!(f, ", hexadecimal integers need to be prefixed by `0x`")?;
+                }
+                Ok(())
+            }
             NumOrDateLiteralStartsWithUnderscore(_) => write!(f, "Literal cannot start with `_`"),
             NumLiteralEndsWithUnderscore(_) => write!(f, "Integer or float literal cannot end with `_`"),
             MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing digit after sign `{sign}`, expected at least one"),
@@ -221,7 +227,7 @@ impl Diagnostic for Error {
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow, number doesn't fit into a 64-bit IEEE float"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits, expected at least one"),
-            PrefixedIntPositiveSignNotAllowed(_) => write!(f, "Positive sign `+` not permitted for binary, octal, and Hexadecimal integers"),
+            PrefixedIntPositiveSignNotAllowed(_) => write!(f, "Positive sign `+` not permitted for binary, octal, and hexadecimal integers"),
             UppercaseIntRadix(prefix, _) => {
                 match prefix {
                     IntPrefix::Binary => write!(f, "Found uppercase binary int prefix `B`, only lowercase `b` is permitted"),
