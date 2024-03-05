@@ -902,21 +902,37 @@ fn comment_contained_by_table() {
 #[test]
 fn associated_comments_in_inline_array() {
     check(
-        "array = [\n# comment 1\n# comment 2\n\n# above value\n1 # after value\n# contained comment\n, # after comma\n# comment 3\n]",
+        "array = [ # comment 0\n# comment 1\n# comment 2\n\n# above value\n1 # after value\n# contained comment\n, # after comma\n# comment 3\n]",
         [Ast::Assignment(ta(0, "array", Value::InlineArray(InlineArray {
             comments: vec![
-                 Comment {
-                     span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
-                     text: " comment 1",
-                 },
-                 Comment {
-                     span: Span::from_pos_len(Pos { line: 2, char: 0 }, 11),
-                     text: " comment 2",
-                 },
-                 Comment {
-                     span: Span::from_pos_len(Pos { line: 8, char: 0 }, 11),
-                     text: " comment 3",
-                 },
+                AssociatedComment {
+                    pos: AssociatedPos::LineEnd,
+                    comment: Comment {
+                        span: Span::from_pos_len(Pos { line: 0, char: 10 }, 11),
+                        text: " comment 0",
+                    },
+                },
+                AssociatedComment {
+                    pos: AssociatedPos::Contained,
+                    comment: Comment {
+                        span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
+                        text: " comment 1",
+                    },
+                },
+                AssociatedComment {
+                    pos: AssociatedPos::Contained,
+                    comment: Comment {
+                        span: Span::from_pos_len(Pos { line: 2, char: 0 }, 11),
+                        text: " comment 2",
+                    },
+                },
+                AssociatedComment {
+                    pos: AssociatedPos::Contained,
+                    comment: Comment {
+                        span: Span::from_pos_len(Pos { line: 8, char: 0 }, 11),
+                        text: " comment 3",
+                    },
+                },
             ],
             l_par: Pos { line: 0, char: 8 },
             values: vec![
