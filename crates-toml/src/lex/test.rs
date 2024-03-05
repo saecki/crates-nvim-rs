@@ -213,7 +213,7 @@ fn assign_literal_string() {
             strings: &[StringToken {
                 quote: Quote::Literal,
                 lit: "'yeet\\'",
-                text: Cow::Borrowed("yeet\\"),
+                text: "yeet\\",
                 text_span: Span {
                     start: Pos { line: 0, char: 13 },
                     end: Pos { line: 0, char: 18 },
@@ -287,7 +287,7 @@ fn assign_escaped_string() {
             strings: &[StringToken {
                 quote: Quote::Basic,
                 lit: "\"a\\u93f2nope\"",
-                text: Cow::Borrowed("a\u{93f2}nope"),
+                text: "a\u{93f2}nope",
                 text_span: Span {
                     start: Pos { line: 0, char: 21 },
                     end: Pos { line: 0, char: 32 },
@@ -355,7 +355,7 @@ fn multiline_string_escaped_newline() {
                 quote: Quote::BasicMultiline,
                 lit:
                     "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
-                text: Cow::Borrowed("look the final string is just one line"),
+                text: "look the final string is just one line",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 4, char: 0 },
@@ -385,7 +385,7 @@ fn multiline_string_contains_up_to_two_quotes() {
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''this doesn't end the string: '' but this does: '''",
-                text: Cow::Borrowed("this doesn't end the string: '' but this does: "),
+                text: "this doesn't end the string: '' but this does: ",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 50 },
@@ -431,7 +431,7 @@ fn assign_basic_multiline_string() {
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
-                text: Cow::Borrowed("each\nword\nis\non\na\nnew\nline\n"),
+                text: "each\nword\nis\non\na\nnew\nline\n",
                 text_span: Span {
                     start: Pos { line: 0, char: 14 },
                     end: Pos { line: 8, char: 0 },
@@ -477,7 +477,7 @@ fn assign_literal_multiline_string() {
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''\\\neach\nword\nis\non\na\nnew\nline\n'''",
-                text: Cow::Borrowed("\\\neach\nword\nis\non\na\nnew\nline\n"),
+                text: "\\\neach\nword\nis\non\na\nnew\nline\n",
                 text_span: Span {
                     start: Pos { line: 0, char: 14 },
                     end: Pos { line: 8, char: 0 },
@@ -513,7 +513,7 @@ fn unclosed_basic_single_line_string() {
             strings: &[StringToken {
                 quote: Quote::Basic,
                 lit: "\"some unclosed string",
-                text: Cow::Borrowed("some unclosed string"),
+                text: "some unclosed string",
                 text_span: Span {
                     start: Pos { line: 0, char: 1 },
                     end: Pos { line: 0, char: 21 },
@@ -548,7 +548,7 @@ fn unclosed_basic_multi_line_string() {
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\nthis is a new line",
-                text: Cow::Borrowed("some unclosed string\nthis is a new line"),
+                text: "some unclosed string\nthis is a new line",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 1, char: 18 },
@@ -583,7 +583,7 @@ fn not_fully_closed_basic_multi_line_string_1() {
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\"",
-                text: Cow::Borrowed("some unclosed string\""),
+                text: "some unclosed string\"",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 24 },
@@ -618,7 +618,7 @@ fn not_fully_closed_basic_multi_line_string_2() {
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\"\"",
-                text: Cow::Borrowed("some unclosed string\"\""),
+                text: "some unclosed string\"\"",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 25 },
@@ -659,7 +659,7 @@ fn unclosed_literal_single_line_string() {
             strings: &[StringToken {
                 quote: Quote::Literal,
                 lit: "'some unclosed string",
-                text: Cow::Borrowed("some unclosed string"),
+                text: "some unclosed string",
                 text_span: Span {
                     start: Pos { line: 0, char: 1 },
                     end: Pos { line: 0, char: 21 },
@@ -694,7 +694,7 @@ fn unclosed_literal_multi_line_string() {
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string\nthis is a new line",
-                text: Cow::Borrowed("some unclosed string\nthis is a new line"),
+                text: "some unclosed string\nthis is a new line",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 1, char: 18 },
@@ -729,7 +729,7 @@ fn not_fully_closed_literal_multi_line_string_1() {
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string'",
-                text: Cow::Borrowed("some unclosed string'"),
+                text: "some unclosed string'",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 24 },
@@ -764,7 +764,7 @@ fn not_fully_closed_literal_multi_line_string_2() {
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string''",
-                text: Cow::Borrowed("some unclosed string''"),
+                text: "some unclosed string''",
                 text_span: Span {
                     start: Pos { line: 0, char: 3 },
                     end: Pos { line: 0, char: 25 },

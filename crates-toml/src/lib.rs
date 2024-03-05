@@ -2,7 +2,7 @@ use bumpalo::Bump;
 pub use error::{Error, Hint, Warning};
 pub use lex::{lex, Pos, Quote, Span, Token, TokenType, Tokens};
 pub use map::{map, MapTable};
-pub use parse::{parse, Ast};
+pub use parse::{parse, Ast, Asts};
 
 pub mod datetime;
 pub mod error;
@@ -40,11 +40,11 @@ impl Ctx {
         lex(self, bump, input)
     }
 
-    pub fn parse<'a>(&mut self, bump: &'a Bump, tokens: &Tokens<'a>) -> &'a[Ast<'a>] {
+    pub fn parse<'a>(&mut self, bump: &'a Bump, tokens: &Tokens<'a>) -> Asts<'a> {
         parse(self, bump, tokens)
     }
 
-    pub fn map<'a>(&mut self, bump: &'a Bump, asts: &'a [Ast<'a>]) -> MapTable<'a> {
+    pub fn map<'a>(&mut self, bump: &'a Bump, asts: &Asts<'a>) -> MapTable<'a> {
         map(self, bump, asts)
     }
 }

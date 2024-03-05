@@ -2,12 +2,12 @@ use std::mem::ManuallyDrop;
 
 use bumpalo::Bump;
 
-use crate::{Ast, Ctx, MapTable, Tokens};
+use crate::{Asts, Ctx, MapTable, Tokens};
 
 pub struct Toml<'a> {
     pub input: &'a str,
     pub tokens: Tokens<'a>,
-    pub asts: &'a [Ast<'a>],
+    pub asts: Asts<'a>,
     pub map: MapTable<'a>,
 }
 
@@ -43,7 +43,7 @@ impl<'a> Container {
         let input = bump.alloc_str(input);
         let tokens = ctx.lex(bump, input);
         let asts = ctx.parse(bump, &tokens);
-        let map = ctx.map(bump, asts);
+        let map = ctx.map(bump, &asts);
 
         let toml = Toml {
             input,

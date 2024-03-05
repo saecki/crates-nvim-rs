@@ -10,7 +10,7 @@ use crate::parse::{
     InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, ToplevelAssignment,
     Value,
 };
-use crate::{Ctx, Error, Span};
+use crate::{Asts, Ctx, Error, Span};
 
 pub mod simple;
 #[cfg(test)]
@@ -334,10 +334,10 @@ enum InsertValue<'a> {
     TableAssignments(&'a [ToplevelAssignment<'a>]),
 }
 
-pub fn map<'a>(ctx: &mut Ctx, bump: &'a Bump, asts: &'a [Ast<'a>]) -> MapTable<'a> {
+pub fn map<'a>(ctx: &mut Ctx, bump: &'a Bump, asts: &'_ Asts<'a>) -> MapTable<'a> {
     let mapper = &mut Mapper::new();
     let mut root = MapTable::new();
-    for a in asts {
+    for a in asts.asts.iter() {
         match a {
             Ast::Assignment(assignment) => {
                 let repr_kind = MapTableEntryReprKind::ToplevelAssignment(assignment);
@@ -433,7 +433,7 @@ fn insert_node_at_path<'a>(
     repr_kind: MapTableEntryReprKind<'a>,
 ) {
     mapper.with_path(|mapper| {
-        let idents = match &key {
+        let idents = match key {
             Key::One(i) => {
                 let key_repr = MapTableKeyRepr::One(i);
                 let repr = MapTableEntryRepr::new(key_repr, repr_kind);
@@ -446,7 +446,7 @@ fn insert_node_at_path<'a>(
             Key::Dotted(idents) => idents,
         };
 
-        let [other @ .., last] = idents.as_slice() else {
+        let [other @ .., last] = idents else {
             unreachable!()
         };
         let mut current = map;
@@ -585,7 +585,7 @@ fn insert_array_entry_at_path<'a>(
             Key::Dotted(idents) => idents,
         };
 
-        let [other @ .., last] = idents.as_slice() else {
+        let [other @ .., last] = idents else {
             unreachable!()
         };
         let mut current = map;

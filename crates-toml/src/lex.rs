@@ -1,7 +1,5 @@
+use bumpalo::collections::{String as BString, Vec as BVec};
 use bumpalo::Bump;
-use bumpalo::collections::Vec;
-
-use std::borrow::Cow;
 
 use crate::error::FmtChar;
 use crate::{Ctx, Error};
@@ -54,7 +52,7 @@ pub struct StringToken<'a> {
     /// The literal exactly as it is written in the toml file.
     pub lit: &'a str,
     /// The text with escape sequences evaluated
-    pub text: Cow<'a, str>,
+    pub text: &'a str,
     /// The span of the text without quotes
     pub text_span: Span,
 }
@@ -256,9 +254,9 @@ struct Lexer<'a> {
     lit_start: Pos,
     lit_byte_start: usize,
 
-    tokens: Vec<'a, Token>,
-    strings: Vec<'a, StringToken<'a>>,
-    literals: Vec<'a, &'a str>,
+    tokens: BVec<'a, Token>,
+    strings: BVec<'a, StringToken<'a>>,
+    literals: BVec<'a, &'a str>,
 }
 
 impl<'a> Lexer<'a> {
@@ -267,15 +265,18 @@ impl<'a> Lexer<'a> {
             bump,
             input,
             chars: input.char_indices().peekable(),
+
             line_idx: 0,
             line_byte_start: 0,
             byte_pos: 0,
-            tokens: Vec::new_in(bump),
-            strings: Vec::new_in(bump),
-            literals: Vec::new_in(bump),
+
             in_lit: false,
             lit_start: Pos::default(),
             lit_byte_start: 0,
+
+            tokens: BVec::new_in(bump),
+            strings: BVec::new_in(bump),
+            literals: BVec::new_in(bump),
         }
     }
 
@@ -323,15 +324,15 @@ impl<'a> Lexer<'a> {
 }
 
 #[derive(Debug)]
-struct StrState {
+struct StrState<'a> {
     /// Only used when there are escapes so we can't reference the original string,
-    text: Option<String>,
+    text: Option<BString<'a>>,
     text_start: Pos,
     text_byte_start: usize,
     quote: Quote,
 }
 
-impl StrState {
+impl<'a> StrState<'a> {
     fn push_char(&mut self, c: char) {
         if let Some(text) = &mut self.text {
             text.push(c);
@@ -377,7 +378,7 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
                         let id = lexer.store_string(StringToken {
                             quote,
                             lit: &input[str_start..str_start + 2],
-                            text: Cow::Borrowed(&input[str_start + 1..str_start + 1]),
+                            text: &input[str_start + 1..str_start + 1],
                             text_span,
                         });
                         let token = Token {
@@ -426,7 +427,7 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
     }
 }
 
-fn string(ctx: &mut Ctx, lexer: &mut Lexer<'_>, str: &mut StrState) {
+fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
     loop {
         let Some(c) = lexer.next() else {
             ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
@@ -475,7 +476,7 @@ fn string(ctx: &mut Ctx, lexer: &mut Lexer<'_>, str: &mut StrState) {
         } else if str.quote.is_basic() && c == '\\' {
             if str.text.is_none() {
                 let text = &lexer.input[str.text_byte_start..lexer.byte_pos];
-                str.text = Some(String::from(text));
+                str.text = Some(BString::from_str_in(text, lexer.bump));
             }
 
             let res = string_escape(ctx, lexer, str, lexer.pos());
@@ -489,10 +490,10 @@ fn string(ctx: &mut Ctx, lexer: &mut Lexer<'_>, str: &mut StrState) {
     }
 }
 
-fn string_escape(
+fn string_escape<'a>(
     ctx: &mut Ctx,
-    lexer: &mut Lexer<'_>,
-    str: &mut StrState,
+    lexer: &mut Lexer<'a>,
+    str: &mut StrState<'a>,
     esc_start: Pos,
 ) -> StringResult {
     let Some(c) = lexer.next() else {
@@ -548,10 +549,10 @@ fn string_escape(
     StringResult::Continue
 }
 
-fn string_escape_unicode(
+fn string_escape_unicode<'a>(
     ctx: &mut Ctx,
-    lexer: &mut Lexer<'_>,
-    str: &mut StrState,
+    lexer: &mut Lexer<'a>,
+    str: &mut StrState<'a>,
     esc_start: Pos,
     num_chars: u8,
 ) -> StringResult {
@@ -671,12 +672,17 @@ fn end_literal(lexer: &mut Lexer) {
     lexer.in_lit = false;
 }
 
-fn end_string(lexer: &mut Lexer, str: &mut StrState, text_byte_end: usize, lit_byte_end: usize) {
+fn end_string<'a>(
+    lexer: &mut Lexer<'a>,
+    str: &mut StrState<'a>,
+    text_byte_end: usize,
+    lit_byte_end: usize,
+) {
     let lit = &lexer.input[lexer.lit_byte_start..lit_byte_end];
 
     let text = match str.text.take() {
-        Some(text) => Cow::Owned(text),
-        None => Cow::Borrowed(&lexer.input[str.text_byte_start..text_byte_end]),
+        Some(text) => text.into_bump_str(),
+        None => &lexer.input[str.text_byte_start..text_byte_end],
     };
 
     let lit_span = Span {

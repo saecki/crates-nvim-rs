@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 
 use crate::map::simple::SimpleVal;
-use crate::parse::{Assignment, TableHeader};
+use crate::parse::{Assignment, TableHeader, Comments};
 use crate::test::check_simple;
 use crate::{onevec, Pos, Warning};
 
@@ -15,9 +15,10 @@ impl<'a> MapTableEntry<'a> {
 
 fn check(input: &str, expected: MapTable) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(&tokens);
-    let map = ctx.map(&asts);
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, input);
+    let asts = ctx.parse(&bump, &tokens);
+    let map = ctx.map(&bump, &asts);
     assert_eq!(
         expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",
@@ -29,9 +30,10 @@ fn check(input: &str, expected: MapTable) {
 
 fn check_error(input: &str, expected: MapTable, error: Error) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(&tokens);
-    let map = ctx.map(&asts);
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, input);
+    let asts = ctx.parse(&bump, &tokens);
+    let map = ctx.map(&bump, &asts);
     assert_eq!(
         expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",
@@ -63,7 +65,7 @@ fn dotted_key() {
         val: 1,
     };
     let assignment = Assignment {
-        key: Key::Dotted(key.to_vec()),
+        key: Key::Dotted(&key),
         eq: Pos::new(0, 6),
         val: Value::Int(value.clone()),
     }
@@ -224,7 +226,7 @@ fn table() {
     });
 
     let table = Table {
-        comments: Vec::new(),
+        comments: Comments::default(),
         header: TableHeader {
             l_par: Pos::new(0, 0),
             key: Some(Key::One(table_key.clone())),
@@ -279,7 +281,7 @@ fn inline_array() {
         val: 4,
     };
     let inline_array_value1 = InlineArrayValue {
-        comments: Vec::new(),
+        comments: Comments::default(),
         val: Value::Int(value1.clone()),
         comma: Some(Pos::new(0, 10)),
     };
@@ -290,7 +292,7 @@ fn inline_array() {
         val: 8,
     };
     let inline_array_value2 = InlineArrayValue {
-        comments: Vec::new(),
+        comments: Comments::default(),
         val: Value::Int(value2.clone()),
         comma: Some(Pos::new(0, 13)),
     };
@@ -301,14 +303,14 @@ fn inline_array() {
         val: 16,
     };
     let inline_array_value3 = InlineArrayValue {
-        comments: Vec::new(),
+        comments: Comments::default(),
         val: Value::Int(value3.clone()),
         comma: None,
     };
 
     let array_key = Ident::from_plain_lit("array", Span::from_pos_len(Pos::new(0, 0), 5));
     let array = InlineArray {
-        comments: Vec::new(),
+        comments: Comments::default(),
         l_par: Pos::new(0, 8),
         values: vec![
             inline_array_value1.clone(),
