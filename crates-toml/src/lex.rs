@@ -1,3 +1,6 @@
+use bumpalo::Bump;
+use bumpalo::collections::Vec;
+
 use std::borrow::Cow;
 
 use crate::error::FmtChar;
@@ -10,9 +13,9 @@ pub(crate) type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tokens<'a> {
-    pub tokens: Vec<Token>,
-    pub strings: Vec<StringToken<'a>>,
-    pub literals: Vec<&'a str>,
+    pub tokens: &'a [Token],
+    pub strings: &'a [StringToken<'a>],
+    pub literals: &'a [&'a str],
     pub eof: Token,
 }
 
@@ -241,6 +244,7 @@ impl Quote {
 
 #[derive(Debug)]
 struct Lexer<'a> {
+    bump: &'a Bump,
     input: &'a str,
     chars: CharIter<'a>,
 
@@ -252,22 +256,23 @@ struct Lexer<'a> {
     lit_start: Pos,
     lit_byte_start: usize,
 
-    tokens: Vec<Token>,
-    strings: Vec<StringToken<'a>>,
-    literals: Vec<&'a str>,
+    tokens: Vec<'a, Token>,
+    strings: Vec<'a, StringToken<'a>>,
+    literals: Vec<'a, &'a str>,
 }
 
 impl<'a> Lexer<'a> {
-    fn new(input: &'a str) -> Self {
+    fn new(bump: &'a Bump, input: &'a str) -> Self {
         Self {
+            bump,
             input,
             chars: input.char_indices().peekable(),
             line_idx: 0,
             line_byte_start: 0,
             byte_pos: 0,
-            tokens: Vec::new(),
-            strings: Vec::new(),
-            literals: Vec::new(),
+            tokens: Vec::new_in(bump),
+            strings: Vec::new_in(bump),
+            literals: Vec::new_in(bump),
             in_lit: false,
             lit_start: Pos::default(),
             lit_byte_start: 0,
@@ -339,8 +344,8 @@ enum StringResult {
     Ended,
 }
 
-pub fn lex<'a>(ctx: &mut Ctx, input: &'a str) -> Tokens<'a> {
-    let mut lexer = Lexer::new(input);
+pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
+    let mut lexer = Lexer::new(bump, input);
     while let Some(c) = lexer.next() {
         match c {
             '\n' => {
@@ -414,9 +419,9 @@ pub fn lex<'a>(ctx: &mut Ctx, input: &'a str) -> Tokens<'a> {
         span: Span::pos(lexer.pos()),
     };
     Tokens {
-        tokens: lexer.tokens,
-        strings: lexer.strings,
-        literals: lexer.literals,
+        tokens: lexer.tokens.into_bump_slice(),
+        strings: lexer.strings.into_bump_slice(),
+        literals: lexer.literals.into_bump_slice(),
         eof,
     }
 }

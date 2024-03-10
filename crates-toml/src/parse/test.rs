@@ -10,8 +10,9 @@ use crate::Warning;
 
 fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(&tokens);
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, input);
+    let asts = ctx.parse(&bump, &tokens);
     assert_eq!(
         expected.as_slice(),
         asts,
@@ -19,14 +20,15 @@ fn check<const SIZE: usize>(input: &str, expected: [Ast; SIZE]) {
         ctx.errors,
         ctx.warnings
     );
-    assert_eq!(Vec::<Error>::new(), ctx.errors);
-    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
+    assert_eq!(std::vec::Vec::<Error>::new(), ctx.errors);
+    assert_eq!(std::vec::Vec::<Warning>::new(), ctx.warnings);
 }
 
 fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Error) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(&tokens);
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, input);
+    let asts = ctx.parse(&bump, &tokens);
     assert_eq!(
         expected.as_slice(),
         asts,
@@ -35,7 +37,7 @@ fn check_error<const SIZE: usize>(input: &str, expected: [Ast; SIZE], error: Err
         ctx.warnings
     );
     assert_eq!(vec![error], ctx.errors);
-    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
+    assert_eq!(std::vec::Vec::<Warning>::new(), ctx.warnings);
 }
 
 fn int<'a>(line: u32, char: u32, lit: &'a str) -> Value<'a> {
@@ -137,7 +139,7 @@ fn astring<'a>(line: u32, char: u32, ident: &'a str, lit: &'a str, quote: Quote)
 
 fn ta<'a>(line: u32, ident: &'a str, val: Value<'a>) -> ToplevelAssignment<'a> {
     ToplevelAssignment {
-        comments: Vec::new(),
+        comments: Vec::new_in(),
         assignment: a(line, 0, ident, val),
     }
 }

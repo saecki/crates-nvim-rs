@@ -1,3 +1,4 @@
+use bumpalo::Bump;
 use pretty_assertions::assert_eq;
 
 use std::collections::HashMap;
@@ -7,9 +8,10 @@ use crate::{Ctx, Error, Warning};
 
 pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(&tokens);
-    let map = ctx.map(&asts);
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, input);
+    let asts = ctx.parse(&bump, &tokens);
+    let map = ctx.map(&bump, &asts);
 
     let test_table = crate::map::simple::map_table(map);
     assert_eq!(
@@ -23,9 +25,10 @@ pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
 
 pub fn check_simple_error(input: &str, expected: HashMap<String, SimpleVal>, error: Error) {
     let mut ctx = Ctx::default();
-    let tokens = ctx.lex(input);
-    let asts = ctx.parse(&tokens);
-    let map = ctx.map(&asts);
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, input);
+    let asts = ctx.parse(&bump, &tokens);
+    let map = ctx.map(&bump, &asts);
 
     let test_table = crate::map::simple::map_table(map);
     assert_eq!(

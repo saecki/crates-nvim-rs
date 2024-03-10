@@ -57,18 +57,19 @@ pub fn crates_nvim() -> nvim_oxi::Result<Dictionary> {
             lines.push(str.to_string());
         }
 
-        let mut toml_ctx = toml::Ctx::default();
-        let tokens = toml_ctx.lex(&text);
-        let asts = toml_ctx.parse(&tokens);
-        let map = toml_ctx.map(&asts);
-
-        let mut ctx = Ctx::from(toml_ctx);
-        let crates = find(&mut ctx, &lines, &map);
-
-        crates
-            .into_iter()
-            .map(|c| c.serialize(Serializer::new()).map_err(Into::into))
-            .collect::<Result<Vec<Object>, _>>()
+        // let mut toml_ctx = toml::Ctx::default();
+        // let tokens = toml_ctx.lex(&text);
+        // let asts = toml_ctx.parse(&tokens);
+        // let map = toml_ctx.map(&asts);
+        //
+        // let mut ctx = Ctx::from(toml_ctx);
+        // let crates = find(&mut ctx, &lines, &map);
+        //
+        // crates
+        //     .into_iter()
+        //     .map(|c| c.serialize(Serializer::new()).map_err(Into::into))
+        //     .collect::<Result<Vec<Object>, _>>()
+        Ok(())
     });
 
     Ok(Dictionary::from_iter([("parse_toml", parse_toml)]))

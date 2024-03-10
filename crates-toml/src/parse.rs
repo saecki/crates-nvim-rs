@@ -1,3 +1,6 @@
+use bumpalo::Bump;
+use bumpalo::collections::{Vec, CollectIn};
+
 use std::borrow::Borrow;
 
 use crate::datetime::{Date, DateTime, Time};
@@ -78,9 +81,9 @@ pub enum AssociatedPos {
 
 #[derive(Debug, PartialEq)]
 pub struct Table<'a> {
-    pub comments: Vec<AssociatedComment<'a>>,
+    pub comments: Vec<'a, AssociatedComment<'a>>,
     pub header: TableHeader<'a>,
-    pub assignments: Vec<ToplevelAssignment<'a>>,
+    pub assignments: Vec<'a, ToplevelAssignment<'a>>,
 }
 
 impl<'a> Table<'a> {
@@ -122,9 +125,9 @@ impl TableHeader<'_> {
 
 #[derive(Debug, PartialEq)]
 pub struct ArrayEntry<'a> {
-    pub comments: Vec<AssociatedComment<'a>>,
+    pub comments: Vec<'a, AssociatedComment<'a>>,
     pub header: ArrayHeader<'a>,
-    pub assignments: Vec<ToplevelAssignment<'a>>,
+    pub assignments: Vec<'a, ToplevelAssignment<'a>>,
 }
 
 impl<'a> ArrayEntry<'a> {
@@ -168,14 +171,14 @@ impl ArrayHeader<'_> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ToplevelAssignment<'a> {
-    pub comments: Vec<AssociatedComment<'a>>,
+    pub comments: Vec<'a, AssociatedComment<'a>>,
     pub assignment: Assignment<'a>,
 }
 
-impl<'a> From<Assignment<'a>> for ToplevelAssignment<'a> {
-    fn from(assignment: Assignment<'a>) -> Self {
+impl<'a> ToplevelAssignment<'a> {
+    fn from(bump: &'a Bump, assignment: Assignment<'a>) -> Self {
         Self {
-            comments: Vec::new(),
+            comments: Vec::new_in(bump),
             assignment,
         }
     }
@@ -205,7 +208,7 @@ impl Assignment<'_> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Key<'a> {
     One(Ident<'a>),
-    Dotted(Vec<DottedIdent<'a>>),
+    Dotted(Vec<'a, DottedIdent<'a>>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -371,7 +374,7 @@ impl<'a> DateTimeVal<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineTable<'a> {
     pub l_par: Pos,
-    pub assignments: Vec<InlineTableAssignment<'a>>,
+    pub assignments: Vec<'a, InlineTableAssignment<'a>>,
     pub r_par: Option<Pos>,
 }
 
@@ -406,9 +409,9 @@ impl InlineTableAssignment<'_> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineArray<'a> {
-    pub comments: Vec<AssociatedComment<'a>>,
+    pub comments: Vec<'a, AssociatedComment<'a>>,
     pub l_par: Pos,
-    pub values: Vec<InlineArrayValue<'a>>,
+    pub values: Vec<'a, InlineArrayValue<'a>>,
     pub r_par: Option<Pos>,
 }
 
@@ -425,7 +428,7 @@ impl InlineArray<'_> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineArrayValue<'a> {
-    pub comments: Vec<AssociatedComment<'a>>,
+    pub comments: Vec<'a, AssociatedComment<'a>>,
     pub val: Value<'a>,
     pub comma: Option<Pos>,
 }
@@ -460,11 +463,11 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(tokens: &'a Tokens<'a>) -> Self {
+    fn new(tokens: &Tokens<'a>) -> Self {
         Self {
-            strings: &tokens.strings,
-            literals: &tokens.literals,
-            tokens: &tokens.tokens,
+            strings: tokens.strings,
+            literals: tokens.literals,
+            tokens: tokens.tokens,
             cursor: 0,
             eof: tokens.eof,
         }
@@ -557,11 +560,11 @@ enum PartialValue {
 
 /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
 /// is returned, otherwise the possibly partially invalid ast is returned.
-pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
+pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> &'a[Ast<'a>] {
     let mut parser = Parser::new(tokens);
-    let mut asts = Vec::new();
+    let mut asts = Vec::new_in(bump);
     let mut newline_required = false;
-    let mut prev_comments = Vec::new();
+    let mut prev_comments = Vec::new_in(bump);
 
     'root: loop {
         if newline_required {
@@ -603,7 +606,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                     _ => None,
                 };
 
-                let key = match parse_key(ctx, &mut parser) {
+                let key = match parse_key(ctx, bump, &mut parser) {
                     Ok(k) => Some(k),
                     Err(e) => {
                         ctx.error(e);
@@ -642,9 +645,9 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                             r_pars: (r_array_square, r_table_square),
                         };
                         asts.push(Ast::Array(ArrayEntry {
-                            comments: associated_comments.collect(),
+                            comments: associated_comments.collect_in(bump),
                             header,
-                            assignments: Vec::new(),
+                            assignments: Vec::new_in(bump),
                         }));
                     }
                     None => {
@@ -654,9 +657,9 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
                             r_par: r_table_square,
                         };
                         asts.push(Ast::Table(Table {
-                            comments: associated_comments.collect(),
+                            comments: associated_comments.collect_in(bump),
                             header,
-                            assignments: Vec::new(),
+                            assignments: Vec::new_in(bump),
                         }));
                     }
                 }
@@ -681,7 +684,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
             _ => (),
         }
 
-        let key = match parse_key(ctx, &mut parser) {
+        let key = match parse_key(ctx, bump, &mut parser) {
             Ok(k) => k,
             Err(e) => {
                 ctx.error(e);
@@ -698,7 +701,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
             }
         };
 
-        let val = match parse_value(ctx, &mut parser) {
+        let val = match parse_value(ctx, bump, &mut parser) {
             Ok(v) => v,
             Err(e) => {
                 ctx.error(e);
@@ -716,7 +719,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
 
                 let associated = prev_comments.drain(..).map(AssociatedComment::above);
                 let assignment = ToplevelAssignment {
-                    comments: associated.collect(),
+                    comments: associated.collect_in(bump),
                     assignment,
                 };
                 t.assignments.push(assignment);
@@ -727,7 +730,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
 
                 let associated = prev_comments.drain(..).map(AssociatedComment::above);
                 let assignment = ToplevelAssignment {
-                    comments: associated.collect(),
+                    comments: associated.collect_in(bump),
                     assignment,
                 };
                 a.assignments.push(assignment);
@@ -737,7 +740,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
 
                 let associated = prev_comments.drain(..).map(AssociatedComment::above);
                 let assignment = ToplevelAssignment {
-                    comments: associated.collect(),
+                    comments: associated.collect_in(bump),
                     assignment,
                 };
                 asts.push(Ast::Assignment(assignment));
@@ -749,7 +752,7 @@ pub fn parse<'a>(ctx: &mut Ctx, tokens: &'a Tokens<'a>) -> Vec<Ast<'a>> {
 
     asts.extend(prev_comments.into_iter().map(Ast::Comment));
 
-    asts
+    asts.into_bump_slice()
 }
 
 fn find_associated_comments<'a>(comments: &[Comment<'a>], mut line: u32) -> usize {
@@ -761,8 +764,8 @@ fn find_associated_comments<'a>(comments: &[Comment<'a>], mut line: u32) -> usiz
     i.map_or(0, |i| comments.len() - i)
 }
 
-fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
-    let mut idents = Vec::new();
+fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
+    let mut idents = Vec::new_in(bump);
     loop {
         let token = parser.peek();
         let ident = match token.ty {
@@ -834,7 +837,7 @@ fn parse_key<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Key<'a>, Erro
     }
 }
 
-fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
+fn parse_value<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Result<Value<'a>, Error> {
     let token = parser.peek();
     let value = match token.ty {
         TokenType::String(id) => {
@@ -900,9 +903,9 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
             let l_par = token.span.start;
             parser.next();
 
-            let mut array_comments = Vec::new();
-            let mut prev_comments = Vec::new();
-            let mut values = Vec::new();
+            let mut array_comments = Vec::new_in(bump);
+            let mut prev_comments = Vec::new_in(bump);
+            let mut values = Vec::new_in(bump);
 
             if let Some(comment) = parser.eat_comment() {
                 array_comments.push(AssociatedComment::line_end(comment));
@@ -917,7 +920,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                     break;
                 }
 
-                let val = match parse_value(ctx, parser) {
+                let val = match parse_value(ctx, bump, parser) {
                     Ok(v) => v,
                     Err(e) => {
                         ctx.error(e);
@@ -936,7 +939,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                 let mut val_comments = prev_comments
                     .drain(..)
                     .map(AssociatedComment::above)
-                    .collect::<Vec<_>>();
+                    .collect_in::<Vec<_>>(bump);
                 if let Some(comment) = parser.eat_comment() {
                     val_comments.push(AssociatedComment::line_end(comment));
                 }
@@ -1001,7 +1004,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
             let l_par = token.span.start;
             parser.next();
 
-            let mut assignments = Vec::new();
+            let mut assignments = Vec::new_in(bump);
             let mut comma = None;
             'inline_table: loop {
                 if matches!(parser.peek().ty, TokenType::CurlyRight | TokenType::EOF) {
@@ -1010,7 +1013,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                     }
                     break;
                 }
-                let key = match parse_key(ctx, parser) {
+                let key = match parse_key(ctx, bump, parser) {
                     Ok(k) => k,
                     Err(e) => {
                         ctx.error(e);
@@ -1033,7 +1036,7 @@ fn parse_value<'a>(ctx: &mut Ctx, parser: &mut Parser<'a>) -> Result<Value<'a>, 
                     }
                 };
 
-                let val = match parse_value(ctx, parser) {
+                let val = match parse_value(ctx, bump, parser) {
                     Ok(v) => v,
                     Err(e) => {
                         ctx.error(e);

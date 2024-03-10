@@ -3,5 +3,8 @@ name = "crates-toml"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies]
+bumpalo = { workspace = true }
+
 [dev-dependencies]
 pretty_assertions = "1.4.0"

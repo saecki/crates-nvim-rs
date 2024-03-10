@@ -1,6 +1,8 @@
 use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
+use bumpalo::Bump;
+
 use crate::error::FmtStr;
 use crate::onevec::OneVec;
 use crate::parse::{
@@ -332,7 +334,7 @@ enum InsertValue<'a> {
     TableAssignments(&'a [ToplevelAssignment<'a>]),
 }
 
-pub fn map<'a>(ctx: &mut Ctx, asts: &'a [Ast<'a>]) -> MapTable<'a> {
+pub fn map<'a>(ctx: &mut Ctx, bump: &'a Bump, asts: &'a [Ast<'a>]) -> MapTable<'a> {
     let mapper = &mut Mapper::new();
     let mut root = MapTable::new();
     for a in asts {

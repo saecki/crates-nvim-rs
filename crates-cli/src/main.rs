@@ -1,5 +1,6 @@
 use std::process::ExitCode;
 
+use bumpalo::Bump;
 use toml::error::{Diagnostic, Severity};
 use unicode_width::UnicodeWidthStr;
 
@@ -20,11 +21,12 @@ fn main() -> ExitCode {
 
     let start = std::time::SystemTime::now();
     let mut ctx = toml::Ctx::default();
-    let tokens = ctx.lex(&text);
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, &text);
     let lexing = std::time::SystemTime::now();
-    let asts = ctx.parse(&tokens);
+    let asts = ctx.parse(&bump, &tokens);
     let parsing = std::time::SystemTime::now();
-    let map = ctx.map(&asts);
+    let map = ctx.map(&bump, &asts);
     let mapping = std::time::SystemTime::now();
     let simple = toml::map::simple::map_table(map);
     let end = std::time::SystemTime::now();
