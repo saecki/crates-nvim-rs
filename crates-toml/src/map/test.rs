@@ -1,9 +1,8 @@
 use pretty_assertions::assert_eq;
 
-use crate::map::simple::SimpleVal;
-use crate::parse::{Assignment, TableHeader, Comments};
-use crate::test::check_simple;
-use crate::{onevec, Pos, Warning};
+use crate::onevec;
+use crate::parse::TableHeader;
+use crate::test::*;
 
 use super::*;
 
@@ -64,12 +63,14 @@ fn dotted_key() {
         lit_span: Span::from_pos_len(Pos::new(0, 8), 1),
         val: 1,
     };
-    let assignment = Assignment {
-        key: Key::Dotted(&key),
-        eq: Pos::new(0, 6),
-        val: Value::Int(value.clone()),
-    }
-    .into();
+    let assignment = twrap(
+        &[],
+        Assignment {
+            key: Key::Dotted(&key),
+            eq: Pos::new(0, 6),
+            val: Value::Int(value.clone()),
+        },
+    );
 
     #[rustfmt::skip]
     check(
@@ -117,12 +118,14 @@ fn dotted_keys_extend() {
         lit_span: Span::from_pos_len(Pos::new(0, 8), 1),
         val: 1,
     };
-    let assignment1 = Assignment {
-        key: Key::Dotted(key1.to_vec()),
-        eq: Pos::new(0, 6),
-        val: Value::Int(value1.clone()),
-    }
-    .into();
+    let assignment1 = twrap(
+        &[],
+        Assignment {
+            key: Key::Dotted(&key1),
+            eq: Pos::new(0, 6),
+            val: Value::Int(value1.clone()),
+        },
+    );
 
     let key2 = [
         DottedIdent {
@@ -143,12 +146,14 @@ fn dotted_keys_extend() {
         lit_span: Span::from_pos_len(Pos::new(1, 8), 1),
         val: 2,
     };
-    let assignment2 = Assignment {
-        key: Key::Dotted(key2.to_vec()),
-        eq: Pos::new(1, 6),
-        val: Value::Int(value2.clone()),
-    }
-    .into();
+    let assignment2 = twrap(
+        &[],
+        Assignment {
+            key: Key::Dotted(&key2),
+            eq: Pos::new(1, 6),
+            val: Value::Int(value2.clone()),
+        },
+    );
 
     #[rustfmt::skip]
     check("\
@@ -201,17 +206,21 @@ a.b.d = 2
 #[test]
 fn table() {
     let table_key = Ident::from_plain_lit("mytable", Span::from_pos_len(Pos::new(0, 1), 7));
+    let bump = Bump::new();
 
     let key1 = Ident::from_plain_lit("abc", Span::from_pos_len(Pos::new(1, 0), 3));
     let value1 = BoolVal {
         lit_span: Span::from_pos_len(Pos::new(1, 6), 4),
         val: true,
     };
-    let assignment1 = ToplevelAssignment::from(Assignment {
-        key: Key::One(key1.clone()),
-        eq: Pos::new(1, 4),
-        val: Value::Bool(value1.clone()),
-    });
+    let assignment1 = ToplevelAssignment::from(twrap(
+        &[],
+        Assignment {
+            key: Key::One(key1.clone()),
+            eq: Pos::new(1, 4),
+            val: Value::Bool(value1.clone()),
+        },
+    ));
 
     let key2 = Ident::from_plain_lit("def", Span::from_pos_len(Pos::new(2, 0), 3));
     let value2 = FloatVal {
@@ -219,20 +228,23 @@ fn table() {
         lit_span: Span::from_pos_len(Pos::new(2, 6), 4),
         val: 23.0,
     };
-    let assignment2 = ToplevelAssignment::from(Assignment {
-        key: Key::One(key2.clone()),
-        eq: Pos::new(2, 4),
-        val: Value::Float(value2.clone()),
-    });
+    let assignment2 = ToplevelAssignment::from(twrap(
+        &[],
+        Assignment {
+            key: Key::One(key2.clone()),
+            eq: Pos::new(2, 4),
+            val: Value::Float(value2.clone()),
+        },
+    ));
 
     let table = Table {
-        comments: Comments::default(),
+        comments: empty_comments(&[]),
         header: TableHeader {
             l_par: Pos::new(0, 0),
             key: Some(Key::One(table_key.clone())),
             r_par: Some(Pos::new(0, 8)),
         },
-        assignments: vec![assignment1.clone(), assignment2.clone()],
+        assignments: bvec![in &bump; assignment1.clone(), assignment2.clone()],
     };
 
     #[rustfmt::skip]
@@ -275,13 +287,15 @@ def = 23.0
 
 #[test]
 fn inline_array() {
+    let bump = Bump::new();
+
     let value1 = IntVal {
         lit: "4",
         lit_span: Span::from_pos_len(Pos::new(0, 9), 1),
         val: 4,
     };
     let inline_array_value1 = InlineArrayValue {
-        comments: Comments::default(),
+        comments: empty_comments(&[]),
         val: Value::Int(value1.clone()),
         comma: Some(Pos::new(0, 10)),
     };
@@ -292,7 +306,7 @@ fn inline_array() {
         val: 8,
     };
     let inline_array_value2 = InlineArrayValue {
-        comments: Comments::default(),
+        comments: empty_comments(&[]),
         val: Value::Int(value2.clone()),
         comma: Some(Pos::new(0, 13)),
     };
@@ -303,28 +317,30 @@ fn inline_array() {
         val: 16,
     };
     let inline_array_value3 = InlineArrayValue {
-        comments: Comments::default(),
+        comments: empty_comments(&[]),
         val: Value::Int(value3.clone()),
         comma: None,
     };
 
     let array_key = Ident::from_plain_lit("array", Span::from_pos_len(Pos::new(0, 0), 5));
     let array = InlineArray {
-        comments: Comments::default(),
+        comments: empty_comments(&[]),
         l_par: Pos::new(0, 8),
-        values: vec![
+        values: bvec![in &bump;
             inline_array_value1.clone(),
             inline_array_value2.clone(),
             inline_array_value3.clone(),
         ],
         r_par: Some(Pos::new(0, 17)),
     };
-    let assignment = Assignment {
-        key: Key::One(array_key.clone()),
-        eq: Pos::new(0, 6),
-        val: Value::InlineArray(array.clone()),
-    }
-    .into();
+    let assignment = twrap(
+        &[],
+        Assignment {
+            key: Key::One(array_key.clone()),
+            eq: Pos::new(0, 6),
+            val: Value::InlineArray(array.clone()),
+        },
+    );
 
     #[rustfmt::skip]
     check(
@@ -405,12 +421,14 @@ fn table_cannot_extend_dotted_key_of_assignment() {
         lit_span: Span::from_pos_len(Pos::new(0, 14), 1),
         val: 3,
     };
-    let assignment = Assignment {
-        key: Key::Dotted(key.to_vec()),
-        eq: Pos::new(0, 12),
-        val: Value::Int(value.clone()),
-    }
-    .into();
+    let assignment = twrap(
+        &[],
+        Assignment {
+            key: Key::Dotted(&key),
+            eq: Pos::new(0, 12),
+            val: Value::Int(value.clone()),
+        },
+    );
     check_error(
         "\
 fruit.apple = 3

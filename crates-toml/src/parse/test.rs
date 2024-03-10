@@ -6,18 +6,19 @@ use super::*;
 use crate::datetime::{DateTimeField, Offset};
 use crate::test::*;
 
-fn check_comments<'a, const A: usize, const C: usize>(
+fn check_comments<'a, const SIZE: usize>(
     input: &str,
-    expected_builder: impl FnOnce(&'a Bump, &mut BVec<'a, AssociatedComment<'a>>) -> [Ast<'a>; A],
+    expected_builder: impl FnOnce(&'a Bump, &'_ mut BVec<'a, AssociatedComment<'a>>) -> [Ast<'a>; SIZE],
 ) {
     let mut ctx = Ctx::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
 
-    let expected_bump = Bump::new();
-    let mut expected_comments = BVec::new_in(&bump);
-    let expected_asts = expected_builder(&bump, &mut expected_comments);
+    // HACK
+    let expected_bump = Box::leak(Box::new(Bump::new()));
+    let mut expected_comments = BVec::new_in(expected_bump);
+    let expected_asts = expected_builder(expected_bump, &mut expected_comments);
     assert_eq!(
         Asts {
             asts: &expected_asts,
@@ -49,9 +50,10 @@ fn check_error<'a, const SIZE: usize>(
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
 
-    let expected_bump = Bump::new();
+    // HACK
+    let expected_bump = Box::leak(Box::new(Bump::new()));
     let expected_comments = [];
-    let expected_asts = expected_builder(&bump, &expected_comments);
+    let expected_asts = expected_builder(expected_bump, &expected_comments);
 
     assert_eq!(
         Asts {
@@ -257,33 +259,26 @@ fn prefixed_int_ends_with_underscore() {
 
 #[test]
 fn dotted_key() {
+    let ident = [
+        DottedIdent {
+            ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos { line: 0, char: 0 }, 1)),
+            dot: Some(Pos { line: 0, char: 1 }),
+        },
+        DottedIdent {
+            ident: Ident::from_plain_lit("b", Span::from_pos_len(Pos { line: 0, char: 2 }, 1)),
+            dot: Some(Pos { line: 0, char: 3 }),
+        },
+        DottedIdent {
+            ident: Ident::from_plain_lit("c", Span::from_pos_len(Pos { line: 0, char: 4 }, 1)),
+            dot: None,
+        },
+    ];
+
     check("a.b.c = false", |_, c| {
-        [Ast::Assignment(wrap(
+        [Ast::Assignment(twrap(
             c,
             Assignment {
-                key: Key::Dotted(&[
-                    DottedIdent {
-                        ident: Ident::from_plain_lit(
-                            "a",
-                            Span::from_pos_len(Pos { line: 0, char: 0 }, 1),
-                        ),
-                        dot: Some(Pos { line: 0, char: 1 }),
-                    },
-                    DottedIdent {
-                        ident: Ident::from_plain_lit(
-                            "b",
-                            Span::from_pos_len(Pos { line: 0, char: 2 }, 1),
-                        ),
-                        dot: Some(Pos { line: 0, char: 3 }),
-                    },
-                    DottedIdent {
-                        ident: Ident::from_plain_lit(
-                            "c",
-                            Span::from_pos_len(Pos { line: 0, char: 4 }, 1),
-                        ),
-                        dot: None,
-                    },
-                ]),
+                key: Key::Dotted(&ident),
                 eq: Pos { line: 0, char: 6 },
                 val: bool(0, 8, false),
             },
@@ -625,7 +620,7 @@ fn newline_is_required_after_table_header() {
                     ))),
                     r_par: Some(Pos { line: 0, char: 9 }),
                 },
-                assignments: bvec![in bump; wrap(comments, abool(0, 10, "entry", false))],
+                assignments: bvec![in bump; twrap(comments, abool(0, 10, "entry", false))],
             })]
         },
         Error::MissingNewline(Pos { line: 0, char: 10 }),
@@ -636,10 +631,10 @@ fn newline_is_required_after_table_header() {
 fn newline_is_required_after_assignment() {
     check_error(
         "a = false b = 87",
-        |bump, comments| {
+        |_, comments| {
             [
-                Ast::Assignment(wrap(comments, abool(0, 0, "a", false))),
-                Ast::Assignment(wrap(comments, aint(0, 10, "b", "87"))),
+                Ast::Assignment(twrap(comments, abool(0, 0, "a", false))),
+                Ast::Assignment(twrap(comments, aint(0, 10, "b", "87"))),
             ]
         },
         Error::MissingNewline(Pos { line: 0, char: 10 }),
@@ -726,7 +721,7 @@ fn comment_after_table_header() {
 
 #[test]
 fn associated_comments_above_assignment() {
-    check_comments("# comment 1\n# comment 2\nabc = false", |bump, comments| {
+    check_comments("# comment 1\n# comment 2\nabc = false", |_, comments| {
         [Ast::Assignment(ToplevelAssignment {
             comments: build_comments(
                 comments,
@@ -754,7 +749,7 @@ fn associated_comments_above_assignment() {
 
 #[test]
 fn comment_after_assignment() {
-    check_comments("abc = false # comment\n", |bump, comments| {
+    check_comments("abc = false # comment\n", |_, comments| {
         [Ast::Assignment(ToplevelAssignment {
             comments: build_comments(
                 comments,
@@ -775,7 +770,7 @@ fn comment_after_assignment() {
 fn comment_separated_by_blank_line_is_not_associated() {
     check_comments(
         "# free standing\n\n# associated\nabc = false",
-        |bump, comments| {
+        |_, comments| {
             [
                 Ast::Comment(Comment {
                     span: Span::from_pos_len(Pos { line: 0, char: 0 }, 15),
@@ -801,7 +796,7 @@ fn comment_separated_by_blank_line_is_not_associated() {
 
 #[test]
 fn comment_is_last_token() {
-    check("abc = false\n# free standing", |bump, comments| {
+    check("abc = false\n# free standing", |_, comments| {
         [
             Ast::Assignment(tabool(comments, 0, "abc", false)),
             Ast::Comment(Comment {
@@ -844,75 +839,77 @@ fn comment_contained_by_table() {
 
 #[test]
 fn associated_comments_in_inline_array() {
-    let bump = Bump::new();
     check_comments(
         "array = [\n# comment 1\n# comment 2\n\n# above value\n1 # after value\n# contained comment\n, # after comma\n# comment 3\n]",
         |bump, comments| {
-            let asts = [Ast::Assignment(ta(
-                comments,
-                0,
-                "array",
-                Value::InlineArray(InlineArray {
-                    comments: {
-                        build_comments(comments, [
-                            AssociatedComment {
-                                pos: AssociatedPos::Contained,
-                                comment: Comment {
-                                    span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
-                                    text: " comment 1",
-                                },
-                            },
-                            AssociatedComment {
-                                pos: AssociatedPos::Contained,
-                                comment: Comment {
-                                    span: Span::from_pos_len(Pos { line: 2, char: 0 }, 11),
-                                    text: " comment 2",
-                                },
-                            },
-                        ]);
-
-                        // last comment is added at the end
-                        Comments::new(CommentId(0), 7)
-                    },
-                    l_par: Pos { line: 0, char: 8 },
-                    values: bvec![in &bump;
-                        InlineArrayValue {
-                            comments: build_comments(comments, [
-                                AssociatedComment{
-                                    pos: AssociatedPos::Above,
-                                    comment: Comment {
-                                        span: Span::from_pos_len(Pos { line: 4, char: 0 }, 13),
-                                        text: " above value",
-                                    },
-                                },
-                                AssociatedComment{
-                                    pos: AssociatedPos::LineEnd,
-                                    comment: Comment {
-                                        span: Span::from_pos_len(Pos { line: 5, char: 2 }, 13),
-                                        text: " after value",
-                                    },
-                                },
-                                AssociatedComment{
+            let asts = [Ast::Assignment(ToplevelAssignment {
+                comments: Comments::new(CommentId(0), 7),
+                assignment: a(
+                    0,
+                    0,
+                    "array",
+                    Value::InlineArray(InlineArray {
+                        comments: {
+                            build_comments(comments, [
+                                AssociatedComment {
                                     pos: AssociatedPos::Contained,
                                     comment: Comment {
-                                        span: Span::from_pos_len(Pos { line: 6, char: 0 }, 19),
-                                        text: " contained comment",
+                                        span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
+                                        text: " comment 1",
                                     },
                                 },
-                                AssociatedComment{
-                                    pos: AssociatedPos::LineEnd,
+                                AssociatedComment {
+                                    pos: AssociatedPos::Contained,
                                     comment: Comment {
-                                        span: Span::from_pos_len(Pos { line: 7, char: 2 }, 13),
-                                        text: " after comma",
+                                        span: Span::from_pos_len(Pos { line: 2, char: 0 }, 11),
+                                        text: " comment 2",
                                     },
                                 },
-                            ]),
-                            val: int(5, 0, "1"), comma: Some(Pos { line: 7, char: 0 }),
-                        }
-                    ],
-                    r_par: Some(Pos { line: 9, char: 0 }),
-                }),
-            ))];
+                            ]);
+
+                            // last comment is added at the end
+                            Comments::new(CommentId(0), 7)
+                        },
+                        l_par: Pos { line: 0, char: 8 },
+                        values: bvec![in &bump;
+                            InlineArrayValue {
+                                comments: build_comments(comments, [
+                                    AssociatedComment{
+                                        pos: AssociatedPos::Above,
+                                        comment: Comment {
+                                            span: Span::from_pos_len(Pos { line: 4, char: 0 }, 13),
+                                            text: " above value",
+                                        },
+                                    },
+                                    AssociatedComment{
+                                        pos: AssociatedPos::LineEnd,
+                                        comment: Comment {
+                                            span: Span::from_pos_len(Pos { line: 5, char: 2 }, 13),
+                                            text: " after value",
+                                        },
+                                    },
+                                    AssociatedComment{
+                                        pos: AssociatedPos::Contained,
+                                        comment: Comment {
+                                            span: Span::from_pos_len(Pos { line: 6, char: 0 }, 19),
+                                            text: " contained comment",
+                                        },
+                                    },
+                                    AssociatedComment{
+                                        pos: AssociatedPos::LineEnd,
+                                        comment: Comment {
+                                            span: Span::from_pos_len(Pos { line: 7, char: 2 }, 13),
+                                            text: " after comma",
+                                        },
+                                    },
+                                ]),
+                                val: int(5, 0, "1"), comma: Some(Pos { line: 7, char: 0 }),
+                            }
+                        ],
+                        r_par: Some(Pos { line: 9, char: 0 }),
+                    }),
+                ),
+            })];
 
             // add last comment
             build_comments(comments, [AssociatedComment {

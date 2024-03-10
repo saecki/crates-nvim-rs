@@ -62,14 +62,9 @@ impl Comments {
         self.len == 0
     }
 
-    /// If non-empty append all comments including this one, else just add this one comment.
+    /// Append all comments including this one to the range.
     fn append(&mut self, id: CommentId) {
-        if self.len == 0 {
-            self.start = id;
-            self.len = 1;
-        } else {
-            self.len = id.0 - self.start.0 + 1;
-        }
+        self.len = id.0 - self.start.0 + 1;
     }
 
     /// Set the end bound of this comment range. If this happens to be the same as start, this
@@ -606,7 +601,7 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
     let mut asts = BVec::new_in(bump);
     let mut comment_storage = BVec::new_in(bump);
     let mut newline_required = false;
-    let mut prev_comments = BVec::new_in(bump);
+    let mut prev_comments = Vec::new();
 
     'root: loop {
         if newline_required {
@@ -742,6 +737,27 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
             }
         };
 
+        // store associated comments here so associated comments of the value are added in the correct order
+        let pos = find_associated_comments(&prev_comments, eq.line);
+        let non_associated_comments = prev_comments.drain(..pos);
+        match asts.last_mut() {
+            Some(Ast::Table(t)) => {
+                let contained_comments = non_associated_comments.map(AssociatedComment::contained);
+                add_comments(&mut comment_storage, &mut t.comments, contained_comments);
+            }
+            Some(Ast::Array(a)) => {
+                let contained_comments = non_associated_comments.map(AssociatedComment::contained);
+                add_comments(&mut comment_storage, &mut a.comments, contained_comments);
+            }
+            Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
+                let freestanding_comments = non_associated_comments.map(Ast::Comment);
+                asts.extend(freestanding_comments);
+            }
+        }
+
+        let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
+        let mut comments = store_comments(&mut comment_storage, associated_comments);
+
         let val = match parse_value(ctx, bump, &mut parser, &mut comment_storage) {
             Ok(v) => v,
             Err(e) => {
@@ -750,47 +766,19 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
             }
         };
 
+        // include all associated comments of inner values
+        comments.extend_to(next_comment_id(&comment_storage));
+
         let assignment = Assignment { key, eq, val };
-
-        let pos = find_associated_comments(&prev_comments, eq.line);
+        let assignment = ToplevelAssignment {
+            comments,
+            assignment,
+        };
         match asts.last_mut() {
-            Some(Ast::Table(t)) => {
-                let contained_comments =
-                    prev_comments.drain(..pos).map(AssociatedComment::contained);
-                add_comments(&mut comment_storage, &mut t.comments, contained_comments);
-
-                let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
-                let comments = store_comments(&mut comment_storage, associated_comments);
-                let assignment = ToplevelAssignment {
-                    comments,
-                    assignment,
-                };
-                t.assignments.push(assignment);
-            }
-            Some(Ast::Array(a)) => {
-                let contained_comments =
-                    prev_comments.drain(..pos).map(AssociatedComment::contained);
-                add_comments(&mut comment_storage, &mut a.comments, contained_comments);
-
-                let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
-                let comments = store_comments(&mut comment_storage, associated_comments);
-                let assignment = ToplevelAssignment {
-                    comments,
-                    assignment,
-                };
-                a.assignments.push(assignment);
-            }
+            Some(Ast::Table(t)) => t.assignments.push(assignment),
+            Some(Ast::Array(a)) => a.assignments.push(assignment),
             Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
-                let contained_comments = prev_comments.drain(..pos).map(Ast::Comment);
-                asts.extend(contained_comments);
-
-                let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
-                let comments = store_comments(&mut comment_storage, associated_comments);
-                let assignment = ToplevelAssignment {
-                    comments,
-                    assignment,
-                };
-                asts.push(Ast::Assignment(assignment));
+                asts.push(Ast::Assignment(assignment))
             }
         }
 
@@ -807,8 +795,8 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
 
 fn find_associated_comments<'a>(comments: &[Comment<'a>], mut line: u32) -> usize {
     let len = comments.iter().rev().position(|c| {
-        line -= 1;
         let contigous = c.span.start.line + 1 == line;
+        line -= 1;
         !contigous
     });
     len.map_or(0, |l| comments.len() - l)
@@ -816,8 +804,8 @@ fn find_associated_comments<'a>(comments: &[Comment<'a>], mut line: u32) -> usiz
 
 fn mark_comments_above<'a>(storage: &mut [AssociatedComment<'a>], mut line: u32) -> Comments {
     let len = storage.iter_mut().rev().position(|c| {
-        line -= 1;
         let contigous = c.comment.span.start.line + 1 == line && c.pos == AssociatedPos::Contained;
+        line -= 1;
         if contigous {
             c.pos = AssociatedPos::Above;
         }

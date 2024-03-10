@@ -149,7 +149,7 @@ pub fn astring<'a>(
     a(line, char, ident, val)
 }
 
-pub fn wrap<'a>(
+pub fn twrap<'a>(
     comments: &[AssociatedComment],
     assignment: Assignment<'a>,
 ) -> ToplevelAssignment<'a> {
@@ -159,13 +159,13 @@ pub fn wrap<'a>(
     }
 }
 
-pub fn ta<'a>(
-    comments: &[AssociatedComment],
+pub fn ta<'a, 'b>(
+    comments: &'b [AssociatedComment<'b>],
     line: u32,
     ident: &'a str,
     val: Value<'a>,
 ) -> ToplevelAssignment<'a> {
-    wrap(comments, a(line, 0, ident, val))
+    twrap(comments, a(line, 0, ident, val))
 }
 
 pub fn tainvalid<'a>(
@@ -174,7 +174,7 @@ pub fn tainvalid<'a>(
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    wrap(comments, ainvalid(line, 0, ident, val))
+    twrap(comments, ainvalid(line, 0, ident, val))
 }
 
 pub fn taint<'a>(
@@ -183,7 +183,7 @@ pub fn taint<'a>(
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    wrap(comments, aint(line, 0, ident, val))
+    twrap(comments, aint(line, 0, ident, val))
 }
 
 pub fn tafloat<'a>(
@@ -192,7 +192,7 @@ pub fn tafloat<'a>(
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    wrap(comments, afloat(line, 0, ident, val))
+    twrap(comments, afloat(line, 0, ident, val))
 }
 
 pub fn tabool<'a>(
@@ -201,7 +201,7 @@ pub fn tabool<'a>(
     ident: &'a str,
     val: bool,
 ) -> ToplevelAssignment<'a> {
-    wrap(comments, abool(line, 0, ident, val))
+    twrap(comments, abool(line, 0, ident, val))
 }
 
 pub fn tastring<'a>(
@@ -211,7 +211,7 @@ pub fn tastring<'a>(
     lit: &'a str,
     quote: Quote,
 ) -> ToplevelAssignment<'a> {
-    wrap(comments, astring(line, 0, ident, lit, quote))
+    twrap(comments, astring(line, 0, ident, lit, quote))
 }
 
 pub fn empty_comments(comments: &[AssociatedComment]) -> Comments {
