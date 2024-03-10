@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use bumpalo::collections::{String as BString, Vec as BVec};
 use bumpalo::Bump;
 
@@ -352,11 +354,6 @@ impl<'a> StrState<'a> {
     }
 }
 
-enum StringResult {
-    Continue,
-    Ended,
-}
-
 pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
     let mut lexer = Lexer::new(bump, input);
     while let Some(c) = lexer.next() {
@@ -495,8 +492,8 @@ fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
 
             let res = string_escape(ctx, lexer, str, lexer.pos());
             match res {
-                StringResult::Continue => continue,
-                StringResult::Ended => return,
+                ControlFlow::Continue(()) => continue,
+                ControlFlow::Break(()) => return,
             }
         } else {
             str.push_char(c);
@@ -509,13 +506,13 @@ fn string_escape<'a>(
     lexer: &mut Lexer<'a>,
     str: &mut StrState<'a>,
     esc_start: Pos,
-) -> StringResult {
+) -> ControlFlow<()> {
     let Some(c) = lexer.next() else {
         ctx.error(Error::UnfinishedEscapeSequence(Span::new(
             esc_start,
             lexer.pos(),
         )));
-        return StringResult::Continue;
+        return ControlFlow::Continue(());
     };
 
     match c {
@@ -546,7 +543,7 @@ fn string_escape<'a>(
                 end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
                 newline_token(lexer);
                 lexer.newline();
-                return StringResult::Ended;
+                return ControlFlow::Break(());
             }
 
             // Newline was escaped
@@ -560,7 +557,7 @@ fn string_escape<'a>(
         _ => ctx.error(Error::InvalidEscapeChar(FmtChar(c), lexer.pos())),
     }
 
-    StringResult::Continue
+    ControlFlow::Continue(())
 }
 
 fn string_escape_unicode<'a>(
@@ -569,7 +566,7 @@ fn string_escape_unicode<'a>(
     str: &mut StrState<'a>,
     esc_start: Pos,
     num_chars: u8,
-) -> StringResult {
+) -> ControlFlow<()> {
     let mut remaining = num_chars;
     let mut unicode_cp = 0;
     loop {
@@ -578,7 +575,7 @@ fn string_escape_unicode<'a>(
                 start: esc_start,
                 end: lexer.pos(),
             }));
-            return StringResult::Continue;
+            return ControlFlow::Continue(());
         };
         remaining -= 1;
 
@@ -612,12 +609,12 @@ fn string_escape_unicode<'a>(
                     end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
                     newline_token(lexer);
                     lexer.newline();
-                    return StringResult::Ended;
+                    return ControlFlow::Break(());
                 }
 
                 str.push_char(c);
                 lexer.newline();
-                return StringResult::Continue;
+                return ControlFlow::Continue(());
             }
             _ => {
                 ctx.error(Error::InvalidUnicodeEscapeChar(FmtChar(c), lexer.pos()));
@@ -629,7 +626,7 @@ fn string_escape_unicode<'a>(
                             lexer.next();
                         } else {
                             str.push_char(c);
-                            return StringResult::Continue;
+                            return ControlFlow::Continue(());
                         }
 
                         if Some(str.quote.char()) == lexer.peek() {
@@ -637,14 +634,14 @@ fn string_escape_unicode<'a>(
                         } else {
                             str.push_char(c);
                             str.push_char(c);
-                            return StringResult::Continue;
+                            return ControlFlow::Continue(());
                         }
                     }
 
                     // Recover state
                     let lit_end = lexer.byte_pos + 1;
                     end_string(lexer, str, text_end, lit_end);
-                    return StringResult::Ended;
+                    return ControlFlow::Break(());
                 }
             }
         }
@@ -659,7 +656,7 @@ fn string_escape_unicode<'a>(
                 )),
             }
 
-            return StringResult::Continue;
+            return ControlFlow::Continue(());
         }
     }
 }
