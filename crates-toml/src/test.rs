@@ -125,19 +125,17 @@ pub fn astring<'a>(
         },
         lit.len() as u32,
     );
+    // HACK: only works for strings without escape sequences
     let text = lit.trim_start_matches("'");
-    let start_offset = lit.len() - text.len();
+    let text_start_offset = (lit.len() - text.len()) as u8;
     let text = text.trim_end_matches("'");
-    let end_offset = lit.len() - text.len() - start_offset;
-    let text_span = Span {
-        start: lit_span.start.plus(start_offset as u32),
-        end: lit_span.end.minus(end_offset as u32),
-    };
+    let text_end_offset = (lit.len() - text.len()) as u8 - text_start_offset;
     let val = Value::String(StringVal {
         lit_span,
         lit,
         text,
-        text_span,
+        text_start_offset,
+        text_end_offset,
         quote,
     });
     a(line, char, ident, val)

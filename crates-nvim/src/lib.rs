@@ -608,7 +608,7 @@ fn parse_dependency_features(
 
         items.push(TomlFeature {
             name: f.text.to_string(),
-            col: Range::from_span_cols(f.text_span),
+            col: Range::from_span_cols(f.text_span()),
             decl_col: Range::new(decl_start_col, decl_end_col),
             quote: Quotes {
                 s: f.l_quote().to_string(),

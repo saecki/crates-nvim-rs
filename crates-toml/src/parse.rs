@@ -270,8 +270,8 @@ impl Key<'_> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ident<'a> {
     pub lit: &'a str,
-    pub text: &'a str,
     pub lit_start: Pos,
+    pub text: &'a str,
     pub text_start_offset: u8,
     pub text_end_offset: u8,
     pub kind: IdentKind,
@@ -291,15 +291,15 @@ impl<'a> Ident<'a> {
 
     pub fn from_string(
         lit: &'a str,
-        text: &'a str,
         lit_span: Span,
+        text: &'a str,
         text_span: Span,
         kind: IdentKind,
     ) -> Self {
         Ident {
             lit,
             lit_start: lit_span.start,
-            text: lit,
+            text,
             text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
             text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
             kind,
@@ -363,25 +363,41 @@ pub struct StringVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
     pub text: &'a str,
-    pub text_span: Span,
+    pub text_start_offset: u8,
+    pub text_end_offset: u8,
     pub quote: Quote,
 }
 
 impl<'a> StringVal<'a> {
+    pub fn new(lit: &'a str, lit_span: Span, text: &'a str, text_span: Span, quote: Quote) -> Self {
+        Self {
+            lit,
+            lit_span,
+            text,
+            text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
+            text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
+            quote,
+        }
+    }
+
+    pub fn text_span(&self) -> Span {
+        let start = self.lit_span.start.plus(self.text_start_offset as u32);
+        let end = self.lit_span.end.minus(self.text_end_offset as u32);
+        Span { start, end }
+    }
+
     pub fn l_quote(&'a self) -> &'a str {
-        let quote_end = self.text_span.start.char - self.lit_span.start.char;
-        &self.lit[0..quote_end as usize]
+        let quote_end = self.text_start_offset as usize;
+        &self.lit[0..quote_end]
     }
 
     /// Returns either the right quote or none if the string literal is unclosed.
     pub fn r_quote(&'a self) -> Option<&'a str> {
-        let quote_len = self.lit_span.end.char - self.text_span.end.char;
-        if quote_len == 0 {
+        if self.text_end_offset == 0 {
             None
         } else {
-            let quote_end = self.lit.len();
-            let quote_start = quote_end - quote_len as usize;
-            Some(&self.lit[quote_start..quote_end])
+            let quote_start = self.lit.len() - self.text_end_offset as usize;
+            Some(&self.lit[quote_start..])
         }
     }
 }
@@ -911,7 +927,7 @@ fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Resu
                         return Err(Error::MultilineLiteralStringIdent(token.span))
                     }
                 };
-                Ident::from_string(str.lit, str.text, token.span, str.text_span, kind)
+                Ident::from_string(str.lit, token.span, str.text, str.text_span, kind)
             }
             TokenType::LiteralOrIdent(id) => {
                 let lit = parser.literal(id);
@@ -972,13 +988,13 @@ fn parse_value<'a>(
         TokenType::String(id) => {
             let token = parser.next();
             let str = parser.string(id);
-            Value::String(StringVal {
-                lit: str.lit,
-                lit_span: token.span,
-                text: str.text,
-                text_span: str.text_span,
-                quote: str.quote,
-            })
+            Value::String(StringVal::new(
+                str.lit,
+                token.span,
+                str.text,
+                str.text_span,
+                str.quote,
+            ))
         }
         TokenType::LiteralOrIdent(id) => {
             let token = parser.next();
