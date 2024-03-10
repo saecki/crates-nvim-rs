@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use toml::map::{
     MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
-    MapTableEntryReprKind, MapTableKeyRepr, Scalar,
+    MapTableEntryReprKind, Scalar,
 };
 use toml::onevec::OneVec;
 use toml::parse::{Ident, StringVal};
@@ -210,8 +210,8 @@ impl TomlCrate {
     pub fn plain(name: &Ident, version: &StringVal, section: Section) -> Self {
         Self {
             explicit_name: name.text.to_string(),
-            explicit_name_col: Range::new(name.lit_span.start.char, name.lit_span.end.char),
-            lines: Range::from_start_len(name.lit_span.start.line, 1),
+            explicit_name_col: Range::new(name.lit_span().start.char, name.lit_span().end.char),
+            lines: Range::from_start_len(name.lit_span().start.line, 1),
             syntax: TomlCrateSyntax::Plain,
             section,
             dep_kind: DepKind::Registry,
@@ -489,7 +489,7 @@ fn find(ctx: &mut Ctx, lines: &[impl AsRef<str>], map: &MapTable) -> Vec<TomlCra
                 ),
                 _ => ctx.error(CargoError::ExpectedTable(
                     key.to_string(),
-                    entry.reprs.first().key.repr_ident().lit_span,
+                    entry.reprs.first().key.repr_ident().lit_span(),
                 )),
             },
             "dev-dependencies" => todo!(),
@@ -536,7 +536,7 @@ fn parse_dependencies(
                 };
                 let mut builder = CrateBuilder::new(
                     crate_name.to_string(),
-                    Range::from_span_cols(repr.key.repr_ident().lit_span),
+                    Range::from_span_cols(repr.key.repr_ident().lit_span()),
                     Range::from_span_lines(repr.kind.span()),
                     syntax,
                     todo!("section"),
@@ -642,7 +642,7 @@ fn expect_array_in_table<'a>(
         _ => {
             let repr = entry.reprs.first();
             let key = repr.key.repr_ident().text.to_string();
-            let span = Span::across(repr.key.repr_ident().lit_span, repr.kind.span());
+            let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(CargoError::ExpectedArrayInTable(key, span));
             None
         }
@@ -658,7 +658,7 @@ fn expect_string_in_table<'a>(
         _ => {
             let repr = entry.reprs.first();
             let key = repr.key.repr_ident().text.to_string();
-            let span = Span::across(repr.key.repr_ident().lit_span, repr.kind.span());
+            let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(CargoError::ExpectedStringInTable(key, span));
             None
         }

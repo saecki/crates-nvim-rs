@@ -256,11 +256,11 @@ impl Key<'_> {
     #[inline]
     pub fn span(&self) -> Span {
         match self {
-            Key::One(i) => i.lit_span,
+            Key::One(i) => i.lit_span(),
             Key::Dotted(idents) => {
-                let start = idents.first().unwrap().ident.lit_span.start;
+                let start = idents.first().unwrap().ident.lit_span().start;
                 let last = idents.last().unwrap();
-                let end = last.dot.map_or(last.ident.lit_span.end, |p| p.plus(1));
+                let end = last.dot.map_or(last.ident.lit_span().end, |p| p.plus(1));
                 Span { start, end }
             }
         }
@@ -270,10 +270,10 @@ impl Key<'_> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ident<'a> {
     pub lit: &'a str,
-    pub lit_span: Span,
     pub text: &'a str,
-    // TODO: only store offset to lit_span
-    pub text_span: Span,
+    pub lit_start: Pos,
+    pub text_start_offset: u8,
+    pub text_end_offset: u8,
     pub kind: IdentKind,
 }
 
@@ -281,15 +281,45 @@ impl<'a> Ident<'a> {
     pub fn from_plain_lit(lit: &'a str, span: Span) -> Self {
         Ident {
             lit,
-            lit_span: span,
+            lit_start: span.start,
             text: lit,
-            text_span: span,
+            text_start_offset: 0,
+            text_end_offset: 0,
             kind: IdentKind::Plain,
+        }
+    }
+
+    pub fn from_string(
+        lit: &'a str,
+        text: &'a str,
+        lit_span: Span,
+        text_span: Span,
+        kind: IdentKind,
+    ) -> Self {
+        Ident {
+            lit,
+            lit_start: lit_span.start,
+            text: lit,
+            text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
+            text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
+            kind,
         }
     }
 
     pub fn text(&self) -> &str {
         self.text.as_ref()
+    }
+
+    #[inline(always)]
+    pub fn lit_span(&self) -> Span {
+        Span::from_pos_len(self.lit_start, self.lit.len() as u32)
+    }
+
+    #[inline(always)]
+    pub fn text_span(&self) -> Span {
+        let start = self.lit_start.plus(self.text_start_offset as u32);
+        let len = self.lit.len() as u32 - (self.text_start_offset + self.text_end_offset) as u32;
+        Span::from_pos_len(start, len)
     }
 }
 
@@ -881,13 +911,7 @@ fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Resu
                         return Err(Error::MultilineLiteralStringIdent(token.span))
                     }
                 };
-                Ident {
-                    lit_span: token.span,
-                    lit: str.lit,
-                    text: str.text,
-                    text_span: str.text_span,
-                    kind,
-                }
+                Ident::from_string(str.lit, str.text, token.span, str.text_span, kind)
             }
             TokenType::LiteralOrIdent(id) => {
                 let lit = parser.literal(id);

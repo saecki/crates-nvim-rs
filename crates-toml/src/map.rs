@@ -669,7 +669,7 @@ fn insert_array_entry<'a>(
                 MapNode::Array(MapArray::Inline(_)) => {
                     let path = mapper.joined_path(key);
                     let orig = entry.reprs.first().kind.span();
-                    let new = repr.key.repr_ident().lit_span;
+                    let new = repr.key.repr_ident().lit_span();
                     return Err(Error::CannotExtendInlineArray { path, orig, new });
                 }
                 MapNode::Table(_) | MapNode::Scalar(_) => {
@@ -751,15 +751,15 @@ where
         MapNode::Array(MapArray::Inline(_)) => {
             let path = mapper.joined_path(ident.lit);
             let orig = reprs.first().kind.span();
-            let new = ident.lit_span;
+            let new = ident.lit_span();
             return Err(Error::CannotExtendInlineArrayAsTable { path, orig, new });
         }
         MapNode::Scalar(_) => {
             return Err(Error::DuplicateKey {
                 path: mapper.path(),
                 key: FmtStr::from_str(ident.lit),
-                orig: reprs.first().key.repr_ident().lit_span,
-                duplicate: ident.lit_span,
+                orig: reprs.first().key.repr_ident().lit_span(),
+                duplicate: ident.lit_span(),
             });
         }
     };
@@ -773,7 +773,7 @@ where
                     // `next` is an inline table
                     let path = mapper.joined_path(ident.lit);
                     let orig = existing.kind.span();
-                    let new = ident.lit_span;
+                    let new = ident.lit_span();
                     return Err(Error::CannotExtendInlineTable { path, orig, new });
                 }
             }
@@ -781,7 +781,7 @@ where
                 // we're inside an inline table, which can't be extended
                 let path = mapper.joined_path(ident.lit);
                 let orig = existing.kind.span();
-                let new = ident.lit_span;
+                let new = ident.lit_span();
                 return Err(Error::CannotExtendInlineTable { path, orig, new });
             }
         }
@@ -799,7 +799,7 @@ fn duplicate_key_error(
     Error::DuplicateKey {
         path: mapper.path(),
         key: FmtStr::from_str(ident.lit),
-        orig: entry.reprs.first().key.repr_ident().lit_span,
-        duplicate: duplicate.repr_ident().lit_span,
+        orig: entry.reprs.first().key.repr_ident().lit_span(),
+        duplicate: duplicate.repr_ident().lit_span(),
     }
 }

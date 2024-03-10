@@ -6,7 +6,7 @@ pub use pretty_assertions::assert_eq;
 pub use std::collections::HashMap;
 
 pub use crate::map::simple::SimpleVal;
-pub use crate::parse::{Assignment, Ident, IdentKind, Key, ToplevelAssignment, Value};
+pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
 pub use crate::{Ctx, Error, Pos, Quote, Span, Warning};
 
 use crate::parse::{AssociatedComment, BoolVal, CommentId, Comments, FloatVal, IntVal, StringVal};
@@ -66,13 +66,7 @@ pub fn bool<'a>(line: u32, char: u32, val: bool) -> Value<'a> {
 pub fn a<'a>(line: u32, char: u32, ident: &'a str, val: Value<'a>) -> Assignment<'a> {
     let ident_span = Span::from_pos_len(Pos { line, char }, ident.len() as u32);
     Assignment {
-        key: Key::One(Ident {
-            lit: ident,
-            lit_span: ident_span,
-            text: ident,
-            text_span: ident_span,
-            kind: IdentKind::Plain,
-        }),
+        key: Key::One(Ident::from_plain_lit(ident, ident_span)),
         eq: ident_span.end.plus(1),
         val,
     }
