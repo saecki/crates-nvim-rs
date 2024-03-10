@@ -578,14 +578,14 @@ fn table_header() {
     check("[my_table]\nentry = false\n", |bump, comments| {
         [Ast::Table(Table {
             comments: empty_comments(comments),
-            header: TableHeader {
-                l_par: Pos { line: 0, char: 0 },
-                key: Some(Key::One(Ident::from_plain_lit(
+            header: TableHeader::new(
+                Pos { line: 0, char: 0 },
+                Some(Key::One(Ident::from_plain_lit(
                     "my_table",
                     Span::from_pos_len(Pos { line: 0, char: 1 }, 8),
                 ))),
-                r_par: Some(Pos { line: 0, char: 9 }),
-            },
+                Some(Pos { line: 0, char: 9 }),
+            ),
             assignments: bvec![in bump; tabool(comments, 1, "entry", false)],
         })]
     })
@@ -596,17 +596,17 @@ fn array_header() {
     check("[[my_array]]\nentry = false\n", |bump, comments| {
         [Ast::Array(ArrayEntry {
             comments: empty_comments(comments),
-            header: ArrayHeader {
-                l_pars: (Pos { line: 0, char: 0 }, Pos { line: 0, char: 1 }),
-                key: Some(Key::One(Ident::from_plain_lit(
+            header: ArrayHeader::new(
+                (Pos { line: 0, char: 0 }, Pos { line: 0, char: 1 }),
+                Some(Key::One(Ident::from_plain_lit(
                     "my_array",
                     Span::from_pos_len(Pos { line: 0, char: 2 }, 8),
                 ))),
-                r_pars: (
+                (
                     Some(Pos { line: 0, char: 10 }),
                     Some(Pos { line: 0, char: 11 }),
                 ),
-            },
+            ),
             assignments: bvec![in bump; tabool(comments, 1, "entry", false)],
         })]
     })
@@ -619,14 +619,14 @@ fn newline_is_required_after_table_header() {
         |bump, comments| {
             [Ast::Table(Table {
                 comments: empty_comments(comments),
-                header: TableHeader {
-                    l_par: Pos { line: 0, char: 0 },
-                    key: Some(Key::One(Ident::from_plain_lit(
+                header: TableHeader::new(
+                    Pos { line: 0, char: 0 },
+                    Some(Key::One(Ident::from_plain_lit(
                         "my_table",
                         Span::from_pos_len(Pos { line: 0, char: 1 }, 8),
                     ))),
-                    r_par: Some(Pos { line: 0, char: 9 }),
-                },
+                    Some(Pos { line: 0, char: 9 }),
+                ),
                 assignments: bvec![in bump; twrap(comments, abool(0, 10, "entry", false))],
             })]
         },
@@ -662,14 +662,14 @@ fn table_header_with_associated_comment() {
                     },
                 }],
             ),
-            header: TableHeader {
-                l_par: Pos { line: 1, char: 0 },
-                key: Some(Key::One(Ident::from_plain_lit(
+            header: TableHeader::new(
+                Pos { line: 1, char: 0 },
+                Some(Key::One(Ident::from_plain_lit(
                     "my_table",
                     Span::from_pos_len(Pos { line: 1, char: 1 }, 8),
                 ))),
-                r_par: Some(Pos { line: 1, char: 9 }),
-            },
+                Some(Pos { line: 1, char: 9 }),
+            ),
             assignments: BVec::new_in(bump),
         })]
     })
@@ -685,14 +685,14 @@ fn non_associated_comment() {
             }),
             Ast::Table(Table {
                 comments: empty_comments(comments),
-                header: TableHeader {
-                    l_par: Pos { line: 2, char: 0 },
-                    key: Some(Key::One(Ident::from_plain_lit(
+                header: TableHeader::new(
+                    Pos { line: 2, char: 0 },
+                    Some(Key::One(Ident::from_plain_lit(
                         "my_table",
                         Span::from_pos_len(Pos { line: 2, char: 1 }, 8),
                     ))),
-                    r_par: Some(Pos { line: 2, char: 9 }),
-                },
+                    Some(Pos { line: 2, char: 9 }),
+                ),
                 assignments: BVec::new_in(bump),
             }),
         ]
@@ -713,14 +713,14 @@ fn comment_after_table_header() {
                     },
                 }],
             ),
-            header: TableHeader {
-                l_par: Pos { line: 0, char: 0 },
-                key: Some(Key::One(Ident::from_plain_lit(
+            header: TableHeader::new(
+                Pos { line: 0, char: 0 },
+                Some(Key::One(Ident::from_plain_lit(
                     "my_table",
                     Span::from_pos_len(Pos { line: 0, char: 1 }, 8),
                 ))),
-                r_par: Some(Pos { line: 0, char: 9 }),
-            },
+                Some(Pos { line: 0, char: 9 }),
+            ),
             assignments: bvec![in bump; tabool(comments, 1, "entry", false)],
         })]
     })
@@ -830,14 +830,14 @@ fn comment_contained_by_table() {
                         },
                     }],
                 ),
-                header: TableHeader {
-                    l_par: Pos { line: 0, char: 0 },
-                    key: Some(Key::One(Ident::from_plain_lit(
+                header: TableHeader::new(
+                    Pos { line: 0, char: 0 },
+                    Some(Key::One(Ident::from_plain_lit(
                         "my_table",
                         Span::from_pos_len(Pos { line: 0, char: 1 }, 8),
                     ))),
-                    r_par: Some(Pos { line: 0, char: 9 }),
-                },
+                    Some(Pos { line: 0, char: 9 }),
+                ),
                 assignments: bvec![in bump; tabool(comments, 4, "abc", false)],
             })]
         },

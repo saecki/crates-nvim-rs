@@ -239,11 +239,11 @@ fn table() {
 
     let table = Table {
         comments: empty_comments(&[]),
-        header: TableHeader {
-            l_par: Pos::new(0, 0),
-            key: Some(Key::One(table_key.clone())),
-            r_par: Some(Pos::new(0, 8)),
-        },
+        header: TableHeader::new(
+            Pos::new(0, 0),
+            Some(Key::One(table_key.clone())),
+            Some(Pos::new(0, 8)),
+        ),
         assignments: bvec![in &bump; assignment1.clone(), assignment2.clone()],
     };
 

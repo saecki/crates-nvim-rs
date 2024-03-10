@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
 
@@ -144,17 +146,33 @@ impl<'a> Table<'a> {
 pub struct TableHeader<'a> {
     pub l_par: Pos,
     pub key: Option<Key<'a>>,
-    pub r_par: Option<Pos>,
+    pub r_par_offset: Option<NonZeroU32>,
 }
 
-impl TableHeader<'_> {
+impl<'a> TableHeader<'a> {
+    pub fn new(l_par: Pos, key: Option<Key<'a>>, r_par: Option<Pos>) -> Self {
+        Self {
+            l_par,
+            key,
+            r_par_offset: r_par.map(|r_par| {
+                NonZeroU32::new(r_par.char - l_par.char)
+                    .expect("l_par and r_par can't be at the same position")
+            }),
+        }
+    }
+
     #[inline]
     pub fn span(&self) -> Span {
         let start = self.l_par;
-        let end = (self.r_par.map(|p| p.plus(1)))
+        let end = self
+            .r_par()
             .or_else(|| self.key.as_ref().map(|k| k.span().end))
             .unwrap_or_else(|| self.l_par.plus(1));
         Span { start, end }
+    }
+
+    pub fn r_par(&self) -> Option<Pos> {
+        self.r_par_offset.map(|o| self.l_par.plus(o.get()))
     }
 }
 
@@ -189,18 +207,48 @@ impl<'a> ArrayEntry<'a> {
 pub struct ArrayHeader<'a> {
     pub l_pars: (Pos, Pos),
     pub key: Option<Key<'a>>,
-    pub r_pars: (Option<Pos>, Option<Pos>),
+    pub r_par_offsets: (Option<NonZeroU32>, Option<NonZeroU32>),
 }
 
-impl ArrayHeader<'_> {
+impl<'a> ArrayHeader<'a> {
+    pub fn new(
+        l_pars: (Pos, Pos),
+        key: Option<Key<'a>>,
+        r_pars: (Option<Pos>, Option<Pos>),
+    ) -> Self {
+        Self {
+            l_pars,
+            key,
+            r_par_offsets: (
+                r_pars.0.map(|r_par| {
+                    NonZeroU32::new(r_par.char - l_pars.0.char)
+                        .expect("l_par and r_par can't be at the same position")
+                }),
+                r_pars.1.map(|r_par| {
+                    NonZeroU32::new(r_par.char - l_pars.0.char)
+                        .expect("l_par and r_par can't be at the same position")
+                }),
+            ),
+        }
+    }
+
     #[inline]
     pub fn span(&self) -> Span {
         let start = self.l_pars.0;
-        let end = (self.r_pars.1.map(|p| p.plus(1)))
-            .or_else(|| self.r_pars.0.map(|p| p.plus(1)))
+
+        let r_pars = self.r_pars();
+        let end = (r_pars.1)
+            .or_else(|| r_pars.0)
             .or_else(|| self.key.as_ref().map(|k| k.span().end))
             .unwrap_or_else(|| self.l_pars.1.plus(1));
         Span { start, end }
+    }
+
+    #[inline(always)]
+    pub fn r_pars(&self) -> (Option<Pos>, Option<Pos>) {
+        let a = (self.r_par_offsets.0).map(|o| self.l_pars.0.plus(o.get() + 1));
+        let b = (self.r_par_offsets.1).map(|o| self.l_pars.0.plus(o.get() + 1));
+        (a, b)
     }
 }
 
@@ -721,11 +769,11 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                 let comments = store_comments(&mut comment_storage, associated_comments);
                 match l_array_square {
                     Some(l_array_square) => {
-                        let header = ArrayHeader {
-                            l_pars: (l_table_square.start, l_array_square.start),
+                        let header = ArrayHeader::new(
+                            (l_table_square.start, l_array_square.start),
                             key,
-                            r_pars: (r_array_square, r_table_square),
-                        };
+                            (r_array_square, r_table_square),
+                        );
                         asts.push(Ast::Array(ArrayEntry {
                             comments,
                             header,
@@ -733,11 +781,7 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                         }));
                     }
                     None => {
-                        let header = TableHeader {
-                            l_par: l_table_square.start,
-                            key,
-                            r_par: r_table_square,
-                        };
+                        let header = TableHeader::new(l_table_square.start, key, r_table_square);
                         asts.push(Ast::Table(Table {
                             comments,
                             header,
