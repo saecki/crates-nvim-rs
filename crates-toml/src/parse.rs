@@ -456,7 +456,7 @@ impl<'a> DateTimeVal<'a> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineTable<'a> {
     pub l_par: Pos,
-    pub assignments: BVec<'a, InlineTableAssignment<'a>>,
+    pub assignments: &'a [InlineTableAssignment<'a>],
     pub r_par: Option<Pos>,
 }
 
@@ -493,7 +493,7 @@ impl InlineTableAssignment<'_> {
 pub struct InlineArray<'a> {
     pub comments: Comments,
     pub l_par: Pos,
-    pub values: BVec<'a, InlineArrayValue<'a>>,
+    pub values: &'a [InlineArrayValue<'a>],
     pub r_par: Option<Pos>,
 }
 
@@ -1138,7 +1138,7 @@ fn parse_value<'a>(
             Value::InlineArray(InlineArray {
                 comments: array_comments,
                 l_par,
-                values,
+                values: values.into_bump_slice(),
                 r_par,
             })
         }
@@ -1221,7 +1221,7 @@ fn parse_value<'a>(
 
             Value::InlineTable(InlineTable {
                 l_par,
-                assignments,
+                assignments: assignments.into_bump_slice(),
                 r_par,
             })
         }

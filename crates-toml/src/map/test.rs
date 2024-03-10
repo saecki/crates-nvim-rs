@@ -287,8 +287,6 @@ def = 23.0
 
 #[test]
 fn inline_array() {
-    let bump = Bump::new();
-
     let value1 = IntVal {
         lit: "4",
         lit_span: Span::from_pos_len(Pos::new(0, 9), 1),
@@ -326,7 +324,7 @@ fn inline_array() {
     let array = InlineArray {
         comments: empty_comments(&[]),
         l_par: Pos::new(0, 8),
-        values: bvec![in &bump;
+        values: &[
             inline_array_value1.clone(),
             inline_array_value2.clone(),
             inline_array_value3.clone(),

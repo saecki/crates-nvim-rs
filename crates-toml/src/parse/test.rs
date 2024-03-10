@@ -259,26 +259,33 @@ fn prefixed_int_ends_with_underscore() {
 
 #[test]
 fn dotted_key() {
-    let ident = [
-        DottedIdent {
-            ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos { line: 0, char: 0 }, 1)),
-            dot: Some(Pos { line: 0, char: 1 }),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("b", Span::from_pos_len(Pos { line: 0, char: 2 }, 1)),
-            dot: Some(Pos { line: 0, char: 3 }),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("c", Span::from_pos_len(Pos { line: 0, char: 4 }, 1)),
-            dot: None,
-        },
-    ];
-
-    check("a.b.c = false", |_, c| {
+    check("a.b.c = false", |bump, comments| {
         [Ast::Assignment(twrap(
-            c,
+            comments,
             Assignment {
-                key: Key::Dotted(&ident),
+                key: Key::Dotted(bump.alloc([
+                    DottedIdent {
+                        ident: Ident::from_plain_lit(
+                            "a",
+                            Span::from_pos_len(Pos { line: 0, char: 0 }, 1),
+                        ),
+                        dot: Some(Pos { line: 0, char: 1 }),
+                    },
+                    DottedIdent {
+                        ident: Ident::from_plain_lit(
+                            "b",
+                            Span::from_pos_len(Pos { line: 0, char: 2 }, 1),
+                        ),
+                        dot: Some(Pos { line: 0, char: 3 }),
+                    },
+                    DottedIdent {
+                        ident: Ident::from_plain_lit(
+                            "c",
+                            Span::from_pos_len(Pos { line: 0, char: 4 }, 1),
+                        ),
+                        dot: None,
+                    },
+                ])),
                 eq: Pos { line: 0, char: 6 },
                 val: bool(0, 8, false),
             },
@@ -347,7 +354,7 @@ fn inline_array() {
             Value::InlineArray(InlineArray {
                 comments: empty_comments(comments),
                 l_par: Pos { line: 0, char: 8 },
-                values: bvec![in bump;
+                values: bump.alloc([
                     InlineArrayValue {
                         comments: empty_comments(comments),
                         val: int(0, 9, "0"),
@@ -363,7 +370,7 @@ fn inline_array() {
                         val: int(0, 15, "2"),
                         comma: None,
                     },
-                ],
+                ]),
                 r_par: Some(Pos { line: 0, char: 16 }),
             }),
         ))]
@@ -380,7 +387,7 @@ fn multi_line_inline_array() {
             Value::InlineArray(InlineArray {
                 comments: empty_comments(comments),
                 l_par: Pos { line: 0, char: 8 },
-                values: bvec![in bump;
+                values: bump.alloc([
                     InlineArrayValue {
                         comments: empty_comments(comments),
                         val: int(1, 2, "0"),
@@ -396,7 +403,7 @@ fn multi_line_inline_array() {
                         val: int(3, 2, "2"),
                         comma: Some(Pos { line: 3, char: 3 }),
                     },
-                ],
+                ]),
                 r_par: Some(Pos { line: 4, char: 0 }),
             }),
         ))]
@@ -415,7 +422,7 @@ fn inline_array_recover_comma() {
                 Value::InlineArray(InlineArray {
                     comments: empty_comments(comments),
                     l_par: Pos { line: 0, char: 8 },
-                    values: bvec![in &bump;
+                    values: bump.alloc([
                         InlineArrayValue {
                             comments: empty_comments(comments),
                             val: int(0, 9, "0"),
@@ -431,7 +438,7 @@ fn inline_array_recover_comma() {
                             val: int(0, 15, "2"),
                             comma: None,
                         },
-                    ],
+                    ]),
                     r_par: Some(Pos { line: 0, char: 16 }),
                 }),
             ))]
@@ -452,7 +459,7 @@ fn inline_array_recover_invalid() {
                 Value::InlineArray(InlineArray {
                     comments: empty_comments(comments),
                     l_par: Pos { line: 0, char: 8 },
-                    values: bvec![in &bump;
+                    values: bump.alloc([
                         InlineArrayValue {
                             comments: empty_comments(comments),
                             val: int(0, 9, "0"),
@@ -468,7 +475,7 @@ fn inline_array_recover_invalid() {
                             val: int(0, 15, "2"),
                             comma: Some(Pos { line: 0, char: 16 }),
                         },
-                    ],
+                    ]),
                     r_par: Some(Pos { line: 0, char: 19 }),
                 }),
             ))]
@@ -486,7 +493,7 @@ fn inline_table() {
             "table",
             Value::InlineTable(InlineTable {
                 l_par: Pos { line: 0, char: 8 },
-                assignments: bvec![in bump;
+                assignments: bump.alloc([
                     InlineTableAssignment {
                         assignment: aint(0, 10, "a", "3"),
                         comma: Some(Pos { line: 0, char: 15 }),
@@ -495,7 +502,7 @@ fn inline_table() {
                         assignment: abool(0, 17, "b", true),
                         comma: None,
                     },
-                ],
+                ]),
                 r_par: Some(Pos { line: 0, char: 26 }),
             }),
         ))]
@@ -513,7 +520,7 @@ fn inline_table_recover_missing_comma() {
                 "table",
                 Value::InlineTable(InlineTable {
                     l_par: Pos { line: 0, char: 8 },
-                    assignments: bvec![in bump;
+                    assignments: bump.alloc([
                         InlineTableAssignment {
                             assignment: aint(0, 10, "a", "3"),
                             comma: None,
@@ -522,7 +529,7 @@ fn inline_table_recover_missing_comma() {
                             assignment: abool(0, 17, "b", true),
                             comma: None,
                         },
-                    ],
+                    ]),
                     r_par: Some(Pos { line: 0, char: 26 }),
                 }),
             ))]
@@ -542,7 +549,7 @@ fn inline_table_recover_invalid() {
                 "table",
                 Value::InlineTable(InlineTable {
                     l_par: Pos { line: 0, char: 8 },
-                    assignments: bvec![in bump;
+                    assignments: bump.alloc([
                         InlineTableAssignment {
                             assignment: aint(0, 10, "a", "3"),
                             comma: Some(Pos { line: 0, char: 15 }),
@@ -551,7 +558,7 @@ fn inline_table_recover_invalid() {
                             assignment: abool(0, 17, "b", true),
                             comma: Some(Pos { line: 0, char: 25 }),
                         },
-                    ],
+                    ]),
                     r_par: Some(Pos { line: 0, char: 29 }),
                 }),
             ))]
@@ -871,7 +878,7 @@ fn associated_comments_in_inline_array() {
                             Comments::new(CommentId(0), 7)
                         },
                         l_par: Pos { line: 0, char: 8 },
-                        values: bvec![in &bump;
+                        values: bump.alloc([
                             InlineArrayValue {
                                 comments: build_comments(comments, [
                                     AssociatedComment{
@@ -905,7 +912,7 @@ fn associated_comments_in_inline_array() {
                                 ]),
                                 val: int(5, 0, "1"), comma: Some(Pos { line: 7, char: 0 }),
                             }
-                        ],
+                        ]),
                         r_par: Some(Pos { line: 9, char: 0 }),
                     }),
                 ),
