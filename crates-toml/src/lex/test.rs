@@ -214,10 +214,8 @@ fn assign_literal_string() {
                 quote: Quote::Literal,
                 lit: "'yeet\\'",
                 text: "yeet\\",
-                text_span: Span {
-                    start: Pos { line: 0, char: 13 },
-                    end: Pos { line: 0, char: 18 },
-                },
+                text_start_offset: 1,
+                text_end_offset: 1,
             }],
             literals: &["my", "string"],
             eof: Token {
@@ -288,10 +286,8 @@ fn assign_escaped_string() {
                 quote: Quote::Basic,
                 lit: "\"a\\u93f2nope\"",
                 text: "a\u{93f2}nope",
-                text_span: Span {
-                    start: Pos { line: 0, char: 21 },
-                    end: Pos { line: 0, char: 32 },
-                },
+                text_start_offset: 1,
+                text_end_offset: 1,
             }],
             literals: &["my", "escaped", "string"],
             eof: Token {
@@ -356,10 +352,8 @@ fn multiline_string_escaped_newline() {
                 lit:
                     "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
                 text: "look the final string is just one line",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 4, char: 0 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 3,
             }],
             literals: &[],
             eof: Token {
@@ -386,10 +380,8 @@ fn multiline_string_contains_up_to_two_quotes() {
                 quote: Quote::LiteralMultiline,
                 lit: "'''this doesn't end the string: '' but this does: '''",
                 text: "this doesn't end the string: '' but this does: ",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 0, char: 50 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 3,
             }],
             literals: &[],
             eof: Token {
@@ -432,10 +424,8 @@ fn assign_basic_multiline_string() {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
                 text: "each\nword\nis\non\na\nnew\nline\n",
-                text_span: Span {
-                    start: Pos { line: 0, char: 14 },
-                    end: Pos { line: 8, char: 0 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 3,
             }],
             literals: &["m_string"],
             eof: Token {
@@ -478,10 +468,8 @@ fn assign_literal_multiline_string() {
                 quote: Quote::LiteralMultiline,
                 lit: "'''\\\neach\nword\nis\non\na\nnew\nline\n'''",
                 text: "\\\neach\nword\nis\non\na\nnew\nline\n",
-                text_span: Span {
-                    start: Pos { line: 0, char: 14 },
-                    end: Pos { line: 8, char: 0 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 3,
             }],
             literals: &["m_string"],
             eof: Token {
@@ -514,10 +502,8 @@ fn unclosed_basic_single_line_string() {
                 quote: Quote::Basic,
                 lit: "\"some unclosed string",
                 text: "some unclosed string",
-                text_span: Span {
-                    start: Pos { line: 0, char: 1 },
-                    end: Pos { line: 0, char: 21 },
-                },
+                text_start_offset: 1,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {
@@ -549,10 +535,8 @@ fn unclosed_basic_multi_line_string() {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\nthis is a new line",
                 text: "some unclosed string\nthis is a new line",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 1, char: 18 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {
@@ -584,10 +568,8 @@ fn not_fully_closed_basic_multi_line_string_1() {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\"",
                 text: "some unclosed string\"",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 0, char: 24 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {
@@ -619,10 +601,8 @@ fn not_fully_closed_basic_multi_line_string_2() {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\"\"",
                 text: "some unclosed string\"\"",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 0, char: 25 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {
@@ -660,10 +640,8 @@ fn unclosed_literal_single_line_string() {
                 quote: Quote::Literal,
                 lit: "'some unclosed string",
                 text: "some unclosed string",
-                text_span: Span {
-                    start: Pos { line: 0, char: 1 },
-                    end: Pos { line: 0, char: 21 },
-                },
+                text_start_offset: 1,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {
@@ -695,10 +673,8 @@ fn unclosed_literal_multi_line_string() {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string\nthis is a new line",
                 text: "some unclosed string\nthis is a new line",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 1, char: 18 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {
@@ -730,10 +706,8 @@ fn not_fully_closed_literal_multi_line_string_1() {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string'",
                 text: "some unclosed string'",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 0, char: 24 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {
@@ -765,10 +739,8 @@ fn not_fully_closed_literal_multi_line_string_2() {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string''",
                 text: "some unclosed string''",
-                text_span: Span {
-                    start: Pos { line: 0, char: 3 },
-                    end: Pos { line: 0, char: 25 },
-                },
+                text_start_offset: 3,
+                text_end_offset: 0,
             }],
             literals: &[],
             eof: Token {

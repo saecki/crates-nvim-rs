@@ -341,15 +341,16 @@ impl<'a> Ident<'a> {
         lit: &'a str,
         lit_span: Span,
         text: &'a str,
-        text_span: Span,
+        text_start_offset: u8,
+        text_end_offset: u8,
         kind: IdentKind,
     ) -> Self {
         Ident {
             lit,
             lit_start: lit_span.start,
             text,
-            text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
-            text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
+            text_start_offset,
+            text_end_offset,
             kind,
         }
     }
@@ -417,13 +418,20 @@ pub struct StringVal<'a> {
 }
 
 impl<'a> StringVal<'a> {
-    pub fn new(lit: &'a str, lit_span: Span, text: &'a str, text_span: Span, quote: Quote) -> Self {
+    pub fn new(
+        lit: &'a str,
+        lit_span: Span,
+        text: &'a str,
+        text_start_offset: u8,
+        text_end_offset: u8,
+        quote: Quote,
+    ) -> Self {
         Self {
             lit,
             lit_span,
             text,
-            text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
-            text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
+            text_start_offset,
+            text_end_offset,
             quote,
         }
     }
@@ -971,7 +979,14 @@ fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Resu
                         return Err(Error::MultilineLiteralStringIdent(token.span))
                     }
                 };
-                Ident::from_string(str.lit, token.span, str.text, str.text_span, kind)
+                Ident::from_string(
+                    str.lit,
+                    token.span,
+                    str.text,
+                    str.text_start_offset,
+                    str.text_end_offset,
+                    kind,
+                )
             }
             TokenType::LiteralOrIdent(id) => {
                 let lit = parser.literal(id);
@@ -1036,7 +1051,8 @@ fn parse_value<'a>(
                 str.lit,
                 token.span,
                 str.text,
-                str.text_span,
+                str.text_start_offset,
+                str.text_end_offset,
                 str.quote,
             ))
         }

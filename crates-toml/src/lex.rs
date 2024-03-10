@@ -53,8 +53,20 @@ pub struct StringToken<'a> {
     pub lit: &'a str,
     /// The text with escape sequences evaluated
     pub text: &'a str,
-    /// The span of the text without quotes
-    pub text_span: Span,
+    pub text_start_offset: u8,
+    pub text_end_offset: u8,
+}
+
+impl<'a> StringToken<'a> {
+    pub fn new(quote: Quote, lit: &'a str, lit_span: Span, text: &'a str, text_span: Span) -> Self {
+        Self {
+            quote,
+            lit,
+            text,
+            text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
+            text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
+        }
+    }
 }
 
 impl TokenType {
@@ -373,16 +385,18 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
                         quote = quote.multiline();
                     } else {
                         // It's just an empty string
+                        let lit_span = Span::from_pos_len(lexer.lit_start, 2);
                         let text_span = Span::pos(lexer.pos());
                         let str_start = lexer.lit_byte_start;
-                        let id = lexer.store_string(StringToken {
+                        let id = lexer.store_string(StringToken::new(
                             quote,
-                            lit: &input[str_start..str_start + 2],
-                            text: &input[str_start + 1..str_start + 1],
+                            &input[str_start..str_start + 2],
+                            lit_span,
+                            &input[str_start + 1..str_start + 1],
                             text_span,
-                        });
+                        ));
                         let token = Token {
-                            span: Span::from_pos_len(lexer.lit_start, 2),
+                            span: lit_span,
                             ty: TokenType::String(id),
                         };
                         lexer.tokens.push(token);
@@ -700,12 +714,7 @@ fn end_string<'a>(
         },
     };
 
-    let id = lexer.store_string(StringToken {
-        quote: str.quote,
-        lit,
-        text,
-        text_span,
-    });
+    let id = lexer.store_string(StringToken::new(str.quote, lit, lit_span, text, text_span));
     let token = Token {
         span: lit_span,
         ty: TokenType::String(id),
