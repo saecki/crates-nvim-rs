@@ -508,7 +508,6 @@ fn insert_node_at_path<'a>(
             let repr = MapTableEntryRepr::new(key_repr, repr_kind);
             entry.reprs.push(repr);
             current = next;
-            mapper.push_key(o.ident.lit);
         }
 
         let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
@@ -654,7 +653,6 @@ fn insert_array_entry_at_path<'a>(
             let repr = MapTableEntryRepr::new(key_repr, repr_kind);
             entry.reprs.push(repr);
             current = next;
-            mapper.push_key(o.ident.lit);
         }
 
         let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
@@ -752,7 +750,7 @@ fn insert_top_level_assignments<'a>(
 }
 
 fn get_table_to_extend<'a, 'b>(
-    mapper: &mut Mapper,
+    mapper: &mut Mapper<'a>,
     node: &'b mut MapNode<'a>,
     reprs: &OneVec<MapTableEntryRepr<'a>>,
     ident: &'b Ident<'a>,
@@ -761,13 +759,19 @@ where
     'a: 'b,
 {
     let next = match node {
-        MapNode::Table(t) => t,
+        MapNode::Table(t) => {
+            mapper.push_key(ident.text);
+            t
+        }
         MapNode::Array(MapArray::Toplevel(t)) => {
             // From the toml spec (https://toml.io/en/v1.0.0#array-of-tables):
             // Any reference to an array of tables points to the most recently
             // defined table element of the array. This allows you to define
             // sub-tables, and even sub-arrays of tables, inside the most recent
             // table.
+
+            mapper.push_key(ident.text);
+            mapper.push_index(t.inner.len() - 1);
             &mut t.inner.last_mut().node
         }
         MapNode::Array(MapArray::Inline(_)) => {
