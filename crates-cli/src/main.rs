@@ -26,7 +26,7 @@ fn main() -> ExitCode {
     let lexing = std::time::SystemTime::now();
     let asts = ctx.parse(&bump, &tokens);
     let parsing = std::time::SystemTime::now();
-    let map = ctx.map(&bump, &asts);
+    let map = ctx.map(&asts);
     let mapping = std::time::SystemTime::now();
     let simple = toml::map::simple::map_table(map);
     let end = std::time::SystemTime::now();

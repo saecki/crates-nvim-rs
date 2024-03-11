@@ -17,7 +17,7 @@ fn check(input: &str, expected: MapTable) {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&bump, &asts);
+    let map = ctx.map(&asts);
     assert_eq!(
         expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",
@@ -32,7 +32,7 @@ fn check_error(input: &str, expected: MapTable, error: Error) {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&bump, &asts);
+    let map = ctx.map(&asts);
     assert_eq!(
         expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",

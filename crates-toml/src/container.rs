@@ -43,7 +43,7 @@ impl<'a> Container {
         let input = bump.alloc_str(input);
         let tokens = ctx.lex(bump, input);
         let asts = ctx.parse(bump, &tokens);
-        let map = ctx.map(bump, &asts);
+        let map = ctx.map(&asts);
 
         let toml = Toml {
             input,

@@ -44,7 +44,7 @@ impl Ctx {
         parse(self, bump, tokens)
     }
 
-    pub fn map<'a>(&mut self, bump: &'a Bump, asts: &Asts<'a>) -> MapTable<'a> {
-        map(self, bump, asts)
+    pub fn map<'a>(&mut self, asts: &Asts<'a>) -> MapTable<'a> {
+        map(self, asts)
     }
 }

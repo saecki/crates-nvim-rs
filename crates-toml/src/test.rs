@@ -16,7 +16,7 @@ pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&bump, &asts);
+    let map = ctx.map(&asts);
 
     let test_table = crate::map::simple::map_table(map);
     assert_eq!(
@@ -33,7 +33,7 @@ pub fn check_simple_error(input: &str, expected: HashMap<String, SimpleVal>, err
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&bump, &asts);
+    let map = ctx.map(&asts);
 
     let test_table = crate::map::simple::map_table(map);
     assert_eq!(

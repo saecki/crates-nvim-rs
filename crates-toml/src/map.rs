@@ -1,8 +1,6 @@
 use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
-use bumpalo::Bump;
-
 use crate::error::FmtStr;
 use crate::onevec::OneVec;
 use crate::parse::{
@@ -262,19 +260,24 @@ impl Scalar<'_> {
     }
 }
 
-struct Mapper {
-    current_path: String,
+enum PathSegment<'a> {
+    Ident(&'a str),
+    ArrayIndex(usize),
 }
 
-impl Mapper {
+struct Mapper<'a> {
+    current_path: Vec<PathSegment<'a>>,
+}
+
+impl<'a> Mapper<'a> {
     fn new() -> Self {
         Self {
-            current_path: String::new(),
+            current_path: Vec::new(),
         }
     }
 
     #[inline]
-    fn with_path<T>(&mut self, f: impl FnOnce(&mut Mapper) -> T) -> T {
+    fn with_path<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
         let len = self.current_path.len();
         let val = f(self);
         self.current_path.truncate(len);
@@ -282,7 +285,7 @@ impl Mapper {
     }
 
     #[inline]
-    fn with_key<T>(&mut self, key: &str, f: impl FnOnce(&mut Mapper) -> T) -> T {
+    fn with_key<T>(&mut self, key: &'a str, f: impl FnOnce(&mut Self) -> T) -> T {
         let len = self.current_path.len();
         self.push_key(key);
         let val = f(self);
@@ -291,7 +294,7 @@ impl Mapper {
     }
 
     #[inline]
-    fn with_index<T>(&mut self, index: usize, f: impl FnOnce(&mut Mapper) -> T) -> T {
+    fn with_index<T>(&mut self, index: usize, f: impl FnOnce(&mut Self) -> T) -> T {
         let len = self.current_path.len();
         self.push_index(index);
         let val = f(self);
@@ -299,23 +302,20 @@ impl Mapper {
         val
     }
 
-    fn push_key(&mut self, key: &str) {
-        if !self.current_path.is_empty() {
-            self.current_path.push('.');
-        }
-        self.current_path.push_str(key);
+    fn push_key(&mut self, key: &'a str) {
+        self.current_path.push(PathSegment::Ident(key));
     }
 
     fn push_index(&mut self, index: usize) {
-        use std::fmt::Write;
-        _ = write!(&mut self.current_path, "[{index}]");
+        self.current_path.push(PathSegment::ArrayIndex(index));
     }
 
     fn path(&self) -> Option<FmtStr> {
         if self.current_path.is_empty() {
             None
         } else {
-            Some(FmtStr::from_str(&self.current_path))
+            let path = fmt_path(&self.current_path);
+            Some(FmtStr::from_string(path))
         }
     }
 
@@ -323,9 +323,27 @@ impl Mapper {
         if self.current_path.is_empty() {
             FmtStr::from_str(key)
         } else {
-            FmtStr::from_string(format!("{}.{}", self.current_path, key))
+            use std::fmt::Write as _;
+            let mut path = fmt_path(&self.current_path);
+            write!(&mut path, ".{key}").unwrap();
+            FmtStr::from_string(path)
         }
     }
+}
+
+fn fmt_path(path: &[PathSegment]) -> String {
+    use std::fmt::Write as _;
+    let [PathSegment::Ident(first), others @ ..] = path else {
+        unreachable!()
+    };
+    let mut buf = String::from(*first);
+    for c in others {
+        match c {
+            PathSegment::Ident(k) => write!(&mut buf, ".{k}").unwrap(),
+            PathSegment::ArrayIndex(i) => write!(&mut buf, "[{i}]").unwrap(),
+        }
+    }
+    buf
 }
 
 /// Value to be lazily mapped and inserted
@@ -334,7 +352,7 @@ enum InsertValue<'a> {
     TableAssignments(&'a [ToplevelAssignment<'a>]),
 }
 
-pub fn map<'a>(ctx: &mut Ctx, bump: &'a Bump, asts: &'_ Asts<'a>) -> MapTable<'a> {
+pub fn map<'a>(ctx: &mut Ctx, asts: &'_ Asts<'a>) -> MapTable<'a> {
     let mapper = &mut Mapper::new();
     let mut root = MapTable::new();
     for a in asts.asts.iter() {
@@ -377,7 +395,11 @@ pub fn map<'a>(ctx: &mut Ctx, bump: &'a Bump, asts: &'_ Asts<'a>) -> MapTable<'a
     root
 }
 
-fn map_insert_value<'a>(ctx: &mut Ctx, mapper: &mut Mapper, value: InsertValue<'a>) -> MapNode<'a> {
+fn map_insert_value<'a>(
+    ctx: &mut Ctx,
+    mapper: &mut Mapper<'a>,
+    value: InsertValue<'a>,
+) -> MapNode<'a> {
     match value {
         InsertValue::Value(value) => map_value(ctx, mapper, value),
         InsertValue::TableAssignments(assignments) => {
@@ -388,7 +410,7 @@ fn map_insert_value<'a>(ctx: &mut Ctx, mapper: &mut Mapper, value: InsertValue<'
     }
 }
 
-fn map_value<'a>(ctx: &mut Ctx, mapper: &mut Mapper, value: &'a Value<'a>) -> MapNode<'a> {
+fn map_value<'a>(ctx: &mut Ctx, mapper: &mut Mapper<'a>, value: &'a Value<'a>) -> MapNode<'a> {
     match value {
         Value::String(s) => MapNode::Scalar(Scalar::String(s)),
         Value::Int(i) => MapNode::Scalar(Scalar::Int(i)),
@@ -426,7 +448,7 @@ fn map_value<'a>(ctx: &mut Ctx, mapper: &mut Mapper, value: &'a Value<'a>) -> Ma
 
 fn insert_node_at_path<'a>(
     ctx: &mut Ctx,
-    mapper: &mut Mapper,
+    mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a Key<'a>,
     value: InsertValue<'a>,
@@ -501,7 +523,7 @@ fn insert_node_at_path<'a>(
 
 fn insert_node<'a>(
     ctx: &mut Ctx,
-    mapper: &mut Mapper,
+    mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a str,
     value: InsertValue<'a>,
@@ -567,7 +589,7 @@ fn insert_node<'a>(
 
 fn insert_array_entry_at_path<'a>(
     ctx: &mut Ctx,
-    mapper: &mut Mapper,
+    mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a Key<'a>,
     array_entry: &'a ArrayEntry<'a>,
@@ -652,7 +674,7 @@ fn insert_array_entry_at_path<'a>(
 
 fn insert_array_entry<'a>(
     ctx: &mut Ctx,
-    mapper: &mut Mapper,
+    mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a str,
     key_repr: MapTableKeyRepr<'a>,
@@ -712,7 +734,7 @@ fn insert_array_entry<'a>(
 
 fn insert_top_level_assignments<'a>(
     ctx: &mut Ctx,
-    mapper: &mut Mapper,
+    mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     assignments: &'a [ToplevelAssignment<'a>],
 ) {
