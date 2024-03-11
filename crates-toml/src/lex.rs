@@ -1,6 +1,6 @@
 use std::ops::ControlFlow;
 
-use bumpalo::collections::{String as BString, Vec as BVec};
+use bumpalo::collections::String as BString;
 use bumpalo::Bump;
 
 use crate::error::FmtChar;
@@ -268,9 +268,9 @@ struct Lexer<'a> {
     lit_start: Pos,
     lit_byte_start: usize,
 
-    tokens: BVec<'a, Token>,
-    strings: BVec<'a, StringToken<'a>>,
-    literals: BVec<'a, &'a str>,
+    tokens: Vec<Token>,
+    strings: Vec<StringToken<'a>>,
+    literals: Vec<&'a str>,
 }
 
 impl<'a> Lexer<'a> {
@@ -288,9 +288,9 @@ impl<'a> Lexer<'a> {
             lit_start: Pos::default(),
             lit_byte_start: 0,
 
-            tokens: BVec::new_in(bump),
-            strings: BVec::new_in(bump),
-            literals: BVec::new_in(bump),
+            tokens: Vec::new(),
+            strings: Vec::new(),
+            literals: Vec::new(),
         }
     }
 
@@ -431,9 +431,9 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
         span: Span::pos(lexer.pos()),
     };
     Tokens {
-        tokens: lexer.tokens.into_bump_slice(),
-        strings: lexer.strings.into_bump_slice(),
-        literals: lexer.literals.into_bump_slice(),
+        tokens: bump.alloc_slice_fill_iter(lexer.tokens.into_iter()),
+        strings: bump.alloc_slice_fill_iter(lexer.strings.into_iter()),
+        literals: bump.alloc_slice_fill_iter(lexer.literals.into_iter()),
         eof,
     }
 }

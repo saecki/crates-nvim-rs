@@ -700,8 +700,8 @@ enum PartialValue {
 /// is returned, otherwise the possibly partially invalid ast is returned.
 pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
     let mut parser = Parser::new(tokens);
-    let mut asts = BVec::new_in(bump);
-    let mut comment_storage = BVec::new_in(bump);
+    let mut asts = Vec::new();
+    let mut comment_storage = Vec::new();
     let mut newline_required = false;
     let mut prev_comments = Vec::new();
 
@@ -886,8 +886,8 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
     asts.extend(prev_comments.into_iter().map(Ast::Comment));
 
     Asts {
-        asts: asts.into_bump_slice(),
-        comments: comment_storage.into_bump_slice(),
+        asts: bump.alloc_slice_fill_iter(asts.into_iter()),
+        comments: bump.alloc_slice_fill_iter(comment_storage.into_iter()),
     }
 }
 
@@ -915,7 +915,7 @@ fn mark_comments_above<'a>(storage: &mut [AssociatedComment<'a>], mut line: u32)
 }
 
 fn add_comments<'a>(
-    storage: &mut BVec<'a, AssociatedComment<'a>>,
+    storage: &mut Vec<AssociatedComment<'a>>,
     range: &mut Comments,
     comments: impl Iterator<Item = AssociatedComment<'a>>,
 ) {
@@ -926,7 +926,7 @@ fn add_comments<'a>(
 }
 
 fn add_comment<'a>(
-    storage: &mut BVec<'a, AssociatedComment<'a>>,
+    storage: &mut Vec<AssociatedComment<'a>>,
     range: &mut Comments,
     comment: AssociatedComment<'a>,
 ) {
@@ -936,7 +936,7 @@ fn add_comment<'a>(
 
 #[must_use]
 fn store_comments<'a>(
-    storage: &mut BVec<'a, AssociatedComment<'a>>,
+    storage: &mut Vec<AssociatedComment<'a>>,
     comments: impl Iterator<Item = AssociatedComment<'a>>,
 ) -> Comments {
     let mut range = Comments {
@@ -949,7 +949,7 @@ fn store_comments<'a>(
 
 #[must_use]
 fn store_comment<'a>(
-    storage: &mut BVec<'a, AssociatedComment<'a>>,
+    storage: &mut Vec<AssociatedComment<'a>>,
     comment: AssociatedComment<'a>,
 ) -> CommentId {
     let id = next_comment_id(storage);
@@ -1040,7 +1040,7 @@ fn parse_value<'a>(
     ctx: &mut Ctx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
-    comment_storage: &mut BVec<'a, AssociatedComment<'a>>,
+    comment_storage: &mut Vec<AssociatedComment<'a>>,
 ) -> Result<Value<'a>, Error> {
     let token = parser.peek();
     let value = match token.ty {
@@ -1109,7 +1109,7 @@ fn parse_value<'a>(
             parser.next();
 
             let mut array_comments = Comments::new(next_comment_id(comment_storage), 0);
-            let mut values = BVec::new_in(bump);
+            let mut values = Vec::new();
 
             if let Some(comment) = parser.eat_comment() {
                 let comment = AssociatedComment::line_end(comment);
@@ -1198,7 +1198,7 @@ fn parse_value<'a>(
             Value::InlineArray(InlineArray {
                 comments: array_comments,
                 l_par,
-                values: values.into_bump_slice(),
+                values: bump.alloc_slice_fill_iter(values.into_iter()),
                 r_par,
             })
         }
@@ -1206,7 +1206,7 @@ fn parse_value<'a>(
             let l_par = token.span.start;
             parser.next();
 
-            let mut assignments = BVec::new_in(bump);
+            let mut assignments = Vec::new();
             let mut comma = None;
             'inline_table: loop {
                 if matches!(parser.peek().ty, TokenType::CurlyRight | TokenType::EOF) {
@@ -1281,7 +1281,7 @@ fn parse_value<'a>(
 
             Value::InlineTable(InlineTable {
                 l_par,
-                assignments: assignments.into_bump_slice(),
+                assignments: bump.alloc_slice_fill_iter(assignments.into_iter()),
                 r_par,
             })
         }
