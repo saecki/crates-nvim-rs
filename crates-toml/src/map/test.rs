@@ -44,6 +44,8 @@ fn check_error(input: &str, expected: MapTable, error: Error) {
 
 #[test]
 fn dotted_key() {
+    let input = "a.b.c = 1";
+
     let key = [
         DottedIdent {
             ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos::new(0, 0), 1)),
@@ -65,6 +67,7 @@ fn dotted_key() {
     };
     let assignment = twrap(
         &[],
+        0,
         Assignment {
             key: Key::Dotted(&key),
             eq: Pos::new(0, 6),
@@ -74,7 +77,7 @@ fn dotted_key() {
 
     #[rustfmt::skip]
     check(
-        "a.b.c = 1",
+        input,
         MapTable::from_pairs([("a", MapTableEntry::from_one(
             MapNode::Table(MapTable::from_pairs([("b", MapTableEntry::from_one(
                 MapNode::Table(MapTable::from_pairs([("c", MapTableEntry::from_one(
@@ -99,6 +102,11 @@ fn dotted_key() {
 
 #[test]
 fn dotted_keys_extend() {
+    let input = "\
+a.b.c = 1
+a.b.d = 2
+";
+
     let key1 = [
         DottedIdent {
             ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos::new(0, 0), 1)),
@@ -120,6 +128,7 @@ fn dotted_keys_extend() {
     };
     let assignment1 = twrap(
         &[],
+        0,
         Assignment {
             key: Key::Dotted(&key1),
             eq: Pos::new(0, 6),
@@ -148,6 +157,7 @@ fn dotted_keys_extend() {
     };
     let assignment2 = twrap(
         &[],
+        0,
         Assignment {
             key: Key::Dotted(&key2),
             eq: Pos::new(1, 6),
@@ -156,10 +166,7 @@ fn dotted_keys_extend() {
     );
 
     #[rustfmt::skip]
-    check("\
-a.b.c = 1
-a.b.d = 2
-",
+    check(input,
         MapTable::from_pairs([("a", MapTableEntry::new(
             MapNode::Table(MapTable::from_pairs([("b", MapTableEntry::new(
                 MapNode::Table(MapTable::from_pairs([
@@ -205,6 +212,12 @@ a.b.d = 2
 
 #[test]
 fn table() {
+    let input = "\
+[mytable]
+abc = true
+def = 23.0
+";
+
     let table_key = Ident::from_plain_lit("mytable", Span::from_pos_len(Pos::new(0, 1), 7));
     let bump = Bump::new();
 
@@ -215,6 +228,7 @@ fn table() {
     };
     let assignment1 = ToplevelAssignment::from(twrap(
         &[],
+        1,
         Assignment {
             key: Key::One(key1.clone()),
             eq: Pos::new(1, 4),
@@ -230,6 +244,7 @@ fn table() {
     };
     let assignment2 = ToplevelAssignment::from(twrap(
         &[],
+        1,
         Assignment {
             key: Key::One(key2.clone()),
             eq: Pos::new(2, 4),
@@ -238,7 +253,7 @@ fn table() {
     ));
 
     let table = Table {
-        comments: empty_comments(&[]),
+        comments: empty_comments(&[], 0),
         header: TableHeader::new(
             Pos::new(0, 0),
             Some(Key::One(table_key.clone())),
@@ -249,11 +264,7 @@ fn table() {
 
     #[rustfmt::skip]
     check(
-        "\
-[mytable]
-abc = true
-def = 23.0
-",
+        input,
         MapTable::from_pairs([("mytable", MapTableEntry::from_one(
             MapNode::Table(MapTable::from_pairs([
                 (
@@ -287,13 +298,15 @@ def = 23.0
 
 #[test]
 fn inline_array() {
+    let input = "array = [4, 8, 16]";
+
     let value1 = IntVal {
         lit: "4",
         lit_span: Span::from_pos_len(Pos::new(0, 9), 1),
         val: 4,
     };
     let inline_array_value1 = InlineArrayValue {
-        comments: empty_comments(&[]),
+        comments: empty_comments(&[], 1),
         val: Value::Int(value1.clone()),
         comma: Some(Pos::new(0, 10)),
     };
@@ -304,7 +317,7 @@ fn inline_array() {
         val: 8,
     };
     let inline_array_value2 = InlineArrayValue {
-        comments: empty_comments(&[]),
+        comments: empty_comments(&[], 1),
         val: Value::Int(value2.clone()),
         comma: Some(Pos::new(0, 13)),
     };
@@ -315,14 +328,14 @@ fn inline_array() {
         val: 16,
     };
     let inline_array_value3 = InlineArrayValue {
-        comments: empty_comments(&[]),
+        comments: empty_comments(&[], 1),
         val: Value::Int(value3.clone()),
         comma: None,
     };
 
     let array_key = Ident::from_plain_lit("array", Span::from_pos_len(Pos::new(0, 0), 5));
     let array = InlineArray {
-        comments: empty_comments(&[]),
+        comments: empty_comments(&[], 0),
         l_par: Pos::new(0, 8),
         values: &[
             inline_array_value1.clone(),
@@ -333,6 +346,7 @@ fn inline_array() {
     };
     let assignment = twrap(
         &[],
+        0,
         Assignment {
             key: Key::One(array_key.clone()),
             eq: Pos::new(0, 6),
@@ -342,7 +356,7 @@ fn inline_array() {
 
     #[rustfmt::skip]
     check(
-        "array = [4, 8, 16]",
+        input,
         MapTable::from_pairs([("array", MapTableEntry::from_one(
             MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(&array, [
                 MapArrayInlineEntry::new(
@@ -404,6 +418,11 @@ symbol = '£'
 
 #[test]
 fn table_cannot_extend_dotted_key_of_assignment() {
+    let input = "\
+fruit.apple = 3
+[fruit]
+";
+
     let key = [
         DottedIdent {
             ident: Ident::from_plain_lit("fruit", Span::from_pos_len(Pos::new(0, 0), 5)),
@@ -421,6 +440,7 @@ fn table_cannot_extend_dotted_key_of_assignment() {
     };
     let assignment = twrap(
         &[],
+        0,
         Assignment {
             key: Key::Dotted(&key),
             eq: Pos::new(0, 12),
@@ -428,10 +448,7 @@ fn table_cannot_extend_dotted_key_of_assignment() {
         },
     );
     check_error(
-        "\
-fruit.apple = 3
-[fruit]
-    ",
+        input,
         MapTable::from_pairs([(
             "fruit",
             MapTableEntry::from_one(

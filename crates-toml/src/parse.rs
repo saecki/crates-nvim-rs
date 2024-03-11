@@ -35,7 +35,7 @@ macro_rules! recover_on {
 #[derive(Debug, PartialEq)]
 pub struct Asts<'a> {
     pub asts: &'a [Ast<'a>],
-    pub comments: &'a [AssociatedComment<'a>],
+    pub comments: &'a [AssocComment<'a>],
 }
 
 #[derive(Debug, PartialEq)]
@@ -50,14 +50,15 @@ pub enum Ast<'a> {
 pub struct CommentId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Comments {
+pub struct CommentRange {
     start: CommentId,
     len: u32,
+    level: u16,
 }
 
-impl Comments {
-    pub const fn new(start: CommentId, len: u32) -> Self {
-        Self { start, len }
+impl CommentRange {
+    pub const fn new(start: CommentId, len: u32, level: u16) -> Self {
+        Self { start, len, level }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -76,38 +77,43 @@ impl Comments {
     }
 }
 
-// TODO: add level to distiguish nested comments in values from comments that belong to the parent.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AssociatedComment<'a> {
-    pub pos: AssociatedPos,
+pub struct AssocComment<'a> {
+    pub pos: AssocPos,
+    /// level 0 are comments that are associated with items declared directly in root, such as
+    /// assignments (that aren't declared inside a table), tables and arrays of tables
+    pub level: u16,
     pub comment: Comment<'a>,
 }
 
-impl<'a> AssociatedComment<'a> {
-    pub fn above(comment: Comment<'a>) -> AssociatedComment<'a> {
-        AssociatedComment {
-            pos: AssociatedPos::Above,
+impl<'a> AssocComment<'a> {
+    pub fn above(level: u16, comment: Comment<'a>) -> AssocComment<'a> {
+        AssocComment {
+            pos: AssocPos::Above,
+            level,
             comment,
         }
     }
 
-    pub fn line_end(comment: Comment<'a>) -> AssociatedComment<'a> {
-        AssociatedComment {
-            pos: AssociatedPos::LineEnd,
+    pub fn line_end(level: u16, comment: Comment<'a>) -> AssocComment<'a> {
+        AssocComment {
+            pos: AssocPos::LineEnd,
+            level,
             comment,
         }
     }
 
-    pub fn contained(comment: Comment<'a>) -> AssociatedComment<'a> {
-        AssociatedComment {
-            pos: AssociatedPos::Contained,
+    pub fn contained(level: u16, comment: Comment<'a>) -> AssocComment<'a> {
+        AssocComment {
+            pos: AssocPos::Contained,
+            level,
             comment,
         }
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum AssociatedPos {
+pub enum AssocPos {
     /// Directly above the associated item, without any blank lines
     Above,
     /// At the end of the same line as the associated item.
@@ -118,7 +124,7 @@ pub enum AssociatedPos {
 
 #[derive(Debug, PartialEq)]
 pub struct Table<'a> {
-    pub comments: Comments,
+    pub comments: CommentRange,
     pub header: TableHeader<'a>,
     pub assignments: BVec<'a, ToplevelAssignment<'a>>,
 }
@@ -178,7 +184,7 @@ impl<'a> TableHeader<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct ArrayEntry<'a> {
-    pub comments: Comments,
+    pub comments: CommentRange,
     pub header: ArrayHeader<'a>,
     pub assignments: BVec<'a, ToplevelAssignment<'a>>,
 }
@@ -254,7 +260,7 @@ impl<'a> ArrayHeader<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ToplevelAssignment<'a> {
-    pub comments: Comments,
+    pub comments: CommentRange,
     pub assignment: Assignment<'a>,
 }
 
@@ -547,7 +553,7 @@ impl InlineTableAssignment<'_> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineArray<'a> {
-    pub comments: Comments,
+    pub comments: CommentRange,
     pub l_par: Pos,
     pub values: &'a [InlineArrayValue<'a>],
     pub r_par: Option<Pos>,
@@ -566,7 +572,7 @@ impl InlineArray<'_> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineArrayValue<'a> {
-    pub comments: Comments,
+    pub comments: CommentRange,
     pub val: Value<'a>,
     pub comma: Option<Pos>,
 }
@@ -708,7 +714,7 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
     'root: loop {
         if newline_required {
             if let Some(comment) = parser.eat_comment() {
-                let comment = AssociatedComment::line_end(comment);
+                let comment = AssocComment::line_end(0, comment);
                 let comment_id = store_comment(&mut comment_storage, comment);
                 match asts.last_mut() {
                     Some(Ast::Table(t)) => t.append_comment(comment_id),
@@ -773,8 +779,13 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                 let pos = find_associated_comments(&prev_comments, l_table_square.start.line);
                 asts.extend(prev_comments.drain(..pos).map(Ast::Comment));
 
-                let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
-                let comments = store_comments(&mut comment_storage, associated_comments);
+                let associated_comments = prev_comments.drain(..);
+                let comments = store_comments(
+                    &mut comment_storage,
+                    associated_comments,
+                    AssocPos::Above,
+                    0,
+                );
                 match l_array_square {
                     Some(l_array_square) => {
                         let header = ArrayHeader::new(
@@ -838,25 +849,41 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
         // store associated comments here so associated comments of the value are added in the correct order
         let pos = find_associated_comments(&prev_comments, eq.line);
         let non_associated_comments = prev_comments.drain(..pos);
-        match asts.last_mut() {
+        let level = match asts.last_mut() {
             Some(Ast::Table(t)) => {
-                let contained_comments = non_associated_comments.map(AssociatedComment::contained);
-                add_comments(&mut comment_storage, &mut t.comments, contained_comments);
+                add_comments(
+                    &mut comment_storage,
+                    &mut t.comments,
+                    non_associated_comments,
+                    AssocPos::Contained,
+                );
+                1
             }
             Some(Ast::Array(a)) => {
-                let contained_comments = non_associated_comments.map(AssociatedComment::contained);
-                add_comments(&mut comment_storage, &mut a.comments, contained_comments);
+                add_comments(
+                    &mut comment_storage,
+                    &mut a.comments,
+                    non_associated_comments,
+                    AssocPos::Contained,
+                );
+                1
             }
             Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
                 let freestanding_comments = non_associated_comments.map(Ast::Comment);
                 asts.extend(freestanding_comments);
+                0
             }
-        }
+        };
 
-        let associated_comments = prev_comments.drain(..).map(AssociatedComment::above);
-        let mut comments = store_comments(&mut comment_storage, associated_comments);
+        let associated_comments = prev_comments.drain(..);
+        let mut comments = store_comments(
+            &mut comment_storage,
+            associated_comments,
+            AssocPos::Above,
+            level,
+        );
 
-        let val = match parse_value(ctx, bump, &mut parser, &mut comment_storage) {
+        let val = match parse_value(ctx, bump, &mut parser, &mut comment_storage, level) {
             Ok(v) => v,
             Err(e) => {
                 ctx.error(e);
@@ -900,65 +927,92 @@ fn find_associated_comments<'a>(comments: &[Comment<'a>], mut line: u32) -> usiz
     len.map_or(0, |l| comments.len() - l)
 }
 
-fn mark_comments_above<'a>(storage: &mut [AssociatedComment<'a>], mut line: u32) -> Comments {
+fn mark_comments_above<'a>(
+    storage: &mut [AssocComment<'a>],
+    mut line: u32,
+    level: u16,
+) -> CommentRange {
     let len = storage.iter_mut().rev().position(|c| {
-        let contigous = c.comment.span.start.line + 1 == line && c.pos == AssociatedPos::Contained;
+        let contigous = c.comment.span.start.line + 1 == line && c.pos == AssocPos::Contained;
         line -= 1;
         if contigous {
-            c.pos = AssociatedPos::Above;
+            c.pos = AssocPos::Above;
+            c.level = level;
         }
         !contigous
     });
     let len = len.map_or(0, |l| l as u32);
     let start = CommentId(storage.len() as u32 - len);
-    Comments { start, len }
+    CommentRange { start, len, level }
+}
+
+fn mark_contained_comments<'a>(storage: &mut [AssocComment<'a>], range: &CommentRange, level: u16) {
+    let start = range.start.0 as usize;
+    let end = start + range.len as usize;
+    for c in storage[start..end].iter_mut() {
+        if c.level < level {
+            c.level = level;
+        }
+    }
 }
 
 fn add_comments<'a>(
-    storage: &mut Vec<AssociatedComment<'a>>,
-    range: &mut Comments,
-    comments: impl Iterator<Item = AssociatedComment<'a>>,
+    storage: &mut Vec<AssocComment<'a>>,
+    range: &mut CommentRange,
+    comments: impl Iterator<Item = Comment<'a>>,
+    pos: AssocPos,
 ) {
     for c in comments {
-        let id = store_comment(storage, c);
+        let comment = AssocComment {
+            comment: c,
+            pos,
+            level: range.level,
+        };
+        let id = store_comment(storage, comment);
         range.append(id);
     }
 }
 
 fn add_comment<'a>(
-    storage: &mut Vec<AssociatedComment<'a>>,
-    range: &mut Comments,
-    comment: AssociatedComment<'a>,
+    storage: &mut Vec<AssocComment<'a>>,
+    range: &mut CommentRange,
+    comment: Comment<'a>,
+    pos: AssocPos,
 ) {
+    let comment = AssocComment {
+        pos,
+        level: range.level,
+        comment,
+    };
     let id = store_comment(storage, comment);
     range.append(id);
 }
 
 #[must_use]
 fn store_comments<'a>(
-    storage: &mut Vec<AssociatedComment<'a>>,
-    comments: impl Iterator<Item = AssociatedComment<'a>>,
-) -> Comments {
-    let mut range = Comments {
+    storage: &mut Vec<AssocComment<'a>>,
+    comments: impl Iterator<Item = Comment<'a>>,
+    pos: AssocPos,
+    level: u16,
+) -> CommentRange {
+    let mut range = CommentRange {
         start: next_comment_id(storage),
         len: 0,
+        level,
     };
-    add_comments(storage, &mut range, comments);
+    add_comments(storage, &mut range, comments, pos);
     range
 }
 
 #[must_use]
-fn store_comment<'a>(
-    storage: &mut Vec<AssociatedComment<'a>>,
-    comment: AssociatedComment<'a>,
-) -> CommentId {
+fn store_comment<'a>(storage: &mut Vec<AssocComment<'a>>, comment: AssocComment<'a>) -> CommentId {
     let id = next_comment_id(storage);
     storage.push(comment);
     id
 }
 
 #[inline(always)]
-fn next_comment_id(storage: &[AssociatedComment<'_>]) -> CommentId {
+fn next_comment_id(storage: &[AssocComment<'_>]) -> CommentId {
     CommentId(storage.len() as u32)
 }
 
@@ -1040,7 +1094,8 @@ fn parse_value<'a>(
     ctx: &mut Ctx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
-    comment_storage: &mut Vec<AssociatedComment<'a>>,
+    comment_storage: &mut Vec<AssocComment<'a>>,
+    level: u16,
 ) -> Result<Value<'a>, Error> {
     let token = parser.peek();
     let value = match token.ty {
@@ -1108,25 +1163,33 @@ fn parse_value<'a>(
             let l_par = token.span.start;
             parser.next();
 
-            let mut array_comments = Comments::new(next_comment_id(comment_storage), 0);
+            let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
             let mut values = Vec::new();
 
             if let Some(comment) = parser.eat_comment() {
-                let comment = AssociatedComment::line_end(comment);
-                add_comment(comment_storage, &mut array_comments, comment);
+                add_comment(
+                    comment_storage,
+                    &mut array_comments,
+                    comment,
+                    AssocPos::LineEnd,
+                );
             }
 
             'inline_array: loop {
                 while let Some(comment) = parser.eat_comment_and_newlines() {
-                    let comment = AssociatedComment::contained(comment);
-                    add_comment(comment_storage, &mut array_comments, comment);
+                    add_comment(
+                        comment_storage,
+                        &mut array_comments,
+                        comment,
+                        AssocPos::Contained,
+                    );
                 }
 
                 if matches!(parser.peek().ty, TokenType::SquareRight | TokenType::EOF) {
                     break;
                 }
 
-                let val = match parse_value(ctx, bump, parser, comment_storage) {
+                let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
                     Ok(v) => v,
                     Err(e) => {
                         ctx.error(e);
@@ -1138,25 +1201,37 @@ fn parse_value<'a>(
                 };
 
                 let val_line = val.span().start.line;
-                let mut val_comments = mark_comments_above(comment_storage, val_line);
+                let mut val_comments = mark_comments_above(comment_storage, val_line, level + 1);
                 if let Some(comment) = parser.eat_comment() {
-                    let comment = AssociatedComment::line_end(comment);
-                    add_comment(comment_storage, &mut val_comments, comment);
+                    add_comment(
+                        comment_storage,
+                        &mut val_comments,
+                        comment,
+                        AssocPos::LineEnd,
+                    );
                 }
 
                 while let Some(comment) = parser.eat_comment_and_newlines() {
-                    let comment = AssociatedComment::contained(comment);
-                    add_comment(comment_storage, &mut array_comments, comment);
+                    add_comment(
+                        comment_storage,
+                        &mut array_comments,
+                        comment,
+                        AssocPos::Contained,
+                    );
                 }
                 let comma = match parser.peek() {
                     t if t.ty == TokenType::Comma => {
-                        let end = next_comment_id(comment_storage);
-                        val_comments.extend_to(end);
+                        val_comments.extend_to(next_comment_id(comment_storage));
+                        mark_contained_comments(comment_storage, &val_comments, level + 1);
 
                         let comma = parser.next().span.start;
                         if let Some(comment) = parser.eat_comment() {
-                            let comment = AssociatedComment::line_end(comment);
-                            add_comment(comment_storage, &mut val_comments, comment);
+                            add_comment(
+                                comment_storage,
+                                &mut val_comments,
+                                comment,
+                                AssocPos::LineEnd,
+                            );
                         }
 
                         Some(comma)
@@ -1192,8 +1267,8 @@ fn parse_value<'a>(
                 }
             };
 
-            let end = next_comment_id(comment_storage);
-            array_comments.extend_to(end);
+            array_comments.extend_to(next_comment_id(comment_storage));
+            mark_contained_comments(comment_storage, &array_comments, level);
 
             Value::InlineArray(InlineArray {
                 comments: array_comments,
@@ -1238,7 +1313,7 @@ fn parse_value<'a>(
                     }
                 };
 
-                let val = match parse_value(ctx, bump, parser, comment_storage) {
+                let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
                     Ok(v) => v,
                     Err(e) => {
                         ctx.error(e);

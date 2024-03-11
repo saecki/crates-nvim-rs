@@ -9,7 +9,7 @@ pub use crate::map::simple::SimpleVal;
 pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
 pub use crate::{Ctx, Error, Pos, Quote, Span, Warning};
 
-use crate::parse::{AssociatedComment, BoolVal, CommentId, Comments, FloatVal, IntVal, StringVal};
+use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
 pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
     let mut ctx = Ctx::default();
@@ -142,79 +142,91 @@ pub fn astring<'a>(
 }
 
 pub fn twrap<'a>(
-    comments: &[AssociatedComment],
+    comments: &[AssocComment],
+    level: u16,
     assignment: Assignment<'a>,
 ) -> ToplevelAssignment<'a> {
     ToplevelAssignment {
-        comments: empty_comments(comments),
+        comments: empty_comments(comments, level),
         assignment,
     }
 }
 
 pub fn ta<'a, 'b>(
-    comments: &'b [AssociatedComment<'b>],
+    comments: &'b [AssocComment<'b>],
+    level: u16,
     line: u32,
     ident: &'a str,
     val: Value<'a>,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, a(line, 0, ident, val))
+    twrap(comments, level, a(line, 0, ident, val))
 }
 
 pub fn tainvalid<'a>(
-    comments: &[AssociatedComment],
+    comments: &[AssocComment],
+    level: u16,
     line: u32,
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, ainvalid(line, 0, ident, val))
+    twrap(comments, level, ainvalid(line, 0, ident, val))
 }
 
 pub fn taint<'a>(
-    comments: &[AssociatedComment],
+    comments: &[AssocComment],
+    level: u16,
     line: u32,
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, aint(line, 0, ident, val))
+    twrap(comments, level, aint(line, 0, ident, val))
 }
 
 pub fn tafloat<'a>(
-    comments: &[AssociatedComment],
+    comments: &[AssocComment],
+    level: u16,
     line: u32,
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, afloat(line, 0, ident, val))
+    twrap(comments, level, afloat(line, 0, ident, val))
 }
 
 pub fn tabool<'a>(
-    comments: &[AssociatedComment],
+    comments: &[AssocComment],
+    level: u16,
     line: u32,
     ident: &'a str,
     val: bool,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, abool(line, 0, ident, val))
+    twrap(comments, level, abool(line, 0, ident, val))
 }
 
 pub fn tastring<'a>(
-    comments: &[AssociatedComment],
+    comments: &[AssocComment],
+    level: u16,
     line: u32,
     ident: &'a str,
     lit: &'a str,
     quote: Quote,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, astring(line, 0, ident, lit, quote))
+    twrap(comments, level, astring(line, 0, ident, lit, quote))
 }
 
-pub fn empty_comments(comments: &[AssociatedComment]) -> Comments {
-    Comments::new(CommentId(comments.len() as u32), 0)
+pub fn empty_comments(comments: &[AssocComment], level: u16) -> CommentRange {
+    CommentRange::new(CommentId(comments.len() as u32), 0, level)
 }
 
 pub fn build_comments<'a, const SIZE: usize>(
-    storage: &mut BVec<'a, AssociatedComment<'a>>,
-    comments: [AssociatedComment<'a>; SIZE],
-) -> Comments {
-    let range = Comments::new(CommentId(storage.len() as u32), comments.len() as u32);
+    storage: &mut BVec<'a, AssocComment<'a>>,
+    level: u16,
+    comments: [AssocComment<'a>; SIZE],
+) -> CommentRange {
+    let range = CommentRange::new(
+        CommentId(storage.len() as u32),
+        comments.len() as u32,
+        level,
+    );
     storage.extend(comments);
     range
 }
