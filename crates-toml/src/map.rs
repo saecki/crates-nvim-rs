@@ -14,7 +14,7 @@ pub mod simple;
 #[cfg(test)]
 mod test;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct MapTable<'a> {
     inner: HashMap<&'a str, MapTableEntry<'a>>,
 }
@@ -146,6 +146,10 @@ impl<'a> MapArrayToplevel<'a> {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.len() == 0
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -186,6 +190,10 @@ impl<'a> MapArrayInline<'a> {
 
     pub fn len(&self) -> usize {
         self.inner.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.len() == 0
     }
 
     pub fn get(&'a self, idx: usize) -> Option<&'a MapArrayInlineEntry<'a>> {
@@ -459,7 +467,7 @@ fn insert_node_at_path<'a>(
             Key::One(i) => {
                 let key_repr = MapTableKeyRepr::One(i);
                 let repr = MapTableEntryRepr::new(key_repr, repr_kind);
-                let res = insert_node(ctx, mapper, map, i.text(), value, repr);
+                let res = insert_node(ctx, mapper, map, i.text, value, repr);
                 if let Err(e) = res {
                     ctx.error(e);
                 }
@@ -473,7 +481,7 @@ fn insert_node_at_path<'a>(
         };
         let mut current = map;
         for (i, o) in other.iter().enumerate() {
-            let entry = match current.inner.entry(o.ident.text()) {
+            let entry = match current.inner.entry(o.ident.text) {
                 Occupied(occupied) => occupied.into_mut(),
                 Vacant(vacant) => {
                     let offset = i + 1;
@@ -487,7 +495,7 @@ fn insert_node_at_path<'a>(
                         let key_repr = MapTableKeyRepr::Dotted(key_idx, idents);
                         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
                         node = MapNode::Table(MapTable::from_pairs([(
-                            o.ident.text(),
+                            o.ident.text,
                             MapTableEntry::from_one(node, repr),
                         )]));
                     }
@@ -513,7 +521,7 @@ fn insert_node_at_path<'a>(
         let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
 
-        let res = insert_node(ctx, mapper, current, last.ident.text(), value, repr);
+        let res = insert_node(ctx, mapper, current, last.ident.text, value, repr);
         if let Err(e) = res {
             ctx.error(e);
         }
@@ -597,7 +605,7 @@ fn insert_array_entry_at_path<'a>(
         let idents = match key {
             Key::One(i) => {
                 let key_repr = MapTableKeyRepr::One(i);
-                let res = insert_array_entry(ctx, mapper, map, i.text(), key_repr, array_entry);
+                let res = insert_array_entry(ctx, mapper, map, i.text, key_repr, array_entry);
                 if let Err(e) = res {
                     ctx.error(e);
                 }
@@ -611,7 +619,7 @@ fn insert_array_entry_at_path<'a>(
         };
         let mut current = map;
         for (i, o) in other.iter().enumerate() {
-            let entry = match current.inner.entry(o.ident.text()) {
+            let entry = match current.inner.entry(o.ident.text) {
                 Occupied(occupied) => occupied.into_mut(),
                 Vacant(vacant) => {
                     let offset = i + 1;
@@ -630,7 +638,7 @@ fn insert_array_entry_at_path<'a>(
                         let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
                         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
                         node = MapNode::Table(MapTable::from_pairs([(
-                            o.ident.text(),
+                            o.ident.text,
                             MapTableEntry::from_one(node, repr),
                         )]));
                     }
@@ -656,14 +664,7 @@ fn insert_array_entry_at_path<'a>(
         }
 
         let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
-        let res = insert_array_entry(
-            ctx,
-            mapper,
-            current,
-            last.ident.text(),
-            key_repr,
-            array_entry,
-        );
+        let res = insert_array_entry(ctx, mapper, current, last.ident.text, key_repr, array_entry);
         if let Err(e) = res {
             ctx.error(e);
         }

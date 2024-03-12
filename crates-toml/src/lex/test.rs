@@ -41,7 +41,7 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     assert_eq!(std::vec::Vec::<Error>::new(), ctx.errors);
     assert_eq!(std::vec::Vec::<Warning>::new(), ctx.warnings);
 
-    let token = tokens.tokens.into_iter().next().unwrap();
+    let token = tokens.tokens.iter().next().unwrap();
     match token.ty {
         TokenType::String(id) => {
             let str = &tokens.strings[id.0 as usize];
@@ -67,7 +67,7 @@ fn check_str_error(input: &str, expected_lit: &str, expected_text: &str, error: 
     assert_eq!(vec![error], ctx.errors);
     assert_eq!(std::vec::Vec::<Warning>::new(), ctx.warnings);
 
-    let token = tokens.tokens.into_iter().next().unwrap();
+    let token = tokens.tokens.iter().next().unwrap();
     match token.ty {
         TokenType::String(id) => {
             let str = &tokens.strings[id.0 as usize];

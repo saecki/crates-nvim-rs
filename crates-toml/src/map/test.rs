@@ -226,7 +226,7 @@ def = 23.0
         lit_span: Span::from_pos_len(Pos::new(1, 6), 4),
         val: true,
     };
-    let assignment1 = ToplevelAssignment::from(twrap(
+    let assignment1 = twrap(
         &[],
         1,
         Assignment {
@@ -234,7 +234,7 @@ def = 23.0
             eq: Pos::new(1, 4),
             val: Value::Bool(value1.clone()),
         },
-    ));
+    );
 
     let key2 = Ident::from_plain_lit("def", Span::from_pos_len(Pos::new(2, 0), 3));
     let value2 = FloatVal {
@@ -242,7 +242,7 @@ def = 23.0
         lit_span: Span::from_pos_len(Pos::new(2, 6), 4),
         val: 23.0,
     };
-    let assignment2 = ToplevelAssignment::from(twrap(
+    let assignment2 = twrap(
         &[],
         1,
         Assignment {
@@ -250,7 +250,7 @@ def = 23.0
             eq: Pos::new(2, 4),
             val: Value::Float(value2.clone()),
         },
-    ));
+    );
 
     let table = Table {
         comments: empty_comments(&[], 0),

@@ -45,9 +45,9 @@ pub fn check_simple_error(input: &str, expected: HashMap<String, SimpleVal>, err
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
-pub fn int<'a>(line: u32, char: u32, lit: &'a str) -> Value<'a> {
+pub fn int(line: u32, char: u32, lit: &str) -> Value<'_> {
     let val_span = Span::from_pos_len(Pos { line, char }, lit.len() as u32);
-    let num = lit.replace("_", "").parse::<i64>().unwrap();
+    let num = lit.replace('_', "").parse::<i64>().unwrap();
     Value::Int(IntVal {
         lit,
         lit_span: val_span,
@@ -97,7 +97,7 @@ pub fn afloat<'a>(line: u32, char: u32, ident: &'a str, val: &'a str) -> Assignm
         },
         val.len() as u32,
     );
-    let num = val.replace("_", "").parse::<f64>().unwrap();
+    let num = val.replace('_', "").parse::<f64>().unwrap();
     let val = Value::Float(FloatVal {
         lit: val,
         lit_span: val_span,
@@ -106,7 +106,7 @@ pub fn afloat<'a>(line: u32, char: u32, ident: &'a str, val: &'a str) -> Assignm
     a(line, char, ident, val)
 }
 
-pub fn abool<'a>(line: u32, char: u32, ident: &'a str, val: bool) -> Assignment<'a> {
+pub fn abool(line: u32, char: u32, ident: &str, val: bool) -> Assignment<'_> {
     let val = bool(line, char + ident.len() as u32 + 3, val);
     a(line, char, ident, val)
 }
@@ -126,9 +126,9 @@ pub fn astring<'a>(
         lit.len() as u32,
     );
     // HACK: only works for strings without escape sequences
-    let text = lit.trim_start_matches("'");
+    let text = lit.trim_start_matches('\'');
     let text_start_offset = (lit.len() - text.len()) as u8;
-    let text = text.trim_end_matches("'");
+    let text = text.trim_end_matches('\'');
     let text_end_offset = (lit.len() - text.len()) as u8 - text_start_offset;
     let val = Value::String(StringVal {
         lit_span,

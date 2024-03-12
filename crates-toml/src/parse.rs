@@ -244,7 +244,7 @@ impl<'a> ArrayHeader<'a> {
 
         let r_pars = self.r_pars();
         let end = (r_pars.1)
-            .or_else(|| r_pars.0)
+            .or(r_pars.0)
             .or_else(|| self.key.as_ref().map(|k| k.span().end))
             .unwrap_or_else(|| self.l_pars.1.plus(1));
         Span { start, end }
@@ -359,10 +359,6 @@ impl<'a> Ident<'a> {
             text_end_offset,
             kind,
         }
-    }
-
-    pub fn text(&self) -> &str {
-        self.text.as_ref()
     }
 
     #[inline(always)]
@@ -676,7 +672,7 @@ impl<'a> Parser<'a> {
 
     fn token_to_fmt_str(&self, ty: TokenType) -> FmtStr {
         let mut string = String::new();
-        _ = ty.display(&mut string, &self.strings, &self.literals);
+        _ = ty.display(&mut string, self.strings, self.literals);
         FmtStr::from_string(string)
     }
 }
@@ -913,12 +909,12 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
     asts.extend(prev_comments.into_iter().map(Ast::Comment));
 
     Asts {
-        asts: bump.alloc_slice_fill_iter(asts.into_iter()),
-        comments: bump.alloc_slice_fill_iter(comment_storage.into_iter()),
+        asts: bump.alloc_slice_fill_iter(asts),
+        comments: bump.alloc_slice_fill_iter(comment_storage),
     }
 }
 
-fn find_associated_comments<'a>(comments: &[Comment<'a>], mut line: u32) -> usize {
+fn find_associated_comments(comments: &[Comment<'_>], mut line: u32) -> usize {
     let len = comments.iter().rev().position(|c| {
         let contigous = c.span.start.line + 1 == line;
         line -= 1;
@@ -927,8 +923,8 @@ fn find_associated_comments<'a>(comments: &[Comment<'a>], mut line: u32) -> usiz
     len.map_or(0, |l| comments.len() - l)
 }
 
-fn mark_comments_above<'a>(
-    storage: &mut [AssocComment<'a>],
+fn mark_comments_above(
+    storage: &mut [AssocComment<'_>],
     mut line: u32,
     level: u16,
 ) -> CommentRange {
@@ -946,7 +942,7 @@ fn mark_comments_above<'a>(
     CommentRange { start, len, level }
 }
 
-fn mark_contained_comments<'a>(storage: &mut [AssocComment<'a>], range: &CommentRange, level: u16) {
+fn mark_contained_comments(storage: &mut [AssocComment<'_>], range: &CommentRange, level: u16) {
     let start = range.start.0 as usize;
     let end = start + range.len as usize;
     for c in storage[start..end].iter_mut() {
@@ -1273,7 +1269,7 @@ fn parse_value<'a>(
             Value::InlineArray(InlineArray {
                 comments: array_comments,
                 l_par,
-                values: bump.alloc_slice_fill_iter(values.into_iter()),
+                values: bump.alloc_slice_fill_iter(values),
                 r_par,
             })
         }
@@ -1356,7 +1352,7 @@ fn parse_value<'a>(
 
             Value::InlineTable(InlineTable {
                 l_par,
-                assignments: bump.alloc_slice_fill_iter(assignments.into_iter()),
+                assignments: bump.alloc_slice_fill_iter(assignments),
                 r_par,
             })
         }

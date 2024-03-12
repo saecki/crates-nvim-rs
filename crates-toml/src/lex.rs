@@ -431,9 +431,9 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
         span: Span::pos(lexer.pos()),
     };
     Tokens {
-        tokens: bump.alloc_slice_fill_iter(lexer.tokens.into_iter()),
-        strings: bump.alloc_slice_fill_iter(lexer.strings.into_iter()),
-        literals: bump.alloc_slice_fill_iter(lexer.literals.into_iter()),
+        tokens: bump.alloc_slice_fill_iter(lexer.tokens),
+        strings: bump.alloc_slice_fill_iter(lexer.strings),
+        literals: bump.alloc_slice_fill_iter(lexer.literals),
         eof,
     }
 }

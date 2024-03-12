@@ -305,7 +305,7 @@ fn expect_two_digit_num(
         return Err(ExpectNumError(Missing, pos));
     };
     let d0 = match c {
-        '0'..='9' => c as u8 - '0' as u8,
+        '0'..='9' => c as u8 - b'0',
         _ => {
             let pos = span.start.plus(start_offset as u32);
             return Err(ExpectNumError(Invalid(c), pos));
@@ -317,7 +317,7 @@ fn expect_two_digit_num(
         return Err(ExpectNumError(Incomplete, pos));
     };
     let d1 = match c {
-        '0'..='9' => c as u8 - '0' as u8,
+        '0'..='9' => c as u8 - b'0',
         _ => {
             let pos = span.start.plus(start_offset as u32);
             return Err(ExpectNumError(Invalid(c), pos));
