@@ -4,6 +4,7 @@ members = [
     "crates-nvim",
     "crates-toml",
     "crates-cli",
+    "crates-semver",
 ]
 
 [workspace.dependencies]
