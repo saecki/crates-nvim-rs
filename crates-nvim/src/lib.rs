@@ -1,8 +1,10 @@
+use bumpalo::collections::String as BString;
 use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
 use nvim_oxi::{Dictionary, Function, Object};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use toml::container::Container;
 use toml::map::{
     MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
     MapTableEntryReprKind, Scalar,
@@ -45,31 +47,31 @@ pub fn crates_nvim() -> nvim_oxi::Result<Dictionary> {
         let buf = nvim_oxi::api::get_current_buf();
         let num_lines = buf.line_count()?;
         let raw_lines = buf.get_lines(0..num_lines, true)?;
-        let mut text = String::new();
+
         let mut lines = Vec::with_capacity(raw_lines.len());
-        for line in raw_lines.into_iter() {
-            // HACK
-            let str = unsafe { std::str::from_utf8_unchecked(line.as_bytes()) };
-            text.push_str(str);
-            text.push('\n');
+        let mut toml_ctx = toml::Ctx::default();
+        let container = Container::parse_with(&mut toml_ctx, |bump| {
+            let mut text = BString::new_in(bump);
+            for line in raw_lines.into_iter() {
+                // HACK
+                let str = unsafe { std::str::from_utf8_unchecked(line.as_bytes()) };
+                text.push_str(str);
+                text.push('\n');
 
-            // HACK
-            lines.push(str.to_string());
-        }
+                // HACK
+                lines.push(str.to_string());
+            }
+            text.into_bump_str()
+        });
 
-        // let mut toml_ctx = toml::Ctx::default();
-        // let tokens = toml_ctx.lex(&text);
-        // let asts = toml_ctx.parse(&tokens);
-        // let map = toml_ctx.map(&asts);
-        //
-        // let mut ctx = Ctx::from(toml_ctx);
-        // let crates = find(&mut ctx, &lines, &map);
-        //
-        // crates
-        //     .into_iter()
-        //     .map(|c| c.serialize(Serializer::new()).map_err(Into::into))
-        //     .collect::<Result<Vec<Object>, _>>()
-        Ok(())
+        let mut ctx = Ctx::from(toml_ctx);
+        let toml = container.toml();
+        let crates = find(&mut ctx, &lines, &toml.map);
+
+        crates
+            .into_iter()
+            .map(|c| c.serialize(Serializer::new()).map_err(Into::into))
+            .collect::<Result<Vec<Object>, _>>()
     });
 
     Ok(Dictionary::from_iter([("parse_toml", parse_toml)]))
