@@ -1,6 +1,11 @@
+pub use error::Error;
+pub use parse::*;
+
 use crate::inlinestr::InlineStr;
 
+mod error;
 mod inlinestr;
+mod parse;
 
 pub struct VersionReq {
     pub op: Op,
@@ -43,14 +48,18 @@ pub struct Prerelease {
     str: InlineStr,
 }
 
+impl Prerelease {
+    pub const EMPTY: Self = Self {
+        str: InlineStr::new(),
+    };
+}
+
 pub struct BuildMetadata {
     str: InlineStr,
 }
 
-pub fn parse_requirement(input: &str) -> VersionReq {
-    todo!()
-}
-
-pub fn parse_version(input: &str) -> Version {
-    todo!()
+impl BuildMetadata {
+    pub const EMPTY: Self = Self {
+        str: InlineStr::new(),
+    };
 }
