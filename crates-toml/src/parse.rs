@@ -264,15 +264,6 @@ pub struct ToplevelAssignment<'a> {
     pub assignment: Assignment<'a>,
 }
 
-// impl<'a> ToplevelAssignment<'a> {
-//     fn from(bump: &'a Bump, assignment: Assignment<'a>) -> Self {
-//         Self {
-//             comments: Comments::default(),
-//             assignment,
-//         }
-//     }
-// }
-
 impl ToplevelAssignment<'_> {
     #[inline]
     pub fn span(&self) -> Span {
