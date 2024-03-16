@@ -635,9 +635,8 @@ impl<'a> Parser<'a> {
         let t = self.peek();
         match t.ty {
             TokenType::Comment(id) => {
-                let text = self.literal(id);
-                let c = Comment { span: t.span, text };
                 self.next();
+                let c = self.comment(id, t.start);
                 Some(c)
             }
             _ => None,
@@ -649,9 +648,8 @@ impl<'a> Parser<'a> {
             let t = self.peek();
             match t.ty {
                 TokenType::Comment(id) => {
-                    let text = self.literal(id);
-                    let c = Comment { span: t.span, text };
                     self.next();
+                    let c = self.comment(id, t.start);
                     return Some(c);
                 }
                 TokenType::Newline => {
@@ -670,10 +668,45 @@ impl<'a> Parser<'a> {
         self.literals[id.0 as usize]
     }
 
-    fn token_to_fmt_str(&self, ty: TokenType) -> FmtStr {
-        let mut string = String::new();
-        _ = ty.display(&mut string, self.strings, self.literals);
-        FmtStr::from_string(string)
+    fn comment(&self, id: LiteralId, start: Pos) -> Comment<'a> {
+        let text = self.literal(id);
+        let span = Span::from_pos_len(start, 1 + text.len() as u32);
+        Comment { span, text }
+    }
+
+    fn token_fmt_str_and_span(&self, token: Token) -> (FmtStr, Span) {
+        fn ascii(char: &str, start: Pos) -> (FmtStr, Span) {
+            (FmtStr::from_str(char), Span::ascii_char(start))
+        }
+        match token.ty {
+            TokenType::String(id) => {
+                let string = &self.strings[id.0 as usize];
+                let span = Span::new(token.start, string.lit_end);
+                let lit = FmtStr::from_str(string.lit);
+                (lit, span)
+            }
+            TokenType::LiteralOrIdent(id) => {
+                let lit = self.literals[id.0 as usize];
+                let span = Span::from_pos_len(token.start, lit.len() as u32);
+                let lit = FmtStr::from_str(lit);
+                (lit, span)
+            }
+            TokenType::Comment(id) => {
+                let lit = self.literals[id.0 as usize];
+                let span = Span::from_pos_len(token.start, 1 + lit.len() as u32);
+                let lit = FmtStr::from_string(format!("#{lit}"));
+                (lit, span)
+            }
+            TokenType::SquareLeft => ascii("[", token.start),
+            TokenType::SquareRight => ascii("]", token.start),
+            TokenType::CurlyLeft => ascii("{", token.start),
+            TokenType::CurlyRight => ascii("{", token.start),
+            TokenType::Equal => ascii("=", token.start),
+            TokenType::Comma => ascii(",", token.start),
+            TokenType::Dot => ascii(".", token.start),
+            TokenType::Newline => (FmtStr::from_str("\\n"), Span::pos(token.start)),
+            TokenType::EOF => (FmtStr::from_str("EOF"), Span::pos(token.start)),
+        }
     }
 }
 
@@ -727,7 +760,7 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                 }
                 t if t.ty == TokenType::EOF => break 'root,
                 t => {
-                    ctx.error(Error::MissingNewline(t.span.start));
+                    ctx.error(Error::MissingNewline(t.start));
                 }
             }
 
@@ -737,11 +770,11 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
         let token = parser.peek();
         match token.ty {
             TokenType::SquareLeft => {
-                let l_table_square = token.span;
+                let l_table_square = token.start;
                 parser.next();
 
                 let l_array_square = match parser.peek() {
-                    t if t.ty == TokenType::SquareLeft => Some(parser.next().span),
+                    t if t.ty == TokenType::SquareLeft => Some(parser.next().start),
                     _ => None,
                 };
 
@@ -755,24 +788,24 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                 };
 
                 let r_array_square = l_array_square.and_then(|_| match parser.peek() {
-                    t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
+                    t if t.ty == TokenType::SquareRight => Some(parser.next().start),
                     t => {
-                        let string = parser.token_to_fmt_str(t.ty);
-                        ctx.error(Error::ExpectedRightSquareFound(string, t.span));
+                        let (string, span) = parser.token_fmt_str_and_span(t);
+                        ctx.error(Error::ExpectedRightSquareFound(string, span));
                         None
                     }
                 });
 
                 let r_table_square = match parser.peek() {
-                    t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
+                    t if t.ty == TokenType::SquareRight => Some(parser.next().start),
                     t => {
-                        let string = parser.token_to_fmt_str(t.ty);
-                        ctx.error(Error::ExpectedRightSquareFound(string, t.span));
+                        let (string, span) = parser.token_fmt_str_and_span(t);
+                        ctx.error(Error::ExpectedRightSquareFound(string, span));
                         None
                     }
                 };
 
-                let pos = find_associated_comments(&prev_comments, l_table_square.start.line);
+                let pos = find_associated_comments(&prev_comments, l_table_square.line);
                 asts.extend(prev_comments.drain(..pos).map(Ast::Comment));
 
                 let associated_comments = prev_comments.drain(..);
@@ -785,7 +818,7 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                 match l_array_square {
                     Some(l_array_square) => {
                         let header = ArrayHeader::new(
-                            (l_table_square.start, l_array_square.start),
+                            (l_table_square, l_array_square),
                             key,
                             (r_array_square, r_table_square),
                         );
@@ -796,7 +829,7 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                         }));
                     }
                     None => {
-                        let header = TableHeader::new(l_table_square.start, key, r_table_square);
+                        let header = TableHeader::new(l_table_square, key, r_table_square);
                         asts.push(Ast::Table(Table {
                             comments,
                             header,
@@ -809,10 +842,7 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
                 continue;
             }
             TokenType::Comment(id) => {
-                let comment = Comment {
-                    span: token.span,
-                    text: parser.literal(id),
-                };
+                let comment = parser.comment(id, token.start);
                 prev_comments.push(comment);
                 parser.next();
                 continue;
@@ -834,10 +864,10 @@ pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<
         };
 
         let eq = match parser.next() {
-            t if t.ty == TokenType::Equal => t.span.start,
-            t => {
-                let string = parser.token_to_fmt_str(t.ty);
-                ctx.error(Error::ExpectedEqFound(string, t.span));
+            t if t.ty == TokenType::Equal => t.start,
+            _ => {
+                let (string, span) = parser.token_fmt_str_and_span(token);
+                ctx.error(Error::ExpectedEqFound(string, span));
                 recover_on!(parser, Newline | EOF => continue 'root);
             }
         };
@@ -1019,19 +1049,20 @@ fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Resu
         let ident = match token.ty {
             TokenType::String(id) => {
                 let str = parser.string(id);
+                let lit_span = Span::new(token.start, str.lit_end);
                 let kind = match str.quote {
                     Quote::Basic => IdentKind::BasicString,
                     Quote::Literal => IdentKind::LiteralString,
                     Quote::BasicMultiline => {
-                        return Err(Error::MultilineBasicStringIdent(token.span))
+                        return Err(Error::MultilineBasicStringIdent(lit_span));
                     }
                     Quote::LiteralMultiline => {
-                        return Err(Error::MultilineLiteralStringIdent(token.span))
+                        return Err(Error::MultilineLiteralStringIdent(lit_span));
                     }
                 };
                 Ident::from_string(
                     str.lit,
-                    token.span,
+                    lit_span,
                     str.text,
                     str.text_start_offset,
                     str.text_end_offset,
@@ -1045,12 +1076,13 @@ fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Resu
                     .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
 
                 if let Some((i, c)) = invalid_char {
-                    let mut pos = token.span.start;
+                    let mut pos = token.start;
                     pos.char += i as u32;
                     ctx.error(Error::InvalidCharInIdentifier(FmtChar(c), pos));
                 }
 
-                Ident::from_plain_lit(lit, token.span)
+                let span = Span::from_pos_len(token.start, lit.len() as u32);
+                Ident::from_plain_lit(lit, span)
             }
             TokenType::Comment(_)
             | TokenType::SquareLeft
@@ -1062,15 +1094,15 @@ fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Resu
             | TokenType::Dot
             | TokenType::Newline
             | TokenType::EOF => {
-                let string = parser.token_to_fmt_str(token.ty);
-                return Err(Error::ExpectedKeyFound(string, token.span));
+                let (string, span) = parser.token_fmt_str_and_span(token);
+                return Err(Error::ExpectedKeyFound(string, span));
             }
         };
         parser.next();
 
         match parser.peek() {
             t if t.ty == TokenType::Dot => {
-                let dot = Some(t.span.start);
+                let dot = Some(t.start);
                 idents.push(DottedIdent { ident, dot });
                 parser.next();
             }
@@ -1098,9 +1130,10 @@ fn parse_value<'a>(
         TokenType::String(id) => {
             let token = parser.next();
             let str = parser.string(id);
+            let lit_span = Span::new(token.start, str.lit_end);
             Value::String(StringVal::new(
                 str.lit,
-                token.span,
+                lit_span,
                 str.text,
                 str.text_start_offset,
                 str.text_end_offset,
@@ -1110,53 +1143,54 @@ fn parse_value<'a>(
         TokenType::LiteralOrIdent(id) => {
             let token = parser.next();
             let lit = parser.literal(id);
+            let span = Span::from_pos_len(token.start, lit.len() as u32);
 
             match lit {
-                "true" => Value::Bool(BoolVal::new(token.span, true)),
-                "false" => Value::Bool(BoolVal::new(token.span, false)),
-                "nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
-                "+nan" => Value::Float(FloatVal::new(lit, token.span, f64::NAN)),
-                "-nan" => Value::Float(FloatVal::new(lit, token.span, -f64::NAN)),
-                "inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
-                "+inf" => Value::Float(FloatVal::new(lit, token.span, f64::INFINITY)),
-                "-inf" => Value::Float(FloatVal::new(lit, token.span, f64::NEG_INFINITY)),
-                _ => match num::parse_num_or_date(lit, token.span) {
-                    Ok(PartialValue::PrefixedInt(i)) => Value::Int(IntVal::new(lit, token.span, i)),
+                "true" => Value::Bool(BoolVal::new(span, true)),
+                "false" => Value::Bool(BoolVal::new(span, false)),
+                "nan" => Value::Float(FloatVal::new(lit, span, f64::NAN)),
+                "+nan" => Value::Float(FloatVal::new(lit, span, f64::NAN)),
+                "-nan" => Value::Float(FloatVal::new(lit, span, -f64::NAN)),
+                "inf" => Value::Float(FloatVal::new(lit, span, f64::INFINITY)),
+                "+inf" => Value::Float(FloatVal::new(lit, span, f64::INFINITY)),
+                "-inf" => Value::Float(FloatVal::new(lit, span, f64::NEG_INFINITY)),
+                _ => match num::parse_num_or_date(lit, span) {
+                    Ok(PartialValue::PrefixedInt(i)) => Value::Int(IntVal::new(lit, span, i)),
                     Ok(PartialValue::Int(i)) => {
-                        try_to_parse_fractional_part_of_float(ctx, parser, lit, token.span, Some(i))
+                        try_to_parse_fractional_part_of_float(ctx, parser, lit, span, Some(i))
                     }
                     Ok(PartialValue::OverflowOrFloat) => {
-                        try_to_parse_fractional_part_of_float(ctx, parser, lit, token.span, None)
+                        try_to_parse_fractional_part_of_float(ctx, parser, lit, span, None)
                     }
                     Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
-                        Ok(v) => Value::Float(FloatVal::new(lit, token.span, v)),
+                        Ok(v) => Value::Float(FloatVal::new(lit, span, v)),
                         Err(_) => {
-                            ctx.error(Error::FloatLiteralOverflow(token.span));
-                            Value::Invalid(lit, token.span)
+                            ctx.error(Error::FloatLiteralOverflow(span));
+                            Value::Invalid(lit, span)
                         }
                     },
                     Ok(PartialValue::OffsetDateTime(val)) => {
-                        let date_time = DateTimeVal::new(lit, token.span, val);
+                        let date_time = DateTimeVal::new(lit, span, val);
                         Value::DateTime(date_time)
                     }
                     Ok(PartialValue::PartialDate(date)) => {
-                        try_to_parse_time_part(ctx, parser, lit, token.span, date)
+                        try_to_parse_time_part(ctx, parser, lit, span, date)
                     }
                     Ok(PartialValue::PartialDateTime(date, time)) => {
-                        try_to_parse_subsecs(ctx, parser, lit, token.span, Some(date), time)
+                        try_to_parse_subsecs(ctx, parser, lit, span, Some(date), time)
                     }
                     Ok(PartialValue::PartialTime(time)) => {
-                        try_to_parse_subsecs(ctx, parser, lit, token.span, None, time)
+                        try_to_parse_subsecs(ctx, parser, lit, span, None, time)
                     }
                     Err(e) => {
                         ctx.error(e);
-                        Value::Invalid(lit, token.span)
+                        Value::Invalid(lit, span)
                     }
                 },
             }
         }
         TokenType::SquareLeft => {
-            let l_par = token.span.start;
+            let l_par = token.start;
             parser.next();
 
             let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
@@ -1220,7 +1254,7 @@ fn parse_value<'a>(
                         val_comments.extend_to(next_comment_id(comment_storage));
                         mark_contained_comments(comment_storage, &val_comments, level + 1);
 
-                        let comma = parser.next().span.start;
+                        let comma = parser.next().start;
                         if let Some(comment) = parser.eat_comment() {
                             add_comment(
                                 comment_storage,
@@ -1255,10 +1289,10 @@ fn parse_value<'a>(
             }
 
             let r_par = match parser.peek() {
-                t if t.ty == TokenType::SquareRight => Some(parser.next().span.start),
+                t if t.ty == TokenType::SquareRight => Some(parser.next().start),
                 t => {
-                    let string = parser.token_to_fmt_str(t.ty);
-                    ctx.error(Error::ExpectedRightSquareFound(string, t.span));
+                    let (string, span) = parser.token_fmt_str_and_span(t);
+                    ctx.error(Error::ExpectedRightSquareFound(string, span));
                     None
                 }
             };
@@ -1274,7 +1308,7 @@ fn parse_value<'a>(
             })
         }
         TokenType::CurlyLeft => {
-            let l_par = token.span.start;
+            let l_par = token.start;
             parser.next();
 
             let mut assignments = Vec::new();
@@ -1298,10 +1332,10 @@ fn parse_value<'a>(
                 };
 
                 let eq = match parser.peek() {
-                    t if t.ty == TokenType::Equal => parser.next().span.start,
+                    t if t.ty == TokenType::Equal => parser.next().start,
                     t => {
-                        let string = parser.token_to_fmt_str(t.ty);
-                        ctx.error(Error::ExpectedEqFound(string, t.span));
+                        let (string, span) = parser.token_fmt_str_and_span(t);
+                        ctx.error(Error::ExpectedEqFound(string, span));
                         recover_on!(parser,
                             Comma => continue 'inline_table,
                             Newline | CurlyRight | EOF => break 'inline_table,
@@ -1322,7 +1356,7 @@ fn parse_value<'a>(
 
                 let assignment = Assignment { key, eq, val };
                 comma = match parser.peek() {
-                    t if t.ty == TokenType::Comma => Some(parser.next().span.start),
+                    t if t.ty == TokenType::Comma => Some(parser.next().start),
                     t if t.ty == TokenType::CurlyRight || t.ty == TokenType::EOF => {
                         assignments.push(InlineTableAssignment {
                             assignment,
@@ -1342,10 +1376,10 @@ fn parse_value<'a>(
             }
 
             let r_par = match parser.peek() {
-                t if t.ty == TokenType::CurlyRight => Some(parser.next().span.start),
+                t if t.ty == TokenType::CurlyRight => Some(parser.next().start),
                 t => {
-                    let string = parser.token_to_fmt_str(t.ty);
-                    ctx.error(Error::ExpectedRightCurlyFound(string, t.span));
+                    let (string, span) = parser.token_fmt_str_and_span(t);
+                    ctx.error(Error::ExpectedRightCurlyFound(string, span));
                     None
                 }
             };
@@ -1364,8 +1398,8 @@ fn parse_value<'a>(
         | TokenType::Dot
         | TokenType::Newline
         | TokenType::EOF => {
-            let string = parser.token_to_fmt_str(token.ty);
-            return Err(Error::ExpectedValueFound(string, token.span));
+            let (string, span) = parser.token_fmt_str_and_span(token);
+            return Err(Error::ExpectedValueFound(string, span));
         }
     };
 
@@ -1381,7 +1415,7 @@ fn try_to_parse_fractional_part_of_float<'a>(
 ) -> Value<'a> {
     // Check this is actually a floating point literal separated by a dot
     match parser.peek() {
-        t if t.ty == TokenType::Dot && int_span.end == t.span.start => {
+        t if t.ty == TokenType::Dot && int_span.end == t.start => {
             parser.next();
         }
         _ => match int_val {
@@ -1409,11 +1443,12 @@ fn try_to_parse_fractional_part_of_float<'a>(
         Value::Invalid(lit, span)
     };
 
-    let frac;
+    let frac_span;
     let frac_lit = match parser.peek().ty {
         TokenType::LiteralOrIdent(id) => {
-            frac = parser.next();
+            let frac = parser.next();
             let frac_lit = parser.literal(id);
+            frac_span = Span::from_pos_len(frac.start, frac_lit.len() as u32);
 
             let int_end = int_lit.as_bytes().as_ptr_range().end;
             let frac_start = frac_lit.as_bytes().as_ptr_range().start;
@@ -1435,10 +1470,10 @@ fn try_to_parse_fractional_part_of_float<'a>(
         let slice = std::slice::from_raw_parts(ptr, len);
         std::str::from_utf8_unchecked(slice)
     };
-    let span = Span::across(int_span, frac.span);
+    let span = Span::across(int_span, frac_span);
 
     // validate fractional part
-    if let Err(e) = num::validate_float_fractional_part(frac_lit, frac.span) {
+    if let Err(e) = num::validate_float_fractional_part(frac_lit, frac_span) {
         ctx.error(e);
         return Value::Invalid(lit, span);
     }
@@ -1465,7 +1500,8 @@ fn try_to_parse_time_part<'a>(
         TokenType::LiteralOrIdent(id) => {
             let token = parser.next();
             let lit = parser.literal(id);
-            (lit, token.span)
+            let span = Span::from_pos_len(token.start, lit.len() as u32);
+            (lit, span)
         }
         _ => {
             let val = DateTime::LocalDate(date);
@@ -1517,7 +1553,7 @@ fn try_to_parse_subsecs<'a>(
     time: Time,
 ) -> Value<'a> {
     match parser.peek() {
-        t if t.ty == TokenType::Dot && date_time_span.end == t.span.start => {
+        t if t.ty == TokenType::Dot && date_time_span.end == t.start => {
             parser.next();
         }
         _ => {
@@ -1546,11 +1582,12 @@ fn try_to_parse_subsecs<'a>(
         Value::Invalid(lit, span)
     };
 
-    let subsec;
+    let subsec_span;
     let subsec_lit = match parser.peek().ty {
         TokenType::LiteralOrIdent(id) => {
-            subsec = parser.next();
+            let subsec = parser.next();
             let subsec_lit = parser.literal(id);
+            subsec_span = Span::from_pos_len(subsec.start, subsec_lit.len() as u32);
 
             let time_end = date_time_lit.as_bytes().as_ptr_range().end;
             let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
@@ -1572,13 +1609,10 @@ fn try_to_parse_subsecs<'a>(
         let slice = std::slice::from_raw_parts(ptr, len);
         std::str::from_utf8_unchecked(slice)
     };
-    let span = Span {
-        start: date_time_span.start,
-        end: subsec.span.end,
-    };
+    let span = Span::across(date_time_span, subsec_span);
 
     // parse subsec part
-    match datetime::parse_subsec_part(lit, span, subsec_lit, subsec.span, date, time) {
+    match datetime::parse_subsec_part(lit, span, subsec_lit, subsec_span, date, time) {
         Ok(date_time) => Value::DateTime(date_time),
         Err(e) => {
             ctx.error(e);

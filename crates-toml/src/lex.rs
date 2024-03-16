@@ -22,7 +22,7 @@ pub struct Tokens<'a> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Token {
     pub ty: TokenType,
-    pub span: Span,
+    pub start: Pos,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,6 +53,7 @@ pub struct StringToken<'a> {
     pub quote: Quote,
     /// The literal exactly as it is written in the toml file.
     pub lit: &'a str,
+    pub lit_end: Pos,
     /// The text with escape sequences evaluated
     pub text: &'a str,
     pub text_start_offset: u8,
@@ -64,42 +65,10 @@ impl<'a> StringToken<'a> {
         Self {
             quote,
             lit,
+            lit_end: lit_span.end,
             text,
             text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
             text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
-        }
-    }
-}
-
-impl TokenType {
-    pub fn display(
-        &self,
-        f: &mut impl std::fmt::Write,
-        strings: &[StringToken<'_>],
-        literals: &[&str],
-    ) -> std::fmt::Result {
-        match self {
-            TokenType::String(id) => {
-                let string = &strings[id.0 as usize];
-                f.write_str(string.lit)
-            }
-            TokenType::LiteralOrIdent(id) => {
-                let lit = &literals[id.0 as usize];
-                f.write_str(lit)
-            }
-            TokenType::Comment(id) => {
-                let lit = &literals[id.0 as usize];
-                write!(f, "#{lit}")
-            }
-            TokenType::SquareLeft => f.write_char('['),
-            TokenType::SquareRight => f.write_char(']'),
-            TokenType::CurlyLeft => f.write_char('{'),
-            TokenType::CurlyRight => f.write_char('{'),
-            TokenType::Equal => f.write_char('='),
-            TokenType::Comma => f.write_char(','),
-            TokenType::Dot => f.write_char('.'),
-            TokenType::Newline => f.write_str("\\n"),
-            TokenType::EOF => f.write_str("EOF"),
         }
     }
 }
@@ -133,7 +102,7 @@ impl Span {
     }
 
     #[inline(always)]
-    fn ascii_char(pos: Pos) -> Self {
+    pub fn ascii_char(pos: Pos) -> Self {
         Self {
             start: pos,
             end: pos.plus(1),
@@ -393,7 +362,7 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
                             text_span,
                         ));
                         let token = Token {
-                            span: lit_span,
+                            start: lit_span.start,
                             ty: TokenType::String(id),
                         };
                         lexer.tokens.push(token);
@@ -428,7 +397,7 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
 
     let eof = Token {
         ty: TokenType::EOF,
-        span: Span::pos(lexer.pos()),
+        start: lexer.pos(),
     };
     Tokens {
         tokens: bump.alloc_slice_fill_iter(lexer.tokens),
@@ -674,10 +643,10 @@ fn end_literal(lexer: &mut Lexer) {
         return;
     }
     let lit = &lexer.input[lexer.lit_byte_start..lexer.byte_pos];
-    let span = Span::new(lexer.lit_start, lexer.pos());
+    let start = lexer.lit_start;
     let id = lexer.store_literal(lit);
     let ty = TokenType::LiteralOrIdent(id);
-    let token = Token { span, ty };
+    let token = Token { start, ty };
     lexer.tokens.push(token);
 
     lexer.in_lit = false;
@@ -713,7 +682,7 @@ fn end_string<'a>(
 
     let id = lexer.store_string(StringToken::new(str.quote, lit, lit_span, text, text_span));
     let token = Token {
-        span: lit_span,
+        start: lit_span.start,
         ty: TokenType::String(id),
     };
     lexer.tokens.push(token);
@@ -725,7 +694,7 @@ fn char_token(lexer: &mut Lexer, ty: TokenType) {
     end_literal(lexer);
 
     lexer.tokens.push(Token {
-        span: Span::ascii_char(lexer.pos()),
+        start: lexer.pos(),
         ty,
     });
 }
@@ -734,7 +703,7 @@ fn newline_token(lexer: &mut Lexer) {
     end_literal(lexer);
 
     lexer.tokens.push(Token {
-        span: Span::pos(lexer.pos()),
+        start: lexer.pos(),
         ty: TokenType::Newline,
     });
 }
@@ -751,13 +720,12 @@ fn comment(lexer: &mut Lexer) {
             Some(_) => (),
         }
     };
-    let end_pos = lexer.pos();
     let text_end = lexer.byte_pos;
 
     let lit = &lexer.input[text_start..text_end];
     let id = lexer.store_literal(lit);
     lexer.tokens.push(Token {
-        span: Span::new(start_pos, end_pos),
+        start: start_pos,
         ty: TokenType::Comment(id),
     });
 

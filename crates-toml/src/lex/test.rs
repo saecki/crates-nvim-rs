@@ -86,31 +86,22 @@ fn assign_int() {
             tokens: &[
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 6 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Equal,
-                    span: Span {
-                        start: Pos { line: 0, char: 7 },
-                        end: Pos { line: 0, char: 8 },
-                    },
+                    start: Pos { line: 0, char: 7 },
                 },
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(1)),
-                    span: Span {
-                        start: Pos { line: 0, char: 9 },
-                        end: Pos { line: 0, char: 14 },
-                    },
+                    start: Pos { line: 0, char: 9 },
                 },
             ],
             strings: &[],
             literals: &["my_int", "98742"],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 14 }),
+                start: Pos { line: 0, char: 14 },
             },
         },
     );
@@ -124,45 +115,30 @@ fn assign_float() {
             tokens: &[
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 8 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Equal,
-                    span: Span {
-                        start: Pos { line: 0, char: 8 },
-                        end: Pos { line: 0, char: 9 },
-                    },
+                    start: Pos { line: 0, char: 8 },
                 },
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(1)),
-                    span: Span {
-                        start: Pos { line: 0, char: 9 },
-                        end: Pos { line: 0, char: 10 },
-                    },
+                    start: Pos { line: 0, char: 9 },
                 },
                 Token {
                     ty: TokenType::Dot,
-                    span: Span {
-                        start: Pos { line: 0, char: 10 },
-                        end: Pos { line: 0, char: 11 },
-                    },
+                    start: Pos { line: 0, char: 10 },
                 },
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(2)),
-                    span: Span {
-                        start: Pos { line: 0, char: 11 },
-                        end: Pos { line: 0, char: 13 },
-                    },
+                    start: Pos { line: 0, char: 11 },
                 },
             ],
             strings: &[],
             literals: &["my_float", "0", "23"],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 13 }),
+                start: Pos { line: 0, char: 13 },
             },
         },
     );
@@ -176,43 +152,29 @@ fn assign_literal_string() {
             tokens: &[
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 2 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Dot,
-                    span: Span {
-                        start: Pos { line: 0, char: 2 },
-                        end: Pos { line: 0, char: 3 },
-                    },
+                    start: Pos { line: 0, char: 2 },
                 },
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(1)),
-                    span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 9 },
-                    },
+                    start: Pos { line: 0, char: 3 },
                 },
                 Token {
                     ty: TokenType::Equal,
-                    span: Span {
-                        start: Pos { line: 0, char: 10 },
-                        end: Pos { line: 0, char: 11 },
-                    },
+                    start: Pos { line: 0, char: 10 },
                 },
                 Token {
                     ty: TokenType::String(StringId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 12 },
-                        end: Pos { line: 0, char: 19 },
-                    },
+                    start: Pos { line: 0, char: 12 },
                 },
             ],
             strings: &[StringToken {
                 quote: Quote::Literal,
                 lit: "'yeet\\'",
+                lit_end: Pos { line: 0, char: 19 },
                 text: "yeet\\",
                 text_start_offset: 1,
                 text_end_offset: 1,
@@ -220,7 +182,7 @@ fn assign_literal_string() {
             literals: &["my", "string"],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 19 }),
+                start: Pos { line: 0, char: 19 },
             },
         },
     );
@@ -234,57 +196,37 @@ fn assign_escaped_string() {
             tokens: &[
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 2 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Dot,
-                    span: Span {
-                        start: Pos { line: 0, char: 2 },
-                        end: Pos { line: 0, char: 3 },
-                    },
+                    start: Pos { line: 0, char: 2 },
                 },
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(1)),
-                    span: Span {
-                        start: Pos { line: 0, char: 3 },
-                        end: Pos { line: 0, char: 10 },
-                    },
+                    start: Pos { line: 0, char: 3 },
                 },
                 Token {
                     ty: TokenType::Dot,
-                    span: Span {
-                        start: Pos { line: 0, char: 10 },
-                        end: Pos { line: 0, char: 11 },
-                    },
+                    start: Pos { line: 0, char: 10 },
                 },
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(2)),
-                    span: Span {
-                        start: Pos { line: 0, char: 11 },
-                        end: Pos { line: 0, char: 17 },
-                    },
+                    start: Pos { line: 0, char: 11 },
                 },
                 Token {
                     ty: TokenType::Equal,
-                    span: Span {
-                        start: Pos { line: 0, char: 18 },
-                        end: Pos { line: 0, char: 19 },
-                    },
+                    start: Pos { line: 0, char: 18 },
                 },
                 Token {
                     ty: TokenType::String(StringId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 20 },
-                        end: Pos { line: 0, char: 33 },
-                    },
+                    start: Pos { line: 0, char: 20 },
                 },
             ],
             strings: &[StringToken {
                 quote: Quote::Basic,
                 lit: "\"a\\u93f2nope\"",
+                lit_end: Pos { line: 0, char: 33 },
                 text: "a\u{93f2}nope",
                 text_start_offset: 1,
                 text_end_offset: 1,
@@ -292,7 +234,7 @@ fn assign_escaped_string() {
             literals: &["my", "escaped", "string"],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 33 }),
+                start: Pos { line: 0, char: 33 },
             },
         },
     );
@@ -342,15 +284,13 @@ fn multiline_string_escaped_newline() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 4, char: 3 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit:
                     "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
+                lit_end: Pos { line: 4, char: 3 },
                 text: "look the final string is just one line",
                 text_start_offset: 3,
                 text_end_offset: 3,
@@ -358,7 +298,7 @@ fn multiline_string_escaped_newline() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 4, char: 3 }),
+                start: Pos { line: 4, char: 3 },
             },
         },
     );
@@ -371,14 +311,12 @@ fn multiline_string_contains_up_to_two_quotes() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 53 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''this doesn't end the string: '' but this does: '''",
+                lit_end: Pos { line: 0, char: 53 },
                 text: "this doesn't end the string: '' but this does: ",
                 text_start_offset: 3,
                 text_end_offset: 3,
@@ -386,7 +324,7 @@ fn multiline_string_contains_up_to_two_quotes() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 53 }),
+                start: Pos { line: 0, char: 53 },
             },
         },
     );
@@ -400,29 +338,21 @@ fn assign_basic_multiline_string() {
             tokens: &[
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 8 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Equal,
-                    span: Span {
-                        start: Pos { line: 0, char: 9 },
-                        end: Pos { line: 0, char: 10 },
-                    },
+                    start: Pos { line: 0, char: 9 },
                 },
                 Token {
                     ty: TokenType::String(StringId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 11 },
-                        end: Pos { line: 8, char: 3 },
-                    },
+                    start: Pos { line: 0, char: 11 },
                 },
             ],
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
+                lit_end: Pos { line: 8, char: 3 },
                 text: "each\nword\nis\non\na\nnew\nline\n",
                 text_start_offset: 3,
                 text_end_offset: 3,
@@ -430,7 +360,7 @@ fn assign_basic_multiline_string() {
             literals: &["m_string"],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 8, char: 3 }),
+                start: Pos { line: 8, char: 3 },
             },
         },
     );
@@ -444,29 +374,21 @@ fn assign_literal_multiline_string() {
             tokens: &[
                 Token {
                     ty: TokenType::LiteralOrIdent(LiteralId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 8 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Equal,
-                    span: Span {
-                        start: Pos { line: 0, char: 9 },
-                        end: Pos { line: 0, char: 10 },
-                    },
+                    start: Pos { line: 0, char: 9 },
                 },
                 Token {
                     ty: TokenType::String(StringId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 11 },
-                        end: Pos { line: 8, char: 3 },
-                    },
+                    start: Pos { line: 0, char: 11 },
                 },
             ],
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''\\\neach\nword\nis\non\na\nnew\nline\n'''",
+                lit_end: Pos { line: 8, char: 3 },
                 text: "\\\neach\nword\nis\non\na\nnew\nline\n",
                 text_start_offset: 3,
                 text_end_offset: 3,
@@ -474,7 +396,7 @@ fn assign_literal_multiline_string() {
             literals: &["m_string"],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 8, char: 3 }),
+                start: Pos { line: 8, char: 3 },
             },
         },
     );
@@ -488,19 +410,17 @@ fn unclosed_basic_single_line_string() {
             tokens: &[
                 Token {
                     ty: TokenType::String(StringId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 21 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Newline,
-                    span: Span::pos(Pos { line: 0, char: 21 }),
+                    start: Pos { line: 0, char: 21 },
                 },
             ],
             strings: &[StringToken {
                 quote: Quote::Basic,
                 lit: "\"some unclosed string",
+                lit_end: Pos { line: 0, char: 21 },
                 text: "some unclosed string",
                 text_start_offset: 1,
                 text_end_offset: 0,
@@ -508,7 +428,7 @@ fn unclosed_basic_single_line_string() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 1, char: 0 }),
+                start: Pos { line: 1, char: 0 },
             },
         },
         Error::MissingQuote(
@@ -526,14 +446,12 @@ fn unclosed_basic_multi_line_string() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 1, char: 18 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\nthis is a new line",
+                lit_end: Pos { line: 1, char: 18 },
                 text: "some unclosed string\nthis is a new line",
                 text_start_offset: 3,
                 text_end_offset: 0,
@@ -541,7 +459,7 @@ fn unclosed_basic_multi_line_string() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 1, char: 18 }),
+                start: Pos { line: 1, char: 18 },
             },
         },
         Error::MissingQuote(
@@ -559,14 +477,12 @@ fn not_fully_closed_basic_multi_line_string_1() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 24 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\"",
+                lit_end: Pos { line: 0, char: 24 },
                 text: "some unclosed string\"",
                 text_start_offset: 3,
                 text_end_offset: 0,
@@ -574,7 +490,7 @@ fn not_fully_closed_basic_multi_line_string_1() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 24 }),
+                start: Pos { line: 0, char: 24 },
             },
         },
         Error::MissingQuote(
@@ -592,14 +508,12 @@ fn not_fully_closed_basic_multi_line_string_2() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 25 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::BasicMultiline,
                 lit: "\"\"\"some unclosed string\"\"",
+                lit_end: Pos { line: 0, char: 25 },
                 text: "some unclosed string\"\"",
                 text_start_offset: 3,
                 text_end_offset: 0,
@@ -607,7 +521,7 @@ fn not_fully_closed_basic_multi_line_string_2() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 25 }),
+                start: Pos { line: 0, char: 25 },
             },
         },
         Error::MissingQuote(
@@ -626,19 +540,17 @@ fn unclosed_literal_single_line_string() {
             tokens: &[
                 Token {
                     ty: TokenType::String(StringId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 21 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Newline,
-                    span: Span::pos(Pos { line: 0, char: 21 }),
+                    start: Pos { line: 0, char: 21 },
                 },
             ],
             strings: &[StringToken {
                 quote: Quote::Literal,
                 lit: "'some unclosed string",
+                lit_end: Pos { line: 0, char: 21 },
                 text: "some unclosed string",
                 text_start_offset: 1,
                 text_end_offset: 0,
@@ -646,7 +558,7 @@ fn unclosed_literal_single_line_string() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 1, char: 0 }),
+                start: Pos { line: 1, char: 0 },
             },
         },
         Error::MissingQuote(
@@ -664,14 +576,12 @@ fn unclosed_literal_multi_line_string() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 1, char: 18 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string\nthis is a new line",
+                lit_end: Pos { line: 1, char: 18 },
                 text: "some unclosed string\nthis is a new line",
                 text_start_offset: 3,
                 text_end_offset: 0,
@@ -679,7 +589,7 @@ fn unclosed_literal_multi_line_string() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 1, char: 18 }),
+                start: Pos { line: 1, char: 18 },
             },
         },
         Error::MissingQuote(
@@ -697,14 +607,12 @@ fn not_fully_closed_literal_multi_line_string_1() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 24 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string'",
+                lit_end: Pos { line: 0, char: 24 },
                 text: "some unclosed string'",
                 text_start_offset: 3,
                 text_end_offset: 0,
@@ -712,7 +620,7 @@ fn not_fully_closed_literal_multi_line_string_1() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 24 }),
+                start: Pos { line: 0, char: 24 },
             },
         },
         Error::MissingQuote(
@@ -730,14 +638,12 @@ fn not_fully_closed_literal_multi_line_string_2() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::String(StringId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 25 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[StringToken {
                 quote: Quote::LiteralMultiline,
                 lit: "'''some unclosed string''",
+                lit_end: Pos { line: 0, char: 25 },
                 text: "some unclosed string''",
                 text_start_offset: 3,
                 text_end_offset: 0,
@@ -745,7 +651,7 @@ fn not_fully_closed_literal_multi_line_string_2() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 25 }),
+                start: Pos { line: 0, char: 25 },
             },
         },
         Error::MissingQuote(
@@ -763,16 +669,13 @@ fn comment_without_newline() {
         Tokens {
             tokens: &[Token {
                 ty: TokenType::Comment(LiteralId(0)),
-                span: Span {
-                    start: Pos { line: 0, char: 0 },
-                    end: Pos { line: 0, char: 13 },
-                },
+                start: Pos { line: 0, char: 0 },
             }],
             strings: &[],
             literals: &[" hello there"],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 0, char: 13 }),
+                start: Pos { line: 0, char: 13 },
             },
         },
     )
@@ -786,21 +689,18 @@ fn comment_with_newline() {
             tokens: &[
                 Token {
                     ty: TokenType::Comment(LiteralId(0)),
-                    span: Span {
-                        start: Pos { line: 0, char: 0 },
-                        end: Pos { line: 0, char: 13 },
-                    },
+                    start: Pos { line: 0, char: 0 },
                 },
                 Token {
                     ty: TokenType::Newline,
-                    span: Span::pos(Pos { line: 0, char: 13 }),
+                    start: Pos { line: 0, char: 13 },
                 },
             ],
             literals: &[" hello there"],
             strings: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                span: Span::pos(Pos { line: 1, char: 0 }),
+                start: Pos { line: 1, char: 0 },
             },
         },
     )
