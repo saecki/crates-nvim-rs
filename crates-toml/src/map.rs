@@ -1,7 +1,8 @@
 use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
-use crate::error::FmtStr;
+use common::FmtStr;
+
 use crate::onevec::OneVec;
 use crate::parse::{
     ArrayEntry, Ast, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,

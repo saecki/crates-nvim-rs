@@ -1,5 +1,6 @@
+use common::FmtChar;
+
 use crate::datetime::{Date, DateTime, DateTimeField, DateTimeField::*, Offset, Time};
-use crate::error::FmtChar;
 use crate::lex::CharIter;
 use crate::parse::{DateTimeVal, PartialValue};
 use crate::{Error, Pos, Span};

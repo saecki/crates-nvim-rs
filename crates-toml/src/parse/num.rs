@@ -1,4 +1,5 @@
-use crate::error::FmtChar;
+use common::FmtChar;
+
 use crate::lex::CharIter;
 use crate::parse::{datetime, PartialValue};
 use crate::{Error, Span};

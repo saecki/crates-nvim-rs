@@ -2,9 +2,9 @@ use std::num::NonZeroU32;
 
 use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
+use common::{FmtChar, FmtStr};
 
 use crate::datetime::{Date, DateTime, Time};
-use crate::error::{FmtChar, FmtStr};
 use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
 use crate::{Ctx, Error, Pos, Quote, Span};
 

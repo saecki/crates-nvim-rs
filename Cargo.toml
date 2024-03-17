@@ -5,10 +5,13 @@ members = [
     "crates-toml",
     "crates-cli",
     "crates-semver",
+    "crates-common",
 ]
 
 [workspace.dependencies]
 toml = { package = "crates-toml", path = "crates-toml" }
+common = { package = "crates-common", path = "crates-common" }
+semver = { package = "crates-semver", path = "crates-semver" }
 bumpalo = { version = "3.15.4", features = ["collections"] }
 
 [profile.release]

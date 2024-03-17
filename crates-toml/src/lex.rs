@@ -2,8 +2,8 @@ use std::ops::ControlFlow;
 
 use bumpalo::collections::String as BString;
 use bumpalo::Bump;
+use common::FmtChar;
 
-use crate::error::FmtChar;
 use crate::{Ctx, Error};
 
 #[cfg(test)]
