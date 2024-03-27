@@ -153,7 +153,7 @@ fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a st
     };
 
     match c {
-        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' => chars.next_byte(),
+        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' => chars.next_byte(),
         _ => {
             todo!("error")
         }
