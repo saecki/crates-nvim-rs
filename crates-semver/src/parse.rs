@@ -68,7 +68,7 @@ pub fn parse_version(input: &str) -> Result<Version, Error> {
 
     eat_whitespace(&mut chars);
 
-    if let Some(_) = chars.peek_byte() {
+    if chars.peek_byte().is_some() {
         let trailing = FmtStr::from_str(chars.remainder().trim_end());
         let offset = Offset::new(chars.idx as u32);
         return Err(Error::TrailingCharacters(trailing, offset));
@@ -188,11 +188,11 @@ fn expect_dot(chars: &mut CharIter, field: NumField) -> Result<(), Error> {
         Some(_) => {
             let char = chars.peek_char().expect("remainder shouldn't be empty");
             let offset = Offset::new(chars.idx as u32);
-            return Err(Error::ExpectedDot(char, field, offset));
+            Err(Error::ExpectedDot(char, field, offset))
         }
         None => {
             let offset = Offset::new(chars.idx as u32);
-            return Err(Error::MissingDot(field, offset));
+            Err(Error::MissingDot(field, offset))
         }
     }
 }
