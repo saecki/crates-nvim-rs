@@ -1,6 +1,6 @@
 use common::FmtStr;
 
-use crate::{Offset, NumField};
+use crate::{IdentField, NumField, Offset};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -12,4 +12,5 @@ pub enum Error {
     IntOverflow(NumField, Offset, u32),
     ExpectedDot(char, NumField, Offset),
     MissingDot(NumField, Offset),
+    EmptyIdentifier(IdentField, Offset),
 }

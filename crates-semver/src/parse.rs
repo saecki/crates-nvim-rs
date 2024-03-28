@@ -152,17 +152,24 @@ fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a st
     let start = chars.idx;
 
     let Some(c) = chars.peek_byte() else {
-        todo!("error empty");
+        let offset = Offset::new(chars.idx as u32);
+        return Err(Error::EmptyIdentifier(field, offset));
     };
 
+    // FIXME: identfier parsing rules
+    // - segments separated by `.`
+    // - disallow non-empty segments
+    // - disallow leading zeros in numeric segments
     match c {
-        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' => chars.next_byte(),
+        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'.' => chars.next_byte(),
         _ => {
-            todo!("error")
+            // TODO: consider reading up to a `+` and returning an invalid character error instead
+            let offset = Offset::new(chars.idx as u32);
+            return Err(Error::EmptyIdentifier(field, offset));
         }
     }
 
-    while let Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9') = chars.peek_byte() {
+    while let Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'.') = chars.peek_byte() {
         chars.next_byte();
     }
 
