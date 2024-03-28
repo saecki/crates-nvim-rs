@@ -60,21 +60,13 @@ pub enum Op {
     Bl,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Version {
     pub major: u32,
     pub minor: u32,
     pub patch: u32,
     pub pre: Prerelease,
     pub meta: BuildMetadata,
-}
-
-impl Eq for Version {}
-
-impl PartialEq for Version {
-    fn eq(&self, other: &Self) -> bool {
-        todo!()
-    }
 }
 
 impl Ord for Version {
@@ -89,21 +81,15 @@ impl PartialOrd for Version {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Prerelease {
     str: InlineStr,
 }
 
 impl Prerelease {
     pub const EMPTY: Self = Self {
-        str: InlineStr::new(),
+        str: InlineStr::empty(),
     };
-}
-
-impl From<&str> for Prerelease {
-    fn from(value: &str) -> Self {
-        Self { str: value.into() }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -113,12 +99,6 @@ pub struct BuildMetadata {
 
 impl BuildMetadata {
     pub const EMPTY: Self = Self {
-        str: InlineStr::new(),
+        str: InlineStr::empty(),
     };
-}
-
-impl From<&str> for BuildMetadata {
-    fn from(value: &str) -> Self {
-        Self { str: value.into() }
-    }
 }

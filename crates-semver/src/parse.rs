@@ -1,5 +1,6 @@
 use common::FmtStr;
 
+use crate::inlinestr::InlineStr;
 use crate::{BuildMetadata, Error, IdentField, NumField, Offset, Prerelease, Version, VersionReq};
 
 #[cfg(test)]
@@ -49,16 +50,18 @@ pub fn parse_version(input: &str) -> Result<Version, Error> {
     expect_dot(&mut chars, NumField::Minor)?;
     let patch = parse_int(&mut chars, NumField::Patch)?;
 
-    let pre = if hyphen(&mut chars) {
-        let str = parse_ident(&mut chars, IdentField::Prerelease)?;
-        Prerelease::from(str)
+    let pre = if eat_hyphen(&mut chars) {
+        let ident = parse_ident(&mut chars, IdentField::Prerelease)?;
+        let str = unsafe { InlineStr::new_unchecked(ident) };
+        Prerelease { str }
     } else {
         Prerelease::EMPTY
     };
 
-    let meta = if plus(&mut chars) {
-        let str = parse_ident(&mut chars, IdentField::BuildMetadata)?;
-        BuildMetadata::from(str)
+    let meta = if eat_plus(&mut chars) {
+        let ident = parse_ident(&mut chars, IdentField::BuildMetadata)?;
+        let str = unsafe { InlineStr::new_unchecked(ident) };
+        BuildMetadata { str }
     } else {
         BuildMetadata::EMPTY
     };
@@ -187,7 +190,7 @@ fn expect_dot(chars: &mut CharIter, field: NumField) -> Result<(), Error> {
     }
 }
 
-fn hyphen(chars: &mut CharIter) -> bool {
+fn eat_hyphen(chars: &mut CharIter) -> bool {
     match chars.peek_byte() {
         Some(b'-') => {
             chars.next_byte();
@@ -197,7 +200,7 @@ fn hyphen(chars: &mut CharIter) -> bool {
     }
 }
 
-fn plus(chars: &mut CharIter) -> bool {
+fn eat_plus(chars: &mut CharIter) -> bool {
     match chars.peek_byte() {
         Some(b'+') => {
             chars.next_byte();
