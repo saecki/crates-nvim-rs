@@ -97,7 +97,7 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
                 Some(b'0'..=b'9') => {
                     let i = chars.idx - 1;
                     let offset = Offset::new(i as u32);
-                    Err(Error::LeadingZero(field, offset))
+                    Err(Error::LeadingZeroNum(field, offset))
                 }
                 _ => Ok(0),
             };
@@ -150,33 +150,49 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
 
 fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a str, Error> {
     let start = chars.idx;
+    let mut segment_start = chars.idx;
+    let mut segment_has_nondigit = false;
 
-    let Some(c) = chars.peek_byte() else {
-        let offset = Offset::new(chars.idx as u32);
-        return Err(Error::EmptyIdentifier(field, offset));
-    };
+    loop {
+        match chars.peek_byte() {
+            Some(b'a'..=b'z' | b'A'..=b'Z' | b'-') => {
+                chars.next_byte();
+                segment_has_nondigit = true;
+            }
+            Some(b'0'..=b'9') => chars.next_byte(),
+            boundary => {
+                if segment_start == chars.idx {
+                    // TODO: consider reading up to a `+` and returning an invalid character error instead
+                    if start == chars.idx && boundary != Some(b'.') {
+                        let offset = Offset::new(chars.idx as u32);
+                        return Err(Error::EmptyIdentifier(field, offset));
+                    } else {
+                        let offset = Offset::new(chars.idx as u32);
+                        return Err(Error::EmptyIdentifierSegment(field, offset));
+                    }
+                }
 
-    // FIXME: identfier parsing rules
-    // - segments separated by `.`
-    // - disallow non-empty segments
-    // - disallow leading zeros in numeric segments
-    match c {
-        b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'.' => chars.next_byte(),
-        _ => {
-            // TODO: consider reading up to a `+` and returning an invalid character error instead
-            let offset = Offset::new(chars.idx as u32);
-            return Err(Error::EmptyIdentifier(field, offset));
+                if field == IdentField::Prerelease
+                    && chars.idx - segment_start > 1
+                    && !segment_has_nondigit
+                    && chars.str[segment_start..].starts_with('0')
+                {
+                    let offset = Offset::new(segment_start as u32);
+                    return Err(Error::LeadingZeroSegment(field, offset));
+                }
+
+                if boundary == Some(b'.') {
+                    chars.next_byte();
+                    segment_start = chars.idx;
+                    segment_has_nondigit = false;
+                } else {
+                    let end = chars.idx;
+                    let str = &chars.str[start..end];
+                    return Ok(str);
+                }
+            }
         }
     }
-
-    while let Some(b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'-' | b'.') = chars.peek_byte() {
-        chars.next_byte();
-    }
-
-    let end = chars.idx;
-    let str = &chars.str[start..end];
-
-    Ok(str)
 }
 
 fn expect_dot(chars: &mut CharIter, field: NumField) -> Result<(), Error> {

@@ -81,7 +81,7 @@ impl PartialOrd for Version {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Prerelease {
     str: InlineStr,
 }
@@ -92,7 +92,13 @@ impl Prerelease {
     };
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+impl std::fmt::Debug for Prerelease {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Prerelease({:?})", self.str.as_str())
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
 pub struct BuildMetadata {
     str: InlineStr,
 }
@@ -101,4 +107,10 @@ impl BuildMetadata {
     pub const EMPTY: Self = Self {
         str: InlineStr::empty(),
     };
+}
+
+impl std::fmt::Debug for BuildMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BuildMetadata({:?})", self.str.as_str())
+    }
 }
