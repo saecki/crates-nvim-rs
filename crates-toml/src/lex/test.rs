@@ -244,7 +244,7 @@ fn assign_escaped_string() {
 
 #[test]
 fn string_escapes() {
-    check_str(r#""\b""#, r#""\b""#, "\x08");
+    check_str(r#"   "\b""#, r#""\b""#, "\x08");
     check_str(r#""\t""#, r#""\t""#, "\t");
     check_str(r#""\n""#, r#""\n""#, "\n");
     check_str(r#""\f""#, r#""\f""#, "\u{C}");

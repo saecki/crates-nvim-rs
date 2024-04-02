@@ -1,4 +1,5 @@
 use std::ops::ControlFlow;
+use std::str::Chars;
 
 use bumpalo::collections::String as BString;
 use bumpalo::Bump;
@@ -215,6 +216,13 @@ impl Quote {
         }
     }
 
+    pub fn byte(&self) -> u8 {
+        match self {
+            Quote::Basic | Quote::BasicMultiline => b'"',
+            Quote::Literal | Quote::LiteralMultiline => b'\'',
+        }
+    }
+
     fn multiline(&self) -> Self {
         match self {
             Quote::Basic | Quote::BasicMultiline => Self::BasicMultiline,
@@ -227,7 +235,7 @@ impl Quote {
 struct Lexer<'a> {
     bump: &'a Bump,
     input: &'a str,
-    chars: CharIter<'a>,
+    chars: Chars<'a>,
 
     line_idx: u32,
     line_byte_start: usize,
@@ -247,7 +255,7 @@ impl<'a> Lexer<'a> {
         Self {
             bump,
             input,
-            chars: input.char_indices().peekable(),
+            chars: input.chars(),
 
             line_idx: 0,
             line_byte_start: 0,
@@ -282,20 +290,24 @@ impl<'a> Lexer<'a> {
     }
 
     fn next(&mut self) -> Option<char> {
-        match self.chars.next() {
-            Some((ci, c)) => {
-                self.byte_pos = ci;
-                Some(c)
-            }
-            None => {
-                self.byte_pos = self.input.len();
-                None
-            }
-        }
+        self.byte_pos = self.input.len() - self.chars.as_str().len();
+        self.chars.next()
+    }
+
+    fn skip_until(&mut self, a: u8, b: u8, c: u8) -> Option<char> {
+        let substr = self.chars.as_str();
+        let pos = self.input.len() - substr.len();
+        let offset = memchr::memchr3(a, b, c, substr.as_bytes());
+        self.byte_pos = match offset {
+            Some(o) => pos + o,
+            None => self.input.len(),
+        };
+        self.chars = self.input[self.byte_pos..].chars();
+        self.chars.next()
     }
 
     fn peek(&mut self) -> Option<char> {
-        self.chars.peek().map(|(_, c)| *c)
+        self.chars.as_str().chars().next()
     }
 
     fn pos(&self) -> Pos {
@@ -342,10 +354,10 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
                     '\'' => Quote::Literal,
                     _ => unsafe { core::hint::unreachable_unchecked() },
                 };
-                if Some(c) == lexer.peek() {
+                if lexer.peek() == Some(c) {
                     lexer.next();
 
-                    if Some(c) == lexer.peek() {
+                    if lexer.peek() == Some(c) {
                         // It's a multiline string
                         lexer.next();
                         quote = quote.multiline();
@@ -409,7 +421,14 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
 
 fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
     loop {
-        let Some(c) = lexer.next() else {
+        let start = lexer.input.len() - lexer.chars.as_str().len();
+        let c = lexer.skip_until(str.quote.byte(), b'\n', b'\\');
+        if let Some(text) = &mut str.text {
+            let substr = &lexer.input[start..lexer.byte_pos];
+            text.push_str(substr);
+        }
+
+        let Some(c) = c else {
             ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
 
             let end = lexer.byte_pos;
@@ -420,14 +439,14 @@ fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
         if str.quote.matches(c) {
             let text_end = lexer.byte_pos;
             if str.quote.is_multiline() {
-                if Some(str.quote.char()) == lexer.peek() {
+                if lexer.peek() == Some(str.quote.char()) {
                     lexer.next();
                 } else {
                     str.push_char(c);
                     continue;
                 }
 
-                if Some(str.quote.char()) == lexer.peek() {
+                if lexer.peek() == Some(str.quote.char()) {
                     lexer.next();
                 } else {
                     str.push_char(c);
@@ -591,14 +610,14 @@ fn string_escape_unicode<'a>(
                 if str.quote.matches(c) {
                     let text_end = lexer.byte_pos;
                     if str.quote.is_multiline() {
-                        if Some(str.quote.char()) == lexer.peek() {
+                        if lexer.peek() == Some(str.quote.char()) {
                             lexer.next();
                         } else {
                             str.push_char(c);
                             return ControlFlow::Continue(());
                         }
 
-                        if Some(str.quote.char()) == lexer.peek() {
+                        if lexer.peek() == Some(str.quote.char()) {
                             lexer.next();
                         } else {
                             str.push_char(c);
