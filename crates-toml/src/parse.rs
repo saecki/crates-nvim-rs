@@ -951,8 +951,8 @@ fn mark_comments_above(
 ) -> CommentRange {
     let len = storage.iter_mut().rev().position(|c| {
         let contigous = c.comment.span.start.line + 1 == line && c.pos == AssocPos::Contained;
-        line -= 1;
         if contigous {
+            line -= 1;
             c.pos = AssocPos::Above;
             c.level = level;
         }
