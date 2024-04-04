@@ -205,10 +205,6 @@ impl Quote {
         matches!(self, Self::BasicMultiline | Self::LiteralMultiline)
     }
 
-    pub fn matches(&self, c: char) -> bool {
-        self.char() == c
-    }
-
     pub fn char(&self) -> char {
         match self {
             Quote::Basic | Quote::BasicMultiline => '"',
@@ -448,7 +444,7 @@ fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
             return;
         };
 
-        if str.quote.matches(c) {
+        if c == str.quote.char() {
             let text_end = lexer.byte_pos;
             if str.quote.is_multiline() {
                 if lexer.peek() == Some(str.quote.char()) {
@@ -619,7 +615,7 @@ fn string_escape_unicode<'a>(
             _ => {
                 ctx.error(Error::InvalidUnicodeEscapeChar(FmtChar(c), lexer.pos()));
 
-                if str.quote.matches(c) {
+                if c == str.quote.char() {
                     let text_end = lexer.byte_pos;
                     if str.quote.is_multiline() {
                         if lexer.peek() == Some(str.quote.char()) {
