@@ -294,7 +294,19 @@ impl<'a> Lexer<'a> {
         self.chars.next()
     }
 
-    fn skip_until(&mut self, a: u8, b: u8, c: u8) -> Option<char> {
+    fn skip_until(&mut self, a: u8) -> Option<char> {
+        let substr = self.chars.as_str();
+        let pos = self.input.len() - substr.len();
+        let offset = memchr::memchr(a, substr.as_bytes());
+        self.byte_pos = match offset {
+            Some(o) => pos + o,
+            None => self.input.len(),
+        };
+        self.chars = self.input[self.byte_pos..].chars();
+        self.chars.next()
+    }
+
+    fn skip_until3(&mut self, a: u8, b: u8, c: u8) -> Option<char> {
         let substr = self.chars.as_str();
         let pos = self.input.len() - substr.len();
         let offset = memchr::memchr3(a, b, c, substr.as_bytes());
@@ -422,7 +434,7 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
 fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
     loop {
         let start = lexer.input.len() - lexer.chars.as_str().len();
-        let c = lexer.skip_until(str.quote.byte(), b'\n', b'\\');
+        let c = lexer.skip_until3(str.quote.byte(), b'\n', b'\\');
         if let Some(text) = &mut str.text {
             let substr = &lexer.input[start..lexer.byte_pos];
             text.push_str(substr);
@@ -732,13 +744,8 @@ fn comment(lexer: &mut Lexer) {
 
     let start_pos = lexer.pos();
     let text_start = lexer.byte_pos + 1;
-    let newline = loop {
-        match lexer.next() {
-            None => break false,
-            Some('\n') => break true,
-            Some(_) => (),
-        }
-    };
+
+    let newline = lexer.skip_until(b'\n').is_some();
     let text_end = lexer.byte_pos;
 
     let lit = &lexer.input[text_start..text_end];
