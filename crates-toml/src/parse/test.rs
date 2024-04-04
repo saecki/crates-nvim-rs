@@ -70,6 +70,43 @@ fn check_error<'a, const SIZE: usize>(
 }
 
 #[test]
+fn float_special_values() {
+    let input = "
+    a0 = nan
+    a1 = +nan
+    a2 = -nan
+
+    b0 = inf
+    b1 = +inf
+    b2 = -inf
+
+    c0 = +0.0
+    c1 = -0.0
+";
+
+    let (_, table) = parse_simple(input);
+
+    assert!(expect_float(&table, "a0").is_nan());
+    assert!(expect_float(&table, "a0").is_sign_positive());
+    assert!(expect_float(&table, "a1").is_nan());
+    assert!(expect_float(&table, "a1").is_sign_positive());
+    assert!(expect_float(&table, "a2").is_nan());
+    assert!(expect_float(&table, "a2").is_sign_negative());
+
+    assert!(expect_float(&table, "b0").is_infinite());
+    assert!(expect_float(&table, "b0").is_sign_positive());
+    assert!(expect_float(&table, "b1").is_infinite());
+    assert!(expect_float(&table, "b1").is_sign_positive());
+    assert!(expect_float(&table, "b2").is_infinite());
+    assert!(expect_float(&table, "b2").is_sign_negative());
+
+    assert_eq!(expect_float(&table, "c0"), 0.0);
+    assert!(expect_float(&table, "c0").is_sign_positive());
+    assert_eq!(expect_float(&table, "c1"), 0.0);
+    assert!(expect_float(&table, "c1").is_sign_negative());
+}
+
+#[test]
 fn assign_negative_int() {
     check_simple(
         "num = -2",

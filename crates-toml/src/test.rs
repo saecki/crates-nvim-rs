@@ -11,16 +11,28 @@ pub use crate::{Ctx, Error, Pos, Quote, Span, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
-pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
+pub fn expect_float(table: &HashMap<String, SimpleVal>, key: &str) -> f64 {
+    let val = table.get(key).unwrap();
+    match val {
+        SimpleVal::Float(f) => *f,
+        _ => unreachable!("{val:?}"),
+    }
+}
+
+pub fn parse_simple(input: &str) -> (Ctx, HashMap<String, SimpleVal>) {
     let mut ctx = Ctx::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
     let map = ctx.map(&asts);
+    let table = crate::map::simple::map_table(map);
+    (ctx, table)
+}
 
-    let test_table = crate::map::simple::map_table(map);
+pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
+    let (ctx, table) = parse_simple(input);
     assert_eq!(
-        expected, test_table,
+        expected, table,
         "\nerrors: {:#?}\nwarnings: {:#?}",
         ctx.errors, ctx.warnings
     );
