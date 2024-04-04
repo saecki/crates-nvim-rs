@@ -1319,7 +1319,10 @@ fn parse_value<'a>(
                     Err(e) => {
                         ctx.error(e);
                         recover_on!(parser,
-                            Comma => continue 'inline_table,
+                            Comma => {
+                                parser.next();
+                                continue 'inline_table;
+                            },
                             Newline | CurlyRight | EOF => break 'inline_table,
                         )
                     }
@@ -1331,7 +1334,10 @@ fn parse_value<'a>(
                         let (string, span) = parser.token_fmt_str_and_span(t);
                         ctx.error(Error::ExpectedEqFound(string, span));
                         recover_on!(parser,
-                            Comma => continue 'inline_table,
+                            Comma => {
+                                parser.next();
+                                continue 'inline_table;
+                            },
                             Newline | CurlyRight | EOF => break 'inline_table,
                         )
                     }
@@ -1342,7 +1348,10 @@ fn parse_value<'a>(
                     Err(e) => {
                         ctx.error(e);
                         recover_on!(parser,
-                            Comma => continue 'inline_table,
+                            Comma => {
+                                parser.next();
+                                continue 'inline_table;
+                            },
                             Newline | CurlyRight | EOF => break 'inline_table,
                         )
                     }
