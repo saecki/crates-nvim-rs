@@ -11,6 +11,8 @@ pub use crate::{Ctx, Error, Pos, Quote, Span, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
+mod fuzz;
+
 pub fn expect_float(table: &HashMap<String, SimpleVal>, key: &str) -> f64 {
     let val = table.get(key).unwrap();
     match val {

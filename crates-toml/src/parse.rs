@@ -1215,7 +1215,10 @@ fn parse_value<'a>(
                     Err(e) => {
                         ctx.error(e);
                         recover_on!(parser,
-                            Comma | Newline => continue 'inline_array,
+                            Comma | Newline => {
+                                parser.next();
+                                continue 'inline_array;
+                            },
                             SquareRight | EOF => break 'inline_array,
                         );
                     }
