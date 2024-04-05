@@ -2,7 +2,8 @@ use common::FmtStr;
 
 use crate::inlinestr::InlineStr;
 use crate::{
-    BuildMetadata, Comparator, Error, IdentField, NumField, Offset, Prerelease, Version, VersionReq,
+    BuildMetadata, CompVersion, Comparator, Error, IdentField, NumField, Offset, Op, Prerelease,
+    Version, VersionReq,
 };
 
 #[cfg(test)]
@@ -35,52 +36,125 @@ impl<'a> CharIter<'a> {
     fn remainder(&self) -> &'a str {
         &self.str[self.idx..]
     }
+
+    fn offset(&self) -> Offset {
+        Offset {
+            char: self.idx as u32,
+        }
+    }
 }
 
 pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
     let mut chars = CharIter::new(input);
-    let mut comparators = Vec::new();
+    let num_commas = memchr::memchr_iter(b',', input.as_bytes()).count();
+    // If there is no comma, there are probably no comparators or one. If it's only one the push
+    // won't have to reallocate anyway, but if there are 0 we saved an allocation. For 1 or more
+    // commas this might allocate space for one extra item, but will never have to reallocate.
+    let capacity = num_commas + (num_commas != 0) as usize;
+    let mut comparators = Vec::with_capacity(capacity as usize);
 
     loop {
         eat_whitespace(&mut chars);
 
-        let op = todo!("parse op");
-
-        let major = parse_int(&mut chars, NumField::Major)?;
-        let mut minor = None;
-        let mut patch = None;
-
-        if eat_dot(&mut chars) {
-            let num = parse_int(&mut chars, NumField::Minor)?;
-            minor = Some(num);
-
-            if eat_dot(&mut chars) {
-                let num = parse_int(&mut chars, NumField::Patch)?;
-                patch = Some(num);
-            }
-        }
-
-        let pre = if eat_hyphen(&mut chars) {
-            let ident = parse_ident(&mut chars, IdentField::Prerelease)?;
-            let str = unsafe { InlineStr::new_unchecked(ident) };
-            Prerelease { str }
-        } else {
-            Prerelease::EMPTY
+        let Some(b) = chars.peek_byte() else {
+            break;
         };
 
-        // TODO: eat comma
+        let op_offset = chars.offset();
+        let op = match b {
+            // Blank version requirement, equivalent to caret
+            b'0'..=b'9' => Op::Bl,
+            b'*' => {
+                // a complete wildcard is only permitted as the sole comparator
+                chars.next_byte();
+
+                eat_whitespace(&mut chars);
+                let comma = eat_comma(&mut chars).then(|| chars.offset());
+
+                comparators.push(Comparator {
+                    op_offset,
+                    op: Op::Wl,
+                    version_offset: op_offset,
+                    version: CompVersion::Empty,
+                    comma,
+                });
+
+                continue;
+            }
+            b'=' => {
+                chars.next_byte();
+                Op::Eq
+            }
+            b'<' => {
+                chars.next_byte();
+                if chars.peek_byte() == Some(b'=') {
+                    chars.next_byte();
+                    Op::Le
+                } else {
+                    Op::Lt
+                }
+            }
+            b'>' => {
+                chars.next_byte();
+                if chars.peek_byte() == Some(b'=') {
+                    chars.next_byte();
+                    Op::Ge
+                } else {
+                    Op::Gt
+                }
+            }
+            b'^' => {
+                chars.next_byte();
+                Op::Cr
+            }
+            b'~' => {
+                chars.next_byte();
+                Op::Tl
+            }
+            _ => todo!("error"),
+        };
+
+        eat_whitespace(&mut chars);
+        let version_offset = chars.offset();
+        let version = comp_version(&mut chars)?;
+
+        eat_whitespace(&mut chars);
+        let comma = eat_comma(&mut chars).then(|| chars.offset());
 
         let comparator = Comparator {
+            op_offset,
             op,
-            major: Some(major),
-            minor,
-            patch,
-            pre,
+            version_offset,
+            version,
+            comma,
         };
         comparators.push(comparator);
     }
 
     Ok(VersionReq { comparators })
+}
+
+fn comp_version(chars: &mut CharIter) -> Result<CompVersion, Error> {
+    let major = parse_int(chars, NumField::Major)?;
+    if !eat_dot(chars) {
+        return Ok(CompVersion::Major(major));
+    }
+
+    let minor = parse_int(chars, NumField::Minor)?;
+    if !eat_dot(chars) {
+        return Ok(CompVersion::Minor(major, minor));
+    }
+
+    let patch = parse_int(chars, NumField::Patch)?;
+    if !eat_hyphen(chars) {
+        return Ok(CompVersion::Patch(major, minor, patch));
+    }
+
+    let ident = parse_ident(chars, IdentField::Prerelease)?;
+    let str = unsafe { InlineStr::new_unchecked(ident) };
+    let pre = Prerelease { str };
+
+    Ok(CompVersion::Pre(major, minor, patch, pre))
 }
 
 pub fn parse_version(input: &str) -> Result<Version, Error> {
@@ -114,7 +188,7 @@ pub fn parse_version(input: &str) -> Result<Version, Error> {
 
     if chars.peek_byte().is_some() {
         let trailing = FmtStr::from_str(chars.remainder().trim_end());
-        let offset = Offset::new(chars.idx as u32);
+        let offset = chars.offset();
         return Err(Error::TrailingCharacters(trailing, offset));
     }
 
@@ -128,10 +202,10 @@ pub fn parse_version(input: &str) -> Result<Version, Error> {
 }
 
 fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
-    let start = chars.idx as u32;
+    let start = chars.offset();
 
     let Some(c) = chars.peek_byte() else {
-        let offset = Offset::new(chars.str.len() as u32);
+        let offset = chars.offset();
         return Err(Error::MissingField(field, offset));
     };
     let accum = match c {
@@ -139,8 +213,7 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
             chars.next_byte();
             return match chars.peek_byte() {
                 Some(b'0'..=b'9') => {
-                    let i = chars.idx - 1;
-                    let offset = Offset::new(i as u32);
+                    let offset = chars.offset().minus(1);
                     Err(Error::LeadingZeroNum(field, offset))
                 }
                 _ => Ok(0),
@@ -151,7 +224,7 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
             c as u32 - b'0' as u32
         }
         _ => {
-            let offset = Offset::new(chars.idx as u32);
+            let offset = chars.offset();
             let char = chars.peek_char().expect("remainder shouldn't be empty");
             return Err(Error::InvalidIntChar(char, field, offset));
         }
@@ -185,9 +258,8 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
     match accum {
         State::Ok(v) => Ok(v),
         State::Overflow => {
-            let offset = Offset::new(start);
-            let len = chars.idx as u32 - start;
-            Err(Error::IntOverflow(field, offset, len))
+            let len = chars.idx as u32 - start.char;
+            Err(Error::IntOverflow(field, start, len))
         }
     }
 }
@@ -207,11 +279,10 @@ fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a st
             boundary => {
                 if segment_start == chars.idx {
                     // TODO: consider reading up to a `+` and returning an invalid character error instead
+                    let offset = chars.offset();
                     if start == chars.idx && boundary != Some(b'.') {
-                        let offset = Offset::new(chars.idx as u32);
                         return Err(Error::EmptyIdentifier(field, offset));
                     } else {
-                        let offset = Offset::new(chars.idx as u32);
                         return Err(Error::EmptyIdentifierSegment(field, offset));
                     }
                 }
@@ -247,11 +318,11 @@ fn expect_dot(chars: &mut CharIter, field: NumField) -> Result<(), Error> {
         }
         Some(_) => {
             let char = chars.peek_char().expect("remainder shouldn't be empty");
-            let offset = Offset::new(chars.idx as u32);
+            let offset = chars.offset();
             Err(Error::ExpectedDot(char, field, offset))
         }
         None => {
-            let offset = Offset::new(chars.idx as u32);
+            let offset = chars.offset();
             Err(Error::MissingDot(field, offset))
         }
     }
@@ -278,6 +349,16 @@ fn eat_hyphen(chars: &mut CharIter) -> bool {
 }
 
 fn eat_plus(chars: &mut CharIter) -> bool {
+    match chars.peek_byte() {
+        Some(b'+') => {
+            chars.next_byte();
+            true
+        }
+        _ => false,
+    }
+}
+
+fn eat_comma(chars: &mut CharIter) -> bool {
     match chars.peek_byte() {
         Some(b'+') => {
             chars.next_byte();

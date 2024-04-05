@@ -2,12 +2,12 @@ use pretty_assertions::assert_eq;
 
 use super::*;
 
-fn check(input: &str, expected: Version) {
+fn check_version(input: &str, expected: Version) {
     let version = parse_version(input).unwrap();
     assert_eq!(version, expected);
 }
 
-fn check_error(input: &str, expected: Error) {
+fn check_version_error(input: &str, expected: Error) {
     let version = parse_version(input).unwrap_err();
     assert_eq!(version, expected);
 }
@@ -61,19 +61,19 @@ macro_rules! v {
 
 #[test]
 fn version_parsing() {
-    check("0.1.2", v!(0, 1, 2));
+    check_version("0.1.2", v!(0, 1, 2));
 
-    check("0.1.2-alpha.1", v!(0, 1, 2 - "alpha.1"));
-    check("2.0.8-beta.0", v!(2, 0, 8 - "beta.0"));
+    check_version("0.1.2-alpha.1", v!(0, 1, 2 - "alpha.1"));
+    check_version("2.0.8-beta.0", v!(2, 0, 8 - "beta.0"));
 
-    check("1.0.0+sdfsd-32423", v!(1, 0, 0 + "sdfsd-32423"));
-    check("0.8.3+32432.dsfds", v!(0, 8, 3 + "32432.dsfds"));
+    check_version("1.0.0+sdfsd-32423", v!(1, 0, 0 + "sdfsd-32423"));
+    check_version("0.8.3+32432.dsfds", v!(0, 8, 3 + "32432.dsfds"));
 
-    check(
+    check_version(
         "1.0.0-alpha.7+sdfsd-32423",
         v!(1, 0, 0 - "alpha.7" + "sdfsd-32423"),
     );
-    check(
+    check_version(
         "0.8.3-pre.48+32432.dsfds",
         v!(0, 8, 3 - "pre.48" + "32432.dsfds"),
     );
@@ -81,26 +81,32 @@ fn version_parsing() {
 
 #[test]
 fn version_missing_num() {
-    check_error("", Error::MissingField(NumField::Major, Offset::new(0)));
-    check_error("1", Error::MissingDot(NumField::Major, Offset::new(1)));
-    check_error("1 ", Error::ExpectedDot(' ', NumField::Major, Offset::new(1)));
-    check_error("1.", Error::MissingField(NumField::Minor, Offset::new(2)));
-    check_error("1.0", Error::MissingDot(NumField::Minor, Offset::new(3)));
-    check_error("1.0 ", Error::ExpectedDot(' ', NumField::Minor, Offset::new(3)));
-    check_error("1.0.", Error::MissingField(NumField::Patch, Offset::new(4)));
+    check_version_error("", Error::MissingField(NumField::Major, Offset::new(0)));
+    check_version_error("1", Error::MissingDot(NumField::Major, Offset::new(1)));
+    check_version_error(
+        "1 ",
+        Error::ExpectedDot(' ', NumField::Major, Offset::new(1)),
+    );
+    check_version_error("1.", Error::MissingField(NumField::Minor, Offset::new(2)));
+    check_version_error("1.0", Error::MissingDot(NumField::Minor, Offset::new(3)));
+    check_version_error(
+        "1.0 ",
+        Error::ExpectedDot(' ', NumField::Minor, Offset::new(3)),
+    );
+    check_version_error("1.0.", Error::MissingField(NumField::Patch, Offset::new(4)));
 }
 
 #[test]
 fn version_invalid_num() {
-    check_error(
+    check_version_error(
         "01.2.3",
         Error::LeadingZeroNum(NumField::Major, Offset::new(0)),
     );
-    check_error(
+    check_version_error(
         "1.02.3",
         Error::LeadingZeroNum(NumField::Minor, Offset::new(2)),
     );
-    check_error(
+    check_version_error(
         "1.2.03",
         Error::LeadingZeroNum(NumField::Patch, Offset::new(4)),
     );
@@ -108,11 +114,11 @@ fn version_invalid_num() {
 
 #[test]
 fn version_empty_prerelease() {
-    check_error(
+    check_version_error(
         "1.0.0-",
         Error::EmptyIdentifier(IdentField::Prerelease, Offset::new(6)),
     );
-    check_error(
+    check_version_error(
         "1.0.0-+meta123",
         Error::EmptyIdentifier(IdentField::Prerelease, Offset::new(6)),
     );
@@ -120,12 +126,53 @@ fn version_empty_prerelease() {
 
 #[test]
 fn version_empty_buildmetadata() {
-    check_error(
+    check_version_error(
         "1.0.0+",
         Error::EmptyIdentifier(IdentField::BuildMetadata, Offset::new(6)),
     );
-    check_error(
+    check_version_error(
         "1.0.0-beta.5+",
         Error::EmptyIdentifier(IdentField::BuildMetadata, Offset::new(13)),
+    );
+}
+
+fn check_req(input: &str, expected: VersionReq) {
+    let req = parse_requirement(input).unwrap();
+    assert_eq!(req, expected);
+}
+
+#[test]
+fn req_parsing() {
+    check_req("", VersionReq::EMPTY);
+
+    check_req(
+        "2.4.1",
+        VersionReq::new(vec![Comparator {
+            op_offset: Offset::new(0),
+            op: Op::Bl,
+            version_offset: Offset::new(0),
+            version: CompVersion::Patch(2, 4, 1),
+            comma: None,
+        }]),
+    );
+    check_req(
+        "=0.1.0",
+        VersionReq::new(vec![Comparator {
+            op_offset: Offset::new(0),
+            op: Op::Eq,
+            version_offset: Offset::new(1),
+            version: CompVersion::Patch(0, 1, 0),
+            comma: None,
+        }]),
+    );
+    check_req(
+        "^0.1.0",
+        VersionReq::new(vec![Comparator {
+            op_offset: Offset::new(0),
+            op: Op::Cr,
+            version_offset: Offset::new(1),
+            version: CompVersion::Patch(0, 1, 0),
+            comma: None,
+        }]),
     );
 }

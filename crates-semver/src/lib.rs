@@ -16,6 +16,12 @@ impl Offset {
     pub fn new(char: u32) -> Self {
         Self { char }
     }
+
+    pub fn minus(&self, n: u32) -> Self {
+        Self {
+            char: self.char - n,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -31,18 +37,84 @@ pub enum IdentField {
     BuildMetadata,
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct VersionReq {
     pub comparators: Vec<Comparator>,
 }
 
-pub struct Comparator {
-    pub op: Op,
-    pub major: Option<u32>,
-    pub minor: Option<u32>,
-    pub patch: Option<u32>,
-    pub pre: Prerelease,
+impl VersionReq {
+    pub const EMPTY: Self = Self {
+        comparators: Vec::new(),
+    };
+
+    pub fn new(comparators: Vec<Comparator>) -> Self {
+        Self { comparators }
+    }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Comparator {
+    /// can be larger than [Self::version_offset] when [`Self::op`] is [`Op::Wl`]
+    pub op_offset: Offset,
+    pub op: Op,
+    pub version_offset: Offset,
+    pub version: CompVersion,
+    pub comma: Option<Offset>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum CompVersion {
+    /// Only valid for [`Op::Wl`]
+    Empty,
+    Major(u32),
+    Minor(u32, u32),
+    Patch(u32, u32, u32),
+    Pre(u32, u32, u32, Prerelease),
+}
+
+impl CompVersion {
+    pub fn major(&self) -> Option<u32> {
+        match self {
+            CompVersion::Empty => None,
+            CompVersion::Major(major) => Some(*major),
+            CompVersion::Minor(major, _) => Some(*major),
+            CompVersion::Patch(major, _, _) => Some(*major),
+            CompVersion::Pre(major, _, _, _) => Some(*major),
+        }
+    }
+
+    pub fn minor(&self) -> Option<u32> {
+        match self {
+            CompVersion::Empty => None,
+            CompVersion::Major(_) => None,
+            CompVersion::Minor(_, minor) => Some(*minor),
+            CompVersion::Patch(_, minor, _) => Some(*minor),
+            CompVersion::Pre(_, minor, _, _) => Some(*minor),
+        }
+    }
+
+    pub fn patch(&self) -> Option<u32> {
+        match self {
+            CompVersion::Empty => None,
+            CompVersion::Major(_) => None,
+            CompVersion::Minor(_, _) => None,
+            CompVersion::Patch(_, _, patch) => Some(*patch),
+            CompVersion::Pre(_, _, patch, _) => Some(*patch),
+        }
+    }
+
+    pub fn pre(&self) -> Option<&Prerelease> {
+        match self {
+            CompVersion::Empty => None,
+            CompVersion::Major(_) => None,
+            CompVersion::Minor(_, _) => None,
+            CompVersion::Patch(_, _, _) => None,
+            CompVersion::Pre(_, _, _, pre) => Some(pre),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
     /// `=`
     Eq,
