@@ -705,3 +705,176 @@ fn comment_with_newline() {
         },
     )
 }
+
+#[test]
+fn crlf() {
+    check(
+        "\
+        [project]\r\n\
+        \r\n\
+        name = \"splay\"\r\n\
+        version = \"0.1.0\"\r\n\
+        # comment\r\n\
+        [[lib]]\r\n\
+        \r\n\
+        description = \"\"\"\
+        A Rust implementation of a TAR file reader and writer. This library does not\r\n\
+        currently handle compression, but it is abstract over all I/O readers and\r\n\
+        writers. Additionally, great lengths are taken to ensure that the entire\r\n\
+        contents are never required to be entirely resident in memory all at once.\r\n\
+        \"\"\"\
+        ",
+        Tokens {
+            tokens: &[
+                Token {
+                    ty: TokenType::SquareLeft,
+                    start: Pos { line: 0, char: 0 },
+                },
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(0)),
+                    start: Pos { line: 0, char: 1 },
+                },
+                Token {
+                    ty: TokenType::SquareRight,
+                    start: Pos { line: 0, char: 8 },
+                },
+                Token {
+                    ty: TokenType::Newline,
+                    start: Pos { line: 0, char: 9 },
+                },
+                //
+                Token {
+                    ty: TokenType::Newline,
+                    start: Pos { line: 1, char: 0 },
+                },
+                //
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(1)),
+                    start: Pos { line: 2, char: 0 },
+                },
+                Token {
+                    ty: TokenType::Equal,
+                    start: Pos { line: 2, char: 5 },
+                },
+                Token {
+                    ty: TokenType::String(StringId(0)),
+                    start: Pos { line: 2, char: 7 },
+                },
+                Token {
+                    ty: TokenType::Newline,
+                    start: Pos { line: 2, char: 14 },
+                },
+                //
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(2)),
+                    start: Pos { line: 3, char: 0 },
+                },
+                Token {
+                    ty: TokenType::Equal,
+                    start: Pos { line: 3, char: 8 },
+                },
+                Token {
+                    ty: TokenType::String(StringId(1)),
+                    start: Pos { line: 3, char: 10 },
+                },
+                Token {
+                    ty: TokenType::Newline,
+                    start: Pos { line: 3, char: 17 },
+                },
+                //
+                Token {
+                    ty: TokenType::Comment(LiteralId(3)),
+                    start: Pos { line: 4, char: 0 },
+                },
+                Token {
+                    ty: TokenType::Newline,
+                    start: Pos { line: 4, char: 9 },
+                },
+                //
+                Token {
+                    ty: TokenType::SquareLeft,
+                    start: Pos { line: 5, char: 0 },
+                },
+                Token {
+                    ty: TokenType::SquareLeft,
+                    start: Pos { line: 5, char: 1 },
+                },
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(4)),
+                    start: Pos { line: 5, char: 2 },
+                },
+                Token {
+                    ty: TokenType::SquareRight,
+                    start: Pos { line: 5, char: 5 },
+                },
+                Token {
+                    ty: TokenType::SquareRight,
+                    start: Pos { line: 5, char: 6 },
+                },
+                Token {
+                    ty: TokenType::Newline,
+                    start: Pos { line: 5, char: 7 },
+                },
+                //
+                Token {
+                    ty: TokenType::Newline,
+                    start: Pos { line: 6, char: 0 },
+                },
+                //
+                Token {
+                    ty: TokenType::LiteralOrIdent(LiteralId(5)),
+                    start: Pos { line: 7, char: 0 },
+                },
+                Token {
+                    ty: TokenType::Equal,
+                    start: Pos { line: 7, char: 12 },
+                },
+                Token {
+                    ty: TokenType::String(StringId(2)),
+                    start: Pos { line: 7, char: 14 },
+                },
+            ],
+            strings: &[
+                StringToken {
+                    quote: Quote::Basic,
+                    lit: "\"splay\"",
+                    lit_end: Pos { line: 2, char: 14 },
+                    text: "splay",
+                    text_start_offset: 1,
+                    text_end_offset: 1,
+                },
+                StringToken {
+                    quote: Quote::Basic,
+                    lit: "\"0.1.0\"",
+                    lit_end: Pos { line: 3, char: 17 },
+                    text: "0.1.0",
+                    text_start_offset: 1,
+                    text_end_offset: 1,
+                },
+                StringToken {
+                    quote: Quote::BasicMultiline,
+                    lit: "\"\"\"\
+                        A Rust implementation of a TAR file reader and writer. This library does not\r\n\
+                        currently handle compression, but it is abstract over all I/O readers and\r\n\
+                        writers. Additionally, great lengths are taken to ensure that the entire\r\n\
+                        contents are never required to be entirely resident in memory all at once.\r\n\
+                    \"\"\"",
+                    lit_end: Pos { line: 11, char: 3 },
+                    text: "\
+                        A Rust implementation of a TAR file reader and writer. This library does not\n\
+                        currently handle compression, but it is abstract over all I/O readers and\n\
+                        writers. Additionally, great lengths are taken to ensure that the entire\n\
+                        contents are never required to be entirely resident in memory all at once.\n\
+                    ",
+                    text_start_offset: 3,
+                    text_end_offset: 3,
+                },
+            ],
+            literals: &["project", "name", "version", " comment", "lib", "description"],
+            eof: Token {
+                ty: TokenType::EOF,
+                start: Pos { line: 11, char: 3 },
+            },
+        },
+    );
+}

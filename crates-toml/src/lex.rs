@@ -314,8 +314,12 @@ impl<'a> Lexer<'a> {
         self.chars.next()
     }
 
-    fn peek(&mut self) -> Option<char> {
+    fn peek(&self) -> Option<char> {
         self.chars.as_str().chars().next()
+    }
+
+    fn peek_prev(&self) -> Option<char> {
+        self.input[..self.byte_pos].chars().next_back()
     }
 
     fn pos(&self) -> Pos {
@@ -347,6 +351,11 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
     let mut lexer = Lexer::new(bump, input);
     while let Some(c) = lexer.next() {
         match c {
+            '\r' if lexer.peek() == Some('\n') => {
+                newline_token(&mut lexer);
+                lexer.next();
+                lexer.newline();
+            }
             '\n' => {
                 newline_token(&mut lexer);
                 lexer.newline();
@@ -469,13 +478,46 @@ fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
         }
 
         if c == '\n' {
+            let cr = lexer.peek_prev() == Some('\r');
+            let line_end = lexer.byte_pos - cr as usize;
+
             if !str.quote.is_multiline() {
+                let line_end_pos = Pos {
+                    line: lexer.line_idx,
+                    char: (line_end - lexer.line_byte_start) as u32,
+                };
+
                 // Recover state
-                ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
-                end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
-                newline_token(lexer);
+                ctx.error(Error::MissingQuote(
+                    str.quote,
+                    lexer.lit_start,
+                    line_end_pos,
+                ));
+
+                if let Some(text) = &mut str.text {
+                    text.pop();
+                }
+                end_string(lexer, str, line_end, line_end);
+
+                lexer.tokens.push(Token {
+                    start: line_end_pos,
+                    ty: TokenType::Newline,
+                });
+
                 lexer.newline();
                 return;
+            }
+
+            if cr {
+                match &mut str.text {
+                    Some(text) => {
+                        text.pop();
+                    }
+                    _ => {
+                        let text = &lexer.input[str.text_byte_start..line_end];
+                        str.text = Some(BString::from_str_in(text, lexer.bump));
+                    }
+                }
             }
 
             str.push_char(c);
@@ -742,7 +784,8 @@ fn comment(lexer: &mut Lexer) {
     let text_start = lexer.byte_pos + 1;
 
     let newline = lexer.skip_until(b'\n').is_some();
-    let text_end = lexer.byte_pos;
+    let cr = newline && lexer.peek_prev() == Some('\r');
+    let text_end = lexer.byte_pos - cr as usize;
 
     let lit = &lexer.input[text_start..text_end];
     let id = lexer.store_literal(lit);
@@ -752,7 +795,14 @@ fn comment(lexer: &mut Lexer) {
     });
 
     if newline {
-        newline_token(lexer);
+        let line_end_pos = Pos {
+            line: lexer.line_idx,
+            char: (text_end - lexer.line_byte_start) as u32,
+        };
+        lexer.tokens.push(Token {
+            start: line_end_pos,
+            ty: TokenType::Newline,
+        });
         lexer.newline();
     }
 }
