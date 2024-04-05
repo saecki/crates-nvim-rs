@@ -148,8 +148,8 @@ fn display_in_text<D: Diagnostic>(
         )?;
 
         let spanned_text = &line[col_start..col_end];
-        let num_carrets = spanned_text.width().max(1);
-        write!(f, "{color}{:^<num_carrets$}", "")?;
+        let num_carets = spanned_text.width().max(1);
+        write!(f, "{color}{:^<num_carets$}", "")?;
         if i == num_lines - 1 {
             f.write_char(' ')?;
             diagnostic.annotation(f)?;
