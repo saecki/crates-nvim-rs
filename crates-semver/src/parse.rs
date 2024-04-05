@@ -1,7 +1,9 @@
 use common::FmtStr;
 
 use crate::inlinestr::InlineStr;
-use crate::{BuildMetadata, Error, IdentField, NumField, Offset, Prerelease, Version, VersionReq};
+use crate::{
+    BuildMetadata, Comparator, Error, IdentField, NumField, Offset, Prerelease, Version, VersionReq,
+};
 
 #[cfg(test)]
 mod test;
@@ -35,8 +37,50 @@ impl<'a> CharIter<'a> {
     }
 }
 
-pub fn parse_requirement(input: &str) -> VersionReq {
-    todo!()
+pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
+    let mut chars = CharIter::new(input);
+    let mut comparators = Vec::new();
+
+    loop {
+        eat_whitespace(&mut chars);
+
+        let op = todo!("parse op");
+
+        let major = parse_int(&mut chars, NumField::Major)?;
+        let mut minor = None;
+        let mut patch = None;
+
+        if eat_dot(&mut chars) {
+            let num = parse_int(&mut chars, NumField::Minor)?;
+            minor = Some(num);
+
+            if eat_dot(&mut chars) {
+                let num = parse_int(&mut chars, NumField::Patch)?;
+                patch = Some(num);
+            }
+        }
+
+        let pre = if eat_hyphen(&mut chars) {
+            let ident = parse_ident(&mut chars, IdentField::Prerelease)?;
+            let str = unsafe { InlineStr::new_unchecked(ident) };
+            Prerelease { str }
+        } else {
+            Prerelease::EMPTY
+        };
+
+        // TODO: eat comma
+
+        let comparator = Comparator {
+            op,
+            major: Some(major),
+            minor,
+            patch,
+            pre,
+        };
+        comparators.push(comparator);
+    }
+
+    Ok(VersionReq { comparators })
 }
 
 pub fn parse_version(input: &str) -> Result<Version, Error> {
@@ -210,6 +254,16 @@ fn expect_dot(chars: &mut CharIter, field: NumField) -> Result<(), Error> {
             let offset = Offset::new(chars.idx as u32);
             Err(Error::MissingDot(field, offset))
         }
+    }
+}
+
+fn eat_dot(chars: &mut CharIter) -> bool {
+    match chars.peek_byte() {
+        Some(b'.') => {
+            chars.next_byte();
+            true
+        }
+        _ => false,
     }
 }
 

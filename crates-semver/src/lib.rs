@@ -32,10 +32,14 @@ pub enum IdentField {
 }
 
 pub struct VersionReq {
+    pub comparators: Vec<Comparator>,
+}
+
+pub struct Comparator {
     pub op: Op,
-    pub major: u32,
-    pub minor: u32,
-    pub patch: u32,
+    pub major: Option<u32>,
+    pub minor: Option<u32>,
+    pub patch: Option<u32>,
     pub pre: Prerelease,
 }
 
