@@ -54,7 +54,8 @@ impl VersionReq {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Comparator {
-    /// can be larger than [Self::version_offset] when [`Self::op`] is [`Op::Wl`]
+    /// This is always < [`Self::version_offset`]. Even if [`Self::op`] is [`Op::Wl`] this will
+    /// point to the start of the comparator
     pub op_offset: Offset,
     pub op: Op,
     pub version_offset: Offset,

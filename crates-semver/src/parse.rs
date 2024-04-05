@@ -52,6 +52,7 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
     // commas this might allocate space for one extra item, but will never have to reallocate.
     let capacity = num_commas + (num_commas != 0) as usize;
     let mut comparators = Vec::with_capacity(capacity as usize);
+    let mut has_wildcard = false;
 
     loop {
         eat_whitespace(&mut chars);
@@ -61,23 +62,28 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
         };
 
         let op_offset = chars.offset();
-        let op = match b {
+        let mut op = match b {
             // Blank version requirement, equivalent to caret
             b'0'..=b'9' => Op::Bl,
-            b'*' => {
-                // a complete wildcard is only permitted as the sole comparator
+            b'*' | b'x' | b'X' => {
+                // TODO: a complete wildcard is only permitted as the sole comparator
                 chars.next_byte();
 
                 eat_whitespace(&mut chars);
-                let comma = eat_comma(&mut chars).then(|| chars.offset());
+                let comma = expect_comma_or_end(&mut chars)?;
 
-                comparators.push(Comparator {
+                let comparator = Comparator {
                     op_offset,
                     op: Op::Wl,
                     version_offset: op_offset,
                     version: CompVersion::Empty,
                     comma,
-                });
+                };
+                comparators.push(comparator);
+
+                if comma.is_none() {
+                    break;
+                }
 
                 continue;
             }
@@ -111,15 +117,19 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
                 chars.next_byte();
                 Op::Tl
             }
-            _ => todo!("error"),
+            _ => {
+                let char = chars.peek_char().unwrap();
+                let offset = chars.offset();
+                return Err(Error::InvalidOp(char, offset));
+            }
         };
 
         eat_whitespace(&mut chars);
         let version_offset = chars.offset();
-        let version = comp_version(&mut chars)?;
+        let version = comp_version(&mut chars, &mut op)?;
 
         eat_whitespace(&mut chars);
-        let comma = eat_comma(&mut chars).then(|| chars.offset());
+        let comma = expect_comma_or_end(&mut chars)?;
 
         let comparator = Comparator {
             op_offset,
@@ -134,18 +144,36 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
     Ok(VersionReq { comparators })
 }
 
-fn comp_version(chars: &mut CharIter) -> Result<CompVersion, Error> {
+fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error> {
     let major = parse_int(chars, NumField::Major)?;
     if !eat_dot(chars) {
         return Ok(CompVersion::Major(major));
     }
 
-    let minor = parse_int(chars, NumField::Minor)?;
+    let minor = if eat_wildcard(chars) {
+        if *op == Op::Bl {
+            *op = Op::Wl;
+        } else {
+            // TODO: somehow mark that this CompVersion has a wildcard
+        }
+        return Ok(CompVersion::Major(major));
+    } else {
+        parse_int(chars, NumField::Minor)?
+    };
     if !eat_dot(chars) {
         return Ok(CompVersion::Minor(major, minor));
     }
 
-    let patch = parse_int(chars, NumField::Patch)?;
+    let patch = if eat_wildcard(chars) {
+        if *op == Op::Bl {
+            *op = Op::Wl;
+        } else {
+            // TODO: somehow mark that this CompVersion has a wildcard
+        }
+        return Ok(CompVersion::Minor(major, minor));
+    } else {
+        parse_int(chars, NumField::Patch)?
+    };
     if !eat_hyphen(chars) {
         return Ok(CompVersion::Patch(major, minor, patch));
     }
@@ -328,6 +356,22 @@ fn expect_dot(chars: &mut CharIter, field: NumField) -> Result<(), Error> {
     }
 }
 
+fn expect_comma_or_end(chars: &mut CharIter) -> Result<Option<Offset>, Error> {
+    match chars.peek_byte() {
+        Some(b',') => {
+            let offset = chars.offset();
+            chars.next_byte();
+            Ok(Some(offset))
+        }
+        Some(_) => {
+            Err(Error::MissingComma(chars.offset()))
+            // TODO: store error and continue
+            // None
+        }
+        None => Ok(None),
+    }
+}
+
 fn eat_dot(chars: &mut CharIter) -> bool {
     match chars.peek_byte() {
         Some(b'.') => {
@@ -358,18 +402,18 @@ fn eat_plus(chars: &mut CharIter) -> bool {
     }
 }
 
-fn eat_comma(chars: &mut CharIter) -> bool {
+fn eat_whitespace(chars: &mut CharIter) {
+    while let Some(b' ') = chars.peek_byte() {
+        chars.next_byte();
+    }
+}
+
+fn eat_wildcard(chars: &mut CharIter) -> bool {
     match chars.peek_byte() {
-        Some(b'+') => {
+        Some(b'*' | b'x' | b'X') => {
             chars.next_byte();
             true
         }
         _ => false,
-    }
-}
-
-fn eat_whitespace(chars: &mut CharIter) {
-    while let Some(b' ') = chars.peek_byte() {
-        chars.next_byte();
     }
 }

@@ -4,7 +4,6 @@ use crate::{IdentField, NumField, Offset};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
-    InvalidChar(char, Offset),
     TrailingCharacters(FmtStr, Offset),
     MissingField(NumField, Offset),
     LeadingZeroNum(NumField, Offset),
@@ -15,4 +14,6 @@ pub enum Error {
     EmptyIdentifier(IdentField, Offset),
     EmptyIdentifierSegment(IdentField, Offset),
     LeadingZeroSegment(IdentField, Offset),
+    InvalidOp(char, Offset),
+    MissingComma(Offset),
 }

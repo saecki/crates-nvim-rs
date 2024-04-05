@@ -146,6 +146,48 @@ fn req_parsing() {
     check_req("", VersionReq::EMPTY);
 
     check_req(
+        "*",
+        VersionReq::new(vec![Comparator {
+            op_offset: Offset::new(0),
+            op: Op::Wl,
+            version_offset: Offset::new(0),
+            version: CompVersion::Empty,
+            comma: None,
+        }]),
+    );
+    check_req(
+        "1.*",
+        VersionReq::new(vec![Comparator {
+            op_offset: Offset::new(0),
+            op: Op::Wl,
+            version_offset: Offset::new(0),
+            version: CompVersion::Major(1),
+            comma: None,
+        }]),
+    );
+    check_req(
+        "7.2.*",
+        VersionReq::new(vec![Comparator {
+            op_offset: Offset::new(0),
+            op: Op::Wl,
+            version_offset: Offset::new(0),
+            version: CompVersion::Minor(7, 2),
+            comma: None,
+        }]),
+    );
+
+    check_req(
+        "<0.9.*",
+        VersionReq::new(vec![Comparator {
+            op_offset: Offset::new(0),
+            op: Op::Lt,
+            version_offset: Offset::new(1),
+            version: CompVersion::Minor(0, 9),
+            comma: None,
+        }]),
+    );
+
+    check_req(
         "2.4.1",
         VersionReq::new(vec![Comparator {
             op_offset: Offset::new(0),
@@ -174,5 +216,25 @@ fn req_parsing() {
             version: CompVersion::Patch(0, 1, 0),
             comma: None,
         }]),
+    );
+
+    check_req(
+        "  >= 0.3.8 , < 0.4.2  ",
+        VersionReq::new(vec![
+            Comparator {
+                op_offset: Offset::new(2),
+                op: Op::Ge,
+                version_offset: Offset::new(5),
+                version: CompVersion::Patch(0, 3, 8),
+                comma: Some(Offset::new(11)),
+            },
+            Comparator {
+                op_offset: Offset::new(13),
+                op: Op::Lt,
+                version_offset: Offset::new(15),
+                version: CompVersion::Patch(0, 4, 2),
+                comma: None,
+            },
+        ]),
     );
 }
