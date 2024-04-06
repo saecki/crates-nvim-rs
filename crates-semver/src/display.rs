@@ -1,4 +1,4 @@
-use crate::{CompVersion, Comparator, Op, Version, VersionReq};
+use crate::{CompVersion, Comparator, Op, Version, VersionReq, WlChar};
 use std::fmt::Write;
 
 struct Wrapper<'a, 'b> {
@@ -37,6 +37,12 @@ impl std::fmt::Display for CompVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut f = Wrapper::new(f);
         fmt_comp_version(&mut f, self)
+    }
+}
+
+impl std::fmt::Display for WlChar {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_char(self.char())
     }
 }
 
@@ -93,11 +99,11 @@ fn fmt_comparator(f: &mut Wrapper<'_, '_>, comparator: &Comparator) -> std::fmt:
 
 fn fmt_comp_version(f: &mut Wrapper<'_, '_>, version: &CompVersion) -> std::fmt::Result {
     match version {
-        CompVersion::Star => write!(f, "*"),
+        CompVersion::Wl(wl) => write!(f, "{wl}"),
         CompVersion::Major(major) => write!(f, "{major}"),
-        CompVersion::MajorWl(major) => write!(f, "{major}.*"),
+        CompVersion::MajorWl(major, wl) => write!(f, "{major}.{wl}"),
         CompVersion::Minor(major, minor) => write!(f, "{major}.{minor}"),
-        CompVersion::MinorWl(major, minor) => write!(f, "{major}.{minor}.*"),
+        CompVersion::MinorWl(major, minor, wl) => write!(f, "{major}.{minor}.{wl}"),
         CompVersion::Patch(major, minor, patch) => write!(f, "{major}.{minor}.{patch}"),
         CompVersion::Pre(major, minor, patch, pre) => {
             write!(f, "{major}.{minor}.{patch}-{}", pre.as_str())

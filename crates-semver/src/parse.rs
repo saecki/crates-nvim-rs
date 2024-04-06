@@ -3,7 +3,7 @@ use common::FmtStr;
 use crate::inlinestr::InlineStr;
 use crate::{
     BuildMetadata, CompVersion, Comparator, Error, IdentField, NumField, Offset, Op, Prerelease,
-    Version, VersionReq,
+    Version, VersionReq, WlChar,
 };
 
 #[cfg(test)]
@@ -76,11 +76,17 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
                 eat_whitespace(&mut chars);
                 last_comma = expect_comma_or_end(&mut chars)?;
 
+                let wl = match b {
+                    b'*' => WlChar::Star,
+                    b'x' => WlChar::LowerX,
+                    b'X' => WlChar::UpperX,
+                    _ => unsafe { std::hint::unreachable_unchecked() },
+                };
                 let comparator = Comparator {
                     op_offset,
                     op: Op::Wl,
                     version_offset: op_offset,
-                    version: CompVersion::Star,
+                    version: CompVersion::Wl(wl),
                     comma: last_comma,
                 };
                 comparators.push(comparator);
@@ -155,11 +161,11 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
         return Ok(CompVersion::Major(major));
     }
 
-    let minor = if eat_wildcard(chars) {
+    let minor = if let Some(wl) = eat_wildcard(chars) {
         if *op == Op::Bl {
             *op = Op::Wl;
         }
-        return Ok(CompVersion::MajorWl(major));
+        return Ok(CompVersion::MajorWl(major, wl));
     } else {
         parse_int(chars, NumField::Minor)?
     };
@@ -167,11 +173,11 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
         return Ok(CompVersion::Minor(major, minor));
     }
 
-    let patch = if eat_wildcard(chars) {
+    let patch = if let Some(wl) = eat_wildcard(chars) {
         if *op == Op::Bl {
             *op = Op::Wl;
         }
-        return Ok(CompVersion::MinorWl(major, minor));
+        return Ok(CompVersion::MinorWl(major, minor, wl));
     } else {
         parse_int(chars, NumField::Patch)?
     };
@@ -409,12 +415,13 @@ fn eat_whitespace(chars: &mut CharIter) {
     }
 }
 
-fn eat_wildcard(chars: &mut CharIter) -> bool {
-    match chars.peek_byte() {
-        Some(b'*' | b'x' | b'X') => {
-            chars.next_byte();
-            true
-        }
-        _ => false,
-    }
+fn eat_wildcard(chars: &mut CharIter) -> Option<WlChar> {
+    let wl = match chars.peek_byte() {
+        Some(b'*') => WlChar::Star,
+        Some(b'x') => WlChar::LowerX,
+        Some(b'X') => WlChar::UpperX,
+        _ => return None,
+    };
+    chars.next_byte();
+    Some(wl)
 }

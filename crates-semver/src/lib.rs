@@ -3,10 +3,10 @@ pub use parse::*;
 
 use crate::inlinestr::InlineStr;
 
+mod display;
 mod error;
 mod inlinestr;
 mod parse;
-mod display;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Offset {
@@ -65,76 +65,6 @@ pub struct Comparator {
     pub comma: Option<Offset>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum CompVersion {
-    /// Only valid for [`Op::Wl`]
-    Star,
-    // `1`
-    Major(u32),
-    // `1.*`
-    MajorWl(u32),
-    // `1.2`
-    Minor(u32, u32),
-    // `1.2.*`
-    MinorWl(u32, u32),
-    // `1.2.3`
-    Patch(u32, u32, u32),
-    // `1.2.3-beta.1`
-    Pre(u32, u32, u32, Prerelease),
-}
-
-impl CompVersion {
-    pub fn major(&self) -> Option<u32> {
-        match self {
-            CompVersion::Star => None,
-            CompVersion::Major(major)
-            | CompVersion::MajorWl(major)
-            | CompVersion::Minor(major, _)
-            | CompVersion::MinorWl(major, _)
-            | CompVersion::Patch(major, _, _)
-            | CompVersion::Pre(major, _, _, _) => Some(*major),
-        }
-    }
-
-    pub fn minor(&self) -> Option<u32> {
-        match self {
-            #[rustfmt::skip]
-            CompVersion::Star
-            | CompVersion::Major(_)
-            | CompVersion::MajorWl(_) => None,
-            CompVersion::Minor(_, minor)
-            | CompVersion::MinorWl(_, minor)
-            | CompVersion::Patch(_, minor, _)
-            | CompVersion::Pre(_, minor, _, _) => Some(*minor),
-        }
-    }
-
-    pub fn patch(&self) -> Option<u32> {
-        match self {
-            CompVersion::Star
-            | CompVersion::Major(_)
-            | CompVersion::MajorWl(_)
-            | CompVersion::Minor(_, _)
-            | CompVersion::MinorWl(_, _) => None,
-            #[rustfmt::skip]
-            CompVersion::Patch(_, _, patch)
-            | CompVersion::Pre(_, _, patch, _) => Some(*patch),
-        }
-    }
-
-    pub fn pre(&self) -> Option<&Prerelease> {
-        match self {
-            CompVersion::Star
-            | CompVersion::Major(_)
-            | CompVersion::MajorWl(_)
-            | CompVersion::Minor(_, _)
-            | CompVersion::MinorWl(_, _)
-            | CompVersion::Patch(_, _, _) => None,
-            CompVersion::Pre(_, _, _, pre) => Some(pre),
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Op {
     /// `=`
@@ -155,6 +85,97 @@ pub enum Op {
     Wl,
     /// A blank requirement, equivalent to [`Op::Cr`].
     Bl,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum CompVersion {
+    /// `*` Only valid for [`Op::Wl`]
+    Wl(WlChar),
+    /// `1`
+    Major(u32),
+    /// `1.*`
+    MajorWl(u32, WlChar),
+    /// `1.2`
+    Minor(u32, u32),
+    /// `1.2.*`
+    MinorWl(u32, u32, WlChar),
+    /// `1.2.3`
+    Patch(u32, u32, u32),
+    /// `1.2.3-beta.1`
+    Pre(u32, u32, u32, Prerelease),
+}
+
+impl CompVersion {
+    pub fn major(&self) -> Option<u32> {
+        match self {
+            CompVersion::Wl(_) => None,
+            CompVersion::Major(major)
+            | CompVersion::MajorWl(major, _)
+            | CompVersion::Minor(major, _)
+            | CompVersion::MinorWl(major, _, _)
+            | CompVersion::Patch(major, _, _)
+            | CompVersion::Pre(major, _, _, _) => Some(*major),
+        }
+    }
+
+    pub fn minor(&self) -> Option<u32> {
+        match self {
+            #[rustfmt::skip]
+            CompVersion::Wl(_)
+            | CompVersion::Major(_)
+            | CompVersion::MajorWl(_, _) => None,
+            CompVersion::Minor(_, minor)
+            | CompVersion::MinorWl(_, minor, _)
+            | CompVersion::Patch(_, minor, _)
+            | CompVersion::Pre(_, minor, _, _) => Some(*minor),
+        }
+    }
+
+    pub fn patch(&self) -> Option<u32> {
+        match self {
+            CompVersion::Wl(_)
+            | CompVersion::Major(_)
+            | CompVersion::MajorWl(_, _)
+            | CompVersion::Minor(_, _)
+            | CompVersion::MinorWl(_, _, _) => None,
+            #[rustfmt::skip]
+            CompVersion::Patch(_, _, patch)
+            | CompVersion::Pre(_, _, patch, _) => Some(*patch),
+        }
+    }
+
+    pub fn pre(&self) -> Option<&Prerelease> {
+        match self {
+            CompVersion::Wl(_)
+            | CompVersion::Major(_)
+            | CompVersion::MajorWl(_, _)
+            | CompVersion::Minor(_, _)
+            | CompVersion::MinorWl(_, _, _)
+            | CompVersion::Patch(_, _, _) => None,
+            CompVersion::Pre(_, _, _, pre) => Some(pre),
+        }
+    }
+}
+
+/// Wildcard character
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WlChar {
+    /// `*`
+    Star,
+    /// `x`
+    LowerX,
+    /// `X`
+    UpperX,
+}
+
+impl WlChar {
+    pub fn char(&self) -> char {
+        match self {
+            Self::Star => '*',
+            Self::LowerX => 'x',
+            Self::UpperX => 'X',
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -179,7 +179,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Wl,
             version_offset: Offset::new(0),
-            version: CompVersion::Star,
+            version: CompVersion::Wl(WlChar::Star),
             comma: None,
         }]),
     );
@@ -189,7 +189,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Wl,
             version_offset: Offset::new(0),
-            version: CompVersion::MajorWl(1),
+            version: CompVersion::MajorWl(1, WlChar::Star),
             comma: None,
         }]),
     );
@@ -199,7 +199,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Wl,
             version_offset: Offset::new(0),
-            version: CompVersion::MinorWl(7, 2),
+            version: CompVersion::MinorWl(7, 2, WlChar::Star),
             comma: None,
         }]),
     );
@@ -210,7 +210,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Lt,
             version_offset: Offset::new(1),
-            version: CompVersion::MinorWl(0, 9),
+            version: CompVersion::MinorWl(0, 9, WlChar::Star),
             comma: None,
         }]),
     );
