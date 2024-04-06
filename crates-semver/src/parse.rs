@@ -52,7 +52,7 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
     // commas this might allocate space for one extra item, but will never have to reallocate.
     let capacity = num_commas + (num_commas != 0) as usize;
     let mut comparators = Vec::with_capacity(capacity as usize);
-    let mut has_wildcard = false;
+    let mut last_comma = None;
 
     loop {
         eat_whitespace(&mut chars);
@@ -66,24 +66,24 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
             // Blank version requirement, equivalent to caret
             b'0'..=b'9' => Op::Bl,
             b'*' | b'x' | b'X' => {
-                // TODO: a complete wildcard is only permitted as the sole comparator
                 chars.next_byte();
+                if !comparators.is_empty() || !chars.remainder().trim().is_empty() {
+                    // TODO: store error and continue
+                    let offset = chars.offset().minus(1);
+                    return Err(Error::WildcardNotTheSoleComparator(offset));
+                }
 
                 eat_whitespace(&mut chars);
-                let comma = expect_comma_or_end(&mut chars)?;
+                last_comma = expect_comma_or_end(&mut chars)?;
 
                 let comparator = Comparator {
                     op_offset,
                     op: Op::Wl,
                     version_offset: op_offset,
                     version: CompVersion::Star,
-                    comma,
+                    comma: last_comma,
                 };
                 comparators.push(comparator);
-
-                if comma.is_none() {
-                    break;
-                }
 
                 continue;
             }
@@ -129,16 +129,21 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
         let version = comp_version(&mut chars, &mut op)?;
 
         eat_whitespace(&mut chars);
-        let comma = expect_comma_or_end(&mut chars)?;
+        last_comma = expect_comma_or_end(&mut chars)?;
 
         let comparator = Comparator {
             op_offset,
             op,
             version_offset,
             version,
-            comma,
+            comma: last_comma,
         };
         comparators.push(comparator);
+    }
+
+    if let Some(offset) = last_comma {
+        // TODO: store error and continue
+        return Err(Error::TrailingComma(offset));
     }
 
     Ok(VersionReq { comparators })

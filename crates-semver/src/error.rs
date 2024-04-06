@@ -16,4 +16,6 @@ pub enum Error {
     LeadingZeroSegment(IdentField, Offset),
     InvalidOp(char, Offset),
     MissingComma(Offset),
+    TrailingComma(Offset),
+    WildcardNotTheSoleComparator(Offset),
 }
