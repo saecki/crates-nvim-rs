@@ -151,7 +151,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Wl,
             version_offset: Offset::new(0),
-            version: CompVersion::Empty,
+            version: CompVersion::Star,
             comma: None,
         }]),
     );
@@ -161,7 +161,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Wl,
             version_offset: Offset::new(0),
-            version: CompVersion::Major(1),
+            version: CompVersion::MajorWl(1),
             comma: None,
         }]),
     );
@@ -171,7 +171,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Wl,
             version_offset: Offset::new(0),
-            version: CompVersion::Minor(7, 2),
+            version: CompVersion::MinorWl(7, 2),
             comma: None,
         }]),
     );
@@ -182,7 +182,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Lt,
             version_offset: Offset::new(1),
-            version: CompVersion::Minor(0, 9),
+            version: CompVersion::MinorWl(0, 9),
             comma: None,
         }]),
     );

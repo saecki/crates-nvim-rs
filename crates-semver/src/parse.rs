@@ -76,7 +76,7 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
                     op_offset,
                     op: Op::Wl,
                     version_offset: op_offset,
-                    version: CompVersion::Empty,
+                    version: CompVersion::Star,
                     comma,
                 };
                 comparators.push(comparator);
@@ -153,10 +153,8 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
     let minor = if eat_wildcard(chars) {
         if *op == Op::Bl {
             *op = Op::Wl;
-        } else {
-            // TODO: somehow mark that this CompVersion has a wildcard
         }
-        return Ok(CompVersion::Major(major));
+        return Ok(CompVersion::MajorWl(major));
     } else {
         parse_int(chars, NumField::Minor)?
     };
@@ -167,10 +165,8 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
     let patch = if eat_wildcard(chars) {
         if *op == Op::Bl {
             *op = Op::Wl;
-        } else {
-            // TODO: somehow mark that this CompVersion has a wildcard
         }
-        return Ok(CompVersion::Minor(major, minor));
+        return Ok(CompVersion::MinorWl(major, minor));
     } else {
         parse_int(chars, NumField::Patch)?
     };
