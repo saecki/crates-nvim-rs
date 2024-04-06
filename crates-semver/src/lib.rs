@@ -6,6 +6,7 @@ use crate::inlinestr::InlineStr;
 mod error;
 mod inlinestr;
 mod parse;
+mod display;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Offset {
@@ -186,6 +187,18 @@ impl Prerelease {
     pub const EMPTY: Self = Self {
         str: InlineStr::empty(),
     };
+
+    pub fn as_str(&self) -> &str {
+        self.str.as_str()
+    }
+}
+
+impl std::ops::Deref for Prerelease {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.str.as_str()
+    }
 }
 
 impl std::fmt::Debug for Prerelease {
@@ -203,6 +216,18 @@ impl BuildMetadata {
     pub const EMPTY: Self = Self {
         str: InlineStr::empty(),
     };
+
+    pub fn as_str(&self) -> &str {
+        self.str.as_str()
+    }
+}
+
+impl std::ops::Deref for BuildMetadata {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.str.as_str()
+    }
 }
 
 impl std::fmt::Debug for BuildMetadata {

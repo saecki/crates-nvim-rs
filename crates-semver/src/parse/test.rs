@@ -7,6 +7,12 @@ fn check_version(input: &str, expected: Version) {
     assert_eq!(version, expected);
 }
 
+fn check_version_display(input: &str) {
+    let version = parse_version(input).unwrap();
+    let display = version.to_string();
+    assert_eq!(input.trim(), display);
+}
+
 fn check_version_error(input: &str, expected: Error) {
     let version = parse_version(input).unwrap_err();
     assert_eq!(version, expected);
@@ -80,6 +86,22 @@ fn version_parsing() {
 }
 
 #[test]
+fn version_display() {
+    check_version_display("0.1.2");
+
+    check_version_display("0.1.2-alpha.1");
+    check_version_display("2.0.8-beta.0");
+
+    check_version_display("1.0.0+sdfsd-32423");
+    check_version_display("0.8.3+32432.dsfds");
+
+    check_version_display("1.0.0-alpha.7+sdfsd-32423");
+    check_version_display("0.8.3-pre.48+32432.dsfds");
+
+    check_version_display("    0.8.3-pre.48+32432.dsfds    ");
+}
+
+#[test]
 fn version_missing_num() {
     check_version_error("", Error::MissingField(NumField::Major, Offset::new(0)));
     check_version_error("1", Error::MissingDot(NumField::Major, Offset::new(1)));
@@ -139,6 +161,12 @@ fn version_empty_buildmetadata() {
 fn check_req(input: &str, expected: VersionReq) {
     let req = parse_requirement(input).unwrap();
     assert_eq!(req, expected);
+}
+
+fn check_req_display(input: &str) {
+    let req = parse_requirement(input).unwrap();
+    let display = req.to_string();
+    assert_eq!(input.trim(), display);
 }
 
 #[test]
@@ -237,4 +265,16 @@ fn req_parsing() {
             },
         ]),
     );
+}
+
+#[test]
+fn req_display() {
+    check_req_display("1");
+    check_req_display("1.*");
+    check_req_display("1.0");
+    check_req_display("1.0.*");
+    check_req_display("1.0.0");
+    check_req_display("1.0.0-alpha.1");
+
+    check_req_display("   > 1.* ,    < 5.2.4-alpha.2   ");
 }
