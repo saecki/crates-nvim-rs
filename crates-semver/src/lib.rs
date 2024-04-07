@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 pub use error::Error;
 pub use parse::*;
 
@@ -5,8 +7,11 @@ use crate::inlinestr::InlineStr;
 
 mod display;
 mod error;
+mod eval;
 mod inlinestr;
 mod parse;
+#[cfg(test)]
+mod test;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Offset {
@@ -51,6 +56,10 @@ impl VersionReq {
     pub fn new(comparators: Vec<Comparator>) -> Self {
         Self { comparators }
     }
+
+    pub fn matches(&self, version: &Version) -> bool {
+        eval::matches_requirement(self, version)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -63,6 +72,12 @@ pub struct Comparator {
     pub version: CompVersion,
     /// The comma after the comparator
     pub comma: Option<Offset>,
+}
+
+impl Comparator {
+    pub fn matches(&self, version: &Version) -> bool {
+        eval::matches_comparator(self, version)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -160,7 +175,7 @@ impl WlChar {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version {
     pub major: u32,
     pub minor: u32,
@@ -183,6 +198,68 @@ impl Prerelease {
 
     pub fn as_str(&self) -> &str {
         self.str.as_str()
+    }
+}
+
+impl PartialOrd for Prerelease {
+    fn partial_cmp(&self, rhs: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(rhs))
+    }
+}
+
+impl Ord for Prerelease {
+    fn cmp(&self, rhs: &Self) -> std::cmp::Ordering {
+        // copy pasta from the semver crate
+
+        match self.is_empty() {
+            true if rhs.is_empty() => return Ordering::Equal,
+            // A real release compares greater than prerelease.
+            true => return Ordering::Greater,
+            // Prerelease compares less than the real release.
+            false if rhs.is_empty() => return Ordering::Less,
+            false => {}
+        }
+
+        let lhs = self.as_str().split('.');
+        let mut rhs = rhs.as_str().split('.');
+
+        for lhs in lhs {
+            let Some(rhs) = rhs.next() else {
+                // Spec: "A larger set of pre-release fields has a higher
+                // precedence than a smaller set, if all of the preceding
+                // identifiers are equal."
+                return Ordering::Greater;
+            };
+
+            let string_cmp = || Ord::cmp(lhs, rhs);
+            let is_ascii_digit = |b: u8| b.is_ascii_digit();
+            let ordering = match (
+                lhs.bytes().all(is_ascii_digit),
+                rhs.bytes().all(is_ascii_digit),
+            ) {
+                // Respect numeric ordering, for example 99 < 100. Spec says:
+                // "Identifiers consisting of only digits are compared
+                // numerically."
+                (true, true) => Ord::cmp(&lhs.len(), &rhs.len()).then_with(string_cmp),
+                // Spec: "Numeric identifiers always have lower precedence than
+                // non-numeric identifiers."
+                (true, false) => return Ordering::Less,
+                (false, true) => return Ordering::Greater,
+                // Spec: "Identifiers with letters or hyphens are compared
+                // lexically in ASCII sort order."
+                (false, false) => string_cmp(),
+            };
+
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+        }
+
+        if rhs.next().is_none() {
+            Ordering::Equal
+        } else {
+            Ordering::Less
+        }
     }
 }
 
@@ -212,6 +289,55 @@ impl BuildMetadata {
 
     pub fn as_str(&self) -> &str {
         self.str.as_str()
+    }
+}
+
+impl PartialOrd for BuildMetadata {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        Some(self.cmp(rhs))
+    }
+}
+
+impl Ord for BuildMetadata {
+    fn cmp(&self, rhs: &Self) -> Ordering {
+        // copy pasta from the semver crate
+
+        let lhs = self.as_str().split('.');
+        let mut rhs = rhs.as_str().split('.');
+
+        for lhs in lhs {
+            let Some(rhs) = rhs.next() else {
+                return Ordering::Greater;
+            };
+
+            let is_ascii_digit = |b: u8| b.is_ascii_digit();
+            let ordering = match (
+                lhs.bytes().all(is_ascii_digit),
+                rhs.bytes().all(is_ascii_digit),
+            ) {
+                (true, true) => {
+                    // 0 < 00 < 1 < 01 < 001 < 2 < 02 < 002 < 10
+                    let lhval = lhs.trim_start_matches('0');
+                    let rhval = rhs.trim_start_matches('0');
+                    Ord::cmp(&lhval.len(), &rhval.len())
+                        .then_with(|| Ord::cmp(lhval, rhval))
+                        .then_with(|| Ord::cmp(&lhs.len(), &rhs.len()))
+                }
+                (true, false) => return Ordering::Less,
+                (false, true) => return Ordering::Greater,
+                (false, false) => Ord::cmp(lhs, rhs),
+            };
+
+            if ordering != Ordering::Equal {
+                return ordering;
+            }
+        }
+
+        if rhs.next().is_none() {
+            Ordering::Equal
+        } else {
+            Ordering::Less
+        }
     }
 }
 
