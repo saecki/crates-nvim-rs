@@ -1,4 +1,4 @@
-use crate::{CompVersion, Comparator, Op, Version, VersionReq, WlChar};
+use crate::{BuildMetadata, CompVersion, Comparator, Op, Prerelease, Version, VersionReq, WlChar};
 use std::fmt::Write;
 
 struct Wrapper<'a, 'b> {
@@ -109,10 +109,19 @@ fn fmt_comp_version(f: &mut Wrapper<'_, '_>, version: &CompVersion) -> std::fmt:
             None => write!(f, "{major}.{minor}"),
             Some(wl) => write!(f, "{major}.{minor}.{wl}"),
         },
-        CompVersion::Patch(major, minor, patch) => write!(f, "{major}.{minor}.{patch}"),
-        CompVersion::Pre(major, minor, patch, pre) => {
-            write!(f, "{major}.{minor}.{patch}-{}", pre.as_str())
-        }
+        CompVersion::Patch(major, minor, patch, meta) => match meta {
+            None => write!(f, "{major}.{minor}.{patch}"),
+            Some(meta) => write!(f, "{major}.{minor}.{patch}+{}", meta.as_str()),
+        },
+        CompVersion::Pre(major, minor, patch, pre, meta) => match meta {
+            None => write!(f, "{major}.{minor}.{patch}-{}", pre.as_str()),
+            Some(meta) => write!(
+                f,
+                "{major}.{minor}.{patch}-{}+{}",
+                pre.as_str(),
+                meta.as_str()
+            ),
+        },
     }
 }
 
@@ -127,11 +136,23 @@ impl std::fmt::Display for Version {
         } = self;
         write!(f, "{major}.{minor}.{patch}")?;
         if !pre.is_empty() {
-            write!(f, "-{}", pre.as_str())?;
+            write!(f, "-{pre}")?;
         }
         if !meta.is_empty() {
-            write!(f, "+{}", meta.as_str())?;
+            write!(f, "+{meta}")?;
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Display for Prerelease {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl std::fmt::Display for BuildMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
     }
 }

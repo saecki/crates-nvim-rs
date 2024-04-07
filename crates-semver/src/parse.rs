@@ -225,17 +225,24 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
         return Ok(CompVersion::Minor(major, minor, Some(wl)));
     }
     let patch = parse_int(chars, NumField::Patch)?;
-    if !eat_hyphen(chars) {
-        return Ok(CompVersion::Patch(major, minor, patch));
+
+    let mut pre = None;
+    let mut meta = None;
+    if eat_hyphen(chars) {
+        let ident = parse_ident(chars, IdentField::Prerelease)?;
+        let str = unsafe { InlineStr::new_unchecked(ident) };
+        pre = Some(Prerelease { str });
+    }
+    if eat_plus(chars) {
+        let ident = parse_ident(chars, IdentField::BuildMetadata)?;
+        let str = unsafe { InlineStr::new_unchecked(ident) };
+        meta = Some(BuildMetadata { str });
     }
 
-    let ident = parse_ident(chars, IdentField::Prerelease)?;
-    let str = unsafe { InlineStr::new_unchecked(ident) };
-    let pre = Prerelease { str };
-
-    // TODO: build metadata
-
-    Ok(CompVersion::Pre(major, minor, patch, pre))
+    match pre {
+        None => Ok(CompVersion::Patch(major, minor, patch, meta)),
+        Some(pre) => Ok(CompVersion::Pre(major, minor, patch, pre, meta)),
+    }
 }
 
 pub fn parse_version(input: &str) -> Result<Version, Error> {
@@ -268,7 +275,7 @@ pub fn parse_version(input: &str) -> Result<Version, Error> {
     eat_whitespace(&mut chars);
 
     if chars.peek_byte().is_some() {
-        let trailing = FmtStr::from_str(chars.remainder().trim_end());
+        let trailing = FmtStr::from_str(chars.remainder().trim_end_matches(' '));
         let offset = chars.offset();
         return Err(Error::TrailingCharacters(trailing, offset));
     }

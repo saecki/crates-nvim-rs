@@ -241,7 +241,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Bl,
             version_offset: Offset::new(0),
-            version: CompVersion::Patch(2, 4, 1),
+            version: CompVersion::Patch(2, 4, 1, None),
             comma: None,
         }]),
     );
@@ -251,7 +251,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Eq,
             version_offset: Offset::new(1),
-            version: CompVersion::Patch(0, 1, 0),
+            version: CompVersion::Patch(0, 1, 0, None),
             comma: None,
         }]),
     );
@@ -261,7 +261,7 @@ fn req_parsing() {
             op_offset: Offset::new(0),
             op: Op::Cr,
             version_offset: Offset::new(1),
-            version: CompVersion::Patch(0, 1, 0),
+            version: CompVersion::Patch(0, 1, 0, None),
             comma: None,
         }]),
     );
@@ -273,14 +273,14 @@ fn req_parsing() {
                 op_offset: Offset::new(2),
                 op: Op::Ge,
                 version_offset: Offset::new(5),
-                version: CompVersion::Patch(0, 3, 8),
+                version: CompVersion::Patch(0, 3, 8, None),
                 comma: Some(Offset::new(11)),
             },
             Comparator {
                 op_offset: Offset::new(13),
                 op: Op::Lt,
                 version_offset: Offset::new(15),
-                version: CompVersion::Patch(0, 4, 2),
+                version: CompVersion::Patch(0, 4, 2, None),
                 comma: None,
             },
         ]),
@@ -417,8 +417,7 @@ fn req_missing_patch_after_wildcard() {
 
 #[test]
 fn req_invalid_char_in_buildmetadata() {
-    // TODO
-    req("1.2.3+4ÿ");
+    check_req_error("1.2.3+4ÿ", Error::MissingComma(Offset::new(7)));
 }
 
 #[test]

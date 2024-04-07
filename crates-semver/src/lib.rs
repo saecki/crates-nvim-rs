@@ -108,8 +108,8 @@ pub enum CompVersion {
     Wl(WlChar),
     Major(u32, Option<(WlChar, Option<WlChar>)>),
     Minor(u32, u32, Option<WlChar>),
-    Patch(u32, u32, u32),
-    Pre(u32, u32, u32, Prerelease),
+    Patch(u32, u32, u32, Option<BuildMetadata>),
+    Pre(u32, u32, u32, Prerelease, Option<BuildMetadata>),
 }
 
 impl CompVersion {
@@ -118,8 +118,8 @@ impl CompVersion {
             CompVersion::Wl(_) => None,
             CompVersion::Major(major, _) => Some(*major),
             CompVersion::Minor(major, _, _) => Some(*major),
-            CompVersion::Patch(major, _, _) => Some(*major),
-            CompVersion::Pre(major, _, _, _) => Some(*major),
+            CompVersion::Patch(major, _, _, _) => Some(*major),
+            CompVersion::Pre(major, _, _, _, _) => Some(*major),
         }
     }
 
@@ -128,8 +128,8 @@ impl CompVersion {
             CompVersion::Wl(_) => None,
             CompVersion::Major(_, _) => None,
             CompVersion::Minor(_, minor, _) => Some(*minor),
-            CompVersion::Patch(_, minor, _) => Some(*minor),
-            CompVersion::Pre(_, minor, _, _) => Some(*minor),
+            CompVersion::Patch(_, minor, _, _) => Some(*minor),
+            CompVersion::Pre(_, minor, _, _, _) => Some(*minor),
         }
     }
 
@@ -138,8 +138,8 @@ impl CompVersion {
             CompVersion::Wl(_) => None,
             CompVersion::Major(_, _) => None,
             CompVersion::Minor(_, _, _) => None,
-            CompVersion::Patch(_, _, patch) => Some(*patch),
-            CompVersion::Pre(_, _, patch, _) => Some(*patch),
+            CompVersion::Patch(_, _, patch, _) => Some(*patch),
+            CompVersion::Pre(_, _, patch, _, _) => Some(*patch),
         }
     }
 
@@ -148,8 +148,8 @@ impl CompVersion {
             CompVersion::Wl(_) => &EMPTY_PRERELEASE,
             CompVersion::Major(_, _) => &EMPTY_PRERELEASE,
             CompVersion::Minor(_, _, _) => &EMPTY_PRERELEASE,
-            CompVersion::Patch(_, _, _) => &EMPTY_PRERELEASE,
-            CompVersion::Pre(_, _, _, pre) => pre,
+            CompVersion::Patch(_, _, _, _) => &EMPTY_PRERELEASE,
+            CompVersion::Pre(_, _, _, pre, _) => pre,
         }
     }
 }
