@@ -6,7 +6,7 @@ use crate::inlinestr::{InlineStr, PTR_SIZE};
 fn empty_str() {
     let str = unsafe { InlineStr::new_unchecked("") };
     assert!(str.is_empty());
-    assert_eq!(str.as_str(), "");
+    assert_eq!("", str.as_str());
 }
 
 #[test]
@@ -17,7 +17,7 @@ fn inline_str() {
         let str = unsafe { InlineStr::new_unchecked(&string) };
         assert!(!str.is_empty());
         assert!(str.is_inline());
-        assert_eq!(str.as_str(), string);
+        assert_eq!(string, str.as_str());
     }
 }
 
@@ -29,6 +29,6 @@ fn allocated_str() {
         let str = unsafe { InlineStr::new_unchecked(&string) };
         assert!(!str.is_empty());
         assert!(!str.is_inline());
-        assert_eq!(str.as_str(), string);
+        assert_eq!(string, str.as_str());
     }
 }
