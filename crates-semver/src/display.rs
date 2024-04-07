@@ -100,10 +100,15 @@ fn fmt_comparator(f: &mut Wrapper<'_, '_>, comparator: &Comparator) -> std::fmt:
 fn fmt_comp_version(f: &mut Wrapper<'_, '_>, version: &CompVersion) -> std::fmt::Result {
     match version {
         CompVersion::Wl(wl) => write!(f, "{wl}"),
-        CompVersion::Major(major) => write!(f, "{major}"),
-        CompVersion::MajorWl(major, wl) => write!(f, "{major}.{wl}"),
-        CompVersion::Minor(major, minor) => write!(f, "{major}.{minor}"),
-        CompVersion::MinorWl(major, minor, wl) => write!(f, "{major}.{minor}.{wl}"),
+        CompVersion::Major(major, wildcards) => match wildcards {
+            None => write!(f, "{major}"),
+            Some((wl1, None)) => write!(f, "{major}.{wl1}"),
+            Some((wl1, Some(wl2))) => write!(f, "{major}.{wl1}.{wl2}"),
+        },
+        CompVersion::Minor(major, minor, wl) => match wl {
+            None => write!(f, "{major}.{minor}"),
+            Some(wl) => write!(f, "{major}.{minor}.{wl}"),
+        },
         CompVersion::Patch(major, minor, patch) => write!(f, "{major}.{minor}.{patch}"),
         CompVersion::Pre(major, minor, patch, pre) => {
             write!(f, "{major}.{minor}.{patch}-{}", pre.as_str())

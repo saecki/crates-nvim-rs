@@ -18,4 +18,7 @@ pub enum Error {
     MissingComma(Offset),
     TrailingComma(Offset),
     WildcardNotTheSoleComparator(Offset),
+    ExcessiveComparators(Offset),
+    EmptyVersionReq,
+    UnexpectedAfterWildcard(char, NumField, Offset),
 }

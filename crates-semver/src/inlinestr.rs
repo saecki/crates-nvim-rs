@@ -29,6 +29,9 @@ pub struct InlineStr {
     repr: NonNull<u8>,
 }
 
+unsafe impl Sync for InlineStr {}
+unsafe impl Send for InlineStr {}
+
 impl InlineStr {
     pub const fn empty() -> Self {
         let repr = unsafe { NonNull::new_unchecked(EMPTY as *mut u8) };

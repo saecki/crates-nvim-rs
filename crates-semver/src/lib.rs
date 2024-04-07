@@ -91,17 +91,9 @@ pub enum Op {
 pub enum CompVersion {
     /// `*` Only valid for [`Op::Wl`]
     Wl(WlChar),
-    /// `1`
-    Major(u32),
-    /// `1.*`
-    MajorWl(u32, WlChar),
-    /// `1.2`
-    Minor(u32, u32),
-    /// `1.2.*`
-    MinorWl(u32, u32, WlChar),
-    /// `1.2.3`
+    Major(u32, Option<(WlChar, Option<WlChar>)>),
+    Minor(u32, u32, Option<WlChar>),
     Patch(u32, u32, u32),
-    /// `1.2.3-beta.1`
     Pre(u32, u32, u32, Prerelease),
 }
 
@@ -109,50 +101,40 @@ impl CompVersion {
     pub fn major(&self) -> Option<u32> {
         match self {
             CompVersion::Wl(_) => None,
-            CompVersion::Major(major)
-            | CompVersion::MajorWl(major, _)
-            | CompVersion::Minor(major, _)
-            | CompVersion::MinorWl(major, _, _)
-            | CompVersion::Patch(major, _, _)
-            | CompVersion::Pre(major, _, _, _) => Some(*major),
+            CompVersion::Major(major, _) => Some(*major),
+            CompVersion::Minor(major, _, _) => Some(*major),
+            CompVersion::Patch(major, _, _) => Some(*major),
+            CompVersion::Pre(major, _, _, _) => Some(*major),
         }
     }
 
     pub fn minor(&self) -> Option<u32> {
         match self {
-            #[rustfmt::skip]
-            CompVersion::Wl(_)
-            | CompVersion::Major(_)
-            | CompVersion::MajorWl(_, _) => None,
-            CompVersion::Minor(_, minor)
-            | CompVersion::MinorWl(_, minor, _)
-            | CompVersion::Patch(_, minor, _)
-            | CompVersion::Pre(_, minor, _, _) => Some(*minor),
+            CompVersion::Wl(_) => None,
+            CompVersion::Major(_, _) => None,
+            CompVersion::Minor(_, minor, _) => Some(*minor),
+            CompVersion::Patch(_, minor, _) => Some(*minor),
+            CompVersion::Pre(_, minor, _, _) => Some(*minor),
         }
     }
 
     pub fn patch(&self) -> Option<u32> {
         match self {
-            CompVersion::Wl(_)
-            | CompVersion::Major(_)
-            | CompVersion::MajorWl(_, _)
-            | CompVersion::Minor(_, _)
-            | CompVersion::MinorWl(_, _, _) => None,
-            #[rustfmt::skip]
-            CompVersion::Patch(_, _, patch)
-            | CompVersion::Pre(_, _, patch, _) => Some(*patch),
+            CompVersion::Wl(_) => None,
+            CompVersion::Major(_, _) => None,
+            CompVersion::Minor(_, _, _) => None,
+            CompVersion::Patch(_, _, patch) => Some(*patch),
+            CompVersion::Pre(_, _, patch, _) => Some(*patch),
         }
     }
 
-    pub fn pre(&self) -> Option<&Prerelease> {
+    pub fn pre(&self) -> &Prerelease {
         match self {
-            CompVersion::Wl(_)
-            | CompVersion::Major(_)
-            | CompVersion::MajorWl(_, _)
-            | CompVersion::Minor(_, _)
-            | CompVersion::MinorWl(_, _, _)
-            | CompVersion::Patch(_, _, _) => None,
-            CompVersion::Pre(_, _, _, pre) => Some(pre),
+            CompVersion::Wl(_) => &EMPTY_PRERELEASE,
+            CompVersion::Major(_, _) => &EMPTY_PRERELEASE,
+            CompVersion::Minor(_, _, _) => &EMPTY_PRERELEASE,
+            CompVersion::Patch(_, _, _) => &EMPTY_PRERELEASE,
+            CompVersion::Pre(_, _, _, pre) => pre,
         }
     }
 }
@@ -187,17 +169,7 @@ pub struct Version {
     pub meta: BuildMetadata,
 }
 
-impl Ord for Version {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        todo!()
-    }
-}
-
-impl PartialOrd for Version {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
+static EMPTY_PRERELEASE: Prerelease = Prerelease::EMPTY;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Prerelease {
