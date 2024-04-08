@@ -9,7 +9,7 @@ use crate::parse::{
     InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, ToplevelAssignment,
     Value,
 };
-use crate::{Asts, Ctx, Error, Span};
+use crate::{Asts, Error, Span, TomlCtx};
 
 pub mod simple;
 #[cfg(test)]
@@ -361,7 +361,7 @@ enum InsertValue<'a> {
     TableAssignments(&'a [ToplevelAssignment<'a>]),
 }
 
-pub fn map<'a>(ctx: &mut Ctx, asts: &'_ Asts<'a>) -> MapTable<'a> {
+pub fn map<'a>(ctx: &mut impl TomlCtx, asts: &'_ Asts<'a>) -> MapTable<'a> {
     let mapper = &mut Mapper::new();
     let mut root = MapTable::new();
     for a in asts.asts.iter() {
@@ -405,7 +405,7 @@ pub fn map<'a>(ctx: &mut Ctx, asts: &'_ Asts<'a>) -> MapTable<'a> {
 }
 
 fn map_insert_value<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     value: InsertValue<'a>,
 ) -> MapNode<'a> {
@@ -419,7 +419,7 @@ fn map_insert_value<'a>(
     }
 }
 
-fn map_value<'a>(ctx: &mut Ctx, mapper: &mut Mapper<'a>, value: &'a Value<'a>) -> MapNode<'a> {
+fn map_value<'a>(ctx: &mut impl TomlCtx, mapper: &mut Mapper<'a>, value: &'a Value<'a>) -> MapNode<'a> {
     match value {
         Value::String(s) => MapNode::Scalar(Scalar::String(s)),
         Value::Int(i) => MapNode::Scalar(Scalar::Int(i)),
@@ -456,7 +456,7 @@ fn map_value<'a>(ctx: &mut Ctx, mapper: &mut Mapper<'a>, value: &'a Value<'a>) -
 }
 
 fn insert_node_at_path<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a Key<'a>,
@@ -530,7 +530,7 @@ fn insert_node_at_path<'a>(
 }
 
 fn insert_node<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a str,
@@ -596,7 +596,7 @@ fn insert_node<'a>(
 }
 
 fn insert_array_entry_at_path<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a Key<'a>,
@@ -673,7 +673,7 @@ fn insert_array_entry_at_path<'a>(
 }
 
 fn insert_array_entry<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     key: &'a str,
@@ -733,7 +733,7 @@ fn insert_array_entry<'a>(
 }
 
 fn insert_top_level_assignments<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
     assignments: &'a [ToplevelAssignment<'a>],

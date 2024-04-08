@@ -6,7 +6,7 @@ use common::{FmtChar, FmtStr};
 
 use crate::datetime::{Date, DateTime, Time};
 use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
-use crate::{Ctx, Error, Pos, Quote, Span};
+use crate::{Error, Pos, Quote, Span, TomlCtx};
 
 pub use num::{IntPrefix, Sign};
 
@@ -724,7 +724,7 @@ enum PartialValue {
 
 /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
 /// is returned, otherwise the possibly partially invalid ast is returned.
-pub fn parse<'a>(ctx: &mut Ctx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
+pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
     let mut parser = Parser::new(tokens);
     let mut asts = Vec::new();
     let mut comment_storage = Vec::new();
@@ -1033,7 +1033,11 @@ fn next_comment_id(storage: &[AssocComment<'_>]) -> CommentId {
     CommentId(storage.len() as u32)
 }
 
-fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Result<Key<'a>, Error> {
+fn parse_key<'a>(
+    ctx: &mut impl TomlCtx,
+    bump: &'a Bump,
+    parser: &mut Parser<'a>,
+) -> Result<Key<'a>, Error> {
     let mut idents = BVec::new_in(bump);
     loop {
         let token = parser.peek();
@@ -1110,7 +1114,7 @@ fn parse_key<'a>(ctx: &mut Ctx, bump: &'a Bump, parser: &mut Parser<'a>) -> Resu
 }
 
 fn parse_value<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
     comment_storage: &mut Vec<AssocComment<'a>>,
@@ -1410,7 +1414,7 @@ fn parse_value<'a>(
 }
 
 fn try_to_parse_fractional_part_of_float<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     parser: &mut Parser<'a>,
     int_lit: &'a str,
     int_span: Span,
@@ -1493,7 +1497,7 @@ fn try_to_parse_fractional_part_of_float<'a>(
 /// timestamp, if the previous token just contained the date then check if the next token
 /// contains the time.
 fn try_to_parse_time_part<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     parser: &mut Parser<'a>,
     date_lit: &'a str,
     date_span: Span,
@@ -1548,7 +1552,7 @@ fn try_to_parse_time_part<'a>(
 }
 
 fn try_to_parse_subsecs<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     parser: &mut Parser<'a>,
     date_time_lit: &'a str,
     date_time_span: Span,

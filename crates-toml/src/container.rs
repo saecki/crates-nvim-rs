@@ -2,7 +2,7 @@ use std::mem::ManuallyDrop;
 
 use bumpalo::Bump;
 
-use crate::{Asts, Ctx, MapTable, Tokens};
+use crate::{Asts, MapTable, Tokens, TomlCtx};
 
 pub struct Toml<'a> {
     pub input: &'a str,
@@ -37,7 +37,7 @@ impl Drop for Container {
 }
 
 impl<'a> Container {
-    pub fn parse(ctx: &mut Ctx, input: &str) -> Container {
+    pub fn parse(ctx: &mut impl TomlCtx, input: &str) -> Container {
         let bump = Box::leak(Box::new(Bump::new()));
         let input = bump.alloc_str(input);
 
@@ -46,7 +46,7 @@ impl<'a> Container {
     }
 
     pub fn parse_with<'b>(
-        ctx: &mut Ctx,
+        ctx: &mut impl TomlCtx,
         alloc_input: impl FnOnce(&'b Bump) -> &'b str,
     ) -> Container {
         let bump = Box::leak(Box::new(Bump::new()));
@@ -69,7 +69,11 @@ impl<'a> Container {
 
 /// SAFETY: `bump` has to be constructed using Box::leak, so it can be freed when the container is
 /// dropped, and `input` has to be allocated inside `bump`
-unsafe fn build_container(ctx: &mut Ctx, bump: &'static Bump, input: &'static str) -> Container {
+unsafe fn build_container(
+    ctx: &mut impl TomlCtx,
+    bump: &'static Bump,
+    input: &'static str,
+) -> Container {
     let tokens = ctx.lex(bump, input);
     let asts = ctx.parse(bump, &tokens);
     let map = ctx.map(&asts);

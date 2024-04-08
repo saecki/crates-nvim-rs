@@ -1,8 +1,10 @@
+use common::{Ctx, Diagnostics};
 use toml::Span;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Toml(toml::Error),
+    Semver(semver::Error),
     Cargo(CargoError),
 }
 
@@ -46,3 +48,24 @@ impl From<CargoWarning> for Warning {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CargoWarning {}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Hint {
+    Toml(toml::Hint),
+    Cargo(CargoHint),
+}
+
+impl From<toml::Hint> for Hint {
+    fn from(value: toml::Hint) -> Self {
+        Self::Toml(value)
+    }
+}
+
+impl From<CargoHint> for Hint {
+    fn from(value: CargoHint) -> Self {
+        Self::Cargo(value)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum CargoHint {}

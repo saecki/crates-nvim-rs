@@ -1,8 +1,8 @@
 use pretty_assertions::assert_eq;
 
-use crate::onevec;
 use crate::parse::TableHeader;
 use crate::test::*;
+use crate::onevec;
 
 use super::*;
 
@@ -13,7 +13,7 @@ impl<'a> MapTableEntry<'a> {
 }
 
 fn check(input: &str, expected: MapTable) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
@@ -28,7 +28,7 @@ fn check(input: &str, expected: MapTable) {
 }
 
 fn check_error(input: &str, expected: MapTable, error: Error) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);

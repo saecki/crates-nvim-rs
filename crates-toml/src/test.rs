@@ -7,7 +7,7 @@ pub use std::collections::HashMap;
 
 pub use crate::map::simple::SimpleVal;
 pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
-pub use crate::{Ctx, Error, Pos, Quote, Span, Warning};
+pub use crate::{TomlDiagnostics, TomlCtx, Error, Pos, Quote, Span, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
@@ -21,8 +21,8 @@ pub fn expect_float(table: &HashMap<String, SimpleVal>, key: &str) -> f64 {
     }
 }
 
-pub fn parse_simple(input: &str) -> (Ctx, HashMap<String, SimpleVal>) {
-    let mut ctx = Ctx::default();
+pub fn parse_simple(input: &str) -> (TomlDiagnostics, HashMap<String, SimpleVal>) {
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
@@ -43,7 +43,7 @@ pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
 }
 
 pub fn check_simple_error(input: &str, expected: HashMap<String, SimpleVal>, error: Error) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);

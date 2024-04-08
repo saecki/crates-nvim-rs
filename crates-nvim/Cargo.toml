@@ -8,6 +8,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 toml = { workspace = true }
+semver = { workspace = true }
+common = { workspace = true }
 bumpalo = { workspace = true }
 nvim-oxi = { version = "0.4.1", features = ["neovim-0-9"] }
 serde = { version = "1.0", features = ["serde_derive"] }

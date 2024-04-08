@@ -5,7 +5,7 @@ use bumpalo::collections::String as BString;
 use bumpalo::Bump;
 use common::FmtChar;
 
-use crate::{Ctx, Error};
+use crate::{Error, TomlCtx};
 
 #[cfg(test)]
 mod test;
@@ -347,7 +347,7 @@ impl<'a> StrState<'a> {
     }
 }
 
-pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
+pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
     let mut lexer = Lexer::new(bump, input);
     while let Some(c) = lexer.next() {
         match c {
@@ -436,7 +436,7 @@ pub fn lex<'a>(ctx: &mut Ctx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
     }
 }
 
-fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
+fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
     loop {
         let start = lexer.input.len() - lexer.chars.as_str().len();
         let c = lexer.skip_until3(str.quote.byte(), b'\n', b'\\');
@@ -540,7 +540,7 @@ fn string<'a>(ctx: &mut Ctx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
 }
 
 fn string_escape<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     lexer: &mut Lexer<'a>,
     str: &mut StrState<'a>,
     esc_start: Pos,
@@ -599,7 +599,7 @@ fn string_escape<'a>(
 }
 
 fn string_escape_unicode<'a>(
-    ctx: &mut Ctx,
+    ctx: &mut impl TomlCtx,
     lexer: &mut Lexer<'a>,
     str: &mut StrState<'a>,
     esc_start: Pos,

@@ -2,6 +2,7 @@ use std::process::ExitCode;
 
 use bumpalo::Bump;
 use toml::error::{Diagnostic, Severity};
+use toml::{TomlCtx, TomlDiagnostics};
 use unicode_width::UnicodeWidthStr;
 
 fn main() -> ExitCode {
@@ -20,7 +21,7 @@ fn main() -> ExitCode {
     let lines = text.split('\n').collect::<Vec<_>>();
 
     let start = std::time::SystemTime::now();
-    let mut ctx = toml::Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, &text);
     let lexing = std::time::SystemTime::now();

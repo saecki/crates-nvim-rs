@@ -10,7 +10,7 @@ fn check_comments<'a, const SIZE: usize>(
     input: &str,
     expected_builder: impl FnOnce(&'a Bump, &'_ mut BVec<'a, AssocComment<'a>>) -> [Ast<'a>; SIZE],
 ) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
@@ -45,7 +45,7 @@ fn check_error<'a, const SIZE: usize>(
     expected_builder: impl FnOnce(&'a Bump, &[AssocComment<'a>]) -> [Ast<'a>; SIZE],
     error: Error,
 ) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);

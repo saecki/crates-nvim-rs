@@ -1,5 +1,51 @@
 use std::fmt::Write as _;
 
+pub trait Ctx: Sized {
+    type Error;
+    type Warning;
+    type Hint;
+
+    fn error(&mut self, error: impl Into<Self::Error>);
+
+    fn warn(&mut self, warning: impl Into<Self::Warning>);
+
+    fn hint(&mut self, hint: impl Into<Self::Hint>);
+}
+
+pub struct Diagnostics<E, W, H> {
+    pub errors: Vec<E>,
+    pub warnings: Vec<W>,
+    pub hints: Vec<H>,
+}
+
+impl<E, W, H> Default for Diagnostics<E, W, H> {
+    fn default() -> Self {
+        Self {
+            errors: Vec::new(),
+            warnings: Vec::new(),
+            hints: Vec::new(),
+        }
+    }
+}
+
+impl<E, W, H> Ctx for Diagnostics<E, W, H> {
+    type Error = E;
+    type Warning = W;
+    type Hint = H;
+
+    fn error(&mut self, error: impl Into<E>) {
+        self.errors.push(error.into());
+    }
+
+    fn warn(&mut self, warning: impl Into<W>) {
+        self.warnings.push(warning.into());
+    }
+
+    fn hint(&mut self, hint: impl Into<H>) {
+        self.hints.push(hint.into());
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FmtChar(pub char);
 

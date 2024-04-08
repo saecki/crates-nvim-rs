@@ -1,11 +1,11 @@
-use crate::Warning;
+use crate::{TomlCtx, TomlDiagnostics, Warning};
 
 use super::*;
 
 use pretty_assertions::assert_eq;
 
 fn check(input: &str, expected: Tokens<'_>) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     assert_eq!(expected, tokens);
@@ -14,7 +14,7 @@ fn check(input: &str, expected: Tokens<'_>) {
 }
 
 fn check_error(input: &str, expected: Tokens<'_>, error: Error) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     assert_eq!(
@@ -27,7 +27,7 @@ fn check_error(input: &str, expected: Tokens<'_>, error: Error) {
 }
 
 fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     assert_eq!(
@@ -53,7 +53,7 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
 }
 
 fn check_str_error(input: &str, expected_lit: &str, expected_text: &str, error: Error) {
-    let mut ctx = Ctx::default();
+    let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     assert_eq!(
