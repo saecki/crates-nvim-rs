@@ -32,6 +32,13 @@ macro_rules! recover_on {
     }};
 }
 
+macro_rules! one_of {
+    ($token:expr, $tokens:pat) => {{
+        use TokenType::*;
+        matches!($token, $tokens)
+    }};
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Asts<'a> {
     pub asts: &'a [Ast<'a>],
@@ -1210,7 +1217,7 @@ fn parse_value<'a>(
                     );
                 }
 
-                if matches!(parser.peek().ty, TokenType::SquareRight | TokenType::EOF) {
+                if one_of!(parser.peek().ty, SquareRight | EOF) {
                     break;
                 }
 
@@ -1312,7 +1319,7 @@ fn parse_value<'a>(
             let mut assignments = Vec::new();
             let mut comma = None;
             'inline_table: loop {
-                if matches!(parser.peek().ty, TokenType::CurlyRight | TokenType::EOF) {
+                if one_of!(parser.peek().ty, CurlyRight | Newline | EOF) {
                     if let Some(pos) = comma {
                         ctx.error(Error::InlineTableTrailingComma(pos));
                     }
@@ -1327,7 +1334,7 @@ fn parse_value<'a>(
                                 parser.next();
                                 continue 'inline_table;
                             },
-                            Newline | CurlyRight | EOF => break 'inline_table,
+                            CurlyRight | Newline | EOF => break 'inline_table,
                         )
                     }
                 };
@@ -1342,7 +1349,7 @@ fn parse_value<'a>(
                                 parser.next();
                                 continue 'inline_table;
                             },
-                            Newline | CurlyRight | EOF => break 'inline_table,
+                            CurlyRight | Newline | EOF => break 'inline_table,
                         )
                     }
                 };
@@ -1356,7 +1363,7 @@ fn parse_value<'a>(
                                 parser.next();
                                 continue 'inline_table;
                             },
-                            Newline | CurlyRight | EOF => break 'inline_table,
+                            CurlyRight | Newline | EOF => break 'inline_table,
                         )
                     }
                 };
@@ -1364,7 +1371,7 @@ fn parse_value<'a>(
                 let assignment = Assignment { key, eq, val };
                 comma = match parser.peek() {
                     t if t.ty == TokenType::Comma => Some(parser.next().start),
-                    t if t.ty == TokenType::CurlyRight || t.ty == TokenType::EOF => {
+                    t if one_of!(t.ty, CurlyRight | Newline | EOF) => {
                         assignments.push(InlineTableAssignment {
                             assignment,
                             comma: None,
