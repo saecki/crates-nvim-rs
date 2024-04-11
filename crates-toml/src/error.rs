@@ -112,9 +112,6 @@ pub enum Error {
     },
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum Warning {}
-
 impl Diagnostic for Error {
     const SEVERITY: Severity = Severity::Error;
 
@@ -431,6 +428,25 @@ impl Error {
                 Some(Hint::CannotExtendInlineArrayAsTable(*orig))
             }
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Warning {}
+
+impl Diagnostic for Warning {
+    const SEVERITY: Severity = Severity::Warning;
+
+    fn span(&self) -> Span {
+        todo!()
+    }
+
+    fn description(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
     }
 }
 
