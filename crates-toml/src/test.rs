@@ -1,13 +1,14 @@
 pub use bumpalo::collections::Vec as BVec;
 pub use bumpalo::vec as bvec;
 pub use bumpalo::Bump;
+use common::{Pos, Span};
 pub use pretty_assertions::assert_eq;
 
 pub use std::collections::HashMap;
 
 pub use crate::map::simple::SimpleVal;
 pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
-pub use crate::{TomlDiagnostics, TomlCtx, Error, Pos, Quote, Span, Warning};
+pub use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 

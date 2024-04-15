@@ -1,7 +1,7 @@
 use bumpalo::Bump;
 use common::{Ctx, Diagnostics};
 pub use error::{Error, Hint, Warning};
-pub use lex::{lex, Pos, Quote, Span, Token, TokenType, Tokens};
+pub use lex::{lex, Quote, Token, TokenType, Tokens};
 pub use map::{map, MapTable};
 pub use parse::{parse, Ast, Asts};
 

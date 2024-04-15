@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use bumpalo::Bump;
-use toml::error::{Diagnostic, Severity};
+use common::{Diagnostic, Severity};
 use toml::{TomlCtx, TomlDiagnostics};
 use unicode_width::UnicodeWidthStr;
 

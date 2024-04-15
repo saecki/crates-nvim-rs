@@ -1,7 +1,7 @@
 use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
-use common::FmtStr;
+use common::{FmtStr, Span};
 
 use crate::onevec::OneVec;
 use crate::parse::{
@@ -9,7 +9,7 @@ use crate::parse::{
     InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, ToplevelAssignment,
     Value,
 };
-use crate::{Asts, Error, Span, TomlCtx};
+use crate::{Asts, Error, TomlCtx};
 
 pub mod simple;
 #[cfg(test)]
@@ -419,7 +419,11 @@ fn map_insert_value<'a>(
     }
 }
 
-fn map_value<'a>(ctx: &mut impl TomlCtx, mapper: &mut Mapper<'a>, value: &'a Value<'a>) -> MapNode<'a> {
+fn map_value<'a>(
+    ctx: &mut impl TomlCtx,
+    mapper: &mut Mapper<'a>,
+    value: &'a Value<'a>,
+) -> MapNode<'a> {
     match value {
         Value::String(s) => MapNode::Scalar(Scalar::String(s)),
         Value::Int(i) => MapNode::Scalar(Scalar::Int(i)),

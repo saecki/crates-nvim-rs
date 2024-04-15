@@ -1,4 +1,4 @@
-use toml::Span;
+use common::Span;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {

@@ -2,11 +2,11 @@ use std::num::NonZeroU32;
 
 use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
-use common::{FmtChar, FmtStr};
+use common::{FmtChar, FmtStr, Pos, Span};
 
 use crate::datetime::{Date, DateTime, Time};
 use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
-use crate::{Error, Pos, Quote, Span, TomlCtx};
+use crate::{Error, Quote, TomlCtx};
 
 pub use num::{IntPrefix, Sign};
 

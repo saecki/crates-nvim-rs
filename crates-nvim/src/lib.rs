@@ -1,11 +1,11 @@
 use bumpalo::Bump;
 use common::{Ctx, Diagnostics};
+use common::{Diagnostic, Span};
 use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
 use nvim_oxi::{Dictionary, Function, Object};
 use serde::{Deserialize, Serialize};
-use toml::error::Diagnostic;
-use toml::{Span, TomlCtx, TomlDiagnostics};
+use toml::{TomlCtx, TomlDiagnostics};
 
 use crate::error::{CargoError, CargoHint, CargoWarning};
 

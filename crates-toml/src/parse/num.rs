@@ -1,8 +1,8 @@
-use common::FmtChar;
+use common::{FmtChar, Span};
 
 use crate::lex::CharIter;
 use crate::parse::{datetime, PartialValue};
-use crate::{Error, Span};
+use crate::Error;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Sign {

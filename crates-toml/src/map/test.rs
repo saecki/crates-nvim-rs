@@ -1,8 +1,9 @@
+use common::Pos;
 use pretty_assertions::assert_eq;
 
+use crate::onevec;
 use crate::parse::TableHeader;
 use crate::test::*;
-use crate::onevec;
 
 use super::*;
 

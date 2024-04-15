@@ -1,33 +1,8 @@
-use common::{FmtChar, FmtStr};
+use common::{Diagnostic, FmtChar, FmtStr, Pos, Severity, Span};
 
 use crate::datetime::DateTimeField;
 use crate::parse::{IntPrefix, Sign};
-use crate::{Pos, Quote, Span};
-
-pub trait Diagnostic {
-    const SEVERITY: Severity;
-
-    fn span(&self) -> Span;
-    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result;
-    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result;
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Severity {
-    Error,
-    Warning,
-    Hint,
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Severity::Error => f.write_str("error"),
-            Severity::Warning => f.write_str("warning"),
-            Severity::Hint => f.write_str("hint"),
-        }
-    }
-}
+use crate::Quote;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
