@@ -12,6 +12,7 @@ libfuzzer-sys = "0.4"
 bumpalo = { workspace = true }
 toml = { workspace = true }
 semver = { workspace = true }
+common = { workspace = true }
 
 [[bin]]
 name = "fuzz_toml"

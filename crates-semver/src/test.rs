@@ -1,13 +1,15 @@
+use common::Pos;
+
 use crate::{parse_requirement, parse_version, Version, VersionReq};
 
 #[track_caller]
 pub fn version(str: &str) -> Version {
-    parse_version(str).unwrap()
+    parse_version(str, Pos::ZERO).unwrap()
 }
 
 #[track_caller]
 pub fn req(str: &str) -> VersionReq {
-    parse_requirement(str).unwrap()
+    parse_requirement(str, Pos::ZERO).unwrap()
 }
 
 #[track_caller]

@@ -51,12 +51,22 @@ fn fmt_requirement(f: &mut Wrapper<'_, '_>, req: &VersionReq) -> std::fmt::Resul
         return Ok(());
     };
 
+    if !f.writer.alternate() {
+        let num_spaces = first.op_offset.char as usize;
+        write!(f, "{:num_spaces$}", "")?;
+    }
+
     fmt_comparator(f, first)?;
 
     for c in others {
         let num_spaces = c.op_offset.char as usize - f.pos;
         write!(f, "{:num_spaces$}", "")?;
         fmt_comparator(f, c)?;
+    }
+
+    if !f.writer.alternate() {
+        let num_spaces = req.len as usize - f.pos;
+        write!(f, "{:num_spaces$}", "")?;
     }
 
     Ok(())

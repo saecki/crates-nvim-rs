@@ -1,4 +1,5 @@
 use std::fmt::Write as _;
+use std::ops::Deref;
 
 pub trait Ctx: Sized {
     type Error;
@@ -133,8 +134,10 @@ pub struct Pos {
 }
 
 impl Pos {
+    pub const ZERO: Self = Self::new(0, 0);
+
     #[inline(always)]
-    pub fn new(line: u32, char: u32) -> Self {
+    pub const fn new(line: u32, char: u32) -> Self {
         Self { line, char }
     }
 
@@ -163,7 +166,22 @@ impl Pos {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Offset {
+    pub char: u32,
+}
 
+impl Offset {
+    pub fn new(char: u32) -> Self {
+        Self { char }
+    }
+
+    pub fn minus(&self, n: u32) -> Self {
+        Self {
+            char: self.char - n,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FmtChar(pub char);
@@ -178,6 +196,20 @@ impl std::fmt::Display for FmtChar {
             '\r' => f.write_str("\\r"),
             c => f.write_char(c),
         }
+    }
+}
+
+impl From<char> for FmtChar {
+    fn from(value: char) -> Self {
+        Self(value)
+    }
+}
+
+impl Deref for FmtChar {
+    type Target = char;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -206,5 +238,13 @@ impl FmtStr {
 impl From<&str> for FmtStr {
     fn from(value: &str) -> Self {
         Self::from_str(value)
+    }
+}
+
+impl Deref for FmtStr {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref()
     }
 }

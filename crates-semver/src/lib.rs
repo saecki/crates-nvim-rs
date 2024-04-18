@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 
+use common::{Offset, Pos};
 pub use error::Error;
 pub use parse::*;
 
@@ -12,23 +13,6 @@ mod inlinestr;
 mod parse;
 #[cfg(test)]
 mod test;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Offset {
-    char: u32,
-}
-
-impl Offset {
-    pub fn new(char: u32) -> Self {
-        Self { char }
-    }
-
-    pub fn minus(&self, n: u32) -> Self {
-        Self {
-            char: self.char - n,
-        }
-    }
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NumField {
@@ -45,16 +29,18 @@ pub enum IdentField {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct VersionReq {
+    pub pos: Pos,
+    pub len: u32,
     pub comparators: Vec<Comparator>,
 }
 
 impl VersionReq {
-    pub const EMPTY: Self = Self {
-        comparators: Vec::new(),
-    };
-
-    pub fn new(comparators: Vec<Comparator>) -> Self {
-        Self { comparators }
+    pub fn new(pos: Pos, len: u32, comparators: Vec<Comparator>) -> Self {
+        Self {
+            pos,
+            len,
+            comparators,
+        }
     }
 
     pub fn matches(&self, version: &Version) -> bool {

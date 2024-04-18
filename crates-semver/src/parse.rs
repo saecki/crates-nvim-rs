@@ -1,4 +1,4 @@
-use common::FmtStr;
+use common::{FmtChar, FmtStr, Pos};
 
 use crate::inlinestr::InlineStr;
 use crate::{
@@ -9,16 +9,17 @@ use crate::{
 #[cfg(test)]
 mod test;
 
-const MAX_COMPARATORS: usize = 32;
+pub(crate) const MAX_COMPARATORS: usize = 32;
 
 struct CharIter<'a> {
+    start: Pos,
     str: &'a str,
     idx: usize,
 }
 
 impl<'a> CharIter<'a> {
-    fn new(str: &'a str) -> Self {
-        Self { str, idx: 0 }
+    fn new(start: Pos, str: &'a str) -> Self {
+        Self { start, str, idx: 0 }
     }
 
     fn peek_byte(&self) -> Option<u8> {
@@ -44,10 +45,14 @@ impl<'a> CharIter<'a> {
             char: self.idx as u32,
         }
     }
+
+    fn pos(&self) -> Pos {
+        self.start.plus(self.idx as u32)
+    }
 }
 
-pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
-    let mut chars = CharIter::new(input);
+pub fn parse_requirement(input: &str, pos: Pos) -> Result<VersionReq, Error> {
+    let mut chars = CharIter::new(pos, input);
     let num_commas = memchr::memchr_iter(b',', input.as_bytes()).count();
     // If there is no comma, there are probably no comparators or one. If it's only one the push
     // won't have to reallocate anyway, but if there are 0 we saved an allocation. For 1 or more
@@ -65,8 +70,9 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
         };
 
         if comparators.len() >= MAX_COMPARATORS {
-            let offset = chars.offset();
-            return Err(Error::ExcessiveComparators(offset));
+            let pos = chars.pos();
+            let len = chars.remainder().len() as u32;
+            return Err(Error::ExcessiveComparators(pos, len));
         }
 
         let op_offset = chars.offset();
@@ -74,8 +80,16 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
             // Blank version requirement, equivalent to caret
             b'0'..=b'9' => Op::Bl,
             b'*' | b'x' | b'X' => {
+                let wl = match b {
+                    b'*' => WlChar::Star,
+                    b'x' => WlChar::LowerX,
+                    b'X' => WlChar::UpperX,
+                    _ => unsafe { std::hint::unreachable_unchecked() },
+                };
+
                 if !comparators.is_empty() {
-                    return Err(Error::WildcardNotTheSoleComparator(op_offset));
+                    let pos = pos.plus(op_offset.char);
+                    return Err(Error::WildcardNotTheSoleComparator(wl, pos));
                 }
 
                 chars.next_byte();
@@ -83,9 +97,9 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
                 match chars.peek_byte() {
                     Some(b',' | b' ') => (),
                     Some(_) => {
-                        let c = chars.peek_char().unwrap();
-                        let offset = chars.offset();
-                        return Err(Error::UnexpectedAfterWildcard(c, NumField::Major, offset));
+                        let c = FmtChar(chars.peek_char().unwrap());
+                        let pos = chars.pos();
+                        return Err(Error::UnexpectedAfterWildcard(c, NumField::Major, pos));
                     }
                     None => (),
                 }
@@ -94,25 +108,20 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
 
                 if let Some(c) = chars.peek_byte() {
                     if c == b',' {
-                        let offset = chars.offset();
+                        let pos = chars.pos();
                         chars.next_byte();
                         eat_whitespace(&mut chars);
                         if chars.peek_byte().is_none() {
-                            return Err(Error::TrailingComma(offset));
+                            return Err(Error::TrailingComma(pos));
                         }
                     }
 
-                    return Err(Error::WildcardNotTheSoleComparator(op_offset));
+                    let pos = pos.plus(op_offset.char);
+                    return Err(Error::WildcardNotTheSoleComparator(wl, pos));
                 }
 
                 last_comma = expect_comma_or_end(&mut chars)?;
 
-                let wl = match b {
-                    b'*' => WlChar::Star,
-                    b'x' => WlChar::LowerX,
-                    b'X' => WlChar::UpperX,
-                    _ => unsafe { std::hint::unreachable_unchecked() },
-                };
                 let comparator = Comparator {
                     op_offset,
                     op: Op::Wl,
@@ -155,9 +164,9 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
                 Op::Tl
             }
             _ => {
-                let char = chars.peek_char().unwrap();
-                let offset = chars.offset();
-                return Err(Error::InvalidOp(char, offset));
+                let char = FmtChar(chars.peek_char().unwrap());
+                let pos = chars.pos();
+                return Err(Error::InvalidOp(char, pos));
             }
         };
 
@@ -180,14 +189,20 @@ pub fn parse_requirement(input: &str) -> Result<VersionReq, Error> {
 
     if let Some(offset) = last_comma {
         // TODO: store error and continue
-        return Err(Error::TrailingComma(offset));
+        let pos = pos.plus(offset.char);
+        return Err(Error::TrailingComma(pos));
     }
 
     if comparators.is_empty() {
-        return Err(Error::EmptyVersionReq);
+        return Err(Error::EmptyVersionReq(pos));
     }
 
-    Ok(VersionReq { comparators })
+    let len = chars.str.len() as u32;
+    Ok(VersionReq {
+        pos,
+        len,
+        comparators,
+    })
 }
 
 fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error> {
@@ -207,10 +222,14 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
         if let Some(wl2) = eat_wildcard(chars) {
             return Ok(CompVersion::Major(major, Some((wl1, Some(wl2)))));
         }
-        let offset = chars.offset();
+        let pos = chars.pos();
         return match chars.peek_char() {
-            Some(c) => Err(Error::UnexpectedAfterWildcard(c, NumField::Minor, offset)),
-            None => Err(Error::MissingField(NumField::Patch, offset)),
+            Some(c) => Err(Error::UnexpectedAfterWildcard(
+                FmtChar(c),
+                NumField::Minor,
+                pos,
+            )),
+            None => Err(Error::MissingField(NumField::Patch, pos)),
         };
     }
     let minor = parse_int(chars, NumField::Minor)?;
@@ -245,8 +264,8 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
     }
 }
 
-pub fn parse_version(input: &str) -> Result<Version, Error> {
-    let mut chars = CharIter::new(input);
+pub fn parse_version(input: &str, pos: Pos) -> Result<Version, Error> {
+    let mut chars = CharIter::new(pos, input);
 
     eat_whitespace(&mut chars);
 
@@ -276,8 +295,15 @@ pub fn parse_version(input: &str) -> Result<Version, Error> {
 
     if chars.peek_byte().is_some() {
         let trailing = FmtStr::from_str(chars.remainder().trim_end_matches(' '));
-        let offset = chars.offset();
-        return Err(Error::TrailingCharacters(trailing, offset));
+        let pos = chars.pos();
+        let field = if !meta.is_empty() {
+            Some(IdentField::BuildMetadata)
+        } else if pre.is_empty() {
+            Some(IdentField::Prerelease)
+        } else {
+            None
+        };
+        return Err(Error::TrailingCharacters(trailing, field, pos));
     }
 
     Ok(Version {
@@ -290,19 +316,19 @@ pub fn parse_version(input: &str) -> Result<Version, Error> {
 }
 
 fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
-    let start = chars.offset();
+    let start_idx = chars.idx as u32;
 
     let Some(c) = chars.peek_byte() else {
-        let offset = chars.offset();
-        return Err(Error::MissingField(field, offset));
+        let pos = chars.pos();
+        return Err(Error::MissingField(field, pos));
     };
     let accum = match c {
         b'0' => {
             chars.next_byte();
             return match chars.peek_byte() {
                 Some(b'0'..=b'9') => {
-                    let offset = chars.offset().minus(1);
-                    Err(Error::LeadingZeroNum(field, offset))
+                    let pos = chars.pos().minus(1);
+                    Err(Error::LeadingZeroNum(field, pos))
                 }
                 _ => Ok(0),
             };
@@ -312,9 +338,9 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
             c as u32 - b'0' as u32
         }
         _ => {
-            let offset = chars.offset();
-            let char = chars.peek_char().expect("remainder shouldn't be empty");
-            return Err(Error::InvalidIntChar(char, field, offset));
+            let pos = chars.pos();
+            let char = FmtChar(chars.peek_char().unwrap());
+            return Err(Error::InvalidIntChar(char, field, pos));
         }
     };
 
@@ -346,8 +372,9 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
     match accum {
         State::Ok(v) => Ok(v),
         State::Overflow => {
-            let len = chars.idx as u32 - start.char;
-            Err(Error::IntOverflow(field, start, len))
+            let pos = chars.start.plus(start_idx);
+            let len = chars.idx as u32 - start_idx;
+            Err(Error::IntOverflow(field, pos, len))
         }
     }
 }
@@ -367,11 +394,11 @@ fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a st
             boundary => {
                 if segment_start == chars.idx {
                     // TODO: consider reading up to a `+` and returning an invalid character error instead
-                    let offset = chars.offset();
+                    let pos = chars.pos();
                     if start == chars.idx && boundary != Some(b'.') {
-                        return Err(Error::EmptyIdentifier(field, offset));
+                        return Err(Error::EmptyIdentifier(field, pos));
                     } else {
-                        return Err(Error::EmptyIdentifierSegment(field, offset));
+                        return Err(Error::EmptyIdentifierSegment(field, pos));
                     }
                 }
 
@@ -380,8 +407,8 @@ fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a st
                     && !segment_has_nondigit
                     && chars.str[segment_start..].starts_with('0')
                 {
-                    let offset = Offset::new(segment_start as u32);
-                    return Err(Error::LeadingZeroSegment(field, offset));
+                    let pos = chars.start.plus(segment_start as u32);
+                    return Err(Error::LeadingZeroSegment(field, pos));
                 }
 
                 if boundary == Some(b'.') {
@@ -405,13 +432,13 @@ fn expect_dot(chars: &mut CharIter, field: NumField) -> Result<(), Error> {
             Ok(())
         }
         Some(_) => {
-            let char = chars.peek_char().expect("remainder shouldn't be empty");
-            let offset = chars.offset();
-            Err(Error::ExpectedDot(char, field, offset))
+            let char = FmtChar(chars.peek_char().unwrap());
+            let pos = chars.pos();
+            Err(Error::ExpectedDot(char, field, pos))
         }
         None => {
-            let offset = chars.offset();
-            Err(Error::MissingDot(field, offset))
+            let pos = chars.pos();
+            Err(Error::MissingDot(field, pos))
         }
     }
 }
@@ -424,7 +451,7 @@ fn expect_comma_or_end(chars: &mut CharIter) -> Result<Option<Offset>, Error> {
             Ok(Some(offset))
         }
         Some(_) => {
-            Err(Error::MissingComma(chars.offset()))
+            Err(Error::MissingComma(chars.pos()))
             // TODO: store error and continue
             // None
         }
