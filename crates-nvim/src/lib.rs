@@ -2,7 +2,6 @@ use common::{Ctx, Diagnostics};
 
 use crate::error::{CargoError, CargoHint, CargoWarning, Error, Hint, Warning};
 
-mod check;
 mod error;
 
 pub trait NvimCtx:
