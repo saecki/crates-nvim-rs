@@ -1,4 +1,4 @@
 /target
-/lua
+/lua/crates_nvim_lib.so
 Cargo.lock
 
