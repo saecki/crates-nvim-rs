@@ -151,6 +151,10 @@ impl<'a> MapArrayToplevel<'a> {
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
+
+    pub fn into_iter(self) -> impl Iterator<Item = MapArrayToplevelEntry<'a>> {
+        self.inner.into_iter()
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -203,6 +207,10 @@ impl<'a> MapArrayInline<'a> {
 
     pub fn iter(&'a self) -> impl Iterator<Item = &'a MapArrayInlineEntry<'a>> {
         self.inner.iter()
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = MapArrayInlineEntry<'a>> {
+        self.inner.into_iter()
     }
 }
 

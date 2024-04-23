@@ -13,6 +13,7 @@ pub use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
 mod fuzz;
+mod suite;
 
 pub fn expect_float(table: &HashMap<String, SimpleVal>, key: &str) -> f64 {
     let val = table.get(key).unwrap();
