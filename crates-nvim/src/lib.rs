@@ -5,14 +5,13 @@ use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
 use nvim_oxi::{Dictionary, Function, Object};
 use serde::{Deserialize, Serialize};
-use toml::{TomlCtx, TomlDiagnostics};
+use toml::TomlCtx;
 
-use crate::error::{CargoError, CargoHint, CargoWarning};
+use crate::error::{CargoError, CargoHint, CargoWarning, Error, Hint, Warning};
 
 mod error;
 
-// TODO: move the Diagnostic trait to crates_common and implement it for all errors/warnings/hints
-//type NvimCtx = Diagnostics<Error, Warning, Hint>;
+type NvimDiagnostics = Diagnostics<Error, Warning, Hint>;
 
 pub trait CargoCtx:
     Ctx<Error = Self::CargoError, Warning = Self::CargoWarning, Hint = Self::CargoHint>
@@ -80,7 +79,7 @@ pub fn crates_nvim_lib() -> nvim_oxi::Result<Dictionary> {
             lines.push(str.to_string());
         }
 
-        let mut ctx = TomlDiagnostics::default();
+        let mut ctx = NvimDiagnostics::default();
         let bump = Bump::new();
         let tokens = ctx.lex(&bump, &text);
         let asts = ctx.parse(&bump, &tokens);

@@ -1,10 +1,38 @@
-use common::Span;
+use common::{Diagnostic, Severity, Span};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Toml(toml::Error),
     Semver(semver::Error),
     Cargo(CargoError),
+}
+
+impl Diagnostic for Error {
+    const SEVERITY: Severity = Severity::Error;
+
+    fn span(&self) -> Span {
+        match self {
+            Error::Toml(e) => e.span(),
+            Error::Semver(e) => e.span(),
+            Error::Cargo(e) => e.span(),
+        }
+    }
+
+    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Error::Toml(e) => e.description(f),
+            Error::Semver(e) => e.description(f),
+            Error::Cargo(e) => e.description(f),
+        }
+    }
+
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Error::Toml(e) => e.annotation(f),
+            Error::Semver(e) => e.annotation(f),
+            Error::Cargo(e) => e.annotation(f),
+        }
+    }
 }
 
 impl From<toml::Error> for Error {
@@ -27,10 +55,56 @@ pub enum CargoError {
     ExpectedStringInArray(Span),
 }
 
+impl Diagnostic for CargoError {
+    const SEVERITY: Severity = Severity::Error;
+
+    fn span(&self) -> Span {
+        match self {
+            CargoError::ExpectedTable(_, s) => *s,
+            CargoError::ExpectedStringInTable(_, s) => *s,
+            CargoError::ExpectedArrayInTable(_, s) => *s,
+            CargoError::ExpectedStringInArray(s) => *s,
+        }
+    }
+
+    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Warning {
     Toml(toml::Warning),
     Cargo(CargoWarning),
+}
+
+impl Diagnostic for Warning {
+    const SEVERITY: Severity = Severity::Warning;
+
+    fn span(&self) -> Span {
+        match self {
+            Warning::Toml(w) => w.span(),
+            Warning::Cargo(w) => w.span(),
+        }
+    }
+
+    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Warning::Toml(w) => w.description(f),
+            Warning::Cargo(w) => w.description(f),
+        }
+    }
+
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Warning::Toml(w) => w.annotation(f),
+            Warning::Cargo(w) => w.annotation(f),
+        }
+    }
 }
 
 impl From<toml::Warning> for Warning {
@@ -48,10 +122,51 @@ impl From<CargoWarning> for Warning {
 #[derive(Debug, PartialEq, Eq)]
 pub enum CargoWarning {}
 
+impl Diagnostic for CargoWarning {
+    const SEVERITY: Severity = Severity::Warning;
+
+    fn span(&self) -> Span {
+        todo!()
+    }
+
+    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Hint {
     Toml(toml::Hint),
     Cargo(CargoHint),
+}
+
+impl Diagnostic for Hint {
+    const SEVERITY: Severity = Severity::Hint;
+
+    fn span(&self) -> Span {
+        match self {
+            Hint::Toml(h) => h.span(),
+            Hint::Cargo(h) => h.span(),
+        }
+    }
+
+    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Hint::Toml(h) => h.description(f),
+            Hint::Cargo(h) => h.description(f),
+        }
+    }
+
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Hint::Toml(h) => h.annotation(f),
+            Hint::Cargo(h) => h.annotation(f),
+        }
+    }
 }
 
 impl From<toml::Hint> for Hint {
@@ -68,3 +183,19 @@ impl From<CargoHint> for Hint {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CargoHint {}
+
+impl Diagnostic for CargoHint {
+    const SEVERITY: Severity = Severity::Hint;
+
+    fn span(&self) -> Span {
+        todo!()
+    }
+
+    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+}
