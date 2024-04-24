@@ -23,6 +23,7 @@ pub enum Error {
     MissingComma(Pos),
     MissingNewline(Pos),
     InlineTableTrailingComma(Pos),
+    SpaceBetweenArrayPars(Span),
 
     InvalidIntRadix(FmtChar, Pos),
     InvalidNumOrDateLiteralStart(FmtChar, Pos),
@@ -121,6 +122,7 @@ impl Diagnostic for Error {
             MissingComma(p) => Span::pos(*p),
             MissingNewline(p) => Span::pos(*p),
             InlineTableTrailingComma(p) => Span::pos(*p),
+            SpaceBetweenArrayPars(s) => *s,
 
             InvalidIntRadix(_, p) => Span::pos(*p),
             InvalidNumOrDateLiteralStart(_, p) => Span::pos(*p),
@@ -187,6 +189,7 @@ impl Diagnostic for Error {
             MissingComma(_) => write!(f, "Missing comma (`,`)"),
             MissingNewline(_) => write!(f, "Missing line break"),
             InlineTableTrailingComma(_) => write!(f, "Trailing commas aren't permitted in inline tables"),
+            SpaceBetweenArrayPars(_) => write!(f, "No space allowed between array header brackets"),
 
             InvalidIntRadix(char, _) => write!(f, "Invalid integer radix: `{char}`, valid radices are `b`, `o` and `x`"),
             InvalidNumOrDateLiteralStart(char, _) => write!(f, "Invalid character `{char}` at start of literal"),
@@ -292,6 +295,7 @@ impl Diagnostic for Error {
             MissingComma(_) => write!(f, "Missing comma (`,`)"),
             MissingNewline(_) => write!(f, "Missing line break"),
             InlineTableTrailingComma(_) => write!(f, "Trailing comma"),
+            SpaceBetweenArrayPars(_) => write!(f, "No space allowed"),
 
             InvalidIntRadix(..) => write!(f, "Invalid integer radix"),
             InvalidNumOrDateLiteralStart(..) => write!(f, "Invalid literal character"),
@@ -380,6 +384,7 @@ impl Error {
             MissingComma(_) => None,
             MissingNewline(_) => None,
             InlineTableTrailingComma(_) => None,
+            SpaceBetweenArrayPars(_) => None,
 
             InvalidIntRadix(_, _) => None,
             InvalidNumOrDateLiteralStart(_, _) => None,

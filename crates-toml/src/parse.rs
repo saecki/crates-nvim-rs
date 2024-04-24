@@ -736,7 +736,16 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 parser.next();
 
                 let l_array_square = match parser.peek() {
-                    t if t.ty == TokenType::SquareLeft => Some(parser.next().start),
+                    t if t.ty == TokenType::SquareLeft => {
+                        parser.next();
+
+                        if l_table_square.char + 1 != t.start.char {
+                            let span = Span::new(l_table_square.plus(1), t.start);
+                            ctx.error(Error::SpaceBetweenArrayPars(span));
+                        }
+
+                        Some(t.start)
+                    }
                     _ => None,
                 };
 
@@ -759,7 +768,18 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 });
 
                 let r_table_square = match parser.peek() {
-                    t if t.ty == TokenType::SquareRight => Some(parser.next().start),
+                    t if t.ty == TokenType::SquareRight => {
+                        parser.next();
+
+                        if let Some(a) = r_array_square {
+                            if a.char + 1 != t.start.char {
+                                let span = Span::new(a.plus(1), t.start);
+                                ctx.error(Error::SpaceBetweenArrayPars(span));
+                            }
+                        }
+
+                        Some(t.start)
+                    }
                     t => {
                         let (string, span) = parser.token_fmt_str_and_span(t);
                         ctx.error(Error::ExpectedRightSquareFound(string, span));
