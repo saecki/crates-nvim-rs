@@ -5,7 +5,7 @@ use bumpalo::Bump;
 use common::{FmtChar, FmtStr, Pos, Span};
 
 use crate::datetime::{Date, DateTime, Time};
-use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
+use crate::lex::{LiteralId, StringId, StringToken, TextOffset, Token, TokenType, Tokens};
 use crate::{Error, Quote, TomlCtx};
 
 pub use num::{IntPrefix, Sign};
@@ -345,16 +345,16 @@ impl<'a> Ident<'a> {
         lit: &'a str,
         lit_span: Span,
         text: &'a str,
-        text_start_offset: u8,
-        text_end_offset: u8,
+        text_offset: TextOffset,
         kind: IdentKind,
     ) -> Self {
         Ident {
             lit,
             lit_start: lit_span.start,
             text,
-            text_start_offset,
-            text_end_offset,
+            // multiline strings aren't allowed as identifiers, hence line offsets are zero
+            text_start_offset: text_offset.start_char,
+            text_end_offset: text_offset.end_char,
             kind,
         }
     }
@@ -412,49 +412,13 @@ pub struct StringVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
     pub text: &'a str,
-    pub text_start_offset: u8,
-    pub text_end_offset: u8,
+    pub text_offset: TextOffset,
     pub quote: Quote,
 }
 
 impl<'a> StringVal<'a> {
-    pub fn new(
-        lit: &'a str,
-        lit_span: Span,
-        text: &'a str,
-        text_start_offset: u8,
-        text_end_offset: u8,
-        quote: Quote,
-    ) -> Self {
-        Self {
-            lit,
-            lit_span,
-            text,
-            text_start_offset,
-            text_end_offset,
-            quote,
-        }
-    }
-
     pub fn text_span(&self) -> Span {
-        let start = self.lit_span.start.plus(self.text_start_offset as u32);
-        let end = self.lit_span.end.minus(self.text_end_offset as u32);
-        Span { start, end }
-    }
-
-    pub fn l_quote(&'a self) -> &'a str {
-        let quote_end = self.text_start_offset as usize;
-        &self.lit[0..quote_end]
-    }
-
-    /// Returns either the right quote or none if the string literal is unclosed.
-    pub fn r_quote(&'a self) -> Option<&'a str> {
-        if self.text_end_offset == 0 {
-            None
-        } else {
-            let quote_start = self.lit.len() - self.text_end_offset as usize;
-            Some(&self.lit[quote_start..])
-        }
+        self.text_offset.apply_to(self.lit_span)
     }
 }
 
@@ -1062,14 +1026,7 @@ fn parse_key<'a>(
                         return Err(Error::MultilineLiteralStringIdent(lit_span));
                     }
                 };
-                Ident::from_string(
-                    str.lit,
-                    lit_span,
-                    str.text,
-                    str.text_start_offset,
-                    str.text_end_offset,
-                    kind,
-                )
+                Ident::from_string(str.lit, lit_span, str.text, str.text_offset, kind)
             }
             TokenType::LiteralOrIdent(id) => {
                 let lit = parser.literal(id);
@@ -1133,14 +1090,14 @@ fn parse_value<'a>(
             let token = parser.next();
             let str = parser.string(id);
             let lit_span = Span::new(token.start, str.lit_end);
-            Value::String(StringVal::new(
-                str.lit,
+
+            Value::String(StringVal {
+                lit: str.lit,
                 lit_span,
-                str.text,
-                str.text_start_offset,
-                str.text_end_offset,
-                str.quote,
-            ))
+                text: str.text,
+                text_offset: str.text_offset,
+                quote: str.quote,
+            })
         }
         TokenType::LiteralOrIdent(id) => {
             let token = parser.next();

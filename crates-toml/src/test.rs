@@ -6,6 +6,7 @@ pub use pretty_assertions::assert_eq;
 
 pub use std::collections::HashMap;
 
+use crate::lex::TextOffset;
 pub use crate::map::simple::SimpleVal;
 pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
 pub use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
@@ -143,15 +144,15 @@ pub fn astring<'a>(
     );
     // HACK: only works for strings without escape sequences
     let text = lit.trim_start_matches('\'');
-    let text_start_offset = (lit.len() - text.len()) as u8;
+    let start_offset = (lit.len() - text.len()) as u8;
     let text = text.trim_end_matches('\'');
-    let text_end_offset = (lit.len() - text.len()) as u8 - text_start_offset;
+    let end_offset = (lit.len() - text.len()) as u8 - start_offset;
+    let text_offset = TextOffset::chars(start_offset, end_offset);
     let val = Value::String(StringVal {
         lit_span,
         lit,
         text,
-        text_start_offset,
-        text_end_offset,
+        text_offset,
         quote,
     });
     a(line, char, ident, val)

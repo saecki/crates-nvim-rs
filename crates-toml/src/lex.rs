@@ -57,20 +57,72 @@ pub struct StringToken<'a> {
     pub lit_end: Pos,
     /// The text with escape sequences evaluated
     pub text: &'a str,
-    pub text_start_offset: u8,
-    pub text_end_offset: u8,
+    pub text_offset: TextOffset,
 }
 
 impl<'a> StringToken<'a> {
     pub fn new(quote: Quote, lit: &'a str, lit_span: Span, text: &'a str, text_span: Span) -> Self {
+        let start_line = (text_span.start.line - lit_span.start.line) as u8;
+        let end_line = (lit_span.end.line - text_span.end.line) as u8;
+        let text_offset = TextOffset {
+            start_line,
+            start_char: if start_line == 0 {
+                (text_span.start.char - lit_span.start.char) as u8
+            } else {
+                0
+            },
+            end_line,
+            end_char: if end_line == 0 {
+                (lit_span.end.char - text_span.end.char) as u8
+            } else {
+                0
+            },
+        };
         Self {
             quote,
             lit,
             lit_end: lit_span.end,
             text,
-            text_start_offset: (text_span.start.char - lit_span.start.char) as u8,
-            text_end_offset: (lit_span.end.char - text_span.end.char) as u8,
+            text_offset,
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TextOffset {
+    pub start_line: u8,
+    pub start_char: u8,
+    pub end_line: u8,
+    pub end_char: u8,
+}
+
+impl TextOffset {
+    pub const ZERO: Self = Self {
+        start_line: 0,
+        start_char: 0,
+        end_line: 0,
+        end_char: 0,
+    };
+
+    pub fn chars(start_char: u8, end_char: u8) -> Self {
+        Self {
+            start_line: 0,
+            start_char,
+            end_line: 0,
+            end_char,
+        }
+    }
+
+    pub fn apply_to(&self, lit_span: Span) -> Span {
+        let start = Pos {
+            line: lit_span.start.line + self.start_line as u32,
+            char: lit_span.start.char + self.start_char as u32,
+        };
+        let end = Pos {
+            line: lit_span.end.line - self.end_line as u32,
+            char: lit_span.end.char - self.end_char as u32,
+        };
+        Span { start, end }
     }
 }
 
@@ -226,6 +278,12 @@ impl<'a> Lexer<'a> {
         self.chars.as_str().chars().next()
     }
 
+    fn peek2(&self) -> Option<char> {
+        let mut iter = self.chars.as_str().chars();
+        iter.next();
+        iter.next()
+    }
+
     fn peek_prev(&self) -> Option<char> {
         self.input[..self.byte_pos].chars().next_back()
     }
@@ -286,6 +344,20 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
                         // It's a multiline string
                         lexer.next();
                         quote = quote.multiline();
+
+                        // > A newline immediately following the opening delimiter will be trimmed
+                        match lexer.peek() {
+                            Some('\n') => {
+                                lexer.next();
+                                lexer.newline();
+                            }
+                            Some('\r') if lexer.peek2() == Some('\n') => {
+                                lexer.next();
+                                lexer.next();
+                                lexer.newline();
+                            }
+                            _ => (),
+                        }
                     } else {
                         // It's just an empty string
                         let lit_span = Span::from_pos_len(lexer.lit_start, 2);
@@ -307,8 +379,12 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
                     }
                 }
 
-                let text_start = lexer.pos().plus(1);
-                let text_byte_start = lexer.byte_pos + 1;
+                let text_byte_start = lexer.input.len() - lexer.chars.as_str().len();
+                // TODO: add lexer.pos_in_line() function
+                let text_start = Pos {
+                    line: lexer.line_idx,
+                    char: (text_byte_start - lexer.line_byte_start) as u32,
+                };
                 let mut str_state = StrState {
                     text: None,
                     text_start,

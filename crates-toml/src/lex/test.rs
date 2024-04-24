@@ -176,8 +176,7 @@ fn assign_literal_string() {
                 lit: "'yeet\\'",
                 lit_end: Pos { line: 0, char: 19 },
                 text: "yeet\\",
-                text_start_offset: 1,
-                text_end_offset: 1,
+                text_offset: TextOffset::chars(1, 1),
             }],
             literals: &["my", "string"],
             eof: Token {
@@ -228,8 +227,7 @@ fn assign_escaped_string() {
                 lit: "\"a\\u93f2nope\"",
                 lit_end: Pos { line: 0, char: 33 },
                 text: "a\u{93f2}nope",
-                text_start_offset: 1,
-                text_end_offset: 1,
+                text_offset: TextOffset::chars(1, 1),
             }],
             literals: &["my", "escaped", "string"],
             eof: Token {
@@ -292,8 +290,7 @@ fn multiline_string_escaped_newline() {
                     "\"\"\"look \\\n    the final string \\\n    is just one \\\n    line\\\n\"\"\"",
                 lit_end: Pos { line: 4, char: 3 },
                 text: "look the final string is just one line",
-                text_start_offset: 3,
-                text_end_offset: 3,
+                text_offset: TextOffset::chars(3, 3),
             }],
             literals: &[],
             eof: Token {
@@ -318,8 +315,7 @@ fn multiline_string_contains_up_to_two_quotes() {
                 lit: "'''this doesn't end the string: '' but this does: '''",
                 lit_end: Pos { line: 0, char: 53 },
                 text: "this doesn't end the string: '' but this does: ",
-                text_start_offset: 3,
-                text_end_offset: 3,
+                text_offset: TextOffset::chars(3, 3),
             }],
             literals: &[],
             eof: Token {
@@ -354,8 +350,7 @@ fn assign_basic_multiline_string() {
                 lit: "\"\"\"\\\neach\nword\nis\non\na\nnew\nline\n\"\"\"",
                 lit_end: Pos { line: 8, char: 3 },
                 text: "each\nword\nis\non\na\nnew\nline\n",
-                text_start_offset: 3,
-                text_end_offset: 3,
+                text_offset: TextOffset::chars(3, 3),
             }],
             literals: &["m_string"],
             eof: Token {
@@ -390,8 +385,7 @@ fn assign_literal_multiline_string() {
                 lit: "'''\\\neach\nword\nis\non\na\nnew\nline\n'''",
                 lit_end: Pos { line: 8, char: 3 },
                 text: "\\\neach\nword\nis\non\na\nnew\nline\n",
-                text_start_offset: 3,
-                text_end_offset: 3,
+                text_offset: TextOffset::chars(3, 3),
             }],
             literals: &["m_string"],
             eof: Token {
@@ -422,8 +416,7 @@ fn unclosed_basic_single_line_string() {
                 lit: "\"some unclosed string",
                 lit_end: Pos { line: 0, char: 21 },
                 text: "some unclosed string",
-                text_start_offset: 1,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(1, 0),
             }],
             literals: &[],
             eof: Token {
@@ -453,8 +446,7 @@ fn unclosed_basic_multi_line_string() {
                 lit: "\"\"\"some unclosed string\nthis is a new line",
                 lit_end: Pos { line: 1, char: 18 },
                 text: "some unclosed string\nthis is a new line",
-                text_start_offset: 3,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(3, 0),
             }],
             literals: &[],
             eof: Token {
@@ -484,8 +476,7 @@ fn not_fully_closed_basic_multi_line_string_1() {
                 lit: "\"\"\"some unclosed string\"",
                 lit_end: Pos { line: 0, char: 24 },
                 text: "some unclosed string\"",
-                text_start_offset: 3,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(3, 0),
             }],
             literals: &[],
             eof: Token {
@@ -515,8 +506,7 @@ fn not_fully_closed_basic_multi_line_string_2() {
                 lit: "\"\"\"some unclosed string\"\"",
                 lit_end: Pos { line: 0, char: 25 },
                 text: "some unclosed string\"\"",
-                text_start_offset: 3,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(3, 0),
             }],
             literals: &[],
             eof: Token {
@@ -552,8 +542,7 @@ fn unclosed_literal_single_line_string() {
                 lit: "'some unclosed string",
                 lit_end: Pos { line: 0, char: 21 },
                 text: "some unclosed string",
-                text_start_offset: 1,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(1, 0),
             }],
             literals: &[],
             eof: Token {
@@ -583,8 +572,7 @@ fn unclosed_literal_multi_line_string() {
                 lit: "'''some unclosed string\nthis is a new line",
                 lit_end: Pos { line: 1, char: 18 },
                 text: "some unclosed string\nthis is a new line",
-                text_start_offset: 3,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(3, 0),
             }],
             literals: &[],
             eof: Token {
@@ -614,8 +602,7 @@ fn not_fully_closed_literal_multi_line_string_1() {
                 lit: "'''some unclosed string'",
                 lit_end: Pos { line: 0, char: 24 },
                 text: "some unclosed string'",
-                text_start_offset: 3,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(3, 0),
             }],
             literals: &[],
             eof: Token {
@@ -645,8 +632,7 @@ fn not_fully_closed_literal_multi_line_string_2() {
                 lit: "'''some unclosed string''",
                 lit_end: Pos { line: 0, char: 25 },
                 text: "some unclosed string''",
-                text_start_offset: 3,
-                text_end_offset: 0,
+                text_offset: TextOffset::chars(3, 0),
             }],
             literals: &[],
             eof: Token {
@@ -840,16 +826,14 @@ fn crlf() {
                     lit: "\"splay\"",
                     lit_end: Pos { line: 2, char: 14 },
                     text: "splay",
-                    text_start_offset: 1,
-                    text_end_offset: 1,
+                    text_offset: TextOffset::chars(1, 1),
                 },
                 StringToken {
                     quote: Quote::Basic,
                     lit: "\"0.1.0\"",
                     lit_end: Pos { line: 3, char: 17 },
                     text: "0.1.0",
-                    text_start_offset: 1,
-                    text_end_offset: 1,
+                    text_offset: TextOffset::chars(1, 1),
                 },
                 StringToken {
                     quote: Quote::BasicMultiline,
@@ -866,8 +850,7 @@ fn crlf() {
                         writers. Additionally, great lengths are taken to ensure that the entire\n\
                         contents are never required to be entirely resident in memory all at once.\n\
                     ",
-                    text_start_offset: 3,
-                    text_end_offset: 3,
+                    text_offset: TextOffset::chars(3, 3),
                 },
             ],
             literals: &["project", "name", "version", " comment", "lib", "description"],
