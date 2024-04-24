@@ -348,6 +348,33 @@ fn invalid_int_identifier() {
 }
 
 #[test]
+fn space_between_array_header_brackets() {
+    check_simple_error(
+        "[ [a.b]]",
+        HashMap::from_iter([(
+            "a".into(),
+            SimpleVal::Table(HashMap::from_iter([(
+                "b".into(),
+                SimpleVal::Array(vec![SimpleVal::Table(HashMap::new())]),
+            )])),
+        )]),
+        Error::SpaceBetweenArrayPars(Span::from_pos_len(Pos { line: 0, char: 1 }, 1)),
+    );
+
+    check_simple_error(
+        "[[a.b] ]",
+        HashMap::from_iter([(
+            "a".into(),
+            SimpleVal::Table(HashMap::from_iter([(
+                "b".into(),
+                SimpleVal::Array(vec![SimpleVal::Table(HashMap::new())]),
+            )])),
+        )]),
+        Error::SpaceBetweenArrayPars(Span::from_pos_len(Pos { line: 0, char: 6 }, 1)),
+    );
+}
+
+#[test]
 fn invalid_float_literal_as_identifier() {
     check_error(
         "23e+3 = 'hello'",
