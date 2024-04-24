@@ -572,8 +572,17 @@ fn string_escape<'a>(
             lexer.newline();
 
             // eat whitespace
-            while let Some(' ' | '\t') = lexer.peek() {
-                lexer.next();
+            while let Some(c) = lexer.peek() {
+                match c {
+                    ' ' | '\t' | '\r' => {
+                        lexer.next();
+                    }
+                    '\n' => {
+                        lexer.next();
+                        lexer.newline();
+                    }
+                    _ => break,
+                }
             }
         }
         _ => ctx.error(Error::InvalidEscapeChar(FmtChar(c), lexer.pos())),
