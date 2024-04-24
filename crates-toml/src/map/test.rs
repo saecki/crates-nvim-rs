@@ -661,3 +661,27 @@ not-arr = 1
         )]),
     );
 }
+
+#[test]
+fn toml_test_repro_append_to_array_with_dotted_keys() {
+    check_simple_error(
+        "\
+[[a.b]]
+
+[a]
+b.y = 2
+",
+        HashMap::from_iter([(
+            "a".into(),
+            SimpleVal::Table(HashMap::from_iter([(
+                "b".into(),
+                SimpleVal::Array(vec![SimpleVal::Table(HashMap::new())]),
+            )])),
+        )]),
+        Error::CannotExtendArrayWithDottedKey {
+            path: "a.b".into(),
+            orig: Span::from_pos_len(Pos { line: 0, char: 0 }, 7),
+            new: Span::from_pos_len(Pos { line: 3, char: 0 }, 1),
+        },
+    );
+}

@@ -97,6 +97,16 @@ impl MapTableEntryReprKind<'_> {
             MapTableEntryReprKind::InlineTableAssignment(a) => a.span(),
         }
     }
+
+    #[inline]
+    pub fn is_assignment(&self) -> bool {
+        match self {
+            MapTableEntryReprKind::Table(_) => false,
+            MapTableEntryReprKind::ArrayEntry(_) => false,
+            MapTableEntryReprKind::ToplevelAssignment(_) => true,
+            MapTableEntryReprKind::InlineTableAssignment(_) => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -520,7 +530,14 @@ fn insert_node_at_path<'a>(
                 }
             };
 
-            let next = match get_table_to_extend(mapper, &mut entry.node, &entry.reprs, &o.ident) {
+            let is_assignment = repr_kind.is_assignment();
+            let next = match get_table_to_extend(
+                mapper,
+                &mut entry.node,
+                &entry.reprs,
+                &o.ident,
+                is_assignment,
+            ) {
                 Ok(t) => t,
                 Err(e) => return ctx.error(e),
             };
@@ -666,10 +683,11 @@ fn insert_array_entry_at_path<'a>(
                 }
             };
 
-            let next = match get_table_to_extend(mapper, &mut entry.node, &entry.reprs, &o.ident) {
-                Ok(t) => t,
-                Err(e) => return ctx.error(e),
-            };
+            let next =
+                match get_table_to_extend(mapper, &mut entry.node, &entry.reprs, &o.ident, false) {
+                    Ok(t) => t,
+                    Err(e) => return ctx.error(e),
+                };
 
             let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
             let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
@@ -770,6 +788,7 @@ fn get_table_to_extend<'a, 'b>(
     node: &'b mut MapNode<'a>,
     reprs: &OneVec<MapTableEntryRepr<'a>>,
     ident: &'b Ident<'a>,
+    is_assignment: bool,
 ) -> Result<&'b mut MapTable<'a>, Error>
 where
     'a: 'b,
@@ -780,6 +799,13 @@ where
             t
         }
         MapNode::Array(MapArray::Toplevel(t)) => {
+            if is_assignment {
+                let path = mapper.joined_path(ident.lit);
+                let orig = reprs.first().kind.span();
+                let new = ident.lit_span();
+                return Err(Error::CannotExtendArrayWithDottedKey { path, orig, new });
+            }
+
             // From the toml spec (https://toml.io/en/v1.0.0#array-of-tables):
             // Any reference to an array of tables points to the most recently
             // defined table element of the array. This allows you to define

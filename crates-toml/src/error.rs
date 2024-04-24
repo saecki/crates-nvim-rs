@@ -85,6 +85,11 @@ pub enum Error {
         orig: Span,
         new: Span,
     },
+    CannotExtendArrayWithDottedKey {
+        path: FmtStr,
+        orig: Span,
+        new: Span,
+    },
 }
 
 impl Diagnostic for Error {
@@ -151,6 +156,7 @@ impl Diagnostic for Error {
             CannotExtendInlineTable { new, .. } => *new,
             CannotExtendInlineArray { new, .. } => *new,
             CannotExtendInlineArrayAsTable { new, .. } => *new,
+            CannotExtendArrayWithDottedKey { new, .. } => *new,
         }
     }
 
@@ -254,6 +260,7 @@ impl Diagnostic for Error {
             CannotExtendInlineTable { path, .. } => write!(f, "Cannot extend inline table `{path}`"),
             CannotExtendInlineArray { path, .. } => write!(f, "Cannot extend inline array `{path}`"),
             CannotExtendInlineArrayAsTable { path, .. } => write!(f, "Cannot extend inline array `{path}`, not a table"),
+            CannotExtendArrayWithDottedKey { path, .. } => write!(f, "Cannot extend array `{path}` with dotted key"),
         }
     }
 
@@ -334,6 +341,9 @@ impl Diagnostic for Error {
             CannotExtendInlineArrayAsTable { .. } => {
                 write!(f, "Cannot extend inline array, not a table")
             }
+            CannotExtendArrayWithDottedKey { .. } => {
+                write!(f, "Cannot extend array with dotted key")
+            }
         }
     }
 }
@@ -402,6 +412,9 @@ impl Error {
             CannotExtendInlineArrayAsTable { orig, .. } => {
                 Some(Hint::CannotExtendInlineArrayAsTable(*orig))
             }
+            CannotExtendArrayWithDottedKey { orig, .. } => {
+                Some(Hint::CannotExtendArrayWithDottedKey(*orig))
+            }
         }
     }
 }
@@ -432,6 +445,7 @@ pub enum Hint {
     CannotExtendInlineTable(Span),
     CannotExtendInlineArray(Span),
     CannotExtendInlineArrayAsTable(Span),
+    CannotExtendArrayWithDottedKey(Span),
 }
 
 impl Diagnostic for Hint {
@@ -446,6 +460,7 @@ impl Diagnostic for Hint {
             CannotExtendInlineTable(s) => *s,
             CannotExtendInlineArray(s) => *s,
             CannotExtendInlineArrayAsTable(s) => *s,
+            CannotExtendArrayWithDottedKey(s) => *s,
         }
     }
 
@@ -458,6 +473,7 @@ impl Diagnostic for Hint {
             CannotExtendInlineTable(_) => write!(f, "Original table defined here"),
             CannotExtendInlineArray(_) => write!(f, "Original array defined here"),
             CannotExtendInlineArrayAsTable(_) => write!(f, "Original array defined here"),
+            CannotExtendArrayWithDottedKey(_) => write!(f, "Original array defined here"),
         }
     }
 
