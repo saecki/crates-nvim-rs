@@ -685,3 +685,31 @@ b.y = 2
         },
     );
 }
+
+#[test]
+fn toml_test_repro_append_with_dotted_keys_1() {
+    check_simple_error(
+        "\
+[a.b.c]
+  z = 9
+
+[a]
+  b.c.t = \"Using dotted keys to add to [a.b.c] after explicitly defining it above is not allowed\"
+",
+        HashMap::from_iter([(
+            "a".into(),
+            SimpleVal::Table(HashMap::from_iter([(
+                "b".into(),
+                SimpleVal::Table(HashMap::from_iter([(
+                    "c".into(),
+                    SimpleVal::Table(HashMap::from_iter([("z".into(), SimpleVal::Int(9))])),
+                )])),
+            )])),
+        )]),
+        Error::CannotExtendTableWithDottedKey {
+            path: "a.b".into(),
+            orig: Span::new(Pos { line: 0, char: 0 }, Pos { line: 1, char: 7 }),
+            new: Span::from_pos_len(Pos { line: 4, char: 2 }, 1),
+        },
+    );
+}

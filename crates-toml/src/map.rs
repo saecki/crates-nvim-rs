@@ -834,7 +834,14 @@ where
 
     for existing in reprs.iter() {
         match &existing.kind {
-            MapTableEntryReprKind::Table(_) => (),
+            MapTableEntryReprKind::Table(_) => {
+                if is_assignment {
+                    let path = mapper.path().unwrap();
+                    let orig = reprs.first().kind.span();
+                    let new = ident.lit_span();
+                    return Err(Error::CannotExtendTableWithDottedKey { path, orig, new });
+                }
+            }
             MapTableEntryReprKind::ArrayEntry(_) => (),
             MapTableEntryReprKind::ToplevelAssignment(_) => {
                 if existing.key.is_last_ident() {
