@@ -294,6 +294,13 @@ impl<'a> Lexer<'a> {
             char: (self.byte_pos - self.line_byte_start) as u32,
         }
     }
+
+    fn pos_in_line(&self, byte_pos: usize) -> Pos {
+        Pos {
+            line: self.line_idx,
+            char: (byte_pos - self.line_byte_start) as u32,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -380,11 +387,7 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
                 }
 
                 let text_byte_start = lexer.input.len() - lexer.chars.as_str().len();
-                // TODO: add lexer.pos_in_line() function
-                let text_start = Pos {
-                    line: lexer.line_idx,
-                    char: (text_byte_start - lexer.line_byte_start) as u32,
-                };
+                let text_start = lexer.pos_in_line(text_byte_start);
                 let mut str_state = StrState {
                     text: None,
                     text_start,
@@ -466,10 +469,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
             let line_end = lexer.byte_pos - cr as usize;
 
             if !str.quote.is_multiline() {
-                let line_end_pos = Pos {
-                    line: lexer.line_idx,
-                    char: (line_end - lexer.line_byte_start) as u32,
-                };
+                let line_end_pos = lexer.pos_in_line(line_end);
 
                 // Recover state
                 ctx.error(Error::MissingQuote(
@@ -720,17 +720,11 @@ fn end_string<'a>(
 
     let lit_span = Span {
         start: lexer.lit_start,
-        end: Pos {
-            line: lexer.line_idx,
-            char: (lit_byte_end - lexer.line_byte_start) as u32,
-        },
+        end: lexer.pos_in_line(lit_byte_end),
     };
     let text_span = Span {
         start: str.text_start,
-        end: Pos {
-            line: lexer.line_idx,
-            char: (text_byte_end - lexer.line_byte_start) as u32,
-        },
+        end: lexer.pos_in_line(text_byte_end),
     };
 
     let id = lexer.store_string(StringToken::new(str.quote, lit, lit_span, text, text_span));
@@ -779,10 +773,7 @@ fn comment(lexer: &mut Lexer) {
     });
 
     if newline {
-        let line_end_pos = Pos {
-            line: lexer.line_idx,
-            char: (text_end - lexer.line_byte_start) as u32,
-        };
+        let line_end_pos = lexer.pos_in_line(text_end);
         lexer.tokens.push(Token {
             start: line_end_pos,
             ty: TokenType::Newline,
