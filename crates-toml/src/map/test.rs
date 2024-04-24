@@ -636,3 +636,28 @@ fn array_of_table_of_arrays() {
         )]),
     );
 }
+
+#[test]
+fn toml_test_repro_open_parent_table() {
+    check_simple(
+        "\
+[[parent-table.arr]]
+[[parent-table.arr]]
+[parent-table]
+not-arr = 1
+",
+        HashMap::from_iter([(
+            "parent-table".into(),
+            SimpleVal::Table(HashMap::from_iter([
+                (
+                    "arr".into(),
+                    SimpleVal::Array(vec![
+                        SimpleVal::Table(HashMap::new()),
+                        SimpleVal::Table(HashMap::new()),
+                    ]),
+                ),
+                ("not-arr".into(), SimpleVal::Int(1)),
+            ])),
+        )]),
+    );
+}

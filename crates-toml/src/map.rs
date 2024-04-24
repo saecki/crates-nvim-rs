@@ -581,7 +581,9 @@ fn insert_node<'a>(
     };
     for existing_repr in existing_entry.reprs.iter() {
         match existing_repr.kind {
-            MapTableEntryReprKind::Table(_) if !existing_repr.key.is_last_ident() => {
+            MapTableEntryReprKind::Table(_) | MapTableEntryReprKind::ArrayEntry(_)
+                if !existing_repr.key.is_last_ident() =>
+            {
                 // allow super tables, that are declared out of order
             }
             MapTableEntryReprKind::Table(_)
