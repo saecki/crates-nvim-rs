@@ -11,9 +11,7 @@ struct TestDecoder;
 
 impl toml_test_harness::Decoder for TestDecoder {
     fn decode(&self, data: &[u8]) -> Result<toml_test_harness::Decoded, toml_test_harness::Error> {
-        let Ok(input) = std::str::from_utf8(data) else {
-            return Err(toml_test_harness::Error::new("Invalid utf8"));
-        };
+        let input = std::str::from_utf8(data).map_err(toml_test_harness::Error::new)?;
 
         let mut ctx = TomlDiagnostics::default();
         let bump = Bump::new();
@@ -22,9 +20,13 @@ impl toml_test_harness::Decoder for TestDecoder {
         let map = ctx.map(&asts);
 
         if let Some(e) = ctx.errors.first() {
-            let mut msg = String::new();
+            let span = e.span();
+            let mut msg = format!(
+                "{}:{} - {}:{}\n",
+                span.start.line, span.start.char, span.end.line, span.end.char
+            );
             _ = e.description(&mut msg);
-            return Err(toml_test_harness::Error::new("Invalid utf8"));
+            return Err(toml_test_harness::Error::new(msg));
         }
 
         Ok(map_table(map))
