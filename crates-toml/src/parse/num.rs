@@ -124,7 +124,7 @@ fn parse_decimal_int_float_or_date(
                     NumParseState::OverflowOrFloat => {}
                 }
             }
-            'e' | 'E' => return parse_float_exponent(chars, span),
+            'e' | 'E' => return validate_float_exponent(chars, span),
             ':' if sign_char.is_none() && i == 2 => {
                 let hour = int_accum as u8;
                 return datetime::continue_parsing_local_time(&mut chars, span, hour)
@@ -167,15 +167,16 @@ fn parse_prefixed_int_or_date(
     let Some((i, c)) = chars.next() else {
         return Ok(PartialValue::Int(0));
     };
-    let sign = match sign_char {
-        Some(Sign::Positive) => {
-            return Err(Error::PrefixedIntPositiveSignNotAllowed(span.start));
-        }
-        Some(Sign::Negative) => -1,
-        None => 1,
-    };
     match c {
         'b' | 'B' | 'o' | 'O' | 'x' | 'X' => {
+            let sign = match sign_char {
+                Some(Sign::Positive) => {
+                    return Err(Error::PrefixedIntPositiveSignNotAllowed(span.start));
+                }
+                Some(Sign::Negative) => -1,
+                None => 1,
+            };
+
             let prefix = match c {
                 'b' | 'B' => IntPrefix::Binary,
                 'o' | 'O' => IntPrefix::Octal,
@@ -189,6 +190,7 @@ fn parse_prefixed_int_or_date(
             let val = parse_prefixed_int_literal(chars, span, prefix)?;
             Ok(PartialValue::PrefixedInt(sign * val))
         }
+        'e' | 'E' => validate_float_exponent(chars, span),
         '0'..='9' if sign_char.is_none() => {
             let two_digits = c as u16 - '0' as u16;
             datetime::continue_parsing_date_time(&mut chars, span, two_digits)
@@ -276,7 +278,7 @@ fn parse_prefixed_int_literal(
     Ok(accum)
 }
 
-fn parse_float_exponent(mut chars: CharIter, span: Span) -> Result<PartialValue, Error> {
+fn validate_float_exponent(mut chars: CharIter, span: Span) -> Result<PartialValue, Error> {
     if let Some((_, '-' | '+')) = chars.peek() {
         chars.next();
     }
