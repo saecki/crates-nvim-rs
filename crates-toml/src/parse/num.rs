@@ -325,6 +325,10 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
         match c {
             '0'..='9' => {}
             'e' | 'E' => {
+                if i == 0 {
+                    return Err(Error::MissingFloatFractionalPart(span.start));
+                }
+
                 if last_underscore {
                     let pos = span.start.plus(i as u32 - 1);
                     return Err(Error::FloatFractEndsWithUnderscore(pos));
