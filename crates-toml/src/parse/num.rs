@@ -175,13 +175,9 @@ fn parse_prefixed_int_or_date(
     };
     match c {
         'b' | 'B' | 'o' | 'O' | 'x' | 'X' => {
-            let sign = match sign_char {
-                Some(Sign::Positive) => {
-                    return Err(Error::PrefixedIntPositiveSignNotAllowed(span.start));
-                }
-                Some(Sign::Negative) => -1,
-                None => 1,
-            };
+            if sign_char.is_some() {
+                return Err(Error::PrefixedIntSignNotAllowed(span.start));
+            }
 
             let prefix = match c {
                 'b' | 'B' => IntPrefix::Binary,
@@ -194,7 +190,7 @@ fn parse_prefixed_int_or_date(
                 return Err(Error::UppercaseIntRadix(prefix, pos));
             }
             let val = parse_prefixed_int_literal(chars, span, prefix)?;
-            Ok(PartialValue::PrefixedInt(sign * val))
+            Ok(PartialValue::PrefixedInt(val))
         }
         'e' | 'E' => validate_float_exponent(chars, span),
         '0'..='9' if sign_char.is_none() => {

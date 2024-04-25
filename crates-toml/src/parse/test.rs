@@ -155,35 +155,44 @@ fn assign_sgined_zero_floats() {
 }
 
 #[test]
-fn negative_prefixed_binary_int() {
-    check_simple(
+fn sign_prefixed_binary_int() {
+    check_error(
         "num = -0b10100",
-        HashMap::from_iter([("num".into(), SimpleVal::Int(-0b10100))]),
+        |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "num", "-0b10100"))],
+        Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
+    );
+    check_error(
+        "num = +0b10100",
+        |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "num", "+0b10100"))],
+        Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
 
 #[test]
-fn negative_prefixed_octal_int() {
-    check_simple(
+fn sign_prefixed_octal_int() {
+    check_error(
         "num = -0o361",
-        HashMap::from_iter([("num".into(), SimpleVal::Int(-0o361))]),
+        |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "num", "-0o361"))],
+        Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
+    );
+    check_error(
+        "num = +0o361",
+        |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "num", "+0o361"))],
+        Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
 
 #[test]
-fn negative_prefixed_hexadecimal_int() {
-    check_simple(
+fn signed_prefixed_hexadecimal_int() {
+    check_error(
         "num = -0xc20",
-        HashMap::from_iter([("num".into(), SimpleVal::Int(-0xc20))]),
+        |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "num", "-0xc20"))],
+        Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
-}
-
-#[test]
-fn positive_sign_not_allowed_for_prefixed_int() {
-    check_simple_error(
+    check_error(
         "num = +0xc20",
-        HashMap::from_iter([("num".into(), SimpleVal::Invalid("+0xc20".into()))]),
-        Error::PrefixedIntPositiveSignNotAllowed(Pos::new(0, 6)),
+        |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "num", "+0xc20"))],
+        Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
 
