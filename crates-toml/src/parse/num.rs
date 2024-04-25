@@ -152,8 +152,10 @@ fn parse_decimal_int_float_or_date(
                 return datetime::continue_parsing_date_time_after_year(&mut chars, span, year);
             }
             '_' => {
-                last_underscore = true;
-                continue;
+                if last_underscore {
+                    let start = span.start.plus(i as u32 - 1);
+                    return consecutive_underscore_error(chars, start);
+                }
             }
             _ => {
                 let pos = span.start.plus(i as u32);
@@ -261,6 +263,9 @@ fn parse_prefixed_int_literal(
                 if j == 0 {
                     let pos = span.start.plus(i as u32);
                     return Err(Error::PrefixedIntValueStartsWithUnderscore(pos));
+                } else if last_underscore {
+                    let start = span.start.plus(i as u32 - 1);
+                    return consecutive_underscore_error(chars, start);
                 }
                 last_underscore = true;
                 continue;
@@ -307,6 +312,9 @@ fn validate_float_exponent(mut chars: CharIter, span: Span) -> Result<PartialVal
                 if j == 0 {
                     let pos = span.start.plus(i as u32);
                     return Err(Error::LitStartsWithUnderscore(LitPart::FloatExp, pos));
+                } else if last_underscore {
+                    let start = span.start.plus(i as u32 - 1);
+                    return consecutive_underscore_error(chars, start);
                 }
             }
             _ => {
@@ -357,6 +365,9 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
                             if j == 0 {
                                 let pos = span.start.plus(i as u32);
                                 return Err(Error::LitStartsWithUnderscore(LitPart::FloatExp, pos));
+                            } else if last_underscore {
+                                let start = span.start.plus(i as u32 - 1);
+                                return consecutive_underscore_error(chars, start);
                             }
                         }
                         _ => {
@@ -379,6 +390,9 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
                 if i == 0 {
                     let pos = span.start.plus(i as u32);
                     return Err(Error::LitStartsWithUnderscore(LitPart::FloatFract, pos));
+                } else if last_underscore {
+                    let start = span.start.plus(i as u32 - 1);
+                    return consecutive_underscore_error(chars, start);
                 }
             }
             _ => {
@@ -396,4 +410,16 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
     }
 
     Ok(())
+}
+
+fn consecutive_underscore_error<T>(mut chars: CharIter, start: Pos) -> Result<T, Error> {
+    let mut end = start.plus(2);
+    while let Some((_, '_')) = chars.peek() {
+        chars.next();
+        end.char += 1;
+    }
+
+    Err(Error::ConsecutiveUnderscoresInLiteral(Span::new(
+        start, end,
+    )))
 }

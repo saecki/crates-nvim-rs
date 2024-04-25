@@ -30,6 +30,7 @@ pub enum Error {
     InvalidCharInNumLiteral(FmtChar, Pos),
     LitStartsWithUnderscore(LitPart, Pos),
     LitEndsWithUnderscore(LitPart, Pos),
+    ConsecutiveUnderscoresInLiteral(Span),
     MissingNumDigitsAfterSign(Sign, Pos),
 
     InvalidCharInFloatLiteral(FmtChar, Pos),
@@ -125,6 +126,7 @@ impl Diagnostic for Error {
             InvalidCharInNumLiteral(_, p) => Span::pos(*p),
             LitStartsWithUnderscore(_, p) => Span::pos(*p),
             LitEndsWithUnderscore(_, p) => Span::pos(*p),
+            ConsecutiveUnderscoresInLiteral(s) => *s,
             MissingNumDigitsAfterSign(_, p) => Span::pos(*p),
 
             InvalidCharInFloatLiteral(_, p) => Span::pos(*p),
@@ -207,6 +209,9 @@ impl Diagnostic for Error {
                     _ => unsafe { std::hint::unreachable_unchecked() },
                 };
                 write!(f, "{part} cannot {verb} with `_`")
+            }
+            ConsecutiveUnderscoresInLiteral(_) => {
+                write!(f, "Consecutive underscores (`_`) are not allowed in number literals")
             }
             MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing digit after sign `{sign}`, expected at least one"),
 
@@ -304,6 +309,9 @@ impl Diagnostic for Error {
             InvalidCharInNumLiteral(..) => write!(f, "Invalid integer or float literal character"),
             LitStartsWithUnderscore(_, _) => write!(f, "Literal cannot start with `_`"),
             LitEndsWithUnderscore(_, _) => write!(f, "Literal cannot end with `_`"),
+            ConsecutiveUnderscoresInLiteral(_) => {
+                write!(f, "Consecutive underscores (`_`) not allowed")
+            }
             MissingNumDigitsAfterSign(..) => write!(f, "Missing digit after sign"),
 
             InvalidCharInFloatLiteral(..) => write!(f, "Invalid float literal character"),
@@ -383,6 +391,7 @@ impl Error {
             InvalidCharInNumLiteral(_, _) => None,
             LitStartsWithUnderscore(_, _) => None,
             LitEndsWithUnderscore(_, _) => None,
+            ConsecutiveUnderscoresInLiteral(_) => None,
             MissingNumDigitsAfterSign(_, _) => None,
 
             InvalidCharInFloatLiteral(_, _) => None,
