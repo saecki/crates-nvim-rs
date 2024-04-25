@@ -8,7 +8,7 @@ use crate::datetime::{Date, DateTime, Time};
 use crate::lex::{LiteralId, StringId, StringToken, TextOffset, Token, TokenType, Tokens};
 use crate::{Error, Quote, TomlCtx};
 
-pub use num::{IntPrefix, Sign};
+pub use num::{IntPrefix, LitPart, Sign};
 
 mod datetime;
 mod num;

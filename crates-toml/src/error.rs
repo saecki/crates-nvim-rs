@@ -1,7 +1,7 @@
 use common::{Diagnostic, FmtChar, FmtStr, Pos, Severity, Span};
 
 use crate::datetime::DateTimeField;
-use crate::parse::{IntPrefix, Sign};
+use crate::parse::{IntPrefix, LitPart, Sign};
 use crate::Quote;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -28,18 +28,13 @@ pub enum Error {
     InvalidIntRadix(FmtChar, Pos),
     InvalidNumOrDateLiteralStart(FmtChar, Pos),
     InvalidCharInNumLiteral(FmtChar, Pos),
-    NumOrDateLiteralStartsWithUnderscore(Pos),
-    NumLiteralEndsWithUnderscore(Pos),
+    LitStartsWithUnderscore(LitPart, Pos),
+    LitEndsWithUnderscore(LitPart, Pos),
     MissingNumDigitsAfterSign(Sign, Pos),
 
     InvalidCharInFloatLiteral(FmtChar, Pos),
-    FloatIntegralEndsWithUnderscore(Pos),
     MissingFloatFractionalPart(Pos),
-    FloatFractStartsWithUnderscore(Pos),
-    FloatFractEndsWithUnderscore(Pos),
     InvalidCharInFloatExponent(FmtChar, Pos),
-    FloatExponentStartsWithUnderscore(Pos),
-    FloatExponentEndsWithUnderscore(Pos),
     FloatLiteralOverflow(Span),
 
     EmptyPrefixedIntValue(Pos),
@@ -128,18 +123,13 @@ impl Diagnostic for Error {
             InvalidIntRadix(_, p) => Span::pos(*p),
             InvalidNumOrDateLiteralStart(_, p) => Span::pos(*p),
             InvalidCharInNumLiteral(_, p) => Span::pos(*p),
-            NumOrDateLiteralStartsWithUnderscore(p) => Span::pos(*p),
-            NumLiteralEndsWithUnderscore(p) => Span::pos(*p),
+            LitStartsWithUnderscore(_, p) => Span::pos(*p),
+            LitEndsWithUnderscore(_, p) => Span::pos(*p),
             MissingNumDigitsAfterSign(_, p) => Span::pos(*p),
 
             InvalidCharInFloatLiteral(_, p) => Span::pos(*p),
-            FloatIntegralEndsWithUnderscore(p) => Span::pos(*p),
             MissingFloatFractionalPart(p) => Span::pos(*p),
-            FloatFractStartsWithUnderscore(p) => Span::pos(*p),
-            FloatFractEndsWithUnderscore(p) => Span::pos(*p),
             InvalidCharInFloatExponent(_, p) => Span::pos(*p),
-            FloatExponentStartsWithUnderscore(p) => Span::pos(*p),
-            FloatExponentEndsWithUnderscore(p) => Span::pos(*p),
             FloatLiteralOverflow(s) => *s,
 
             EmptyPrefixedIntValue(p) => Span::pos(*p),
@@ -202,18 +192,27 @@ impl Diagnostic for Error {
                 }
                 Ok(())
             }
-            NumOrDateLiteralStartsWithUnderscore(_) => write!(f, "Literal cannot start with `_`"),
-            NumLiteralEndsWithUnderscore(_) => write!(f, "Integer or float literal cannot end with `_`"),
+            LitStartsWithUnderscore(p, _) | LitEndsWithUnderscore(p, _) => {
+                let part = match p {
+                    LitPart::Generic => "Literal",
+                    LitPart::IntOrFloat => "Integer or float",
+                    LitPart::Int => "Integer",
+                    LitPart::FloatIntegral => "Float integral",
+                    LitPart::FloatFract => "Float fractional part",
+                    LitPart::FloatExp => "Float exponent",
+                };
+                let verb = match self {
+                    LitStartsWithUnderscore(_, _) => "start",
+                    LitEndsWithUnderscore(_, _) => "end",
+                    _ => unsafe { std::hint::unreachable_unchecked() },
+                };
+                write!(f, "{part} cannot {verb} with `_`")
+            }
             MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing digit after sign `{sign}`, expected at least one"),
 
             InvalidCharInFloatLiteral(char, _) => write!(f, "Invalid character `{char}` in float literal"),
-            FloatIntegralEndsWithUnderscore(_) => write!(f, "Float integral cannot end with `_`"),
             MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal, expected at least one digit"),
-            FloatFractStartsWithUnderscore(_) => write!(f, "Float fractional part cannot start with `_`"),
-            FloatFractEndsWithUnderscore(_) => write!(f, "Float fractional part cannot end with `_`"),
             InvalidCharInFloatExponent(char, _) => write!(f, "Invalid character `{char}` in float exponent"),
-            FloatExponentStartsWithUnderscore(_) => write!(f, "Float exponent cannot start with `_`"),
-            FloatExponentEndsWithUnderscore(_) => write!(f, "Float exponent cannot end with `_`"),
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow, number doesn't fit into a 64-bit IEEE float"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits, expected at least one"),
@@ -303,26 +302,13 @@ impl Diagnostic for Error {
             InvalidIntRadix(..) => write!(f, "Invalid integer radix"),
             InvalidNumOrDateLiteralStart(..) => write!(f, "Invalid literal character"),
             InvalidCharInNumLiteral(..) => write!(f, "Invalid integer or float literal character"),
-            NumOrDateLiteralStartsWithUnderscore(_) => write!(f, "Literal cannot start with `_`"),
-            NumLiteralEndsWithUnderscore(_) => {
-                write!(f, "Integer or float literal cannot end with `_`")
-            }
+            LitStartsWithUnderscore(_, _) => write!(f, "Literal cannot start with `_`"),
+            LitEndsWithUnderscore(_, _) => write!(f, "Literal cannot end with `_`"),
             MissingNumDigitsAfterSign(..) => write!(f, "Missing digit after sign"),
 
             InvalidCharInFloatLiteral(..) => write!(f, "Invalid float literal character"),
-            FloatIntegralEndsWithUnderscore(_) => write!(f, "Float literal cannot end with `_`"),
             MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal"),
-            FloatFractStartsWithUnderscore(_) => {
-                write!(f, "Float fractional part cannot start with `_`")
-            }
-            FloatFractEndsWithUnderscore(_) => {
-                write!(f, "Float fractional part cannot end with `_`")
-            }
             InvalidCharInFloatExponent(..) => write!(f, "Invalid float exponent character"),
-            FloatExponentStartsWithUnderscore(_) => {
-                write!(f, "Float exponent cannot start with `_`")
-            }
-            FloatExponentEndsWithUnderscore(_) => write!(f, "Float exponent cannot end with `_`"),
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits"),
@@ -395,18 +381,13 @@ impl Error {
             InvalidIntRadix(_, _) => None,
             InvalidNumOrDateLiteralStart(_, _) => None,
             InvalidCharInNumLiteral(_, _) => None,
-            NumOrDateLiteralStartsWithUnderscore(_) => None,
-            NumLiteralEndsWithUnderscore(_) => None,
+            LitStartsWithUnderscore(_, _) => None,
+            LitEndsWithUnderscore(_, _) => None,
             MissingNumDigitsAfterSign(_, _) => None,
 
             InvalidCharInFloatLiteral(_, _) => None,
-            FloatIntegralEndsWithUnderscore(_) => None,
             MissingFloatFractionalPart(_) => None,
-            FloatFractStartsWithUnderscore(_) => None,
-            FloatFractEndsWithUnderscore(_) => None,
             InvalidCharInFloatExponent(_, _) => None,
-            FloatExponentStartsWithUnderscore(_) => None,
-            FloatExponentEndsWithUnderscore(_) => None,
             FloatLiteralOverflow(_) => None,
 
             EmptyPrefixedIntValue(_) => None,

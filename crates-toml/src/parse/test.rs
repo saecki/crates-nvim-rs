@@ -256,7 +256,7 @@ fn float_fractional_part_ends_with_underscore() {
     check_error(
         "abc = 23.5_e9",
         |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "abc", "23.5_e9"))],
-        Error::FloatFractEndsWithUnderscore(Pos { line: 0, char: 10 }),
+        Error::LitEndsWithUnderscore(LitPart::FloatFract, Pos { line: 0, char: 10 }),
     );
 }
 
