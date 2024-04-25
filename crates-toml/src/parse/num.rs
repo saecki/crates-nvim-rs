@@ -99,6 +99,8 @@ fn parse_decimal_int_float_or_date(
         OverflowOrFloat,
     }
 
+    let sign = sign_char.map_or(1, |s| s.val());
+    int_accum *= sign;
     let mut parse_state = NumParseState::Int;
     let mut last_underscore = false;
     loop {
@@ -110,12 +112,12 @@ fn parse_decimal_int_float_or_date(
                     // the literal seems to be an integer
                     NumParseState::Int => {
                         let digit = (c as u32) - ('0' as u32);
-                        let (val, overflow) = int_accum.overflowing_mul(10);
-                        if overflow {
-                            parse_state = NumParseState::OverflowOrFloat;
-                        } else {
-                            int_accum = val;
-                            int_accum += digit as i64;
+                        let val = int_accum
+                            .checked_mul(10)
+                            .and_then(|v| v.checked_add(sign * digit as i64));
+                        match val {
+                            Some(val) => int_accum = val,
+                            None => parse_state = NumParseState::OverflowOrFloat,
                         }
                     }
                     // The literal would overflow if it was an int, but it could be a float.
@@ -128,7 +130,7 @@ fn parse_decimal_int_float_or_date(
                     return Err(Error::FloatIntegralEndsWithUnderscore(pos));
                 }
 
-                return validate_float_exponent(chars, span)
+                return validate_float_exponent(chars, span);
             }
             ':' if sign_char.is_none() && i == 2 => {
                 let hour = int_accum as u8;
@@ -158,10 +160,7 @@ fn parse_decimal_int_float_or_date(
     }
 
     match parse_state {
-        NumParseState::Int => {
-            let sign = sign_char.map_or(1, |s| s.val());
-            Ok(PartialValue::Int(sign * int_accum))
-        }
+        NumParseState::Int => Ok(PartialValue::Int(int_accum)),
         NumParseState::OverflowOrFloat => Ok(PartialValue::OverflowOrFloat),
     }
 }
