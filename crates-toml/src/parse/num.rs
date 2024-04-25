@@ -104,8 +104,6 @@ fn parse_decimal_int_float_or_date(
     loop {
         let Some((i, c)) = chars.next() else { break };
 
-        last_underscore = false;
-
         match c {
             '0'..='9' => {
                 match parse_state {
@@ -124,7 +122,14 @@ fn parse_decimal_int_float_or_date(
                     NumParseState::OverflowOrFloat => {}
                 }
             }
-            'e' | 'E' => return validate_float_exponent(chars, span),
+            'e' | 'E' => {
+                if last_underscore {
+                    let pos = span.start.plus(i as u32);
+                    return Err(Error::FloatIntegralEndsWithUnderscore(pos));
+                }
+
+                return validate_float_exponent(chars, span)
+            }
             ':' if sign_char.is_none() && i == 2 => {
                 let hour = int_accum as u8;
                 return datetime::continue_parsing_local_time(&mut chars, span, hour)
@@ -143,6 +148,8 @@ fn parse_decimal_int_float_or_date(
                 return Err(Error::InvalidCharInNumLiteral(FmtChar(c), pos));
             }
         }
+
+        last_underscore = c == '_';
     }
 
     if last_underscore {
@@ -367,7 +374,12 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
 
                 return Ok(());
             }
-            '_' => (),
+            '_' => {
+                if i == 0 {
+                    let pos = span.start.plus(i as u32);
+                    return Err(Error::FloatFractStartsWithUnderscore(pos));
+                }
+            }
             _ => {
                 let pos = span.start.plus(i as u32);
                 return Err(Error::InvalidCharInFloatLiteral(FmtChar(c), pos));
@@ -379,7 +391,7 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
 
     if last_underscore {
         let pos = span.end.minus(1);
-        return Err(Error::FloatEndsWithUnderscore(pos));
+        return Err(Error::FloatIntegralEndsWithUnderscore(pos));
     }
 
     Ok(())

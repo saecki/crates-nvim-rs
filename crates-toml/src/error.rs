@@ -32,13 +32,14 @@ pub enum Error {
     NumLiteralEndsWithUnderscore(Pos),
     MissingNumDigitsAfterSign(Sign, Pos),
 
-    MissingFloatFractionalPart(Pos),
-    FloatEndsWithUnderscore(Pos),
-    FloatFractEndsWithUnderscore(Pos),
     InvalidCharInFloatLiteral(FmtChar, Pos),
+    FloatIntegralEndsWithUnderscore(Pos),
+    MissingFloatFractionalPart(Pos),
+    FloatFractStartsWithUnderscore(Pos),
+    FloatFractEndsWithUnderscore(Pos),
+    InvalidCharInFloatExponent(FmtChar, Pos),
     FloatExponentStartsWithUnderscore(Pos),
     FloatExponentEndsWithUnderscore(Pos),
-    InvalidCharInFloatExponent(FmtChar, Pos),
     FloatLiteralOverflow(Span),
 
     EmptyPrefixedIntValue(Pos),
@@ -131,13 +132,14 @@ impl Diagnostic for Error {
             NumLiteralEndsWithUnderscore(p) => Span::pos(*p),
             MissingNumDigitsAfterSign(_, p) => Span::pos(*p),
 
-            MissingFloatFractionalPart(p) => Span::pos(*p),
-            FloatEndsWithUnderscore(p) => Span::pos(*p),
-            FloatFractEndsWithUnderscore(p) => Span::pos(*p),
             InvalidCharInFloatLiteral(_, p) => Span::pos(*p),
+            FloatIntegralEndsWithUnderscore(p) => Span::pos(*p),
+            MissingFloatFractionalPart(p) => Span::pos(*p),
+            FloatFractStartsWithUnderscore(p) => Span::pos(*p),
+            FloatFractEndsWithUnderscore(p) => Span::pos(*p),
+            InvalidCharInFloatExponent(_, p) => Span::pos(*p),
             FloatExponentStartsWithUnderscore(p) => Span::pos(*p),
             FloatExponentEndsWithUnderscore(p) => Span::pos(*p),
-            InvalidCharInFloatExponent(_, p) => Span::pos(*p),
             FloatLiteralOverflow(s) => *s,
 
             EmptyPrefixedIntValue(p) => Span::pos(*p),
@@ -204,13 +206,14 @@ impl Diagnostic for Error {
             NumLiteralEndsWithUnderscore(_) => write!(f, "Integer or float literal cannot end with `_`"),
             MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing digit after sign `{sign}`, expected at least one"),
 
-            MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal, expected at least one digit"),
-            FloatEndsWithUnderscore(_) => write!(f, "Float literal cannot end with `_`"),
-            FloatFractEndsWithUnderscore(_) => write!(f, "Float fractional part cannot end with `_`"),
             InvalidCharInFloatLiteral(char, _) => write!(f, "Invalid character `{char}` in float literal"),
+            FloatIntegralEndsWithUnderscore(_) => write!(f, "Float integral cannot end with `_`"),
+            MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal, expected at least one digit"),
+            FloatFractStartsWithUnderscore(_) => write!(f, "Float fractional part cannot start with `_`"),
+            FloatFractEndsWithUnderscore(_) => write!(f, "Float fractional part cannot end with `_`"),
+            InvalidCharInFloatExponent(char, _) => write!(f, "Invalid character `{char}` in float exponent"),
             FloatExponentStartsWithUnderscore(_) => write!(f, "Float exponent cannot start with `_`"),
             FloatExponentEndsWithUnderscore(_) => write!(f, "Float exponent cannot end with `_`"),
-            InvalidCharInFloatExponent(char, _) => write!(f, "Invalid character `{char}` in float exponent"),
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow, number doesn't fit into a 64-bit IEEE float"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits, expected at least one"),
@@ -306,17 +309,20 @@ impl Diagnostic for Error {
             }
             MissingNumDigitsAfterSign(..) => write!(f, "Missing digit after sign"),
 
+            InvalidCharInFloatLiteral(..) => write!(f, "Invalid float literal character"),
+            FloatIntegralEndsWithUnderscore(_) => write!(f, "Float literal cannot end with `_`"),
             MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal"),
-            FloatEndsWithUnderscore(_) => write!(f, "Float literal cannot end with `_`"),
+            FloatFractStartsWithUnderscore(_) => {
+                write!(f, "Float fractional part cannot start with `_`")
+            }
             FloatFractEndsWithUnderscore(_) => {
                 write!(f, "Float fractional part cannot end with `_`")
             }
-            InvalidCharInFloatLiteral(..) => write!(f, "Invalid float literal character"),
+            InvalidCharInFloatExponent(..) => write!(f, "Invalid float exponent character"),
             FloatExponentStartsWithUnderscore(_) => {
                 write!(f, "Float exponent cannot start with `_`")
             }
             FloatExponentEndsWithUnderscore(_) => write!(f, "Float exponent cannot end with `_`"),
-            InvalidCharInFloatExponent(..) => write!(f, "Invalid float exponent character"),
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits"),
@@ -393,13 +399,14 @@ impl Error {
             NumLiteralEndsWithUnderscore(_) => None,
             MissingNumDigitsAfterSign(_, _) => None,
 
-            MissingFloatFractionalPart(_) => None,
-            FloatEndsWithUnderscore(_) => None,
-            FloatFractEndsWithUnderscore(_) => None,
             InvalidCharInFloatLiteral(_, _) => None,
+            FloatIntegralEndsWithUnderscore(_) => None,
+            MissingFloatFractionalPart(_) => None,
+            FloatFractStartsWithUnderscore(_) => None,
+            FloatFractEndsWithUnderscore(_) => None,
+            InvalidCharInFloatExponent(_, _) => None,
             FloatExponentStartsWithUnderscore(_) => None,
             FloatExponentEndsWithUnderscore(_) => None,
-            InvalidCharInFloatExponent(_, _) => None,
             FloatLiteralOverflow(_) => None,
 
             EmptyPrefixedIntValue(_) => None,
