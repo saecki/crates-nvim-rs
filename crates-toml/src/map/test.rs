@@ -638,6 +638,26 @@ fn array_of_table_of_arrays() {
 }
 
 #[test]
+fn dotted_keys_in_inline_table() {
+    check_simple(
+        "a = { b.c.d = 1, b.c.e = 2 }",
+        HashMap::from_iter([(
+            "a".into(),
+            SimpleVal::Table(HashMap::from_iter([(
+                "b".into(),
+                SimpleVal::Table(HashMap::from_iter([(
+                    "c".into(),
+                    SimpleVal::Table(HashMap::from_iter([
+                        ("d".into(), SimpleVal::Int(1)),
+                        ("e".into(), SimpleVal::Int(2)),
+                    ])),
+                )])),
+            )])),
+        )]),
+    );
+}
+
+#[test]
 fn toml_test_repro_open_parent_table() {
     check_simple(
         "\

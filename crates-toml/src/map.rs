@@ -843,21 +843,15 @@ where
                 }
             }
             MapTableEntryReprKind::ArrayEntry(_) => (),
-            MapTableEntryReprKind::ToplevelAssignment(_) => {
+            MapTableEntryReprKind::ToplevelAssignment(_)
+            | MapTableEntryReprKind::InlineTableAssignment(_) => {
                 if existing.key.is_last_ident() {
                     // `next` is an inline table
-                    let path = mapper.joined_path(ident.lit);
+                    let path = mapper.path().unwrap();
                     let orig = existing.kind.span();
                     let new = ident.lit_span();
                     return Err(Error::CannotExtendInlineTable { path, orig, new });
                 }
-            }
-            MapTableEntryReprKind::InlineTableAssignment(_) => {
-                // we're inside an inline table, which can't be extended
-                let path = mapper.joined_path(ident.lit);
-                let orig = existing.kind.span();
-                let new = ident.lit_span();
-                return Err(Error::CannotExtendInlineTable { path, orig, new });
             }
         }
     }
