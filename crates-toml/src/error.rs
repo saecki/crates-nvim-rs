@@ -57,7 +57,7 @@ pub enum Error {
     DateTimeMissingChar(DateTimeField, FmtChar, Pos),
     DateTimeIncomplete(DateTimeField, Pos),
     DateTimeMissing(DateTimeField, Pos),
-    DateTimeOutOfBounds(DateTimeField, u8, Span),
+    DateTimeOutOfBounds(DateTimeField, u8, (u8, u8), Span),
     DateTimeMissingSubsec(Pos),
     LocalDateTimeOffset(Pos),
     DateAndTimeTooFarApart(Span),
@@ -148,7 +148,7 @@ impl Diagnostic for Error {
             DateTimeMissingChar(_, _, p) => Span::pos(*p),
             DateTimeIncomplete(_, p) => Span::pos(*p),
             DateTimeMissing(_, p) => Span::pos(*p),
-            DateTimeOutOfBounds(_, _, s) => *s,
+            DateTimeOutOfBounds(_, _, _, s) => *s,
             DateTimeMissingSubsec(p) => Span::pos(*p),
             LocalDateTimeOffset(p) => Span::pos(*p),
             DateAndTimeTooFarApart(s) => *s,
@@ -246,22 +246,8 @@ impl Diagnostic for Error {
             DateTimeMissingChar(field, expected, _) => write!(f, "Incomplete date-time, missing character `{expected}` after {field}"),
             DateTimeIncomplete(field, _) => write!(f, "Incomplete date-time, {field} is missing digits"),
             DateTimeMissing(field, _) => write!(f, "Incomplete date-time, missing {field}"),
-            DateTimeOutOfBounds(field, num, _) => {
-                let max = match field {
-                    DateTimeField::Year => None,
-                    DateTimeField::Month => Some(12),
-                    DateTimeField::Day => Some(31),
-                    DateTimeField::Hour => Some(23),
-                    DateTimeField::Minute |
-                    DateTimeField::Second |
-                    DateTimeField::OffsetHour|
-                    DateTimeField::OffsetMinute => Some(59),
-                };
-
-                match max {
-                    Some(max) => write!(f, "Date-time {field} `{num}` out of range, the valid range is `0..={max}`"),
-                    None => write!(f, "Date-time {field} `{num}` out of range"),
-                }
+            DateTimeOutOfBounds(field, val, (min, max), _) => {
+                write!(f, "Date-time {field} `{val}` out of range, the valid range is `{min}..={max}`")
             }
             DateTimeMissingSubsec(_) => write!(f, "Missing date-time fractional second, expected at least one digit"),
             LocalDateTimeOffset(_) => write!(f, "Local-time doesn't permit an offset, see: https://toml.io/en/v1.0.0#local-time"),
@@ -341,7 +327,7 @@ impl Diagnostic for Error {
             DateTimeMissingChar(..) => write!(f, "Missing character"),
             DateTimeIncomplete(..) => write!(f, "Missing digits"),
             DateTimeMissing(field, _) => write!(f, "Missing {field}"),
-            DateTimeOutOfBounds(field, _, _) => write!(f, "Date-time {field} out of range"),
+            DateTimeOutOfBounds(field, _, _, _) => write!(f, "Date-time {field} out of range"),
             DateTimeMissingSubsec(_) => write!(f, "Missing date-time fractional second"),
             LocalDateTimeOffset(_) => write!(f, "Local-time doesn't permit an offset"),
             DateAndTimeTooFarApart(_) => write!(f, "Date and time too far apart"),
@@ -413,7 +399,7 @@ impl Error {
             DateTimeMissingChar(_, _, _) => None,
             DateTimeIncomplete(_, _) => None,
             DateTimeMissing(_, _) => None,
-            DateTimeOutOfBounds(_, _, _) => None,
+            DateTimeOutOfBounds { .. } => None,
             DateTimeMissingSubsec(_) => None,
             LocalDateTimeOffset(_) => None,
             DateAndTimeTooFarApart(_) => None,

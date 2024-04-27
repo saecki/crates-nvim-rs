@@ -1203,6 +1203,7 @@ fn local_time_hour_out_of_range() {
         Error::DateTimeOutOfBounds(
             DateTimeField::Hour,
             25,
+            (0, 23),
             Span::from_pos_len(Pos { line: 0, char: 6 }, 2),
         ),
     );

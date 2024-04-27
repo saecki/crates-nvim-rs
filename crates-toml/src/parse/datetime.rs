@@ -43,14 +43,21 @@ pub fn continue_parsing_date_time_after_year(
 ) -> Result<PartialValue, Error> {
     let (month, _) = expect_two_digit_num(chars, span)
         .map_err(|e| e.kind(Month))?
-        .check_range(0..=12)
+        .check_range(1..=12)
         .map_err(|e| e.kind(Month))?;
 
     expect_char(chars, span, DateTimeField::Month, '-')?;
 
+    let is_leap_year = (year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0));
+    let max_day = match month {
+        2 if is_leap_year => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    };
     let (day, _) = expect_two_digit_num(chars, span)
         .map_err(|e| e.kind(Day))?
-        .check_range(0..=31)
+        .check_range(1..=max_day)
         .map_err(|e| e.kind(Day))?;
 
     let date = Date { year, month, day };
@@ -331,11 +338,11 @@ fn expect_two_digit_num(
     Ok((10 * d0 + d1, span))
 }
 
-struct NumRangeError<T>(T, Span);
+struct NumRangeError<T>(T, std::ops::RangeInclusive<T>, Span);
 
 impl NumRangeError<u8> {
     fn kind(self, field: DateTimeField) -> Error {
-        Error::DateTimeOutOfBounds(field, self.0, self.1)
+        Error::DateTimeOutOfBounds(field, self.0, (*self.1.start(), *self.1.end()), self.2)
     }
 }
 
@@ -349,7 +356,7 @@ impl NumRangeCheck<u8> for (u8, Span) {
         num_range: std::ops::RangeInclusive<u8>,
     ) -> Result<Self, NumRangeError<u8>> {
         if !num_range.contains(&self.0) {
-            return Err(NumRangeError(self.0, self.1));
+            return Err(NumRangeError(self.0, num_range, self.1));
         }
         Ok(self)
     }
