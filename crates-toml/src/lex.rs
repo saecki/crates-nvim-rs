@@ -441,27 +441,10 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
         };
 
         if c == str.quote.char() {
-            let text_end = lexer.byte_pos;
-            if str.quote.is_multiline() {
-                if lexer.peek() == Some(str.quote.char()) {
-                    lexer.next();
-                } else {
-                    str.push_char(c);
-                    continue;
-                }
-
-                if lexer.peek() == Some(str.quote.char()) {
-                    lexer.next();
-                } else {
-                    str.push_char(c);
-                    str.push_char(c);
-                    continue;
-                }
+            match string_closing_quote(lexer, str) {
+                ControlFlow::Continue(_) => continue,
+                ControlFlow::Break(_) => break,
             }
-
-            let lit_end = lexer.byte_pos + 1;
-            end_string(lexer, str, text_end, lit_end);
-            return;
         }
 
         if c == '\n' {
@@ -661,28 +644,7 @@ fn string_escape_unicode<'a>(
                 ctx.error(Error::InvalidUnicodeEscapeChar(FmtChar(c), lexer.pos()));
 
                 if c == str.quote.char() {
-                    let text_end = lexer.byte_pos;
-                    if str.quote.is_multiline() {
-                        if lexer.peek() == Some(str.quote.char()) {
-                            lexer.next();
-                        } else {
-                            str.push_char(c);
-                            return ControlFlow::Continue(());
-                        }
-
-                        if lexer.peek() == Some(str.quote.char()) {
-                            lexer.next();
-                        } else {
-                            str.push_char(c);
-                            str.push_char(c);
-                            return ControlFlow::Continue(());
-                        }
-                    }
-
-                    // Recover state
-                    let lit_end = lexer.byte_pos + 1;
-                    end_string(lexer, str, text_end, lit_end);
-                    return ControlFlow::Break(());
+                    return string_closing_quote(lexer, str);
                 }
             }
         }
@@ -700,6 +662,44 @@ fn string_escape_unicode<'a>(
             return ControlFlow::Continue(());
         }
     }
+}
+
+#[inline(always)]
+fn string_closing_quote<'a>(lexer: &mut Lexer<'a>, str: &mut StrState<'a>) -> ControlFlow<()> {
+    let mut text_end = lexer.byte_pos;
+    if str.quote.is_multiline() {
+        if lexer.peek() == Some(str.quote.char()) {
+            lexer.next();
+        } else {
+            str.push_char(str.quote.char());
+            return ControlFlow::Continue(());
+        }
+
+        if lexer.peek() == Some(str.quote.char()) {
+            lexer.next();
+        } else {
+            str.push_char(str.quote.char());
+            str.push_char(str.quote.char());
+            return ControlFlow::Continue(());
+        }
+
+        // up to 2 quotes are allowed at the end of multi-line strings
+        if lexer.peek() == Some(str.quote.char()) {
+            lexer.next();
+            str.push_char(str.quote.char());
+            text_end += 1;
+        }
+        if lexer.peek() == Some(str.quote.char()) {
+            lexer.next();
+            str.push_char(str.quote.char());
+            text_end += 1;
+        }
+    }
+
+    // Recover state
+    let lit_end = lexer.byte_pos + 1;
+    end_string(lexer, str, text_end, lit_end);
+    ControlFlow::Break(())
 }
 
 fn start_literal(lexer: &mut Lexer) {
