@@ -63,7 +63,7 @@ pub fn continue_parsing_date_time_after_year(
     let date = Date { year, month, day };
 
     let (time, offset) = match chars.next() {
-        Some((_, 'T')) => parse_time_and_offset(chars, span)?,
+        Some((_, 'T' | 't')) => parse_time_and_offset(chars, span)?,
         Some((i, c)) => return invalid_char_error(c, span, i),
         None => return Ok(PartialValue::PartialDate(date)),
     };
@@ -131,7 +131,7 @@ fn continue_parsing_time(chars: &mut CharIter, span: Span, hour: u8) -> Result<T
 
     match chars.peek() {
         // ignore offset
-        Some((_, 'Z' | '+' | '-')) => (),
+        Some((_, 'Z' | 'z' | '+' | '-')) => (),
         Some(&(i, c)) => return invalid_char_error(c, span, i),
         None => (),
     }
@@ -199,7 +199,7 @@ fn parse_subsec(chars: &mut CharIter, span: Span) -> Result<u32, Error> {
                 }
                 chars.next();
             }
-            'Z' | '+' | '-' => break,
+            'Z' | 'z' | '+' | '-' => break,
             _ => return invalid_char_error(c, span, i),
         }
     }
@@ -214,7 +214,7 @@ fn parse_subsec(chars: &mut CharIter, span: Span) -> Result<u32, Error> {
 
 fn try_to_parse_offset(chars: &mut CharIter, span: Span) -> Result<Option<Offset>, Error> {
     match chars.next() {
-        Some((_, 'Z')) => Ok(Some(Offset::Utc)),
+        Some((_, 'Z' | 'z')) => Ok(Some(Offset::Utc)),
         Some((_, '+')) => {
             let minutes = parse_offset(chars, span)?;
             Ok(Some(Offset::Custom(minutes)))
@@ -246,7 +246,7 @@ fn parse_offset(chars: &mut CharIter, span: Span) -> Result<i16, Error> {
 
 fn error_on_offset(chars: &mut CharIter, span: Span) -> Result<(), Error> {
     match chars.next() {
-        Some((i, 'Z' | '+' | '-')) => {
+        Some((i, 'Z' | 'z' | '+' | '-')) => {
             let pos = span.start.plus(i as u32);
             Err(Error::LocalDateTimeOffset(pos))
         }
