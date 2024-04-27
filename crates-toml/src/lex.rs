@@ -551,25 +551,27 @@ fn string_escape<'a>(
         'r' => str.push_char('\r'),
         '"' => str.push_char('"'),
         '\\' => str.push_char('\\'),
-        ' ' => {
-            ctx.error(Error::UnfinishedEscapeSequence(Span::new(
-                esc_start,
-                lexer.pos(),
-            )));
-            str.push_char(c);
-        }
-        '\n' => {
+        ' ' | '\r' | '\n' | '\t' => {
+            let mut has_newline = c == '\n';
             if !str.quote.is_multiline() {
-                // Recover state
-                ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
-                end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
-                newline_token(lexer);
-                lexer.newline();
-                return ControlFlow::Break(());
+                let span = Span::new(esc_start, lexer.pos());
+                ctx.error(Error::UnfinishedEscapeSequence(span));
+
+                return if has_newline {
+                    // Recover state
+                    ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
+                    end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
+                    newline_token(lexer);
+                    lexer.newline();
+                    ControlFlow::Break(())
+                } else {
+                    ControlFlow::Continue(())
+                };
             }
 
-            // Newline was escaped
-            lexer.newline();
+            if has_newline {
+                lexer.newline();
+            }
 
             // eat whitespace
             while let Some(c) = lexer.peek() {
@@ -580,9 +582,17 @@ fn string_escape<'a>(
                     '\n' => {
                         lexer.next();
                         lexer.newline();
+                        has_newline = true;
                     }
                     _ => break,
                 }
+            }
+
+            if !has_newline {
+                let byte_end = lexer.input.len() - lexer.chars.as_str().len();
+                let end = lexer.pos_in_line(byte_end);
+                let span = Span::new(esc_start, end);
+                ctx.error(Error::InvalidLineEndingEscape(span));
             }
         }
         _ => ctx.error(Error::InvalidEscapeChar(FmtChar(c), lexer.pos())),
