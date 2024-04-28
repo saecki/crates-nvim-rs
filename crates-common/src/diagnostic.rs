@@ -101,8 +101,13 @@ fn display_body<D: Diagnostic>(
 
     for (i, line) in text[start_line..end_line].iter().enumerate() {
         let line_nr = start_line + i + 1;
-        let line = line.as_ref();
-        writeln!(f, "{ANSII_COLOR_BLUE}{line_nr:4} |{ANSII_CLEAR} {line}")?;
+        write!(f, "{ANSII_COLOR_BLUE}{line_nr:4} |{ANSII_CLEAR} ")?;
+
+        let line = line.as_ref().trim_end_matches('\r');
+        for part in line.split('\r') {
+            f.write_str(part)?;
+        }
+        f.write_char('\n')?;
 
         let col_start = if i == 0 { span.start.char as usize } else { 0 };
         let col_end = if i == num_lines - 1 {
