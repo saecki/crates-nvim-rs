@@ -250,18 +250,6 @@ impl<'a> Lexer<'a> {
         self.chars.next()
     }
 
-    fn skip_until(&mut self, a: u8) -> Option<char> {
-        let substr = self.chars.as_str();
-        let pos = self.input.len() - substr.len();
-        let offset = memchr::memchr(a, substr.as_bytes());
-        self.byte_pos = match offset {
-            Some(o) => pos + o,
-            None => self.input.len(),
-        };
-        self.chars = self.input[self.byte_pos..].chars();
-        self.chars.next()
-    }
-
     fn skip_until3(&mut self, a: u8, b: u8, c: u8) -> Option<char> {
         let substr = self.chars.as_str();
         let pos = self.input.len() - substr.len();
@@ -403,7 +391,7 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
             '=' => char_token(&mut lexer, TokenType::Equal),
             '.' => char_token(&mut lexer, TokenType::Dot),
             ',' => char_token(&mut lexer, TokenType::Comma),
-            '#' => comment(&mut lexer),
+            '#' => comment(ctx, &mut lexer),
             _ => start_literal(&mut lexer),
         }
     }
@@ -774,13 +762,26 @@ fn newline_token(lexer: &mut Lexer) {
     });
 }
 
-fn comment(lexer: &mut Lexer) {
+fn comment(ctx: &mut impl TomlCtx, lexer: &mut Lexer) {
     end_literal(lexer);
 
     let start_pos = lexer.pos();
     let text_start = lexer.byte_pos + 1;
 
-    let newline = lexer.skip_until(b'\n').is_some();
+    while let Some(c) = lexer.peek() {
+        match c {
+            '\n' => break,
+            '\t' => (),
+            '\r' if lexer.peek2() == Some('\n') => (),
+            '\x00'..='\x1f' | '\x7f' => {
+                let span = Span::ascii_char(lexer.pos());
+                ctx.error(Error::InvalidCommentChar(FmtChar(c), span));
+            }
+            _ => (),
+        }
+        lexer.next();
+    }
+    let newline = lexer.next().is_some();
     let cr = newline && lexer.peek_prev() == Some('\r');
     let text_end = lexer.byte_pos - cr as usize;
 

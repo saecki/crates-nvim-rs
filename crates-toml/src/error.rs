@@ -15,6 +15,7 @@ pub enum Error {
     InvalidCharInIdentifier(FmtChar, Pos),
     MultilineBasicStringIdent(Span),
     MultilineLiteralStringIdent(Span),
+    InvalidCommentChar(FmtChar, Span),
 
     ExpectedEqFound(FmtStr, Span),
     ExpectedRightCurlyFound(FmtStr, Span),
@@ -112,6 +113,7 @@ impl Diagnostic for Error {
             InvalidCharInIdentifier(_, p) => Span::pos(*p),
             MultilineBasicStringIdent(s) => *s,
             MultilineLiteralStringIdent(s) => *s,
+            InvalidCommentChar(_, s) => *s,
 
             ExpectedEqFound(_, s) => *s,
             ExpectedRightCurlyFound(_, s) => *s,
@@ -177,6 +179,7 @@ impl Diagnostic for Error {
             InvalidCharInIdentifier(char, _) => write!(f, "Invalid character `{char}` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`"),
             MultilineBasicStringIdent(_) => write!(f, "Multi-line strings cannot be used as keys"),
             MultilineLiteralStringIdent(_) => write!(f, "Multi-line strings cannot be used as keys"),
+            InvalidCommentChar(c, _) => write!(f, "Invalid character `{c}` in comment"),
 
             ExpectedEqFound(token, _) => write!(f, "Expected `=`, found `{token}`"),
             ExpectedRightCurlyFound(token, _) => write!(f, "Expected `}}`, found `{token}`"),
@@ -283,6 +286,7 @@ impl Diagnostic for Error {
             InvalidCharInIdentifier(..) => write!(f, "Invalid character in identifier"),
             MultilineBasicStringIdent(_) => write!(f, "Not a key"),
             MultilineLiteralStringIdent(_) => write!(f, "Not a key"),
+            InvalidCommentChar(_, _) => write!(f, "Invalid character"),
 
             ExpectedEqFound(..) => write!(f, "Expected `=`"),
             ExpectedRightCurlyFound(..) => write!(f, "Expected `}}`"),
@@ -366,6 +370,7 @@ impl Error {
             InvalidCharInIdentifier(_, _) => None,
             MultilineBasicStringIdent(_) => None,
             MultilineLiteralStringIdent(_) => None,
+            InvalidCommentChar(_, _) => None,
 
             ExpectedEqFound(_, _) => None,
             ExpectedRightCurlyFound(_, _) => None,
