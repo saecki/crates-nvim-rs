@@ -2,9 +2,9 @@ use bumpalo::Bump;
 use common::Diagnostic;
 use toml_test_harness::{Decoded, DecodedValue};
 
-use crate::datetime::DateTime;
-use crate::map::{MapArray, MapNode, Scalar};
-use crate::{MapTable, TomlCtx, TomlDiagnostics};
+use crates_toml::datetime::DateTime;
+use crates_toml::map::{MapArray, MapNode, Scalar};
+use crates_toml::{MapTable, TomlCtx, TomlDiagnostics};
 
 #[derive(Clone, Copy)]
 struct TestDecoder;
@@ -75,8 +75,7 @@ fn map_table(table: MapTable) -> Decoded {
     )
 }
 
-#[test]
-fn toml_test_suite() {
+fn main() {
     let mut harness = toml_test_harness::DecoderHarness::new(TestDecoder);
     harness.version("1.0.0");
     harness.ignore([]).unwrap();
