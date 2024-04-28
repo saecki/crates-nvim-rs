@@ -1,0 +1,6 @@
+[91merror[0m: Cannot extend inline array `a`, not a table
+ [94m-->[0m 5:1
+[94m   1 |[0m a = [{ b = 1 }]
+     [94m|[0m [94m^^^^^^^^^^^^^^^ Original array defined here[0m
+[94m   5 |[0m [a.c]
+     [94m|[0m  [91m^ Cannot extend inline array, not a table[0m

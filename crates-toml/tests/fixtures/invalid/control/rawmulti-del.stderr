@@ -1,0 +1,4 @@
+[91merror[0m: Invalid character `\x7f`in string
+ [94m-->[0m 1:23
+[94m   1 |[0m rawmulti-del  = '''null'''
+     [94m|[0m                        [91m^ Invalid char[0m

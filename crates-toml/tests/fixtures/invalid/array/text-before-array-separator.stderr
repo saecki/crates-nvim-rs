@@ -1,0 +1,8 @@
+[91merror[0m: Missing comma (`,`)
+ [94m-->[0m 2:44
+[94m   2 |[0m   "Is there life before an array separator?" No,
+     [94m|[0m                                             [91m^ Missing comma (`,`)[0m
+[91merror[0m: Invalid character `N` at start of literal
+ [94m-->[0m 2:45
+[94m   2 |[0m   "Is there life before an array separator?" No,
+     [94m|[0m                                              [91m^ Invalid literal character[0m

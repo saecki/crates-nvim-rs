@@ -1,0 +1,4 @@
+[91merror[0m: Missing comma (`,`)
+ [94m-->[0m 1:18
+[94m   1 |[0m no-comma-1 = [true false]
+     [94m|[0m                   [91m^ Missing comma (`,`)[0m

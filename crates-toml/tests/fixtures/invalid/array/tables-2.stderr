@@ -1,0 +1,6 @@
+[91merror[0m: Duplicate key `variety` in table `fruit[0]`
+ [94m-->[0m 9:9
+[94m   5 |[0m   [[fruit.variety]]
+     [94m|[0m           [94m^^^^^^^ Original key defined here[0m
+[94m   9 |[0m   [fruit.variety]
+     [94m|[0m          [91m^^^^^^^ Duplicate key[0m
