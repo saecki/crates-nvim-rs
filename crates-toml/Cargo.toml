@@ -10,7 +10,13 @@ bumpalo = { workspace = true }
 [dev-dependencies]
 pretty_assertions = "1.4.0"
 toml-test-harness = "0.4.8"
+toml-test-data = "1.8.0"
+libtest-mimic = "0.7.2"
 
 [[test]]
 name = "suite"
+harness = false
+
+[[test]]
+name = "invalid"
 harness = false
