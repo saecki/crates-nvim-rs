@@ -277,10 +277,15 @@ impl<'a> Lexer<'a> {
     }
 
     fn pos(&self) -> Pos {
-        Pos {
-            line: self.line_idx,
-            char: (self.byte_pos - self.line_byte_start) as u32,
-        }
+        self.pos_in_line(self.byte_pos)
+    }
+
+    fn next_byte_pos(&self) -> usize {
+        self.input.len() - self.chars.as_str().len()
+    }
+
+    fn next_pos(&self) -> Pos {
+        self.pos_in_line(self.next_byte_pos())
     }
 
     fn pos_in_line(&self, byte_pos: usize) -> Pos {
@@ -374,7 +379,7 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
                     }
                 }
 
-                let text_byte_start = lexer.input.len() - lexer.chars.as_str().len();
+                let text_byte_start = lexer.next_byte_pos();
                 let text_start = lexer.pos_in_line(text_byte_start);
                 let mut str_state = StrState {
                     text: None,
@@ -413,7 +418,7 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
 
 fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
     loop {
-        let start = lexer.input.len() - lexer.chars.as_str().len();
+        let start = lexer.next_byte_pos();
         let c = lexer.skip_until3(str.quote.byte(), b'\n', b'\\');
         if let Some(text) = &mut str.text {
             let substr = &lexer.input[start..lexer.byte_pos];
@@ -501,10 +506,8 @@ fn string_escape<'a>(
     esc_start: Pos,
 ) -> ControlFlow<()> {
     let Some(c) = lexer.next() else {
-        ctx.error(Error::UnfinishedEscapeSequence(Span::new(
-            esc_start,
-            lexer.pos(),
-        )));
+        let span = Span::new(esc_start, lexer.pos());
+        ctx.error(Error::UnfinishedEscapeSequence(span));
         return ControlFlow::Continue(());
     };
 
@@ -560,8 +563,7 @@ fn string_escape<'a>(
             }
 
             if !has_newline {
-                let byte_end = lexer.input.len() - lexer.chars.as_str().len();
-                let end = lexer.pos_in_line(byte_end);
+                let end = lexer.next_pos();
                 let span = Span::new(esc_start, end);
                 ctx.error(Error::InvalidLineEndingEscape(span));
             }
