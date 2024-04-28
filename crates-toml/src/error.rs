@@ -7,6 +7,7 @@ use crate::Quote;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     MissingQuote(Quote, Pos, Pos),
+    InvalidStringChar(FmtChar, Span),
     InvalidEscapeChar(FmtChar, Pos),
     InvalidUnicodeEscapeChar(FmtChar, Pos),
     InvalidUnicodeCodepoint(u8, u32, Span),
@@ -105,6 +106,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(_, _, p) => Span::pos(*p),
+            InvalidStringChar(_, s) => *s,
             InvalidEscapeChar(_, p) => Span::pos(*p),
             InvalidUnicodeEscapeChar(_, p) => Span::pos(*p),
             InvalidUnicodeCodepoint(_, _, s) => *s,
@@ -171,6 +173,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(quote, _, _) => write!(f, "Unterminated string literal, missing `{quote}`"),
+            InvalidStringChar(char, _) => write!(f, "Invalid char `{char}`in string"),
             InvalidEscapeChar(char, _) => write!(f, "Invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`"),
             InvalidUnicodeEscapeChar(char, _) => write!(f, "Invalid character `{char}` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`"),
             InvalidUnicodeCodepoint(num_chars, cp, _) => write!(f, "Invalid unicode code point `0x{cp:0width$x}` (`{cp}`)", width = *num_chars as usize),
@@ -278,6 +281,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(..) => write!(f, "Unterminated string literal"),
+            InvalidStringChar(..) => write!(f, "Invalid char"),
             InvalidEscapeChar(..) => write!(f, "Invalid escape character"),
             InvalidUnicodeEscapeChar(..) => write!(f, "Invalid unicode escape character"),
             InvalidUnicodeCodepoint(..) => write!(f, "Invalid unicode code point"),
@@ -362,6 +366,7 @@ impl Error {
 
         match self {
             MissingQuote(q, p, _) => Some(Hint::MissingQuote(*q, *p)),
+            InvalidStringChar(_, _) => None,
             InvalidEscapeChar(_, _) => None,
             InvalidUnicodeEscapeChar(_, _) => None,
             InvalidUnicodeCodepoint(_, _, _) => None,

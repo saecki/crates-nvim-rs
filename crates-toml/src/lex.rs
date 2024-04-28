@@ -252,18 +252,6 @@ impl<'a> Lexer<'a> {
         self.chars.next()
     }
 
-    fn skip_until3(&mut self, a: u8, b: u8, c: u8) -> Option<char> {
-        let substr = self.chars.as_str();
-        let pos = self.input.len() - substr.len();
-        let offset = memchr::memchr3(a, b, c, substr.as_bytes());
-        self.byte_pos = match offset {
-            Some(o) => pos + o,
-            None => self.input.len(),
-        };
-        self.chars = self.input[self.byte_pos..].chars();
-        self.chars.next()
-    }
-
     #[inline(always)]
     fn peek(&self) -> Option<char> {
         self.chars.as_str().chars().next()
@@ -428,19 +416,32 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
 fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {
     loop {
         let start = lexer.next_byte_pos();
-        let c = lexer.skip_until3(str.quote.byte(), b'\n', b'\\');
+        let c = loop {
+            let Some(c) = lexer.next() else {
+                ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
+
+                let end = lexer.byte_pos;
+                end_string(lexer, str, end, end);
+                return;
+            };
+
+            match c {
+                _ if c == str.quote.char() => break c,
+                '\n' => break c,
+                '\\' if str.quote.is_basic() => break c,
+                '\t' => (),
+                '\r' if str.quote.is_multiline() && lexer.peek() == Some('\n') => (),
+                '\x00'..='\x1f' | '\x7f' => {
+                    let span = Span::ascii_char(lexer.pos());
+                    ctx.error(Error::InvalidStringChar(FmtChar(c), span));
+                }
+                _ => (),
+            }
+        };
         if let Some(text) = &mut str.text {
             let substr = &lexer.input[start..lexer.byte_pos];
             text.push_str(substr);
         }
-
-        let Some(c) = c else {
-            ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
-
-            let end = lexer.byte_pos;
-            end_string(lexer, str, end, end);
-            return;
-        };
 
         if c == str.quote.char() {
             match string_closing_quote(lexer, str) {
