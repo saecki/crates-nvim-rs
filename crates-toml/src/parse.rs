@@ -763,11 +763,11 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     }
                 };
 
-                let r_array_square = l_array_square.and_then(|_| match parser.peek() {
+                let r_array_square = l_array_square.and_then(|l_par| match parser.peek() {
                     t if t.ty == TokenType::SquareRight => Some(parser.next().start),
                     t => {
                         let (string, span) = parser.token_fmt_str_and_span(t);
-                        ctx.error(Error::ExpectedRightSquareFound(string, span));
+                        ctx.error(Error::ExpectedRightSquareFound(string, l_par, span));
                         None
                     }
                 });
@@ -787,7 +787,11 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     }
                     t => {
                         let (string, span) = parser.token_fmt_str_and_span(t);
-                        ctx.error(Error::ExpectedRightSquareFound(string, span));
+                        ctx.error(Error::ExpectedRightSquareFound(
+                            string,
+                            l_table_square,
+                            span,
+                        ));
                         None
                     }
                 };
@@ -1287,7 +1291,7 @@ fn parse_value<'a>(
                             }
                         }
                     }
-                    ctx.error(Error::ExpectedRightSquareFound(string, span));
+                    ctx.error(Error::ExpectedRightSquareFound(string, l_par, span));
                     None
                 }
             };
@@ -1383,7 +1387,7 @@ fn parse_value<'a>(
                 t if t.ty == TokenType::CurlyRight => Some(parser.next().start),
                 t => {
                     let (string, span) = parser.token_fmt_str_and_span(t);
-                    ctx.error(Error::ExpectedRightCurlyFound(string, span));
+                    ctx.error(Error::ExpectedRightCurlyFound(string, l_par, span));
                     None
                 }
             };

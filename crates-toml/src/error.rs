@@ -19,8 +19,8 @@ pub enum Error {
     InvalidCommentChar(FmtChar, Span),
 
     ExpectedEqFound(FmtStr, Span),
-    ExpectedRightCurlyFound(FmtStr, Span),
-    ExpectedRightSquareFound(FmtStr, Span),
+    ExpectedRightCurlyFound(FmtStr, Pos, Span),
+    ExpectedRightSquareFound(FmtStr, Pos, Span),
     ExpectedKeyFound(FmtStr, Span),
     ExpectedValueFound(FmtStr, Span),
     MissingComma(Pos),
@@ -118,8 +118,8 @@ impl Diagnostic for Error {
             InvalidCommentChar(_, s) => *s,
 
             ExpectedEqFound(_, s) => *s,
-            ExpectedRightCurlyFound(_, s) => *s,
-            ExpectedRightSquareFound(_, s) => *s,
+            ExpectedRightCurlyFound(_, _, s) => *s,
+            ExpectedRightSquareFound(_, _, s) => *s,
             ExpectedKeyFound(_, s) => *s,
             ExpectedValueFound(_, s) => *s,
             MissingComma(p) => Span::pos(*p),
@@ -185,8 +185,8 @@ impl Diagnostic for Error {
             InvalidCommentChar(c, _) => write!(f, "Invalid character `{c}` in comment"),
 
             ExpectedEqFound(token, _) => write!(f, "Expected `=`, found `{token}`"),
-            ExpectedRightCurlyFound(token, _) => write!(f, "Expected `}}`, found `{token}`"),
-            ExpectedRightSquareFound(token, _) => write!(f, "Expected `]`, found `{token}`"),
+            ExpectedRightCurlyFound(token, _, _) => write!(f, "Expected `}}`, found `{token}`"),
+            ExpectedRightSquareFound(token, _, _) => write!(f, "Expected `]`, found `{token}`"),
             ExpectedKeyFound(token, _) => write!(f, "Expected a key, found `{token}`"),
             ExpectedValueFound(token, _) => write!(f, "Expected a value, found `{token}`"),
             MissingComma(_) => write!(f, "Missing comma (`,`)"),
@@ -378,8 +378,8 @@ impl Error {
             InvalidCommentChar(_, _) => None,
 
             ExpectedEqFound(_, _) => None,
-            ExpectedRightCurlyFound(_, _) => None,
-            ExpectedRightSquareFound(_, _) => None,
+            ExpectedRightCurlyFound(_, p, _) => Some(Hint::ExpectedRightCurlyFound(*p)),
+            ExpectedRightSquareFound(_, p, _) => Some(Hint::ExpectedRightSquareFound(*p)),
             ExpectedKeyFound(_, _) => None,
             ExpectedValueFound(_, _) => None,
             MissingComma(_) => None,
@@ -457,6 +457,8 @@ impl Diagnostic for Warning {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Hint {
     MissingQuote(Quote, Pos),
+    ExpectedRightCurlyFound(Pos),
+    ExpectedRightSquareFound(Pos),
     DuplicateKey(Span),
     CannotExtendInlineTable(Span),
     CannotExtendInlineArray(Span),
@@ -473,6 +475,8 @@ impl Diagnostic for Hint {
 
         match self {
             MissingQuote(q, p) => Span::from_pos_len(*p, q.len()),
+            ExpectedRightCurlyFound(p) => Span::ascii_char(*p),
+            ExpectedRightSquareFound(p) => Span::ascii_char(*p),
             DuplicateKey(s) => *s,
             CannotExtendInlineTable(s) => *s,
             CannotExtendInlineArray(s) => *s,
@@ -487,6 +491,8 @@ impl Diagnostic for Hint {
 
         match self {
             MissingQuote(_, _) => write!(f, "Literal started here"),
+            ExpectedRightCurlyFound(_) => write!(f, "Left `{{` defined here"),
+            ExpectedRightSquareFound(_) => write!(f, "Left `[` defined here"),
             DuplicateKey(_) => write!(f, "Original key defined here"),
             CannotExtendInlineTable(_) => write!(f, "Original table defined here"),
             CannotExtendInlineArray(_) => write!(f, "Original array defined here"),
