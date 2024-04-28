@@ -593,6 +593,11 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn peek_prev(&mut self) -> Option<Token> {
+        let idx = self.cursor.checked_sub(1)?;
+        Some(self.tokens[idx])
+    }
+
     fn eat_comment(&mut self) -> Option<Comment<'a>> {
         let t = self.peek();
         match t.ty {
@@ -1273,7 +1278,15 @@ fn parse_value<'a>(
             let r_par = match parser.peek() {
                 t if t.ty == TokenType::SquareRight => Some(parser.next().start),
                 t => {
-                    let (string, span) = parser.token_fmt_str_and_span(t);
+                    let (string, mut span) = parser.token_fmt_str_and_span(t);
+                    if t.ty == TokenType::EOF {
+                        // show error on previous line if last line is empty
+                        if let Some(t) = parser.peek_prev() {
+                            if t.ty == TokenType::Newline {
+                                span = Span::pos(t.start);
+                            }
+                        }
+                    }
                     ctx.error(Error::ExpectedRightSquareFound(string, span));
                     None
                 }
