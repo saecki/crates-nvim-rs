@@ -12,4 +12,5 @@ SNAPSHOT=review cargo test
 Possible values for the `SNAPSHOT` environment variable are:
 - `fail` (default) to just fail the test with an error message.
 - `review` to review each change individually and decide whether to update the output fixture.
+- `revise` to review correct fixtures and decide whether to invalidate (remove) them.
 - `force` to update all output fixtures

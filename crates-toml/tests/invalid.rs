@@ -15,6 +15,8 @@ enum Mode {
     Fail,
     /// Ask the user on mismatch
     Review,
+    /// Review correct fixtures
+    Revise,
     /// Force overwrite the fixtures on mismatch
     Force,
 }
@@ -24,6 +26,7 @@ fn main() {
         .map(|m| match m.as_str() {
             "fail" | "" => Mode::Fail,
             "review" => Mode::Review,
+            "revise" => Mode::Revise,
             "force" => Mode::Force,
             _ => panic!("invalid mode `{m}`"),
         })
@@ -72,7 +75,7 @@ fn main() {
                         );
 
                         match mode {
-                            Mode::Fail => return Err(Failed::from(msg)),
+                            Mode::Fail | Mode::Revise => return Err(Failed::from(msg)),
                             Mode::Review => {
                                 print!("\n{msg}");
                                 return match dialog(["update", "skip", "quit"]) {
@@ -97,6 +100,37 @@ fn main() {
                 };
 
                 if expect_text == actual_text {
+                    if let Mode::Revise = mode {
+                        let mut msg = String::new();
+                        _ = writeln!(
+                            &mut msg,
+                            "=========================  input   ========================="
+                        );
+                        _ = write!(&mut msg, "{input}");
+                        _ = writeln!(
+                            &mut msg,
+                            "========================= message  ========================="
+                        );
+                        _ = write!(&mut msg, "{actual_text}");
+                        _ = writeln!(
+                            &mut msg,
+                            "============================================================"
+                        );
+
+                        print!("\n{msg}");
+
+                        return match dialog(["invalidate", "skip", "quit"]) {
+                            "invalidate" => {
+                                std::fs::remove_file(expect_path).unwrap();
+                                println!("Deleted fixture");
+                                Ok(())
+                            }
+                            "skip" => Ok(()),
+                            "quit" => std::process::exit(0),
+                            _ => unreachable!(),
+                        };
+                    }
+
                     return Ok(());
                 }
 
@@ -138,7 +172,7 @@ fn main() {
                 );
 
                 match mode {
-                    Mode::Fail => Err(Failed::from(msg)),
+                    Mode::Fail | Mode::Revise => Err(Failed::from(msg)),
                     Mode::Review => {
                         print!("\n{msg}");
                         match dialog(["update", "skip", "quit"]) {
