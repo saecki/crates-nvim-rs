@@ -41,9 +41,7 @@ impl<'a> CharIter<'a> {
     }
 
     fn offset(&self) -> Offset {
-        Offset {
-            char: self.idx as u32,
-        }
+        Offset::new(self.idx as u32)
     }
 
     fn pos(&self) -> Pos {

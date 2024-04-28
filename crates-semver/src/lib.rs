@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use common::{Offset, Pos};
+use common::Pos;
 pub use error::Error;
 pub use parse::*;
 
@@ -13,6 +13,17 @@ mod inlinestr;
 mod parse;
 #[cfg(test)]
 mod test;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Offset {
+    pub char: u32,
+}
+
+impl Offset {
+    pub fn new(char: u32) -> Self {
+        Self { char }
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NumField {

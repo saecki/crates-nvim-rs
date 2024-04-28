@@ -145,23 +145,6 @@ impl Pos {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Offset {
-    pub char: u32,
-}
-
-impl Offset {
-    pub fn new(char: u32) -> Self {
-        Self { char }
-    }
-
-    pub fn minus(&self, n: u32) -> Self {
-        Self {
-            char: self.char - n,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FmtChar(pub char);
 
