@@ -227,6 +227,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    #[inline(always)]
     fn newline(&mut self) {
         self.line_idx += 1;
         self.byte_pos += 1;
@@ -245,6 +246,7 @@ impl<'a> Lexer<'a> {
         LiteralId(id as u32)
     }
 
+    #[inline(always)]
     fn next(&mut self) -> Option<char> {
         self.byte_pos = self.input.len() - self.chars.as_str().len();
         self.chars.next()
@@ -262,32 +264,39 @@ impl<'a> Lexer<'a> {
         self.chars.next()
     }
 
+    #[inline(always)]
     fn peek(&self) -> Option<char> {
         self.chars.as_str().chars().next()
     }
 
+    #[inline(always)]
     fn peek2(&self) -> Option<char> {
         let mut iter = self.chars.as_str().chars();
         iter.next();
         iter.next()
     }
 
+    #[inline(always)]
     fn peek_prev(&self) -> Option<char> {
         self.input[..self.byte_pos].chars().next_back()
     }
 
+    #[inline(always)]
     fn pos(&self) -> Pos {
         self.pos_in_line(self.byte_pos)
     }
 
+    #[inline(always)]
     fn next_byte_pos(&self) -> usize {
         self.input.len() - self.chars.as_str().len()
     }
 
+    #[inline(always)]
     fn next_pos(&self) -> Pos {
         self.pos_in_line(self.next_byte_pos())
     }
 
+    #[inline(always)]
     fn pos_in_line(&self, byte_pos: usize) -> Pos {
         Pos {
             line: self.line_idx,
