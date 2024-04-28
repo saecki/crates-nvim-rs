@@ -158,7 +158,7 @@ impl std::fmt::Display for FmtChar {
             '\r' => f.write_str("\\r"),
             '\x00'..='\x1f' | '\x7f' => {
                 let control_char = self.0 as u8;
-                write!(f, "\\x{control_char:02}")
+                write!(f, "\\x{control_char:02x}")
             }
             c => f.write_char(c),
         }
