@@ -169,13 +169,16 @@ fn run_case(input: &str) -> Result<HashMap<String, SimpleVal>, String> {
     let asts = ctx.parse(&bump, &tokens);
     let map = ctx.map(&asts);
 
-    if let Some(error) = ctx.errors.first() {
+    if !ctx.errors.is_empty() {
         let lines = input.split('\n').collect::<Vec<_>>();
-        let mut msg = format!("{}\n", error.header(&lines));
-        if let Some(hint) = error.hint() {
-            _ = write!(&mut msg, "{}", hint.body(&lines));
+        let mut msg = String::new();
+        for error in ctx.errors.iter() {
+            _ = writeln!(&mut msg, "{}", error.header(&lines));
+            if let Some(hint) = error.hint() {
+                _ = write!(&mut msg, "{}", hint.body(&lines));
+            }
+            _ = write!(&mut msg, "{}", error.body(&lines));
         }
-        _ = write!(&mut msg, "{}", error.body(&lines));
         return Err(msg);
     }
 
