@@ -1,6 +1,10 @@
 use std::fmt::Write as _;
 use std::ops::Deref;
 
+pub use diagnostic::*;
+
+mod diagnostic;
+
 pub trait Ctx: Sized {
     type Error;
     type Warning;
@@ -44,31 +48,6 @@ impl<E, W, H> Ctx for Diagnostics<E, W, H> {
 
     fn hint(&mut self, hint: impl Into<H>) {
         self.hints.push(hint.into());
-    }
-}
-
-pub trait Diagnostic {
-    const SEVERITY: Severity;
-
-    fn span(&self) -> Span;
-    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result;
-    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result;
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Severity {
-    Error,
-    Warning,
-    Hint,
-}
-
-impl std::fmt::Display for Severity {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Severity::Error => f.write_str("error"),
-            Severity::Warning => f.write_str("warning"),
-            Severity::Hint => f.write_str("hint"),
-        }
     }
 }
 

@@ -1,5 +1,7 @@
+use std::fmt::Write as _;
+
 use bumpalo::Bump;
-use common::Diagnostic;
+use common::DisplayDiagnostic;
 use toml_test_harness::{Decoded, DecodedValue};
 
 use crates_toml::datetime::DateTime;
@@ -19,13 +21,13 @@ impl toml_test_harness::Decoder for TestDecoder {
         let asts = ctx.parse(&bump, &tokens);
         let map = ctx.map(&asts);
 
-        if let Some(e) = ctx.errors.first() {
-            let span = e.span();
-            let mut msg = format!(
-                "{}:{} - {}:{}\n",
-                span.start.line, span.start.char, span.end.line, span.end.char
-            );
-            _ = e.description(&mut msg);
+        if let Some(error) = ctx.errors.first() {
+            let lines = input.split('\n').collect::<Vec<_>>();
+            let mut msg = format!("{}", error.header(&lines));
+            if let Some(hint) = error.hint() {
+                _ = write!(&mut msg, "{}", hint.body(&lines));
+            }
+            _ = write!(&mut msg, "{}", error.body(&lines));
             return Err(toml_test_harness::Error::new(msg));
         }
 
