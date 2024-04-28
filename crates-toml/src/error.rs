@@ -173,7 +173,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(quote, _, _) => write!(f, "Unterminated string literal, missing `{quote}`"),
-            InvalidStringChar(char, _) => write!(f, "Invalid char `{char}`in string"),
+            InvalidStringChar(char, _) => write!(f, "Invalid character `{char}`in string"),
             InvalidEscapeChar(char, _) => write!(f, "Invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`"),
             InvalidUnicodeEscapeChar(char, _) => write!(f, "Invalid character `{char}` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`"),
             InvalidUnicodeCodepoint(num_chars, cp, _) => write!(f, "Invalid unicode code point `0x{cp:0width$x}` (`{cp}`)", width = *num_chars as usize),
