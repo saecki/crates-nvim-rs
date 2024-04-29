@@ -136,8 +136,8 @@ fn parse_decimal_int_float_or_date(
             }
             'e' | 'E' => {
                 if last_underscore {
-                    let pos = span.start.plus(i as u32);
-                    return Err(Error::LitEndsWithUnderscore(LitPart::FloatExp, pos));
+                    let pos = span.start.plus(i as u32).minus(1);
+                    return Err(Error::LitEndsWithUnderscore(LitPart::FloatIntegral, pos));
                 }
 
                 return validate_float_exponent(chars, span);

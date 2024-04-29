@@ -305,8 +305,22 @@ impl Diagnostic for Error {
             InvalidIntRadix(..) => write!(f, "Invalid integer radix"),
             InvalidNumOrDateLiteralStart(..) => write!(f, "Invalid literal character"),
             InvalidCharInNumLiteral(..) => write!(f, "Invalid integer or float literal character"),
-            LitStartsWithUnderscore(_, _) => write!(f, "Literal cannot start with `_`"),
-            LitEndsWithUnderscore(_, _) => write!(f, "Literal cannot end with `_`"),
+            LitStartsWithUnderscore(p, _) | LitEndsWithUnderscore(p, _) => {
+                let part = match p {
+                    LitPart::Generic => "Literal",
+                    LitPart::IntOrFloat => "Integer or float",
+                    LitPart::Int => "Integer",
+                    LitPart::FloatIntegral => "Float integral",
+                    LitPart::FloatFract => "Float fractional part",
+                    LitPart::FloatExp => "Float exponent",
+                };
+                let verb = match self {
+                    LitStartsWithUnderscore(_, _) => "start",
+                    LitEndsWithUnderscore(_, _) => "end",
+                    _ => unsafe { std::hint::unreachable_unchecked() },
+                };
+                write!(f, "{part} cannot {verb} with `_`")
+            }
             ConsecutiveUnderscoresInLiteral(_) => {
                 write!(f, "Consecutive underscores (`_`) not allowed")
             }
