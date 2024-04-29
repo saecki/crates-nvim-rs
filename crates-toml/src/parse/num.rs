@@ -14,6 +14,19 @@ pub enum LitPart {
     FloatExp,
 }
 
+impl LitPart {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            LitPart::Generic => "literal",
+            LitPart::IntOrFloat => "integer or float",
+            LitPart::Int => "integer",
+            LitPart::FloatIntegral => "float integral",
+            LitPart::FloatFract => "float fractional part",
+            LitPart::FloatExp => "float exponent",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Sign {
     Positive,

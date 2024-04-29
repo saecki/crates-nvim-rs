@@ -68,17 +68,23 @@ pub enum DateTimeField {
     OffsetMinute,
 }
 
+impl DateTimeField {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            DateTimeField::Year => "year",
+            DateTimeField::Month => "month",
+            DateTimeField::Day => "day",
+            DateTimeField::Hour => "hour",
+            DateTimeField::Minute => "minute",
+            DateTimeField::Second => "second",
+            DateTimeField::OffsetHour => "offset-hour",
+            DateTimeField::OffsetMinute => "offset-minute",
+        }
+    }
+}
+
 impl std::fmt::Display for DateTimeField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DateTimeField::Year => f.write_str("year"),
-            DateTimeField::Month => f.write_str("month"),
-            DateTimeField::Day => f.write_str("day"),
-            DateTimeField::Hour => f.write_str("hour"),
-            DateTimeField::Minute => f.write_str("minute"),
-            DateTimeField::Second => f.write_str("second"),
-            DateTimeField::OffsetHour => f.write_str("offset-hour"),
-            DateTimeField::OffsetMinute => f.write_str("offset-minute"),
-        }
+        f.write_str(self.to_str())
     }
 }

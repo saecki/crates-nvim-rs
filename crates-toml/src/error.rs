@@ -203,21 +203,13 @@ impl Diagnostic for Error {
                 }
                 Ok(())
             }
-            LitStartsWithUnderscore(p, _) | LitEndsWithUnderscore(p, _) => {
-                let part = match p {
-                    LitPart::Generic => "Literal",
-                    LitPart::IntOrFloat => "Integer or float",
-                    LitPart::Int => "Integer",
-                    LitPart::FloatIntegral => "Float integral",
-                    LitPart::FloatFract => "Float fractional part",
-                    LitPart::FloatExp => "Float exponent",
-                };
-                let verb = match self {
-                    LitStartsWithUnderscore(_, _) => "start",
-                    LitEndsWithUnderscore(_, _) => "end",
-                    _ => unsafe { std::hint::unreachable_unchecked() },
-                };
-                write!(f, "{part} cannot {verb} with `_`")
+            LitStartsWithUnderscore(p, _) => {
+                write_capitalized(f, p.to_str())?;
+                write!(f, " cannot start with `_`")
+            }
+            LitEndsWithUnderscore(p, _) => {
+                write_capitalized(f, p.to_str())?;
+                write!(f, " cannot end with `_`")
             }
             ConsecutiveUnderscoresInLiteral(_) => {
                 write!(f, "Consecutive underscores (`_`) are not allowed in number literals")
@@ -305,22 +297,15 @@ impl Diagnostic for Error {
             InvalidIntRadix(..) => write!(f, "Invalid integer radix"),
             InvalidNumOrDateLiteralStart(..) => write!(f, "Invalid literal character"),
             InvalidCharInNumLiteral(..) => write!(f, "Invalid integer or float literal character"),
-            LitStartsWithUnderscore(p, _) | LitEndsWithUnderscore(p, _) => {
-                let part = match p {
-                    LitPart::Generic => "Literal",
-                    LitPart::IntOrFloat => "Integer or float",
-                    LitPart::Int => "Integer",
-                    LitPart::FloatIntegral => "Float integral",
-                    LitPart::FloatFract => "Float fractional part",
-                    LitPart::FloatExp => "Float exponent",
-                };
-                let verb = match self {
-                    LitStartsWithUnderscore(_, _) => "start",
-                    LitEndsWithUnderscore(_, _) => "end",
-                    _ => unsafe { std::hint::unreachable_unchecked() },
-                };
-                write!(f, "{part} cannot {verb} with `_`")
+            LitStartsWithUnderscore(p, _) => {
+                write_capitalized(f, p.to_str())?;
+                write!(f, " cannot start with `_`")
             }
+            LitEndsWithUnderscore(p, _) => {
+                write_capitalized(f, p.to_str())?;
+                write!(f, " cannot end with `_`")
+            }
+
             ConsecutiveUnderscoresInLiteral(_) => {
                 write!(f, "Consecutive underscores (`_`) not allowed")
             }
@@ -353,7 +338,10 @@ impl Diagnostic for Error {
             DateTimeMissingChar(..) => write!(f, "Missing character"),
             DateTimeIncomplete(..) => write!(f, "Missing digits"),
             DateTimeMissing(field, _) => write!(f, "Missing {field}"),
-            DateTimeOutOfBounds(field, _, _, _) => write!(f, "Date-time {field} out of range"),
+            DateTimeOutOfBounds(field, _, _, _) => {
+                write_capitalized(f, field.to_str())?;
+                write!(f, " out of range")
+            }
             DateTimeMissingSubsec(_) => write!(f, "Missing date-time fractional second"),
             LocalDateTimeOffset(_) => write!(f, "Local-time doesn't permit an offset"),
             DateAndTimeTooFarApart(_) => write!(f, "Date and time too far apart"),
@@ -519,4 +507,12 @@ impl Diagnostic for Hint {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         self.description(f)
     }
+}
+
+fn write_capitalized(f: &mut impl std::fmt::Write, text: &str) -> std::fmt::Result {
+    let Some(first) = text.chars().next() else {
+        return Ok(());
+    };
+    write!(f, "{}", first.to_uppercase())?;
+    f.write_str(&text[first.len_utf8()..])
 }
