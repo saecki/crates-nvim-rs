@@ -1,0 +1,4 @@
+[91merror[0m: Date-time minute `60` out of range, the valid range is `0..=59`
+ [94m-->[0m 2:18
+[94m   2 |[0m d = 2006-01-01T00:60:00-00:00
+     [94m|[0m                   [91m^^ Minute out of range[0m

@@ -1,4 +1,4 @@
 [91merror[0m: Integer or float cannot end with `_`
  [94m-->[0m 1:17
 [94m   1 |[0m trailing-us = 123_
-     [94m|[0m                  [91m^ Literal cannot end with `_`[0m
+     [94m|[0m                  [91m^ Integer or float cannot end with `_`[0m
