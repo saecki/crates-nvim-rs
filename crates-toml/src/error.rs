@@ -280,8 +280,8 @@ impl Diagnostic for Error {
             InvalidLineEndingEscape(_) => write!(f, "Invalid line ending backslash"),
             UnfinishedEscapeSequence(_) => write!(f, "Unfinished escape sequence"),
             InvalidCharInIdentifier(..) => write!(f, "Invalid character in identifier"),
-            MultilineBasicStringIdent(_) => write!(f, "Not a key"),
-            MultilineLiteralStringIdent(_) => write!(f, "Not a key"),
+            MultilineBasicStringIdent(_) => write!(f, "Not a valid key"),
+            MultilineLiteralStringIdent(_) => write!(f, "Not a valid key"),
             InvalidCommentChar(_, _) => write!(f, "Invalid character"),
 
             ExpectedEqFound(..) => write!(f, "Expected `=`"),
