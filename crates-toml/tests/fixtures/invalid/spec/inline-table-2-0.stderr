@@ -1,0 +1,6 @@
+[91merror[0m: Cannot extend inline table `product.type`
+ [94m-->[0m 3:0
+[94m   2 |[0m type = { name = "Nail" }
+     [94m|[0m [94m^^^^^^^^^^^^^^^^^^^^^^^^ Original table defined here[0m
+[94m   3 |[0m type.edible = false  # INVALID
+     [94m|[0m [91m^^^^ Cannot extend inline table[0m

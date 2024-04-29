@@ -1,0 +1,4 @@
+[91merror[0m: Invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+ [94m-->[0m 1:22
+[94m   1 |[0m bad-uni-esc-7 = "\uabag"
+     [94m|[0m                       [91m^ Invalid unicode escape character[0m

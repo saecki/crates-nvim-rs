@@ -1,0 +1,4 @@
+[91merror[0m: Invalid escape character `@`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 1:8
+[94m   1 |[0m a = """\@"""
+     [94m|[0m         [91m^ Invalid escape character[0m

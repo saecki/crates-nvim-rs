@@ -1,0 +1,4 @@
+[91merror[0m: Expected a key, found `,`
+ [94m-->[0m 1:9
+[94m   1 |[0m t = {x=3,,y=4}
+     [94m|[0m          [91m^ Expected a key[0m

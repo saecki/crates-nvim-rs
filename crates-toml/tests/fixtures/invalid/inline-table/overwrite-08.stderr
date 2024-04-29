@@ -1,0 +1,6 @@
+[91merror[0m: Cannot extend inline table `tab.inner`
+ [94m-->[0m 1:34
+[94m   1 |[0m tab = { inner = { dog = "best" }, inner.cat = "worst" }
+     [94m|[0m         [94m^^^^^^^^^^^^^^^^^^^^^^^^^ Original table defined here[0m
+[94m   1 |[0m tab = { inner = { dog = "best" }, inner.cat = "worst" }
+     [94m|[0m                                   [91m^^^^^ Cannot extend inline table[0m

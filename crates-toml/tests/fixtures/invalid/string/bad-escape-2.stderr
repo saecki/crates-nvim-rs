@@ -1,0 +1,4 @@
+[91merror[0m: Unfinished escape sequence
+ [94m-->[0m 1:40
+[94m   1 |[0m invalid-escape = "This string has a bad \  escape character."
+     [94m|[0m                                         [91m^ Unfinished escape sequence[0m
