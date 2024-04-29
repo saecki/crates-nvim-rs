@@ -74,7 +74,7 @@ fn main() {
                         let mut msg = String::new();
                         _ = writeln!(
                             &mut msg,
-                            "Fixture `{}` not found:\n  {e}\n",
+                            "Fixture `\x1b[93m{}\x1b[0m` not found:\n  {e}\n",
                             expect_path.display()
                         );
                         _ = writeln!(
