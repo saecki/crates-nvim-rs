@@ -1,0 +1,4 @@
+[91merror[0m: Float exponent cannot end with `_`
+ [94m-->[0m 1:22
+[94m   1 |[0m exp-trailing-us = 1e23_
+     [94m|[0m                       [91m^ Float exponent cannot end with `_`[0m
