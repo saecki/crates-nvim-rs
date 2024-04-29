@@ -68,10 +68,12 @@ impl Diagnostic for CargoError {
     }
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        _ = f;
         todo!()
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        _ = f;
         todo!()
     }
 }
@@ -130,10 +132,12 @@ impl Diagnostic for CargoWarning {
     }
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        _ = f;
         todo!()
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        _ = f;
         todo!()
     }
 }
@@ -192,10 +196,12 @@ impl Diagnostic for CargoHint {
     }
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        _ = f;
         todo!()
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        _ = f;
         todo!()
     }
 }

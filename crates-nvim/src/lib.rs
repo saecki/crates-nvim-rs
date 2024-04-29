@@ -9,7 +9,7 @@ use toml::TomlCtx;
 
 use crate::error::{CargoError, CargoHint, CargoWarning, Error, Hint, Warning};
 
-mod error;
+pub mod error;
 
 type NvimDiagnostics = Diagnostics<Error, Warning, Hint>;
 
