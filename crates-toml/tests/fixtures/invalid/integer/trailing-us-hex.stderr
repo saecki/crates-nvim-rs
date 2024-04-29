@@ -1,0 +1,4 @@
+[91merror[0m: Integer literal cannot end with `_`
+ [94m-->[0m 1:21
+[94m   1 |[0m trailing-us-hex = 0x1_
+     [94m|[0m                      [91m^ Integer literal cannot end with `_`[0m

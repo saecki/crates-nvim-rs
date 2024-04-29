@@ -1,0 +1,4 @@
+[91merror[0m: Found uppercase binary int prefix `B`, only lowercase `b` is permitted
+ [94m-->[0m 1:15
+[94m   1 |[0m capital-bin = 0B0
+     [94m|[0m                [91m^ Uppercase radix[0m

@@ -1,0 +1,4 @@
+[91merror[0m: Invalid character `g` in integer literal
+ [94m-->[0m 1:18
+[94m   1 |[0m invalid-hex-2 = 0xgabba00f1
+     [94m|[0m                   [91m^ Invalid integer literal character[0m

@@ -1,0 +1,4 @@
+[91merror[0m: Found uppercase octal int prefix `O`, only lowercase `o` is permitted
+ [94m-->[0m 1:15
+[94m   1 |[0m capital-oct = 0O0
+     [94m|[0m                [91m^ Uppercase radix[0m

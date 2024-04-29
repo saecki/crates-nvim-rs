@@ -1,0 +1,4 @@
+[91merror[0m: Octal digit `8` out of range, valid digits are `0-7`
+ [94m-->[0m 1:18
+[94m   1 |[0m invalid-oct = 0o778
+     [94m|[0m                   [91m^ Octal digit out of range[0m
