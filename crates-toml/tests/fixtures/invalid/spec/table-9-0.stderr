@@ -1,0 +1,6 @@
+[91merror[0m: Duplicate key `apple` in table `fruit`
+ [94m-->[0m 5:7
+[94m   2 |[0m apple.color = "red"
+     [94m|[0m [94m^^^^^ Original key defined here[0m
+[94m   5 |[0m [fruit.apple]  # INVALID
+     [94m|[0m        [91m^^^^^ Duplicate key[0m
