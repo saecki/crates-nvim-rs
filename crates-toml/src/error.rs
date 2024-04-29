@@ -28,8 +28,12 @@ pub enum Error {
     InlineTableTrailingComma(Pos),
     SpaceBetweenArrayPars(Span),
 
+    UppercaseLitChar(FmtChar, &'static str, Pos),
+    UnexpectedLitChar(FmtChar, &'static str, Pos),
+    LitTrailingChars(FmtStr, &'static str, Span),
+    LitMissingChars(&'static str, Pos),
     InvalidIntRadix(FmtChar, Pos),
-    InvalidNumOrDateLiteralStart(FmtChar, Pos),
+    InvalidLiteralStart(FmtChar, Pos),
     InvalidCharInNumLiteral(FmtChar, Pos),
     LitStartsWithUnderscore(LitPart, Pos),
     LitEndsWithUnderscore(LitPart, Pos),
@@ -127,8 +131,12 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(p) => Span::pos(*p),
             SpaceBetweenArrayPars(s) => *s,
 
+            UppercaseLitChar(_, _, p) => Span::pos(*p),
+            UnexpectedLitChar(_, _, p) => Span::pos(*p),
+            LitTrailingChars(_, _, s) => *s,
+            LitMissingChars(_, p) => Span::pos(*p),
             InvalidIntRadix(_, p) => Span::pos(*p),
-            InvalidNumOrDateLiteralStart(_, p) => Span::pos(*p),
+            InvalidLiteralStart(_, p) => Span::pos(*p),
             InvalidCharInNumLiteral(_, p) => Span::pos(*p),
             LitStartsWithUnderscore(_, p) => Span::pos(*p),
             LitEndsWithUnderscore(_, p) => Span::pos(*p),
@@ -194,8 +202,12 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(_) => write!(f, "Trailing commas aren't permitted in inline tables"),
             SpaceBetweenArrayPars(_) => write!(f, "No space allowed between array header brackets"),
 
+            UppercaseLitChar(c, expected, _) => write!(f, "Uppercase character `{c}` in literal, expected `{expected}`"),
+            UnexpectedLitChar(c, expected, _) => write!(f, "Invalid character `{c}` in literal, expected `{expected}`"),
+            LitTrailingChars(s, expected, _) => write!(f, "Trailing characters `{s}` in literal, expected `{expected}`"),
+            LitMissingChars(expected, _) => write!(f, "Missing characters in literal, expected `{expected}`"),
             InvalidIntRadix(char, _) => write!(f, "Invalid integer radix: `{char}`, valid radices are `b`, `o` and `x`"),
-            InvalidNumOrDateLiteralStart(char, _) => write!(f, "Invalid character `{char}` at start of literal"),
+            InvalidLiteralStart(char, _) => write!(f, "Invalid character `{char}` at start of literal"),
             InvalidCharInNumLiteral(char, _) => {
                 write!(f, "Invalid character `{char}` in integer or float literal")?;
                 if let 'a'..='f' | 'A'..='F' = char.0 {
@@ -294,8 +306,12 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(_) => write!(f, "Trailing comma"),
             SpaceBetweenArrayPars(_) => write!(f, "No space allowed"),
 
+            UppercaseLitChar(..) => write!(f, "Uppercase character"),
+            UnexpectedLitChar(..) => write!(f, "Invalid character"),
+            LitTrailingChars(..) => write!(f, "Trailing characters"),
+            LitMissingChars(..) => write!(f, "Missing characters"),
             InvalidIntRadix(..) => write!(f, "Invalid integer radix"),
-            InvalidNumOrDateLiteralStart(..) => write!(f, "Invalid literal character"),
+            InvalidLiteralStart(..) => write!(f, "Invalid literal character"),
             InvalidCharInNumLiteral(..) => write!(f, "Invalid integer or float literal character"),
             LitStartsWithUnderscore(p, _) => {
                 write_capitalized(f, p.to_str())?;
@@ -389,8 +405,12 @@ impl Error {
             InlineTableTrailingComma(_) => None,
             SpaceBetweenArrayPars(_) => None,
 
+            UppercaseLitChar(..) => None,
+            UnexpectedLitChar(..) => None,
+            LitTrailingChars(..) => None,
+            LitMissingChars(..) => None,
             InvalidIntRadix(_, _) => None,
-            InvalidNumOrDateLiteralStart(_, _) => None,
+            InvalidLiteralStart(_, _) => None,
             InvalidCharInNumLiteral(_, _) => None,
             LitStartsWithUnderscore(_, _) => None,
             LitEndsWithUnderscore(_, _) => None,

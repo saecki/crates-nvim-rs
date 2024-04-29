@@ -68,49 +68,7 @@ impl IntPrefix {
     }
 }
 
-/// Parse all integers adhering to the toml spec, the integer part of a float and it's exponent or
-/// a date-time adhering to the RFC 3339 spec. The toml spec allows using a space instead of `T` to
-/// separate the date and time parts, in that case only the date is parsed since the time part is
-/// inside the next token.
-pub fn parse_num_or_date(literal: &str, span: Span) -> Result<PartialValue, Error> {
-    let mut chars = literal.char_indices().peekable();
-    let c = match chars.next() {
-        None => unreachable!("value literal should never be emtpy"),
-        Some((_, c)) => c,
-    };
-
-    match c {
-        '+' | '-' => {
-            let sign = match c {
-                '+' => Sign::Positive,
-                '-' => Sign::Negative,
-                _ => unsafe { core::hint::unreachable_unchecked() },
-            };
-
-            match chars.next() {
-                Some((_, '0')) => parse_prefixed_int_or_date(chars, span, Some(sign)),
-                Some((_, c @ '1'..='9')) => {
-                    let num = (c as u32 - '0' as u32) as i64;
-                    parse_decimal_int_float_or_date(chars, span, num, Some(sign))
-                }
-                Some((i, c)) => {
-                    let pos = span.start.plus(i as u32);
-                    Err(Error::InvalidCharInNumLiteral(FmtChar(c), pos))
-                }
-                None => Err(Error::MissingNumDigitsAfterSign(sign, span.end)),
-            }
-        }
-        '0' => parse_prefixed_int_or_date(chars, span, None),
-        '1'..='9' => {
-            let num = (c as u32 - '0' as u32) as i64;
-            parse_decimal_int_float_or_date(chars, span, num, None)
-        }
-        '_' => Err(Error::LitStartsWithUnderscore(LitPart::Generic, span.start)),
-        _ => Err(Error::InvalidNumOrDateLiteralStart(FmtChar(c), span.start)),
-    }
-}
-
-fn parse_decimal_int_float_or_date(
+pub fn parse_decimal_int_float_or_date(
     mut chars: CharIter,
     span: Span,
     mut int_accum: i64,
@@ -190,7 +148,7 @@ fn parse_decimal_int_float_or_date(
     }
 }
 
-fn parse_prefixed_int_or_date(
+pub fn parse_prefixed_int_or_date(
     mut chars: CharIter,
     span: Span,
     sign_char: Option<Sign>,

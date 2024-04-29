@@ -5,7 +5,9 @@ use bumpalo::Bump;
 use common::{FmtChar, FmtStr, Pos, Span};
 
 use crate::datetime::{Date, DateTime, Time};
-use crate::lex::{LiteralId, StringId, StringToken, TextOffset, Token, TokenType, Tokens};
+use crate::lex::{
+    CharIter, LiteralId, StringId, StringToken, TextOffset, Token, TokenType, Tokens,
+};
 use crate::{Error, Quote, TomlCtx};
 
 pub use num::{IntPrefix, LitPart, Sign};
@@ -677,27 +679,6 @@ impl<'a> Parser<'a> {
     }
 }
 
-/// A possibly only partially parsed value
-enum PartialValue {
-    /// An integer that is prefixed by either `0b`, `0o`, or `0x`.
-    PrefixedInt(i64),
-    /// A valid decimal integer, but could also be the integer part of a float.
-    Int(i64),
-    /// Possibly the integer part of a float, otherwise an error.
-    OverflowOrFloat,
-    /// A float with an exponent. There can't be a fractional part after this.
-    FloatWithExp,
-    /// A complete offset date-time, without the sub second part, but with an offset.
-    OffsetDateTime(DateTime),
-    /// A date-time without the subsecond part and an offset, might be followed by the subsecond
-    /// part.
-    PartialDateTime(Date, Time),
-    /// Just the date part, might be followed by the time part.
-    PartialDate(Date),
-    /// A local time without sub second part, might be followed by it.
-    PartialTime(Time),
-}
-
 /// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
 /// is returned, otherwise the possibly partially invalid ast is returned.
 pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
@@ -1133,48 +1114,40 @@ fn parse_value<'a>(
             let lit = parser.literal(id);
             let span = Span::from_pos_len(token.start, lit.len() as u32);
 
-            match lit {
-                "true" => Value::Bool(BoolVal::new(span, true)),
-                "false" => Value::Bool(BoolVal::new(span, false)),
-                "nan" => Value::Float(FloatVal::new(lit, span, f64::NAN)),
-                "+nan" => Value::Float(FloatVal::new(lit, span, f64::NAN)),
-                "-nan" => Value::Float(FloatVal::new(lit, span, -f64::NAN)),
-                "inf" => Value::Float(FloatVal::new(lit, span, f64::INFINITY)),
-                "+inf" => Value::Float(FloatVal::new(lit, span, f64::INFINITY)),
-                "-inf" => Value::Float(FloatVal::new(lit, span, f64::NEG_INFINITY)),
-                _ => match num::parse_num_or_date(lit, span) {
-                    Ok(PartialValue::PrefixedInt(i)) => Value::Int(IntVal::new(lit, span, i)),
-                    Ok(PartialValue::Int(i)) => {
-                        try_to_parse_fractional_part_of_float(ctx, parser, lit, span, Some(i))
-                    }
-                    Ok(PartialValue::OverflowOrFloat) => {
-                        try_to_parse_fractional_part_of_float(ctx, parser, lit, span, None)
-                    }
-                    Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
-                        Ok(v) => Value::Float(FloatVal::new(lit, span, v)),
-                        Err(_) => {
-                            ctx.error(Error::FloatLiteralOverflow(span));
-                            Value::Invalid(lit, span)
-                        }
-                    },
-                    Ok(PartialValue::OffsetDateTime(val)) => {
-                        let date_time = DateTimeVal::new(lit, span, val);
-                        Value::DateTime(date_time)
-                    }
-                    Ok(PartialValue::PartialDate(date)) => {
-                        try_to_parse_time_part(ctx, parser, lit, span, date)
-                    }
-                    Ok(PartialValue::PartialDateTime(date, time)) => {
-                        try_to_parse_subsecs(ctx, parser, lit, span, Some(date), time)
-                    }
-                    Ok(PartialValue::PartialTime(time)) => {
-                        try_to_parse_subsecs(ctx, parser, lit, span, None, time)
-                    }
-                    Err(e) => {
-                        ctx.error(e);
+            match parse_literal(lit, span) {
+                Ok(PartialValue::Bool(b)) => Value::Bool(BoolVal::new(span, b)),
+                Ok(PartialValue::SpecialFloat(f)) => Value::Float(FloatVal::new(lit, span, f)),
+                Ok(PartialValue::PrefixedInt(i)) => Value::Int(IntVal::new(lit, span, i)),
+                Ok(PartialValue::Int(i)) => {
+                    try_to_parse_fractional_part_of_float(ctx, parser, lit, span, Some(i))
+                }
+                Ok(PartialValue::OverflowOrFloat) => {
+                    try_to_parse_fractional_part_of_float(ctx, parser, lit, span, None)
+                }
+                Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
+                    Ok(v) => Value::Float(FloatVal::new(lit, span, v)),
+                    Err(_) => {
+                        ctx.error(Error::FloatLiteralOverflow(span));
                         Value::Invalid(lit, span)
                     }
                 },
+                Ok(PartialValue::OffsetDateTime(val)) => {
+                    let date_time = DateTimeVal::new(lit, span, val);
+                    Value::DateTime(date_time)
+                }
+                Ok(PartialValue::PartialDate(date)) => {
+                    try_to_parse_time_part(ctx, parser, lit, span, date)
+                }
+                Ok(PartialValue::PartialDateTime(date, time)) => {
+                    try_to_parse_subsecs(ctx, parser, lit, span, Some(date), time)
+                }
+                Ok(PartialValue::PartialTime(time)) => {
+                    try_to_parse_subsecs(ctx, parser, lit, span, None, time)
+                }
+                Err(e) => {
+                    ctx.error(e);
+                    Value::Invalid(lit, span)
+                }
             }
         }
         TokenType::SquareLeft => {
@@ -1412,6 +1385,139 @@ fn parse_value<'a>(
     };
 
     Ok(value)
+}
+
+/// A possibly only partially parsed value
+enum PartialValue {
+    /// A boolean literal, either `false` or `true`
+    Bool(bool),
+    /// A "special" float value like `nan` or `inf`
+    SpecialFloat(f64),
+    /// An integer that is prefixed by either `0b`, `0o`, or `0x`.
+    PrefixedInt(i64),
+    /// A valid decimal integer, but could also be the integer part of a float.
+    Int(i64),
+    /// Possibly the integer part of a float, otherwise an error.
+    OverflowOrFloat,
+    /// A float with an exponent. There can't be a fractional part after this.
+    FloatWithExp,
+    /// A complete offset date-time, without the sub second part, but with an offset.
+    OffsetDateTime(DateTime),
+    /// A date-time without the subsecond part and an offset, might be followed by the subsecond
+    /// part.
+    PartialDateTime(Date, Time),
+    /// Just the date part, might be followed by the time part. The toml spec allows using a space
+    /// instead of `T` to separate the date and time parts, in that case only the date is parsed
+    /// since the time part is inside the next token.
+    PartialDate(Date),
+    /// A local time without sub second part, might be followed by it.
+    PartialTime(Time),
+}
+
+fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
+    let mut chars = lit.char_indices().peekable();
+    let c = match chars.next() {
+        None => unreachable!("value literal should never be emtpy"),
+        Some((_, c)) => c,
+    };
+
+    match c {
+        '+' | '-' => {
+            let sign = match c {
+                '+' => Sign::Positive,
+                '-' => Sign::Negative,
+                _ => unsafe { core::hint::unreachable_unchecked() },
+            };
+
+            match chars.next() {
+                Some((_, '0')) => num::parse_prefixed_int_or_date(chars, span, Some(sign)),
+                Some((_, c @ '1'..='9')) => {
+                    let num = (c as u32 - '0' as u32) as i64;
+                    num::parse_decimal_int_float_or_date(chars, span, num, Some(sign))
+                }
+                Some((i, 'i' | 'I')) => {
+                    parse_bare_literal(chars, span, i, c, lit, "inf")?;
+                    let val = sign.val() as f64 * f64::INFINITY;
+                    Ok(PartialValue::SpecialFloat(val))
+                }
+                Some((i, 'n' | 'N')) => {
+                    parse_bare_literal(chars, span, i, c, lit, "nan")?;
+                    let val = match sign {
+                        Sign::Positive => f64::NAN,
+                        Sign::Negative => -f64::NAN,
+                    };
+                    Ok(PartialValue::SpecialFloat(val))
+                }
+                Some((i, c)) => {
+                    let pos = span.start.plus(i as u32);
+                    Err(Error::InvalidCharInNumLiteral(FmtChar(c), pos))
+                }
+                None => Err(Error::MissingNumDigitsAfterSign(sign, span.end)),
+            }
+        }
+        '0' => num::parse_prefixed_int_or_date(chars, span, None),
+        '1'..='9' => {
+            let num = (c as u32 - '0' as u32) as i64;
+            num::parse_decimal_int_float_or_date(chars, span, num, None)
+        }
+        'f' | 'F' => {
+            parse_bare_literal(chars, span, 0, c, lit, "false")?;
+            Ok(PartialValue::Bool(false))
+        }
+        't' | 'T' => {
+            parse_bare_literal(chars, span, 0, c, lit, "true")?;
+            Ok(PartialValue::Bool(true))
+        }
+        'i' | 'I' => {
+            parse_bare_literal(chars, span, 0, c, lit, "inf")?;
+            Ok(PartialValue::SpecialFloat(f64::INFINITY))
+        }
+        'n' | 'N' => {
+            parse_bare_literal(chars, span, 0, c, lit, "nan")?;
+            Ok(PartialValue::SpecialFloat(f64::NAN))
+        }
+        '_' => Err(Error::LitStartsWithUnderscore(LitPart::Generic, span.start)),
+        _ => Err(Error::InvalidLiteralStart(FmtChar(c), span.start)),
+    }
+}
+
+fn parse_bare_literal(
+    mut chars: CharIter,
+    span: Span,
+    i: usize,
+    first: char,
+    lit: &str,
+    expected: &'static str,
+) -> Result<(), Error> {
+    let mut expected_iter = expected.chars().skip(1);
+
+    if first.is_uppercase() {
+        let pos = span.start.plus(i as u32);
+        return Err(Error::UppercaseLitChar(FmtChar(first), expected, pos));
+    }
+
+    while let Some((i, c)) = chars.next() {
+        let Some(e) = expected_iter.next() else {
+            let span = Span::new(span.start.plus(i as u32), span.end);
+            let trailing = FmtStr::from_str(&lit[i..]);
+            return Err(Error::LitTrailingChars(trailing, expected, span));
+        };
+
+        if c != e {
+            let pos = span.start.plus(i as u32);
+            if c.to_ascii_lowercase() == e {
+                return Err(Error::UppercaseLitChar(FmtChar(c), expected, pos));
+            } else {
+                return Err(Error::UnexpectedLitChar(FmtChar(c), expected, pos));
+            }
+        }
+    }
+
+    if expected_iter.next().is_some() {
+        return Err(Error::LitMissingChars(expected, span.end));
+    }
+
+    Ok(())
 }
 
 fn try_to_parse_fractional_part_of_float<'a>(
