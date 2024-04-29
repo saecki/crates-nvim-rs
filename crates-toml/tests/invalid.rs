@@ -15,6 +15,8 @@ enum Mode {
     Fail,
     /// Ask the user on mismatch
     Review,
+    /// Ask the user on mismatch, but only on if there is an existing fixture
+    Update,
     /// Review correct fixtures
     Revise,
     /// Force overwrite the fixtures on mismatch
@@ -39,6 +41,7 @@ fn main() {
         mode = match v {
             "fail" | "" => Mode::Fail,
             "review" => Mode::Review,
+            "update" => Mode::Update,
             "revise" => Mode::Revise,
             "force" => Mode::Force,
             _ => panic!("invalid mode `{v}`"),
@@ -93,7 +96,9 @@ fn main() {
                         );
 
                         match mode {
-                            Mode::Fail | Mode::Revise => return Err(Failed::from(msg)),
+                            Mode::Fail | Mode::Revise | Mode::Update => {
+                                return Err(Failed::from(msg))
+                            }
                             Mode::Review => {
                                 print!("\n{msg}");
                                 return match dialog(["update", "skip", "quit"]) {
@@ -101,7 +106,7 @@ fn main() {
                                         let dir = expect_path.parent().unwrap();
                                         std::fs::create_dir_all(dir).unwrap();
                                         std::fs::write(expect_path, actual_text).unwrap();
-                                        println!("Updated path");
+                                        println!("Added fixture");
                                         Ok(())
                                     }
                                     "skip" => Err(Failed::from(msg)),
@@ -191,14 +196,19 @@ fn main() {
 
                 match mode {
                     Mode::Fail | Mode::Revise => Err(Failed::from(msg)),
-                    Mode::Review => {
+                    Mode::Review | Mode::Update => {
                         print!("\n{msg}");
-                        match dialog(["update", "skip", "quit"]) {
+                        match dialog(["update", "skip", "invalidate", "quit"]) {
                             "update" => {
                                 let dir = expect_path.parent().unwrap();
                                 std::fs::create_dir_all(dir).unwrap();
                                 std::fs::write(expect_path, actual_text).unwrap();
-                                println!("Updated path");
+                                println!("Updated fixture");
+                                Ok(())
+                            }
+                            "invalidate" => {
+                                std::fs::remove_file(expect_path).unwrap();
+                                println!("Deleted fixture");
                                 Ok(())
                             }
                             "skip" => Err(Failed::from(msg)),
