@@ -559,7 +559,7 @@ fn inline_array_recover_invalid() {
                 }),
             ))]
         },
-        Error::ExpectedValueFound("=".into(), Span::from_pos_len(Pos { line: 0, char: 18 }, 1)),
+        Error::ExpectedValueFound("`=`".into(), Span::from_pos_len(Pos { line: 0, char: 18 }, 1)),
     );
 }
 
@@ -693,7 +693,7 @@ fn inline_table_recover_invalid() {
             ))]
         },
         Error::ExpectedKeyFound(
-            "=".into(),
+            "`=`".into(),
             Span {
                 start: Pos { line: 0, char: 27 },
                 end: Pos { line: 0, char: 28 },

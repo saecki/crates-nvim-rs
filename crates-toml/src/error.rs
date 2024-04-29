@@ -18,7 +18,7 @@ pub enum Error {
     MultilineLiteralStringIdent(Span),
     InvalidCommentChar(FmtChar, Span),
 
-    ExpectedEqFound(FmtStr, Span),
+    ExpectedEqOrDotFound(FmtStr, Span),
     ExpectedRightCurlyFound(FmtStr, Pos, Span),
     ExpectedRightSquareFound(FmtStr, Pos, Span),
     ExpectedKeyFound(FmtStr, Span),
@@ -117,7 +117,7 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(s) => *s,
             InvalidCommentChar(_, s) => *s,
 
-            ExpectedEqFound(_, s) => *s,
+            ExpectedEqOrDotFound(_, s) => *s,
             ExpectedRightCurlyFound(_, _, s) => *s,
             ExpectedRightSquareFound(_, _, s) => *s,
             ExpectedKeyFound(_, s) => *s,
@@ -184,11 +184,11 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(_) => write!(f, "Multi-line strings cannot be used as keys"),
             InvalidCommentChar(c, _) => write!(f, "Invalid character `{c}` in comment"),
 
-            ExpectedEqFound(token, _) => write!(f, "Expected `=`, found `{token}`"),
-            ExpectedRightCurlyFound(token, _, _) => write!(f, "Expected `}}`, found `{token}`"),
-            ExpectedRightSquareFound(token, _, _) => write!(f, "Expected `]`, found `{token}`"),
-            ExpectedKeyFound(token, _) => write!(f, "Expected a key, found `{token}`"),
-            ExpectedValueFound(token, _) => write!(f, "Expected a value, found `{token}`"),
+            ExpectedEqOrDotFound(token, _) => write!(f, "Expected `=` or `.`, found {token}"),
+            ExpectedRightCurlyFound(token, _, _) => write!(f, "Expected `}}`, found {token}"),
+            ExpectedRightSquareFound(token, _, _) => write!(f, "Expected `]`, found {token}"),
+            ExpectedKeyFound(token, _) => write!(f, "Expected a key, found {token}"),
+            ExpectedValueFound(token, _) => write!(f, "Expected a value, found {token}"),
             MissingComma(_) => write!(f, "Missing comma (`,`)"),
             MissingNewline(_) => write!(f, "Missing line break"),
             InlineTableTrailingComma(_) => write!(f, "Trailing commas aren't permitted in inline tables"),
@@ -284,7 +284,7 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(_) => write!(f, "Not a valid key"),
             InvalidCommentChar(_, _) => write!(f, "Invalid character"),
 
-            ExpectedEqFound(..) => write!(f, "Expected `=`"),
+            ExpectedEqOrDotFound(..) => write!(f, "Expected `=` or `.`"),
             ExpectedRightCurlyFound(..) => write!(f, "Expected `}}`"),
             ExpectedRightSquareFound(..) => write!(f, "Expected `]`"),
             ExpectedKeyFound(..) => write!(f, "Expected a key"),
@@ -379,7 +379,7 @@ impl Error {
             MultilineLiteralStringIdent(_) => None,
             InvalidCommentChar(_, _) => None,
 
-            ExpectedEqFound(_, _) => None,
+            ExpectedEqOrDotFound(_, _) => None,
             ExpectedRightCurlyFound(_, p, _) => Some(Hint::ExpectedRightCurlyFound(*p)),
             ExpectedRightSquareFound(_, p, _) => Some(Hint::ExpectedRightSquareFound(*p)),
             ExpectedKeyFound(_, _) => None,

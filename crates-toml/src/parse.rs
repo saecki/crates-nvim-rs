@@ -649,30 +649,30 @@ impl<'a> Parser<'a> {
             TokenType::String(id) => {
                 let string = &self.strings[id.0 as usize];
                 let span = Span::new(token.start, string.lit_end);
-                let lit = FmtStr::from_str(string.lit);
+                let lit = FmtStr::from_string(format!("`{}`", FmtStr::from_str(string.lit)));
                 (lit, span)
             }
             TokenType::LiteralOrIdent(id) => {
                 let lit = self.literals[id.0 as usize];
                 let span = Span::from_pos_len(token.start, lit.len() as u32);
-                let lit = FmtStr::from_str(lit);
+                let lit = FmtStr::from_string(format!("`{}`", FmtStr::from_str(lit)));
                 (lit, span)
             }
             TokenType::Comment(id) => {
                 let lit = self.literals[id.0 as usize];
                 let span = Span::from_pos_len(token.start, 1 + lit.len() as u32);
-                let lit = FmtStr::from_string(format!("#{lit}"));
+                let lit = FmtStr::from_str("comment");
                 (lit, span)
             }
-            TokenType::SquareLeft => ascii("[", token.start),
-            TokenType::SquareRight => ascii("]", token.start),
-            TokenType::CurlyLeft => ascii("{", token.start),
-            TokenType::CurlyRight => ascii("{", token.start),
-            TokenType::Equal => ascii("=", token.start),
-            TokenType::Comma => ascii(",", token.start),
-            TokenType::Dot => ascii(".", token.start),
-            TokenType::Newline => (FmtStr::from_str("\\n"), Span::pos(token.start)),
-            TokenType::EOF => (FmtStr::from_str("EOF"), Span::pos(token.start)),
+            TokenType::SquareLeft => ascii("`[`", token.start),
+            TokenType::SquareRight => ascii("`]`", token.start),
+            TokenType::CurlyLeft => ascii("`{`", token.start),
+            TokenType::CurlyRight => ascii("`{`", token.start),
+            TokenType::Equal => ascii("`=`", token.start),
+            TokenType::Comma => ascii("`,`", token.start),
+            TokenType::Dot => ascii("`.`", token.start),
+            TokenType::Newline => (FmtStr::from_str("`\\n`"), Span::pos(token.start)),
+            TokenType::EOF => (FmtStr::from_str("`EOF`"), Span::pos(token.start)),
         }
     }
 }
@@ -858,7 +858,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             t if t.ty == TokenType::Equal => t.start,
             t => {
                 let (string, span) = parser.token_fmt_str_and_span(t);
-                ctx.error(Error::ExpectedEqFound(string, span));
+                ctx.error(Error::ExpectedEqOrDotFound(string, span));
                 recover_on!(parser, Newline | EOF => continue 'root);
             }
         };
@@ -1337,7 +1337,7 @@ fn parse_value<'a>(
                     t if t.ty == TokenType::Equal => parser.next().start,
                     t => {
                         let (string, span) = parser.token_fmt_str_and_span(t);
-                        ctx.error(Error::ExpectedEqFound(string, span));
+                        ctx.error(Error::ExpectedEqOrDotFound(string, span));
                         recover_on!(parser,
                             Comma => {
                                 parser.next();

@@ -1,4 +1,4 @@
-[91merror[0m: Expected `}`, found `#`
+[91merror[0m: Expected `}`, found comment
  [94m-->[0m 1:16
 [94m   1 |[0m x = [{ key = 42 #
      [94m|[0m      [94m^ Left `{` defined here[0m
