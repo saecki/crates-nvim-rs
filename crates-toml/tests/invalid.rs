@@ -22,20 +22,38 @@ enum Mode {
 }
 
 fn main() {
-    let mode = std::env::var("SNAPSHOT")
-        .map(|m| match m.as_str() {
+    let mut mode = Mode::default();
+    let mut filter = None;
+    let var = std::env::var("SNAPSHOT");
+    if let Ok(var) = &var {
+        let mut v = var.as_str();
+        if let Some((m, f)) = var.split_once(':') {
+            v = m;
+            if f.is_empty() {
+                println!("\x1b[93mWarning\x1b[0m: ignoring empty filter")
+            } else {
+                filter = Some(f);
+            }
+        }
+
+        mode = match v {
             "fail" | "" => Mode::Fail,
             "review" => Mode::Review,
             "revise" => Mode::Revise,
             "force" => Mode::Force,
-            _ => panic!("invalid mode `{m}`"),
-        })
-        .unwrap_or_default();
+            _ => panic!("invalid mode `{v}`"),
+        }
+    }
 
     let mut args = libtest_mimic::Arguments::from_args();
     args.test_threads = Some(1);
 
     let tests = toml_test_data::invalid()
+        .filter(|case| {
+            filter
+                .map(|f| case.name.to_str().unwrap().contains(f))
+                .unwrap_or(true)
+        })
         .map(|case| {
             libtest_mimic::Trial::test(case.name.display().to_string(), move || {
                 let expect_path =

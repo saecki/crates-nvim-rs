@@ -9,8 +9,14 @@ If an error message has changed or a new test case was added, the new output can
 ```
 SNAPSHOT=review cargo test
 ```
-Possible values for the `SNAPSHOT` environment variable are:
+Possible values for the `SNAPSHOT` mode environment variable are:
 - `fail` (default) to just fail the test with an error message.
 - `review` to review each change individually and decide whether to update the output fixture.
 - `revise` to review correct fixtures and decide whether to invalidate (remove) them.
 - `force` to update all output fixtures
+
+Additionally a filter can be specified like this:
+```
+SNAPSHOT="review:string" cargo test
+```
+This filter is used in a simple substring search on the test case file paths.
