@@ -1365,7 +1365,7 @@ fn parse_value<'a>(
                 let assignment = Assignment { key, eq, val };
                 comma = match parser.peek() {
                     t if t.ty == TokenType::Comma => Some(parser.next().start),
-                    t if one_of!(t.ty, CurlyRight | Newline | EOF) => {
+                    t if one_of!(t.ty, CurlyRight | Newline | Comment(_) | EOF) => {
                         assignments.push(InlineTableAssignment {
                             assignment,
                             comma: None,
