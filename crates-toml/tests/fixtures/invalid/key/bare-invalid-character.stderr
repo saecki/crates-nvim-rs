@@ -1,0 +1,4 @@
+[91merror[0m: Invalid character `!` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`
+ [94m-->[0m 1:4
+[94m   1 |[0m bare!key = 123
+     [94m|[0m     [91m^ Invalid character in identifier[0m

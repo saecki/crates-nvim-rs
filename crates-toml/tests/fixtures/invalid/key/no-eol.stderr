@@ -1,0 +1,4 @@
+[91merror[0m: Missing line break
+ [94m-->[0m 1:6
+[94m   1 |[0m a = 1 b = 2
+     [94m|[0m       [91m^ Missing line break[0m

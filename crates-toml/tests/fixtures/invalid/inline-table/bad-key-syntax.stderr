@@ -1,0 +1,4 @@
+[91merror[0m: Expected a key, found `[`
+ [94m-->[0m 1:15
+[94m   1 |[0m tbl = { a = 1, [b] }
+     [94m|[0m                [91m^ Expected a key[0m

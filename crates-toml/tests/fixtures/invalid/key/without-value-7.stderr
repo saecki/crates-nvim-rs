@@ -1,0 +1,4 @@
+[91merror[0m: Expected a key, found `\n`
+ [94m-->[0m 1:3
+[94m   1 |[0m fs.
+     [94m|[0m    [91m^ Expected a key[0m

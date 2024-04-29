@@ -1,0 +1,4 @@
+[91merror[0m: Expected a value, found `\n`
+ [94m-->[0m 1:7
+[94m   1 |[0m fs.fw =
+     [94m|[0m        [91m^ Expected a value[0m

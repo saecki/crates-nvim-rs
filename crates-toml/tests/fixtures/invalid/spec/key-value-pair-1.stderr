@@ -1,0 +1,4 @@
+[91merror[0m: Expected a value, found comment
+ [94m-->[0m 1:6
+[94m   1 |[0m key = # INVALID
+     [94m|[0m       [91m^^^^^^^^^ Expected a value[0m

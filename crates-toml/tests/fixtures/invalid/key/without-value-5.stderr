@@ -1,0 +1,4 @@
+[91merror[0m: Expected `=` or `.`, found `\n`
+ [94m-->[0m 1:5
+[94m   1 |[0m fs.fw
+     [94m|[0m      [91m^ Expected `=` or `.`[0m
