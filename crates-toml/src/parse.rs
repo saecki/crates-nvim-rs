@@ -856,8 +856,8 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
 
         let eq = match parser.next() {
             t if t.ty == TokenType::Equal => t.start,
-            _ => {
-                let (string, span) = parser.token_fmt_str_and_span(token);
+            t => {
+                let (string, span) = parser.token_fmt_str_and_span(t);
                 ctx.error(Error::ExpectedEqFound(string, span));
                 recover_on!(parser, Newline | EOF => continue 'root);
             }
