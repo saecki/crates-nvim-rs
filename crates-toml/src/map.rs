@@ -607,12 +607,12 @@ fn insert_node<'a>(
             | MapTableEntryReprKind::ArrayEntry(_)
             | MapTableEntryReprKind::ToplevelAssignment(_)
             | MapTableEntryReprKind::InlineTableAssignment(_) => {
-                return Err(duplicate_key_error(
-                    mapper,
-                    repr.key.repr_ident(),
-                    existing_entry,
-                    &repr.key,
-                ))
+                return Err(Error::DuplicateKey {
+                    path: mapper.path(),
+                    key: FmtStr::from_str(repr.key.repr_ident().lit),
+                    orig: existing_repr.key.repr_ident().lit_span(),
+                    duplicate: repr.key.repr_ident().lit_span(),
+                });
             }
         }
     }
