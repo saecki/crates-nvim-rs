@@ -1,0 +1,4 @@
+[91merror[0m: Incomplete date-time, hour is missing digits
+ [94m-->[0m 2:16
+[94m   2 |[0m d = 2023-10-01T1:32:00Z
+     [94m|[0m                 [91m^ Missing digits[0m
