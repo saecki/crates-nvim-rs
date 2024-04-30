@@ -1,0 +1,4 @@
+[91merror[0m: Uppercase character `N` in literal, expected `nan`
+ [94m-->[0m 1:4
+[94m   1 |[0m v = NaN
+     [94m|[0m     [91m^ Uppercase character[0m

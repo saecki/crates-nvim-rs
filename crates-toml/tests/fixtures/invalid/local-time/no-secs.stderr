@@ -1,0 +1,4 @@
+[91merror[0m: Incomplete date-time, missing character `:` after minute
+ [94m-->[0m 2:15
+[94m   2 |[0m no-secs = 17:45
+     [94m|[0m                [91m^ Missing character[0m

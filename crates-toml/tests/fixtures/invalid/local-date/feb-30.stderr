@@ -1,0 +1,4 @@
+[91merror[0m: Date-time day `30` out of range, the valid range is `1..=29`
+ [94m-->[0m 1:43
+[94m   1 |[0m "only 28 or 29 days in february" = 1988-02-30
+     [94m|[0m                                            [91m^^ Day out of range[0m

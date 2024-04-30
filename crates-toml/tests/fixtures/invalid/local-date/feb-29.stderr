@@ -1,0 +1,4 @@
+[91merror[0m: Date-time day `29` out of range, the valid range is `1..=28`
+ [94m-->[0m 1:28
+[94m   1 |[0m "not a leap year" = 2100-02-29
+     [94m|[0m                             [91m^^ Day out of range[0m
