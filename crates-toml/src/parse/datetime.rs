@@ -19,13 +19,25 @@ pub fn continue_parsing_date_time(
             let time = continue_parsing_local_time(chars, span, hour)?;
             return Ok(PartialValue::PartialTime(time));
         }
-        Some((i, c)) => return invalid_char_error(c, span, i),
+        Some((i, c)) => {
+            let pos = span.start.plus(i as u32);
+            return match c {
+                '-' => Err(Error::DateTimeIncomplete(Year, pos)),
+                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+            };
+        }
         None => return Err(Error::DateTimeIncomplete(Year, span.end)),
     };
 
     let y3 = match chars.next() {
         Some((_, c @ ('0'..='9'))) => c as u16 - '0' as u16,
-        Some((i, c)) => return invalid_char_error(c, span, i),
+        Some((i, c)) => {
+            let pos = span.start.plus(i as u32);
+            return match c {
+                '-' => Err(Error::DateTimeIncomplete(Year, pos)),
+                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+            };
+        }
         None => return Err(Error::DateTimeIncomplete(Year, span.end)),
     };
     let year = 100 * two_digits + 10 * y2 + y3;
@@ -41,7 +53,7 @@ pub fn continue_parsing_date_time_after_year(
     span: Span,
     year: u16,
 ) -> Result<PartialValue, Error> {
-    let (month, _) = expect_two_digit_num(chars, span)
+    let (month, _) = expect_two_digit_num(chars, ['-'], span)
         .map_err(|e| e.kind(Month))?
         .check_range(1..=12)
         .map_err(|e| e.kind(Month))?;
@@ -55,7 +67,7 @@ pub fn continue_parsing_date_time_after_year(
         4 | 6 | 9 | 11 => 30,
         _ => 31,
     };
-    let (day, _) = expect_two_digit_num(chars, span)
+    let (day, _) = expect_two_digit_num(chars, ['T', 't'], span)
         .map_err(|e| e.kind(Day))?
         .check_range(1..=max_day)
         .map_err(|e| e.kind(Day))?;
@@ -64,7 +76,13 @@ pub fn continue_parsing_date_time_after_year(
 
     let (time, offset) = match chars.next() {
         Some((_, 'T' | 't')) => parse_time_and_offset(chars, span)?,
-        Some((i, c)) => return invalid_char_error(c, span, i),
+        Some((i, c)) => {
+            let pos = span.start.plus(i as u32);
+            return match c {
+                '0'..='9' => Err(Error::DateTimeMissingChar(Day, FmtChar('T'), pos)),
+                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+            };
+        }
         None => return Ok(PartialValue::PartialDate(date)),
     };
 
@@ -78,7 +96,7 @@ pub fn continue_parsing_date_time_after_year(
 }
 
 /// Continue to parse local time *without* offset (finding one will result in an error), after the
-/// `:` separtor following the hour.
+/// `:` separator following the hour.
 pub fn continue_parsing_local_time(
     chars: &mut CharIter,
     span: Span,
@@ -99,7 +117,7 @@ pub fn parse_time_and_offset(
     span: Span,
 ) -> Result<(Time, Option<Offset>), Error> {
     let time = {
-        let (hour, _) = expect_two_digit_num(chars, span)
+        let (hour, _) = expect_two_digit_num(chars, [':'], span)
             .map_err(|e| e.kind(Hour))?
             .check_range(0..=23)
             .map_err(|e| e.kind(Hour))?;
@@ -117,14 +135,14 @@ pub fn parse_time_and_offset(
 /// NOTE: This intentionally doesn't parse offsets, and quietly returns *just* the time if one
 /// is encountered. The caller is expected to check and handle any remaining offsets.
 fn continue_parsing_time(chars: &mut CharIter, span: Span, hour: u8) -> Result<Time, Error> {
-    let (minute, _) = expect_two_digit_num(chars, span)
+    let (minute, _) = expect_two_digit_num(chars, [':'], span)
         .map_err(|e| e.kind(Minute))?
         .check_range(0..=59)
         .map_err(|e| e.kind(Minute))?;
 
     expect_char(chars, span, DateTimeField::Minute, ':')?;
 
-    let (second, _) = expect_two_digit_num(chars, span)
+    let (second, _) = expect_two_digit_num(chars, ['Z', 'z', '+', '-'], span)
         .map_err(|e| e.kind(Second))?
         .check_range(0..=59)
         .map_err(|e| e.kind(Second))?;
@@ -229,14 +247,14 @@ fn try_to_parse_offset(chars: &mut CharIter, span: Span) -> Result<Option<Offset
 }
 
 fn parse_offset(chars: &mut CharIter, span: Span) -> Result<i16, Error> {
-    let (hour, _) = expect_two_digit_num(chars, span)
+    let (hour, _) = expect_two_digit_num(chars, [':'], span)
         .map_err(|e| e.kind(OffsetHour))?
         .check_range(0..=23)
         .map_err(|e| e.kind(OffsetHour))?;
 
     expect_char(chars, span, DateTimeField::OffsetHour, ':')?;
 
-    let (minute, _) = expect_two_digit_num(chars, span)
+    let (minute, _) = expect_two_digit_num(chars, [], span)
         .map_err(|e| e.kind(OffsetMinute))?
         .check_range(0..=59)
         .map_err(|e| e.kind(OffsetMinute))?;
@@ -246,11 +264,13 @@ fn parse_offset(chars: &mut CharIter, span: Span) -> Result<i16, Error> {
 
 fn error_on_offset(chars: &mut CharIter, span: Span) -> Result<(), Error> {
     match chars.next() {
-        Some((i, 'Z' | 'z' | '+' | '-')) => {
+        Some((i, c)) => {
             let pos = span.start.plus(i as u32);
-            Err(Error::LocalDateTimeOffset(pos))
+            return match c {
+                'Z' | 'z' | '+' | '-' => Err(Error::LocalDateTimeOffset(pos)),
+                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+            };
         }
-        Some((i, c)) => invalid_char_error(c, span, i),
         None => Ok(()),
     }
 }
@@ -302,8 +322,9 @@ impl ExpectNumError {
     }
 }
 
-fn expect_two_digit_num(
+fn expect_two_digit_num<const SIZE: usize>(
     chars: &mut impl Iterator<Item = (usize, char)>,
+    next: [char; SIZE],
     span: Span,
 ) -> Result<(u8, Span), ExpectNumError> {
     use ExpectNumErrorKind::*;
@@ -316,19 +337,27 @@ fn expect_two_digit_num(
         '0'..='9' => c as u8 - b'0',
         _ => {
             let pos = span.start.plus(start_offset as u32);
-            return Err(ExpectNumError(Invalid(c), pos));
+            if next.contains(&c) {
+                return Err(ExpectNumError(Missing, pos));
+            } else {
+                return Err(ExpectNumError(Invalid(c), pos));
+            }
         }
     };
 
-    let Some((_, c)) = chars.next() else {
+    let Some((i, c)) = chars.next() else {
         let pos = span.end;
         return Err(ExpectNumError(Incomplete, pos));
     };
     let d1 = match c {
         '0'..='9' => c as u8 - b'0',
         _ => {
-            let pos = span.start.plus(start_offset as u32);
-            return Err(ExpectNumError(Invalid(c), pos));
+            let pos = span.start.plus(i as u32);
+            return if next.contains(&c) {
+                Err(ExpectNumError(Incomplete, pos))
+            } else {
+                Err(ExpectNumError(Invalid(c), pos))
+            };
         }
     };
 
