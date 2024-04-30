@@ -1,0 +1,4 @@
+[91merror[0m: Uppercase character `T` in literal, expected `true`
+ [94m-->[0m 1:26
+[94m   1 |[0m wrong-case-true         = TRUE
+     [94m|[0m                           [91m^ Uppercase character[0m

@@ -4,10 +4,10 @@
      [94m|[0m        [94m^ Literal started here[0m
 [94m   3 |[0m   I don't belong,
      [94m|[0m                  [91m^ Unterminated string literal[0m
-[91merror[0m: Invalid character `I` at start of literal
+[91merror[0m: Uppercase character `I` in literal, expected `inf`
  [94m-->[0m 3:2
 [94m   3 |[0m   I don't belong,
-     [94m|[0m   [91m^ Invalid literal character[0m
+     [94m|[0m   [91m^ Uppercase character[0m
 [91merror[0m: Missing comma (`,`)
  [94m-->[0m 3:3
 [94m   3 |[0m   I don't belong,

@@ -1,0 +1,4 @@
+[91merror[0m: Uppercase character `E` in literal, expected `false`
+ [94m-->[0m 1:30
+[94m   1 |[0m mixed-case-false        = falsE
+     [94m|[0m                               [91m^ Uppercase character[0m

@@ -1,0 +1,4 @@
+[91merror[0m: Uppercase character `F` in literal, expected `false`
+ [94m-->[0m 1:27
+[94m   1 |[0m capitalized-false        = False
+     [94m|[0m                            [91m^ Uppercase character[0m

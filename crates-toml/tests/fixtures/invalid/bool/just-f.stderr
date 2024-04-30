@@ -1,0 +1,4 @@
+[91merror[0m: Missing characters in literal, expected `false`
+ [94m-->[0m 1:27
+[94m   1 |[0m just-f                  = f
+     [94m|[0m                            [91m^ Missing characters[0m
