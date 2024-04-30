@@ -25,7 +25,7 @@ impl std::fmt::Debug for SimpleVal {
             SimpleVal::Float(s) => std::fmt::Debug::fmt(s, f),
             SimpleVal::Bool(s) => std::fmt::Debug::fmt(s, f),
             SimpleVal::DateTime(s) => std::fmt::Debug::fmt(s, f),
-            SimpleVal::Invalid(s) => std::fmt::Debug::fmt(s, f),
+            SimpleVal::Invalid(s) => f.debug_tuple("Invalid").field(s).finish(),
         }
     }
 }
