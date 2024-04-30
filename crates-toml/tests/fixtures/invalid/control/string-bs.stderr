@@ -1,4 +1,0 @@
-[91merror[0m: Invalid character `\b`in string
- [94m-->[0m 1:24
-[94m   1 |[0m string-bs   = "backspace"
-     [94m|[0m                         [91m^ Invalid char[0m
