@@ -182,7 +182,7 @@ pub fn parse_prefixed_int_or_date(
         }
         _ => {
             let pos = span.start.plus(i as u32);
-            Err(Error::InvalidIntRadix(FmtChar(c), pos))
+            Err(Error::ExpectedRadixOrDateTime(FmtChar(c), pos))
         }
     }
 }

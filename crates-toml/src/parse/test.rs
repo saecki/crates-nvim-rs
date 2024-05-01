@@ -272,7 +272,7 @@ fn invalid_prefixed_int_radix() {
     check_error(
         "abc = 0c324",
         |_, c| [Ast::Assignment(tainvalid(c, 0, 0, "abc", "0c324"))],
-        Error::InvalidIntRadix(FmtChar('c'), Pos { line: 0, char: 7 }),
+        Error::ExpectedRadixOrDateTime(FmtChar('c'), Pos { line: 0, char: 7 }),
     );
 }
 
