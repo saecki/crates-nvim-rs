@@ -123,12 +123,18 @@ pub fn parse_decimal_int_float_or_date(
             }
             ':' if sign_char.is_none() && i == 2 => {
                 let hour = int_accum as u8;
-                return datetime::continue_parsing_local_time(&mut chars, span, hour)
-                    .map(PartialValue::PartialTime);
+                return match datetime::continue_parsing_local_time(&mut chars, span, hour) {
+                    Ok(t) => Ok(PartialValue::PartialTime(t)),
+                    Err(e) => Ok(PartialValue::InvalidTime(e)),
+                };
             }
             '-' if sign_char.is_none() && i == 4 => {
                 let year = int_accum as u16;
-                return datetime::continue_parsing_date_time_after_year(&mut chars, span, year);
+                return match datetime::continue_parsing_date_time_after_year(&mut chars, span, year)
+                {
+                    Ok(v) => Ok(v),
+                    Err(e) => Ok(PartialValue::InvalidDateTime(e)),
+                };
             }
             '_' => {
                 if last_underscore {
@@ -186,7 +192,10 @@ pub fn parse_prefixed_int_or_date(
         'e' | 'E' => validate_float_exponent(chars, span),
         '0'..='9' if sign_char.is_none() => {
             let two_digits = c as u16 - '0' as u16;
-            datetime::continue_parsing_date_time(&mut chars, span, two_digits)
+            match datetime::continue_parsing_date_time(&mut chars, span, two_digits) {
+                Ok(v) => Ok(v),
+                Err(e) => Ok(PartialValue::InvalidDateTime(e)),
+            }
         }
         _ => {
             let pos = span.start.plus(i as u32);

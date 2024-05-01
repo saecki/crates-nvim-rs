@@ -1152,6 +1152,18 @@ fn parse_value<'a>(
                 Ok(PartialValue::PartialTime(time)) => {
                     try_to_parse_subsecs(ctx, parser, lit, span, None, time)
                 }
+                Ok(PartialValue::InvalidDateTime(e)) => {
+                    ctx.error(e);
+                    if lit.contains(['T', 't', ':']) {
+                        eat_subsec_part(parser, lit, span)
+                    } else {
+                        eat_time_part(parser, lit, span)
+                    }
+                }
+                Ok(PartialValue::InvalidTime(e)) => {
+                    ctx.error(e);
+                    eat_subsec_part(parser, lit, span)
+                }
                 Err(e) => {
                     ctx.error(e);
                     Value::Invalid(lit, span)
@@ -1420,6 +1432,10 @@ enum PartialValue {
     PartialDate(Date),
     /// A local time without sub second part, might be followed by it.
     PartialTime(Time),
+    /// An invalid datetime, parsed up to a certain point, this is used to possibly consume
+    /// the next tokens in order to avoid excessive errors.
+    InvalidDateTime(Error),
+    InvalidTime(Error),
 }
 
 fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
@@ -1653,7 +1669,7 @@ fn try_to_parse_time_part<'a>(
         Ok(v) => v,
         Err(e) => {
             ctx.error(e);
-            return Value::Invalid(lit, span);
+            return eat_subsec_part(parser, lit, span);
         }
     };
 
@@ -1741,4 +1757,86 @@ fn try_to_parse_subsecs<'a>(
             Value::Invalid(lit, span)
         }
     }
+}
+
+fn eat_time_part<'a>(parser: &mut Parser<'a>, date_lit: &'a str, date_span: Span) -> Value<'a> {
+    let (time_lit, time_span) = match parser.peek().ty {
+        TokenType::LiteralOrIdent(id) => {
+            let token = parser.next();
+            let lit = parser.literal(id);
+            let span = Span::from_pos_len(token.start, lit.len() as u32);
+            (lit, span)
+        }
+        _ => return Value::Invalid(date_lit, date_span),
+    };
+
+    // only assum these literals belong together if they are reasonably close together
+    if time_span.start.char > date_span.end.char + 5 {
+        return Value::Invalid(date_lit, date_span);
+    }
+
+    // SAFETY: the first and second literal reference the same string, are on the same line and
+    // are only separated by whitespace. See above.
+    let lit = unsafe {
+        let ptr = date_lit.as_ptr();
+        let len = (time_span.end.char - date_span.start.char) as usize;
+        let slice = std::slice::from_raw_parts(ptr, len);
+        std::str::from_utf8_unchecked(slice)
+    };
+    let span = Span::across(date_span, time_span);
+
+    let mut chars = time_lit.char_indices().peekable();
+    let (_time, offset) = match datetime::parse_time_and_offset(&mut chars, time_span) {
+        Ok(v) => v,
+        Err(_) => return eat_subsec_part(parser, lit, span),
+    };
+
+    if offset.is_some() {
+        return Value::Invalid(lit, span);
+    }
+
+    eat_subsec_part(parser, lit, span)
+}
+
+fn eat_subsec_part<'a>(
+    parser: &mut Parser<'a>,
+    date_time_lit: &'a str,
+    date_time_span: Span,
+) -> Value<'a> {
+    match parser.peek() {
+        t if t.ty == TokenType::Dot && date_time_span.end == t.start => {
+            parser.next();
+        }
+        _ => return Value::Invalid(date_time_lit, date_time_span),
+    }
+
+    let subsec_span;
+    let subsec_lit = match parser.peek().ty {
+        TokenType::LiteralOrIdent(id) => {
+            let subsec = parser.next();
+            let subsec_lit = parser.literal(id);
+            subsec_span = Span::from_pos_len(subsec.start, subsec_lit.len() as u32);
+
+            let time_end = date_time_lit.as_bytes().as_ptr_range().end;
+            let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
+            // SAFETY: we know there is a dot directly after date_time_lit.
+            let dot_end = unsafe { time_end.add(1) };
+            if dot_end != subsec_start {
+                return Value::Invalid(date_time_lit, date_time_span);
+            }
+            subsec_lit
+        }
+        _ => return Value::Invalid(date_time_lit, date_time_span),
+    };
+
+    // SAFETY: the first and second literal reference the same string and
+    // are only separated by a single dot. See above.
+    let lit = unsafe {
+        let ptr = date_time_lit.as_ptr();
+        let len = date_time_lit.len() + 1 + subsec_lit.len();
+        let slice = std::slice::from_raw_parts(ptr, len);
+        std::str::from_utf8_unchecked(slice)
+    };
+    let span = Span::across(date_time_span, subsec_span);
+    Value::Invalid(lit, span)
 }
