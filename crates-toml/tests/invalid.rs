@@ -8,11 +8,13 @@ use crates_toml::map::simple::SimpleVal;
 use crates_toml::{TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 enum Mode {
     /// Just fail the tests on mismatch
     #[default]
     Fail,
+    /// Skip tests
+    Skip,
     /// Ask the user on mismatch
     Review,
     /// Ask the user on mismatch, but only on if there is an existing fixture
@@ -40,6 +42,7 @@ fn main() {
 
         mode = match v {
             "fail" | "" => Mode::Fail,
+            "skip" => Mode::Skip,
             "review" => Mode::Review,
             "update" => Mode::Update,
             "revise" => Mode::Revise,
@@ -95,13 +98,12 @@ fn main() {
                             "============================================================"
                         );
 
-                        match mode {
-                            Mode::Fail | Mode::Revise | Mode::Update => {
-                                return Err(Failed::from(msg))
-                            }
+                        return match mode {
+                            Mode::Fail | Mode::Revise | Mode::Update => Err(Failed::from(msg)),
+                            Mode::Skip => unreachable!(),
                             Mode::Review => {
                                 print!("\n{msg}");
-                                return match dialog(["update", "skip", "quit"]) {
+                                match dialog(["update", "skip", "quit"]) {
                                     "update" => {
                                         let dir = expect_path.parent().unwrap();
                                         std::fs::create_dir_all(dir).unwrap();
@@ -112,13 +114,13 @@ fn main() {
                                     "skip" => Err(Failed::from(msg)),
                                     "quit" => std::process::exit(0),
                                     _ => unreachable!(),
-                                };
+                                }
                             }
                             Mode::Force => {
                                 std::fs::write(expect_path, actual_text).unwrap();
-                                return Ok(());
+                                Ok(())
                             }
-                        }
+                        };
                     }
                 };
 
@@ -196,6 +198,7 @@ fn main() {
 
                 match mode {
                     Mode::Fail | Mode::Revise => Err(Failed::from(msg)),
+                    Mode::Skip => unreachable!(),
                     Mode::Review | Mode::Update => {
                         print!("\n{msg}");
                         match dialog(["update", "skip", "invalidate", "quit"]) {
@@ -219,6 +222,7 @@ fn main() {
                     Mode::Force => Err(Failed::from(msg)),
                 }
             })
+            .with_ignored_flag(mode == Mode::Skip)
         })
         .collect();
     libtest_mimic::run(&args, tests).exit()
