@@ -28,13 +28,15 @@ pub enum Error {
     InlineTableTrailingComma(Pos),
     SpaceBetweenArrayPars(Span),
 
-    ExpectedRadixOrDateTime(FmtChar, Pos),
     UnexpectedLiteralStart(FmtChar, Pos),
     UnexpectedLiteralChar(LitPart, FmtChar, Pos),
     LitStartsWithUnderscore(LitPart, Pos),
     LitEndsWithUnderscore(LitPart, Pos),
     ConsecutiveUnderscoresInLiteral(Span),
     MissingNumDigitsAfterSign(Sign, Pos),
+    InvalidLeadingZero(Pos),
+    ExpectedRadixOrDateTime(FmtChar, Pos),
+    UnexpectedCharSignedLeadingZeroNum(FmtChar, Pos),
 
     UppercaseBareLitChar(FmtChar, &'static str, Pos),
     UnexpectedBareLitChar(FmtChar, &'static str, Pos),
@@ -130,13 +132,15 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(p) => Span::ascii_char(*p),
             SpaceBetweenArrayPars(s) => *s,
 
-            ExpectedRadixOrDateTime(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
             UnexpectedLiteralStart(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
             UnexpectedLiteralChar(_, c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
             LitStartsWithUnderscore(_, p) => Span::ascii_char(*p),
             LitEndsWithUnderscore(_, p) => Span::ascii_char(*p),
             ConsecutiveUnderscoresInLiteral(s) => *s,
             MissingNumDigitsAfterSign(_, p) => Span::pos(*p),
+            InvalidLeadingZero(p) => Span::ascii_char(*p),
+            ExpectedRadixOrDateTime(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
+            UnexpectedCharSignedLeadingZeroNum(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
 
             UppercaseBareLitChar(c, _, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
             UnexpectedBareLitChar(c, _, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
@@ -201,7 +205,6 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(_) => write!(f, "Trailing commas aren't permitted in inline tables"),
             SpaceBetweenArrayPars(_) => write!(f, "No space allowed between array header brackets"),
 
-            ExpectedRadixOrDateTime(char, _) => write!(f, "Unexpected character `{char}`, expected integer radix `b`, `o`, `x` or date-time"),
             UnexpectedLiteralStart(char, _) => write!(f, "Unexpected character `{char}` at start of literal"),
             UnexpectedLiteralChar(part, char, _) => {
                 write!(f, "Unexpected character `{char}` in {part}")?;
@@ -224,6 +227,9 @@ impl Diagnostic for Error {
                 write!(f, "Consecutive underscores (`_`) are not allowed in number literals")
             }
             MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing digit after sign `{sign}`, expected at least one"),
+            InvalidLeadingZero(_) => write!(f, "Invalid leading `0` in number"),
+            ExpectedRadixOrDateTime(c, _) => write!(f, "Unexpected character `{c}`, expected integer radix `b`, `o`, `x` or date-time"),
+            UnexpectedCharSignedLeadingZeroNum(c, _) => write!(f, "Unexpected character `{c}`"),
 
             UppercaseBareLitChar(c, expected, _) => write!(f, "Uppercase character `{c}` in literal, expected `{expected}`"),
             UnexpectedBareLitChar(c, expected, _) => write!(f, "Unexpected character `{c}` in literal, expected `{expected}`"),
@@ -305,7 +311,6 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(_) => write!(f, "Trailing comma"),
             SpaceBetweenArrayPars(_) => write!(f, "No space allowed"),
 
-            ExpectedRadixOrDateTime(..) => write!(f, "Unexpected character"),
             UnexpectedLiteralStart(..) => write!(f, "Unexpected character"),
             UnexpectedLiteralChar(p, _, _) => write!(f, "Unexpected character in {p}"),
             LitStartsWithUnderscore(p, _) => {
@@ -320,6 +325,9 @@ impl Diagnostic for Error {
                 write!(f, "Consecutive underscores (`_`) not allowed")
             }
             MissingNumDigitsAfterSign(..) => write!(f, "Missing digit after sign"),
+            InvalidLeadingZero(_) => write!(f, "Invalid leading `0`"),
+            ExpectedRadixOrDateTime { .. } => write!(f, "Unexpected character"),
+            UnexpectedCharSignedLeadingZeroNum { .. } => write!(f, "Unexpected character"),
 
             UppercaseBareLitChar(..) => write!(f, "Uppercase character"),
             UnexpectedBareLitChar(..) => write!(f, "Unexpected character"),
@@ -401,13 +409,15 @@ impl Error {
             InlineTableTrailingComma(_) => None,
             SpaceBetweenArrayPars(_) => None,
 
-            ExpectedRadixOrDateTime(..) => None,
             UnexpectedLiteralStart(..) => None,
             UnexpectedLiteralChar(..) => None,
             LitStartsWithUnderscore(..) => None,
             LitEndsWithUnderscore(..) => None,
             ConsecutiveUnderscoresInLiteral(..) => None,
             MissingNumDigitsAfterSign(..) => None,
+            InvalidLeadingZero(..) => None,
+            ExpectedRadixOrDateTime(..) => None,
+            UnexpectedCharSignedLeadingZeroNum(..) => None,
 
             UppercaseBareLitChar(..) => None,
             UnexpectedBareLitChar(..) => None,

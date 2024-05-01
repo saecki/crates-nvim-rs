@@ -233,9 +233,21 @@ pub fn parse_prefixed_int_or_date(
                 Err(e) => Ok(PartialValue::InvalidDateTime(e)),
             }
         }
+        '0'..='9' => {
+            let pos = span.start.plus(1);
+            Err(Error::InvalidLeadingZero(pos))
+        }
+        '_' => {
+            let pos = span.start.plus(sign_char.is_some() as u32);
+            Err(Error::InvalidLeadingZero(pos))
+        }
         _ => {
             let pos = span.start.plus(i as u32);
-            Err(Error::ExpectedRadixOrDateTime(FmtChar(c), pos))
+            if sign_char.is_some() {
+                Err(Error::UnexpectedCharSignedLeadingZeroNum(FmtChar(c), pos))
+            } else {
+                Err(Error::ExpectedRadixOrDateTime(FmtChar(c), pos))
+            }
         }
     }
 }
