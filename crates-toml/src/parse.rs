@@ -1457,7 +1457,7 @@ fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
                 Some((_, '0')) => num::parse_prefixed_int_or_date(chars, span, Some(sign)),
                 Some((_, c @ '1'..='9')) => {
                     let num = (c as u32 - '0' as u32) as i64;
-                    num::parse_decimal_int_float_or_date(chars, span, num, Some(sign))
+                    num::parse_decimal_int_float_or_date(chars, lit, span, num, Some(sign))
                 }
                 Some((i, 'i' | 'I')) => {
                     parse_bare_literal(chars, span, i, c, lit, "inf")?;
@@ -1482,7 +1482,7 @@ fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
         '0' => num::parse_prefixed_int_or_date(chars, span, None),
         '1'..='9' => {
             let num = (c as u32 - '0' as u32) as i64;
-            num::parse_decimal_int_float_or_date(chars, span, num, None)
+            num::parse_decimal_int_float_or_date(chars, lit, span, num, None)
         }
         'f' | 'F' => {
             parse_bare_literal(chars, span, 0, c, lit, "false")?;

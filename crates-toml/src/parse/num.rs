@@ -1,5 +1,6 @@
 use common::{FmtChar, Pos, Span};
 
+use crate::datetime::DateTimeField;
 use crate::lex::CharIter;
 use crate::parse::{datetime, unexpected_char, PartialValue};
 use crate::Error;
@@ -78,6 +79,7 @@ impl IntPrefix {
 
 pub fn parse_decimal_int_float_or_date(
     mut chars: CharIter,
+    literal: &str,
     span: Span,
     mut int_accum: i64,
     sign_char: Option<Sign>,
@@ -135,6 +137,40 @@ pub fn parse_decimal_int_float_or_date(
                     Ok(v) => Ok(v),
                     Err(e) => Ok(PartialValue::InvalidDateTime(e)),
                 };
+            }
+            ':' if sign_char.is_none() && i <= 3 => {
+                let err = match i {
+                    ..=3 => {
+                        Error::DateTimeIncomplete(DateTimeField::Hour, span.start.plus(i as u32))
+                    }
+                    4.. => {
+                        Error::DateTimeExpectedCharFound {
+                            after: DateTimeField::Hour,
+                            expected: FmtChar(':'),
+                            // valid becasuse all characters before were ascii chars
+                            found: FmtChar(literal.as_bytes()[2] as char),
+                            pos: span.start.plus(2),
+                        }
+                    }
+                };
+                return Ok(PartialValue::InvalidDateTime(err));
+            }
+            '-' if sign_char.is_none() && i <= 6 => {
+                let err = match i {
+                    ..=3 => {
+                        Error::DateTimeIncomplete(DateTimeField::Year, span.start.plus(i as u32))
+                    }
+                    4.. => {
+                        Error::DateTimeExpectedCharFound {
+                            after: DateTimeField::Year,
+                            expected: FmtChar('-'),
+                            // valid becasuse all characters before were ascii chars
+                            found: FmtChar(literal.as_bytes()[4] as char),
+                            pos: span.start.plus(4),
+                        }
+                    }
+                };
+                return Ok(PartialValue::InvalidDateTime(err));
             }
             '_' => {
                 if last_underscore {
