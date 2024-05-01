@@ -1,4 +1,4 @@
-[91merror[0m: Unexpected character `z` in hexadecimal integer
+[91merror[0m: Hexadecimal digit `z` out of range, valid digits are `0-9`, `a-f`, and `A-F`
  [94m-->[0m 1:19
 [94m   1 |[0m invalid-hex = 0xaafz
-     [94m|[0m                    [91m^ Unexpected character in hexadecimal integer[0m
+     [94m|[0m                    [91m^ Hexadecimal digit  out of range[0m

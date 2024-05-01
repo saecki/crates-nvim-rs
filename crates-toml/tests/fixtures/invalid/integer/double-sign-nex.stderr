@@ -1,0 +1,4 @@
+[91merror[0m: Unexpected character `-` in integer or float
+ [94m-->[0m 1:19
+[94m   1 |[0m double-sign-nex = --99
+     [94m|[0m                    [91m^ Unexpected character in integer or float[0m
