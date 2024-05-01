@@ -1,15 +1,15 @@
-[91merror[0m: Invalid character `i` in literal, expected `false`
+[91merror[0m: Unexpected character `i` in literal, expected `false`
  [94m-->[0m 1:30
 [94m   1 |[0m almost-false-with-extra = falsify
-     [94m|[0m                               [91m^ Invalid character[0m
+     [94m|[0m                               [91m^ Unexpected character[0m
 [91merror[0m: Missing characters in literal, expected `false`
  [94m-->[0m 2:30
 [94m   2 |[0m almost-false            = fals
      [94m|[0m                               [91m^ Missing characters[0m
-[91merror[0m: Invalid character `t` in literal, expected `true`
+[91merror[0m: Unexpected character `t` in literal, expected `true`
  [94m-->[0m 3:29
 [94m   3 |[0m almost-true-with-extra  = truthy
-     [94m|[0m                              [91m^ Invalid character[0m
+     [94m|[0m                              [91m^ Unexpected character[0m
 [91merror[0m: Missing characters in literal, expected `true`
  [94m-->[0m 4:29
 [94m   4 |[0m almost-true             = tru
@@ -22,10 +22,10 @@
  [94m-->[0m 6:27
 [94m   6 |[0m just-t                  = t
      [94m|[0m                            [91m^ Missing characters[0m
-[91merror[0m: Invalid character `v` at start of literal
+[91merror[0m: Unexpected character `v` at start of literal
  [94m-->[0m 7:26
 [94m   7 |[0m mixed-case              = valid   = False
-     [94m|[0m                           [91m^ Invalid literal character[0m
+     [94m|[0m                           [91m^ Unexpected character[0m
 [91merror[0m: Missing line break
  [94m-->[0m 7:34
 [94m   7 |[0m mixed-case              = valid   = False

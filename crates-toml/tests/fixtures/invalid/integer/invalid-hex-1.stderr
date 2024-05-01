@@ -1,4 +1,4 @@
-[91merror[0m: Invalid character `z` in integer literal
+[91merror[0m: Unexpected character `z` in hexadecimal integer
  [94m-->[0m 1:21
 [94m   1 |[0m invalid-hex-1 = 0xaafz
-     [94m|[0m                      [91m^ Invalid integer literal character[0m
+     [94m|[0m                      [91m^ Unexpected character in hexadecimal integer[0m

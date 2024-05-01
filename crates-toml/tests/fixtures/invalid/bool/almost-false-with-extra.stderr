@@ -1,4 +1,4 @@
-[91merror[0m: Invalid character `i` in literal, expected `false`
+[91merror[0m: Unexpected character `i` in literal, expected `false`
  [94m-->[0m 1:30
 [94m   1 |[0m almost-false-with-extra = falsify
-     [94m|[0m                               [91m^ Invalid character[0m
+     [94m|[0m                               [91m^ Unexpected character[0m

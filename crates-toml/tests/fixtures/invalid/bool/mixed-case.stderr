@@ -1,7 +1,7 @@
-[91merror[0m: Invalid character `v` at start of literal
+[91merror[0m: Unexpected character `v` at start of literal
  [94m-->[0m 1:26
 [94m   1 |[0m mixed-case              = valid   = False
-     [94m|[0m                           [91m^ Invalid literal character[0m
+     [94m|[0m                           [91m^ Unexpected character[0m
 [91merror[0m: Missing line break
  [94m-->[0m 1:34
 [94m   1 |[0m mixed-case              = valid   = False
