@@ -283,6 +283,10 @@ fn parse_prefixed_int_literal(
                 }
                 n
             }
+            'g'..='z' | 'G'..='Z' if prefix == IntPrefix::Hexadecimal => {
+                let pos = span.start.plus(i as u32);
+                return Err(Error::IntDigitTooBig(prefix, FmtChar(c), pos));
+            }
             '_' => {
                 if j == 0 {
                     let pos = span.start.plus(i as u32);
