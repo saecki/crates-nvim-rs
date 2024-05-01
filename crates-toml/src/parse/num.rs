@@ -1,14 +1,14 @@
 use common::{FmtChar, Pos, Span};
 
 use crate::lex::CharIter;
-use crate::parse::{datetime, PartialValue};
+use crate::parse::{datetime, unexpected_char, PartialValue};
 use crate::Error;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LitPart {
     Generic,
     IntOrFloat,
-    Int,
+    PrefixedInt(IntPrefix),
     FloatIntegral,
     FloatFract,
     FloatExp,
@@ -19,11 +19,19 @@ impl LitPart {
         match self {
             LitPart::Generic => "literal",
             LitPart::IntOrFloat => "integer or float",
-            LitPart::Int => "integer",
+            LitPart::PrefixedInt(IntPrefix::Binary) => "binary integer",
+            LitPart::PrefixedInt(IntPrefix::Octal) => "octal integer",
+            LitPart::PrefixedInt(IntPrefix::Hexadecimal) => "hexadecimal integer",
             LitPart::FloatIntegral => "float integral",
             LitPart::FloatFract => "float fractional part",
             LitPart::FloatExp => "float exponent",
         }
+    }
+}
+
+impl std::fmt::Display for LitPart {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.to_str())
     }
 }
 
@@ -130,7 +138,7 @@ pub fn parse_decimal_int_float_or_date(
             }
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInNumLiteral(FmtChar(c), pos));
+                return unexpected_char!(IntOrFloat, c, pos);
             }
         }
 
@@ -243,7 +251,7 @@ fn parse_prefixed_int_literal(
             }
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInPrefixedInt(FmtChar(c), pos));
+                return unexpected_char!(PrefixedInt(prefix), c, pos);
             }
         };
 
@@ -290,7 +298,7 @@ fn validate_float_exponent(mut chars: CharIter, span: Span) -> Result<PartialVal
             }
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInFloatExponent(FmtChar(c), pos));
+                return unexpected_char!(FloatExp, c, pos);
             }
         }
 
@@ -343,7 +351,7 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
                         }
                         _ => {
                             let pos = span.start.plus(i as u32);
-                            return Err(Error::InvalidCharInFloatExponent(FmtChar(c), pos));
+                            return unexpected_char!(FloatExp, c, pos);
                         }
                     }
 
@@ -368,7 +376,7 @@ pub fn validate_float_fractional_part(literal: &str, span: Span) -> Result<(), E
             }
             _ => {
                 let pos = span.start.plus(i as u32);
-                return Err(Error::InvalidCharInFloatLiteral(FmtChar(c), pos));
+                return unexpected_char!(FloatFract, c, pos);
             }
         }
 

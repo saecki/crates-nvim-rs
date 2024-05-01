@@ -23,7 +23,7 @@ pub fn continue_parsing_date_time(
             let pos = span.start.plus(i as u32);
             return match c {
                 '-' => Err(Error::DateTimeIncomplete(Year, pos)),
-                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+                _ => Err(Error::UnexpectedCharInDateTime(FmtChar(c), pos)),
             };
         }
         None => return Err(Error::DateTimeIncomplete(Year, span.end)),
@@ -35,7 +35,7 @@ pub fn continue_parsing_date_time(
             let pos = span.start.plus(i as u32);
             return match c {
                 '-' => Err(Error::DateTimeIncomplete(Year, pos)),
-                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+                _ => Err(Error::UnexpectedCharInDateTime(FmtChar(c), pos)),
             };
         }
         None => return Err(Error::DateTimeIncomplete(Year, span.end)),
@@ -80,7 +80,7 @@ pub fn continue_parsing_date_time_after_year(
             let pos = span.start.plus(i as u32);
             return match c {
                 '0'..='9' => Err(Error::DateTimeMissingChar(Day, FmtChar('T'), pos)),
-                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+                _ => Err(Error::UnexpectedCharInDateTime(FmtChar(c), pos)),
             };
         }
         None => return Ok(PartialValue::PartialDate(date)),
@@ -150,7 +150,7 @@ fn continue_parsing_time(chars: &mut CharIter, span: Span, hour: u8) -> Result<T
     match chars.peek() {
         // ignore offset
         Some((_, 'Z' | 'z' | '+' | '-')) => (),
-        Some(&(i, c)) => return invalid_char_error(c, span, i),
+        Some(&(i, c)) => return unexpected_char_error(c, span, i),
         None => (),
     }
 
@@ -218,7 +218,7 @@ fn parse_subsec(chars: &mut CharIter, span: Span) -> Result<u32, Error> {
                 chars.next();
             }
             'Z' | 'z' | '+' | '-' => break,
-            _ => return invalid_char_error(c, span, i),
+            _ => return unexpected_char_error(c, span, i),
         }
     }
 
@@ -241,7 +241,7 @@ fn try_to_parse_offset(chars: &mut CharIter, span: Span) -> Result<Option<Offset
             let minutes = parse_offset(chars, span)?;
             Ok(Some(Offset::Custom(-minutes)))
         }
-        Some((i, c)) => invalid_char_error(c, span, i),
+        Some((i, c)) => unexpected_char_error(c, span, i),
         None => Ok(None),
     }
 }
@@ -268,16 +268,16 @@ fn error_on_offset(chars: &mut CharIter, span: Span) -> Result<(), Error> {
             let pos = span.start.plus(i as u32);
             return match c {
                 'Z' | 'z' | '+' | '-' => Err(Error::LocalDateTimeOffset(pos)),
-                _ => Err(Error::InvalidCharInDateTime(FmtChar(c), pos)),
+                _ => Err(Error::UnexpectedCharInDateTime(FmtChar(c), pos)),
             };
         }
         None => Ok(()),
     }
 }
 
-fn invalid_char_error<T>(char: char, span: Span, offset: usize) -> Result<T, Error> {
+fn unexpected_char_error<T>(char: char, span: Span, offset: usize) -> Result<T, Error> {
     let pos = span.start.plus(offset as u32);
-    Err(Error::InvalidCharInDateTime(FmtChar(char), pos))
+    Err(Error::UnexpectedCharInDateTime(FmtChar(char), pos))
 }
 
 fn expect_char(
@@ -317,7 +317,7 @@ impl ExpectNumError {
         match self.0 {
             ExpectNumErrorKind::Incomplete => Error::DateTimeIncomplete(field, self.1),
             ExpectNumErrorKind::Missing => Error::DateTimeMissing(field, self.1),
-            ExpectNumErrorKind::Invalid(c) => Error::InvalidCharInDateTime(FmtChar(c), self.1),
+            ExpectNumErrorKind::Invalid(c) => Error::UnexpectedCharInDateTime(FmtChar(c), self.1),
         }
     }
 }

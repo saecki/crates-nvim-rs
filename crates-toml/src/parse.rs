@@ -41,6 +41,14 @@ macro_rules! one_of {
     }};
 }
 
+macro_rules! unexpected_char {
+    ($part:expr, $char:expr, $pos: expr) => {{
+        use LitPart::*;
+        Err(Error::UnexpectedLiteralChar($part, FmtChar($char), $pos))
+    }};
+}
+pub(self) use unexpected_char;
+
 #[derive(Debug, PartialEq)]
 pub struct Asts<'a> {
     pub asts: &'a [Ast<'a>],
@@ -1450,7 +1458,7 @@ fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
                 }
                 Some((i, c)) => {
                     let pos = span.start.plus(i as u32);
-                    Err(Error::InvalidCharInNumLiteral(FmtChar(c), pos))
+                    unexpected_char!(IntOrFloat, c, pos)
                 }
                 None => Err(Error::MissingNumDigitsAfterSign(sign, span.end)),
             }
@@ -1477,7 +1485,7 @@ fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
             Ok(PartialValue::SpecialFloat(f64::NAN))
         }
         '_' => Err(Error::LitStartsWithUnderscore(LitPart::Generic, span.start)),
-        _ => Err(Error::InvalidLiteralStart(FmtChar(c), span.start)),
+        _ => Err(Error::UnexpectedLiteralStart(FmtChar(c), span.start)),
     }
 }
 
@@ -1493,28 +1501,28 @@ fn parse_bare_literal(
 
     if first.is_uppercase() {
         let pos = span.start.plus(i as u32);
-        return Err(Error::UppercaseLitChar(FmtChar(first), expected, pos));
+        return Err(Error::UppercaseBareLitChar(FmtChar(first), expected, pos));
     }
 
     while let Some((i, c)) = chars.next() {
         let Some(e) = expected_iter.next() else {
             let span = Span::new(span.start.plus(i as u32), span.end);
             let trailing = FmtStr::from_str(&lit[i..]);
-            return Err(Error::LitTrailingChars(trailing, expected, span));
+            return Err(Error::BareLitTrailingChars(trailing, expected, span));
         };
 
         if c != e {
             let pos = span.start.plus(i as u32);
             if c.to_ascii_lowercase() == e {
-                return Err(Error::UppercaseLitChar(FmtChar(c), expected, pos));
+                return Err(Error::UppercaseBareLitChar(FmtChar(c), expected, pos));
             } else {
-                return Err(Error::UnexpectedLitChar(FmtChar(c), expected, pos));
+                return Err(Error::UnexpectedBareLitChar(FmtChar(c), expected, pos));
             }
         }
     }
 
     if expected_iter.next().is_some() {
-        return Err(Error::LitMissingChars(expected, span.end));
+        return Err(Error::BareLitMissingChars(expected, span.end));
     }
 
     Ok(())

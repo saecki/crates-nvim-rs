@@ -28,21 +28,20 @@ pub enum Error {
     InlineTableTrailingComma(Pos),
     SpaceBetweenArrayPars(Span),
 
-    UppercaseLitChar(FmtChar, &'static str, Pos),
-    UnexpectedLitChar(FmtChar, &'static str, Pos),
-    LitTrailingChars(FmtStr, &'static str, Span),
-    LitMissingChars(&'static str, Pos),
     ExpectedRadixOrDateTime(FmtChar, Pos),
-    InvalidLiteralStart(FmtChar, Pos),
-    InvalidCharInNumLiteral(FmtChar, Pos),
+    UnexpectedLiteralStart(FmtChar, Pos),
+    UnexpectedLiteralChar(LitPart, FmtChar, Pos),
     LitStartsWithUnderscore(LitPart, Pos),
     LitEndsWithUnderscore(LitPart, Pos),
     ConsecutiveUnderscoresInLiteral(Span),
     MissingNumDigitsAfterSign(Sign, Pos),
 
-    InvalidCharInFloatLiteral(FmtChar, Pos),
+    UppercaseBareLitChar(FmtChar, &'static str, Pos),
+    UnexpectedBareLitChar(FmtChar, &'static str, Pos),
+    BareLitTrailingChars(FmtStr, &'static str, Span),
+    BareLitMissingChars(&'static str, Pos),
+
     MissingFloatFractionalPart(Pos),
-    InvalidCharInFloatExponent(FmtChar, Pos),
     FloatLiteralOverflow(Span),
 
     EmptyPrefixedIntValue(Pos),
@@ -50,11 +49,11 @@ pub enum Error {
     UppercaseIntRadix(IntPrefix, Pos),
     PrefixedIntValueStartsWithUnderscore(Pos),
     PrefixedIntValueEndsWithUnderscore(Pos),
-    InvalidCharInPrefixedInt(FmtChar, Pos),
     IntDigitTooBig(IntPrefix, FmtChar, Pos),
     IntLiteralOverflow(Span),
 
-    InvalidCharInDateTime(FmtChar, Pos),
+    // TODO: more info
+    UnexpectedCharInDateTime(FmtChar, Pos),
     DateTimeExpectedCharFound {
         after: DateTimeField,
         expected: FmtChar,
@@ -128,43 +127,43 @@ impl Diagnostic for Error {
             ExpectedValueFound(_, s) => *s,
             MissingComma(p) => Span::pos(*p),
             MissingNewline(p) => Span::pos(*p),
-            InlineTableTrailingComma(p) => Span::pos(*p),
+            InlineTableTrailingComma(p) => Span::ascii_char(*p),
             SpaceBetweenArrayPars(s) => *s,
 
-            UppercaseLitChar(_, _, p) => Span::pos(*p),
-            UnexpectedLitChar(_, _, p) => Span::pos(*p),
-            LitTrailingChars(_, _, s) => *s,
-            LitMissingChars(_, p) => Span::pos(*p),
-            ExpectedRadixOrDateTime(_, p) => Span::pos(*p),
-            InvalidLiteralStart(_, p) => Span::pos(*p),
-            InvalidCharInNumLiteral(_, p) => Span::pos(*p),
-            LitStartsWithUnderscore(_, p) => Span::pos(*p),
-            LitEndsWithUnderscore(_, p) => Span::pos(*p),
+            ExpectedRadixOrDateTime(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
+            UnexpectedLiteralStart(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
+            UnexpectedLiteralChar(_, c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
+            LitStartsWithUnderscore(_, p) => Span::ascii_char(*p),
+            LitEndsWithUnderscore(_, p) => Span::ascii_char(*p),
             ConsecutiveUnderscoresInLiteral(s) => *s,
             MissingNumDigitsAfterSign(_, p) => Span::pos(*p),
 
-            InvalidCharInFloatLiteral(_, p) => Span::pos(*p),
+            UppercaseBareLitChar(c, _, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
+            UnexpectedBareLitChar(c, _, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
+            BareLitTrailingChars(_, _, s) => *s,
+            BareLitMissingChars(_, p) => Span::pos(*p),
+
             MissingFloatFractionalPart(p) => Span::pos(*p),
-            InvalidCharInFloatExponent(_, p) => Span::pos(*p),
             FloatLiteralOverflow(s) => *s,
 
             EmptyPrefixedIntValue(p) => Span::pos(*p),
-            PrefixedIntSignNotAllowed(p) => Span::pos(*p),
-            UppercaseIntRadix(_, p) => Span::pos(*p),
-            PrefixedIntValueStartsWithUnderscore(p) => Span::pos(*p),
-            PrefixedIntValueEndsWithUnderscore(p) => Span::pos(*p),
-            InvalidCharInPrefixedInt(_, p) => Span::pos(*p),
-            IntDigitTooBig(_, _, p) => Span::pos(*p),
+            PrefixedIntSignNotAllowed(p) => Span::ascii_char(*p),
+            UppercaseIntRadix(_, p) => Span::ascii_char(*p),
+            PrefixedIntValueStartsWithUnderscore(p) => Span::ascii_char(*p),
+            PrefixedIntValueEndsWithUnderscore(p) => Span::ascii_char(*p),
+            IntDigitTooBig(_, c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
             IntLiteralOverflow(s) => *s,
 
-            InvalidCharInDateTime(_, p) => Span::pos(*p),
-            DateTimeExpectedCharFound { pos, .. } => Span::pos(*pos),
+            UnexpectedCharInDateTime(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
+            DateTimeExpectedCharFound { found, pos, .. } => {
+                Span::from_pos_len(*pos, found.len_utf8() as u32)
+            }
             DateTimeMissingChar(_, _, p) => Span::pos(*p),
             DateTimeIncomplete(_, p) => Span::pos(*p),
             DateTimeMissing(_, p) => Span::pos(*p),
             DateTimeOutOfBounds(_, _, _, s) => *s,
             DateTimeMissingSubsec(p) => Span::pos(*p),
-            LocalDateTimeOffset(p) => Span::pos(*p),
+            LocalDateTimeOffset(p) => Span::ascii_char(*p),
             DateAndTimeTooFarApart(s) => *s,
 
             DuplicateKey { duplicate, .. } => *duplicate,
@@ -202,16 +201,14 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(_) => write!(f, "Trailing commas aren't permitted in inline tables"),
             SpaceBetweenArrayPars(_) => write!(f, "No space allowed between array header brackets"),
 
-            UppercaseLitChar(c, expected, _) => write!(f, "Uppercase character `{c}` in literal, expected `{expected}`"),
-            UnexpectedLitChar(c, expected, _) => write!(f, "Invalid character `{c}` in literal, expected `{expected}`"),
-            LitTrailingChars(s, expected, _) => write!(f, "Trailing characters `{s}` in literal, expected `{expected}`"),
-            LitMissingChars(expected, _) => write!(f, "Missing characters in literal, expected `{expected}`"),
             ExpectedRadixOrDateTime(char, _) => write!(f, "Unexpected character `{char}`, expected integer radix `b`, `o`, `x` or date-time"),
-            InvalidLiteralStart(char, _) => write!(f, "Invalid character `{char}` at start of literal"),
-            InvalidCharInNumLiteral(char, _) => {
-                write!(f, "Invalid character `{char}` in integer or float literal")?;
-                if let 'a'..='f' | 'A'..='F' = char.0 {
-                    write!(f, ", hexadecimal integers need to be prefixed by `0x`")?;
+            UnexpectedLiteralStart(char, _) => write!(f, "Unexpected character `{char}` at start of literal"),
+            UnexpectedLiteralChar(part, char, _) => {
+                write!(f, "Unexpected character `{char}` in {part}")?;
+                if *part == LitPart::IntOrFloat {
+                    if let 'a'..='f' | 'A'..='F' = char.0 {
+                        write!(f, ", hexadecimal integers need to be prefixed by `0x`")?;
+                    }
                 }
                 Ok(())
             }
@@ -228,9 +225,12 @@ impl Diagnostic for Error {
             }
             MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing digit after sign `{sign}`, expected at least one"),
 
-            InvalidCharInFloatLiteral(char, _) => write!(f, "Invalid character `{char}` in float literal"),
+            UppercaseBareLitChar(c, expected, _) => write!(f, "Uppercase character `{c}` in literal, expected `{expected}`"),
+            UnexpectedBareLitChar(c, expected, _) => write!(f, "Unexpected character `{c}` in literal, expected `{expected}`"),
+            BareLitTrailingChars(s, expected, _) => write!(f, "Trailing characters `{s}` in literal, expected `{expected}`"),
+            BareLitMissingChars(expected, _) => write!(f, "Missing characters in literal, expected `{expected}`"),
+
             MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal, expected at least one digit"),
-            InvalidCharInFloatExponent(char, _) => write!(f, "Invalid character `{char}` in float exponent"),
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow, number doesn't fit into a 64-bit IEEE float"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits, expected at least one"),
@@ -244,18 +244,17 @@ impl Diagnostic for Error {
             }
             PrefixedIntValueStartsWithUnderscore(_) => write!(f, "Integer literal cannot start with `_`"),
             PrefixedIntValueEndsWithUnderscore(_) => write!(f, "Integer literal cannot end with `_`"),
-            InvalidCharInPrefixedInt(char, _) => write!(f, "Invalid character `{char}` in integer literal"),
             IntDigitTooBig(prefix, char, _) => {
                 match prefix {
                     IntPrefix::Binary => write!(f, "Binary digit `{char}` out of range, valid digits are `0` and `1`"),
                     IntPrefix::Octal => write!(f, "Octal digit `{char}` out of range, valid digits are `0-7`"),
-                    IntPrefix::Hexadecimal => write!(f, "Binary digit `{char}` out of range, valid digits are `0-9`, `a-f`, and `A-F`"),
+                    IntPrefix::Hexadecimal => write!(f, "Hexadecimal digit `{char}` out of range, valid digits are `0-9`, `a-f`, and `A-F`"),
                 }
             }
             IntLiteralOverflow(_) => write!(f, "Integer literal overflow, number doesn't fit into a 64-bit signed integer"),
 
-            InvalidCharInDateTime(char, _) => write!(f, "Invalid character `{char}` in date-time"),
-            DateTimeExpectedCharFound { after, found, expected, .. } => write!(f, "Invalid character `{found}` in date-time after {after}, expected `{expected}`"),
+            UnexpectedCharInDateTime(char, _) => write!(f, "Unexpected character `{char}` in date-time"),
+            DateTimeExpectedCharFound { after, found, expected, .. } => write!(f, "Unexpected character `{found}` in date-time after {after}, expected `{expected}`"),
             DateTimeMissingChar(field, expected, _) => write!(f, "Incomplete date-time, missing character `{expected}` after {field}"),
             DateTimeIncomplete(field, _) => write!(f, "Incomplete date-time, {field} is missing digits"),
             DateTimeMissing(field, _) => write!(f, "Incomplete date-time, missing {field}"),
@@ -285,7 +284,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(..) => write!(f, "Unterminated string literal"),
-            InvalidStringChar(..) => write!(f, "Invalid char"),
+            InvalidStringChar(..) => write!(f, "Invalid character"),
             InvalidEscapeChar(..) => write!(f, "Invalid escape character"),
             InvalidUnicodeEscapeChar(..) => write!(f, "Invalid unicode escape character"),
             InvalidUnicodeCodepoint(..) => write!(f, "Invalid unicode scalar"),
@@ -306,13 +305,9 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(_) => write!(f, "Trailing comma"),
             SpaceBetweenArrayPars(_) => write!(f, "No space allowed"),
 
-            UppercaseLitChar(..) => write!(f, "Uppercase character"),
-            UnexpectedLitChar(..) => write!(f, "Invalid character"),
-            LitTrailingChars(..) => write!(f, "Trailing characters"),
-            LitMissingChars(..) => write!(f, "Missing characters"),
             ExpectedRadixOrDateTime(..) => write!(f, "Unexpected character"),
-            InvalidLiteralStart(..) => write!(f, "Invalid literal character"),
-            InvalidCharInNumLiteral(..) => write!(f, "Invalid integer or float literal character"),
+            UnexpectedLiteralStart(..) => write!(f, "Unexpected character"),
+            UnexpectedLiteralChar(p, _, _) => write!(f, "Unexpected character in {p}"),
             LitStartsWithUnderscore(p, _) => {
                 write_capitalized(f, p.to_str())?;
                 write!(f, " cannot start with `_`")
@@ -321,15 +316,17 @@ impl Diagnostic for Error {
                 write_capitalized(f, p.to_str())?;
                 write!(f, " cannot end with `_`")
             }
-
             ConsecutiveUnderscoresInLiteral(_) => {
                 write!(f, "Consecutive underscores (`_`) not allowed")
             }
             MissingNumDigitsAfterSign(..) => write!(f, "Missing digit after sign"),
 
-            InvalidCharInFloatLiteral(..) => write!(f, "Invalid float literal character"),
+            UppercaseBareLitChar(..) => write!(f, "Uppercase character"),
+            UnexpectedBareLitChar(..) => write!(f, "Unexpected character"),
+            BareLitTrailingChars(..) => write!(f, "Trailing characters"),
+            BareLitMissingChars(..) => write!(f, "Missing characters"),
+
             MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal"),
-            InvalidCharInFloatExponent(..) => write!(f, "Invalid float exponent character"),
             FloatLiteralOverflow(_) => write!(f, "Float literal overflow"),
 
             EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits"),
@@ -341,16 +338,15 @@ impl Diagnostic for Error {
             PrefixedIntValueEndsWithUnderscore(_) => {
                 write!(f, "Integer literal cannot end with `_`")
             }
-            InvalidCharInPrefixedInt(..) => write!(f, "Invalid integer literal character"),
             IntDigitTooBig(prefix, _, _) => match prefix {
                 IntPrefix::Binary => write!(f, "Binary digit out of range"),
                 IntPrefix::Octal => write!(f, "Octal digit out of range"),
-                IntPrefix::Hexadecimal => write!(f, "Binary digit  out of range"),
+                IntPrefix::Hexadecimal => write!(f, "Hexadecimal digit  out of range"),
             },
             IntLiteralOverflow(_) => write!(f, "Integer literal overflow"),
 
-            InvalidCharInDateTime(..) => write!(f, "Invalid character in date-time"),
-            DateTimeExpectedCharFound { .. } => write!(f, "Invalid date-time character"),
+            UnexpectedCharInDateTime(..) => write!(f, "Unexpected character"),
+            DateTimeExpectedCharFound { .. } => write!(f, "Unexpected character"),
             DateTimeMissingChar(..) => write!(f, "Missing character"),
             DateTimeIncomplete(..) => write!(f, "Missing digits"),
             DateTimeMissing(field, _) => write!(f, "Missing {field}"),
@@ -405,21 +401,20 @@ impl Error {
             InlineTableTrailingComma(_) => None,
             SpaceBetweenArrayPars(_) => None,
 
-            UppercaseLitChar(..) => None,
-            UnexpectedLitChar(..) => None,
-            LitTrailingChars(..) => None,
-            LitMissingChars(..) => None,
-            ExpectedRadixOrDateTime(_, _) => None,
-            InvalidLiteralStart(_, _) => None,
-            InvalidCharInNumLiteral(_, _) => None,
-            LitStartsWithUnderscore(_, _) => None,
-            LitEndsWithUnderscore(_, _) => None,
-            ConsecutiveUnderscoresInLiteral(_) => None,
-            MissingNumDigitsAfterSign(_, _) => None,
+            ExpectedRadixOrDateTime(..) => None,
+            UnexpectedLiteralStart(..) => None,
+            UnexpectedLiteralChar(..) => None,
+            LitStartsWithUnderscore(..) => None,
+            LitEndsWithUnderscore(..) => None,
+            ConsecutiveUnderscoresInLiteral(..) => None,
+            MissingNumDigitsAfterSign(..) => None,
 
-            InvalidCharInFloatLiteral(_, _) => None,
+            UppercaseBareLitChar(..) => None,
+            UnexpectedBareLitChar(..) => None,
+            BareLitTrailingChars(..) => None,
+            BareLitMissingChars(..) => None,
+
             MissingFloatFractionalPart(_) => None,
-            InvalidCharInFloatExponent(_, _) => None,
             FloatLiteralOverflow(_) => None,
 
             EmptyPrefixedIntValue(_) => None,
@@ -427,11 +422,10 @@ impl Error {
             UppercaseIntRadix(_, _) => None,
             PrefixedIntValueStartsWithUnderscore(_) => None,
             PrefixedIntValueEndsWithUnderscore(_) => None,
-            InvalidCharInPrefixedInt(_, _) => None,
             IntDigitTooBig(_, _, _) => None,
             IntLiteralOverflow(_) => None,
 
-            InvalidCharInDateTime(_, _) => None,
+            UnexpectedCharInDateTime(_, _) => None,
             DateTimeExpectedCharFound { .. } => None,
             DateTimeMissingChar(_, _, _) => None,
             DateTimeIncomplete(_, _) => None,
