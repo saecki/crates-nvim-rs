@@ -1,0 +1,4 @@
+[91merror[0m: Float integral cannot end with `_`
+ [94m-->[0m 1:19
+[94m   1 |[0m us-before-point = 1_.2
+     [94m|[0m                    [91m^ Float integral cannot end with `_`[0m

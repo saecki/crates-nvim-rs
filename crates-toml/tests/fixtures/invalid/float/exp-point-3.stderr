@@ -1,0 +1,4 @@
+[91merror[0m: Missing fractional part of float literal, expected at least one digit
+ [94m-->[0m 1:16
+[94m   1 |[0m exp-point-3 = 3.e+20
+     [94m|[0m                 [91m^ Missing fractional part of float literal[0m

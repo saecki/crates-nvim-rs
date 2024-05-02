@@ -1,0 +1,4 @@
+[91merror[0m: Literal cannot start with `_`
+ [94m-->[0m 1:13
+[94m   1 |[0m leading-us = _1.2
+     [94m|[0m              [91m^ Literal cannot start with `_`[0m

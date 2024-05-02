@@ -1,0 +1,4 @@
+[91merror[0m: Unexpected character `.` in float fractional part
+ [94m-->[0m 1:20
+[94m   1 |[0m double-point-2 = 0.1.2
+     [94m|[0m                     [91m^ Unexpected character in float fractional part[0m
