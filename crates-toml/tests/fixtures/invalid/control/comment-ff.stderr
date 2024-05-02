@@ -1,0 +1,4 @@
+[91merror[0m: Invalid character `\f` in comment
+ [94m-->[0m 1:25
+[94m   1 |[0m comment-ff   = "0x7f"   # 
+     [94m|[0m                          [91m^ Invalid character[0m
