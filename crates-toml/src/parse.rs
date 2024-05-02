@@ -1602,12 +1602,7 @@ fn try_to_parse_fractional_part_of_float<'a>(
 
     // SAFETY: the first and second literal reference the same string and
     // are only separated by a single dot. See above.
-    let lit = unsafe {
-        let ptr = int_lit.as_ptr();
-        let len = int_lit.len() + 1 + frac_lit.len();
-        let slice = std::slice::from_raw_parts(ptr, len);
-        std::str::from_utf8_unchecked(slice)
-    };
+    let lit = unsafe { concat_literals(int_lit, frac_lit) };
     let span = Span::across(int_span, frac_span);
 
     // validate fractional part
@@ -1656,12 +1651,7 @@ fn try_to_parse_time_part<'a>(
 
     // SAFETY: the first and second literal reference the same string, are on the same line and
     // are only separated by whitespace. See above.
-    let lit = unsafe {
-        let ptr = date_lit.as_ptr();
-        let len = (time_span.end.char - date_span.start.char) as usize;
-        let slice = std::slice::from_raw_parts(ptr, len);
-        std::str::from_utf8_unchecked(slice)
-    };
+    let lit = unsafe { concat_literals(date_lit, time_lit) };
     let span = Span::across(date_span, time_span);
 
     let mut chars = time_lit.char_indices().peekable();
@@ -1741,12 +1731,7 @@ fn try_to_parse_subsecs<'a>(
 
     // SAFETY: the first and second literal reference the same string and
     // are only separated by a single dot. See above.
-    let lit = unsafe {
-        let ptr = date_time_lit.as_ptr();
-        let len = date_time_lit.len() + 1 + subsec_lit.len();
-        let slice = std::slice::from_raw_parts(ptr, len);
-        std::str::from_utf8_unchecked(slice)
-    };
+    let lit = unsafe { concat_literals(date_time_lit, subsec_lit) };
     let span = Span::across(date_time_span, subsec_span);
 
     // parse subsec part
@@ -1777,12 +1762,7 @@ fn eat_time_part<'a>(parser: &mut Parser<'a>, date_lit: &'a str, date_span: Span
 
     // SAFETY: the first and second literal reference the same string, are on the same line and
     // are only separated by whitespace. See above.
-    let lit = unsafe {
-        let ptr = date_lit.as_ptr();
-        let len = (time_span.end.char - date_span.start.char) as usize;
-        let slice = std::slice::from_raw_parts(ptr, len);
-        std::str::from_utf8_unchecked(slice)
-    };
+    let lit = unsafe { concat_literals(date_lit, time_lit) };
     let span = Span::across(date_span, time_span);
 
     let mut chars = time_lit.char_indices().peekable();
@@ -1831,12 +1811,16 @@ fn eat_subsec_part<'a>(
 
     // SAFETY: the first and second literal reference the same string and
     // are only separated by a single dot. See above.
-    let lit = unsafe {
-        let ptr = date_time_lit.as_ptr();
-        let len = date_time_lit.len() + 1 + subsec_lit.len();
-        let slice = std::slice::from_raw_parts(ptr, len);
-        std::str::from_utf8_unchecked(slice)
-    };
+    let lit = unsafe { concat_literals(date_time_lit, subsec_lit) };
     let span = Span::across(date_time_span, subsec_span);
     Value::Invalid(lit, span)
+}
+
+/// # SAFETY
+/// The literals have to reference the same string
+unsafe fn concat_literals<'a>(left: &'a str, right: &'a str) -> &'a str {
+    let ptr = left.as_ptr();
+    let len = (right.as_ptr() as usize - left.as_ptr() as usize) + right.len();
+    let slice = std::slice::from_raw_parts(ptr, len);
+    std::str::from_utf8_unchecked(slice)
 }
