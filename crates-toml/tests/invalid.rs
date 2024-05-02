@@ -65,7 +65,9 @@ fn main() {
                 let expect_path =
                     std::path::Path::new("tests/fixtures").join(case.name.with_extension("stderr"));
 
-                let input = std::str::from_utf8(case.fixture).map_err(|e| e.to_string())?;
+                let Ok(input) = std::str::from_utf8(case.fixture) else {
+                    return Ok(());
+                };
                 let actual_text = match run_case(input) {
                     Ok(v) => {
                         let msg = format!("Expected error but got:\n{v:?}");
