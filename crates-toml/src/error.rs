@@ -7,6 +7,7 @@ use crate::Quote;
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     MissingQuote(Quote, Pos, Pos),
+    ExcessiveQuotes(Quote, Span),
     InvalidStringChar(FmtChar, Span),
     InvalidEscapeChar(FmtChar, Pos),
     InvalidUnicodeEscapeChar(FmtChar, Pos),
@@ -111,6 +112,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(_, _, p) => Span::pos(*p),
+            ExcessiveQuotes(_, s) => *s,
             InvalidStringChar(_, s) => *s,
             InvalidEscapeChar(_, p) => Span::pos(*p),
             InvalidUnicodeEscapeChar(_, p) => Span::pos(*p),
@@ -184,6 +186,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(quote, _, _) => write!(f, "Unterminated string literal, missing `{quote}`"),
+            ExcessiveQuotes(quote, _) => write!(f, "Excess quotes, only up to two consecutive quotes (`{}`) are allowed inside a multi-line string", quote.singleline()),
             InvalidStringChar(char, _) => write!(f, "Invalid character `{char}`in string"),
             InvalidEscapeChar(char, _) => write!(f, "Invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`"),
             InvalidUnicodeEscapeChar(char, _) => write!(f, "Invalid character `{char}` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`"),
@@ -290,6 +293,7 @@ impl Diagnostic for Error {
 
         match self {
             MissingQuote(..) => write!(f, "Unterminated string literal"),
+            ExcessiveQuotes(..) => write!(f, "Excess quotes"),
             InvalidStringChar(..) => write!(f, "Invalid character"),
             InvalidEscapeChar(..) => write!(f, "Invalid escape character"),
             InvalidUnicodeEscapeChar(..) => write!(f, "Invalid unicode escape character"),
@@ -388,6 +392,7 @@ impl Error {
 
         match self {
             MissingQuote(q, p, _) => Some(Hint::MissingQuote(*q, *p)),
+            ExcessiveQuotes(..) => None,
             InvalidStringChar(_, _) => None,
             InvalidEscapeChar(_, _) => None,
             InvalidUnicodeEscapeChar(_, _) => None,

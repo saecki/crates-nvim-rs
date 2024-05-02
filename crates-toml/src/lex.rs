@@ -179,7 +179,14 @@ impl Quote {
         }
     }
 
-    fn multiline(&self) -> Self {
+    pub fn singleline(&self) -> Self {
+        match self {
+            Quote::Basic | Quote::BasicMultiline => Self::Basic,
+            Quote::Literal | Quote::LiteralMultiline => Self::Literal,
+        }
+    }
+
+    pub fn multiline(&self) -> Self {
         match self {
             Quote::Basic | Quote::BasicMultiline => Self::BasicMultiline,
             Quote::Literal | Quote::LiteralMultiline => Self::LiteralMultiline,
@@ -444,7 +451,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
         }
 
         if c == str.quote.char() {
-            match string_closing_quote(lexer, str) {
+            match string_closing_quote(ctx, lexer, str) {
                 ControlFlow::Continue(_) => continue,
                 ControlFlow::Break(_) => break,
             }
@@ -644,7 +651,7 @@ fn string_escape_unicode<'a>(
                 ctx.error(Error::InvalidUnicodeEscapeChar(FmtChar(c), lexer.pos()));
 
                 if c == str.quote.char() {
-                    return string_closing_quote(lexer, str);
+                    return string_closing_quote(ctx, lexer, str);
                 }
             }
         }
@@ -665,7 +672,11 @@ fn string_escape_unicode<'a>(
 }
 
 #[inline(always)]
-fn string_closing_quote<'a>(lexer: &mut Lexer<'a>, str: &mut StrState<'a>) -> ControlFlow<()> {
+fn string_closing_quote<'a>(
+    ctx: &mut impl TomlCtx,
+    lexer: &mut Lexer<'a>,
+    str: &mut StrState<'a>,
+) -> ControlFlow<()> {
     let mut text_end = lexer.byte_pos;
     if str.quote.is_multiline() {
         if lexer.peek() == Some(str.quote.char()) {
@@ -693,6 +704,18 @@ fn string_closing_quote<'a>(lexer: &mut Lexer<'a>, str: &mut StrState<'a>) -> Co
             lexer.next();
             str.push_char(str.quote.char());
             text_end += 1;
+        }
+
+        if lexer.peek() == Some(str.quote.char()) {
+            let start = lexer.pos();
+            lexer.next();
+
+            while lexer.peek() == Some(str.quote.char()) {
+                lexer.next();
+            }
+
+            let end = lexer.pos().plus(1);
+            ctx.error(Error::ExcessiveQuotes(str.quote, Span::new(start, end)));
         }
     }
 
