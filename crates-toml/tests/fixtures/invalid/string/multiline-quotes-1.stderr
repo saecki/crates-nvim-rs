@@ -1,0 +1,4 @@
+[91merror[0m: Excess quotes, only up to two consecutive quotes (`"`) are allowed inside a multi-line string
+ [94m-->[0m 1:21
+[94m   1 |[0m a = """6 quotes: """"""
+     [94m|[0m                      [91m^^ Excess quotes[0m

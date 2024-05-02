@@ -1,0 +1,10 @@
+[91merror[0m: Excess quotes, only up to two consecutive quotes (`'`) are allowed inside a multi-line string
+ [94m-->[0m 3:46
+[94m   3 |[0m apos15 = '''Here are fifteen apostrophes: ''''''''''''''''''  # INVALID
+     [94m|[0m                                               [91m^^^^^^^^^^^^^^ Excess quotes[0m
+[91merror[0m: Duplicate key `apos15` in document root
+ [94m-->[0m 4:0
+[94m   3 |[0m apos15 = '''Here are fifteen apostrophes: ''''''''''''''''''  # INVALID
+     [94m|[0m [94m^^^^^^ Original key defined here[0m
+[94m   4 |[0m apos15 = "Here are fifteen apostrophes: '''''''''''''''"
+     [94m|[0m [91m^^^^^^ Duplicate key[0m
