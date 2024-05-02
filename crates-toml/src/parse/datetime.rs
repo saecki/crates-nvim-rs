@@ -2,7 +2,7 @@ use common::{FmtChar, Pos, Span};
 
 use crate::datetime::{Date, DateTime, DateTimeField, DateTimeField::*, Offset, Time};
 use crate::lex::CharIter;
-use crate::parse::{DateTimeVal, PartialValue};
+use crate::parse::PartialValue;
 use crate::Error;
 
 // Continue parsing a date-time after the first two digits. These digits could either be part of
@@ -17,11 +17,12 @@ pub fn continue_parsing_date_time(
         Some((_, ':')) => {
             let hour = two_digits as u8;
             let time = continue_parsing_local_time(chars, span, hour)?;
-            return Ok(PartialValue::PartialTime(time));
+            return Ok(PartialValue::DateTime(DateTime::LocalTime(time)));
         }
         Some((i, c)) => {
             let pos = span.start.plus(i as u32);
             return match c {
+                '.' | '_' => Err(Error::InvalidLeadingZero(span.start)),
                 '-' => Err(Error::DateTimeIncomplete(Year, pos)),
                 _ => Err(Error::UnexpectedCharInDateTime(FmtChar(c), pos)),
             };
@@ -34,6 +35,7 @@ pub fn continue_parsing_date_time(
         Some((i, c)) => {
             let pos = span.start.plus(i as u32);
             return match c {
+                '.' | '_' => Err(Error::InvalidLeadingZero(span.start)),
                 '-' => Err(Error::DateTimeIncomplete(Year, pos)),
                 _ => Err(Error::UnexpectedCharInDateTime(FmtChar(c), pos)),
             };
@@ -86,13 +88,8 @@ pub fn continue_parsing_date_time_after_year(
         None => return Ok(PartialValue::PartialDate(date)),
     };
 
-    match offset {
-        Some(offset) => {
-            let val = DateTime::OffsetDateTime(date, time, offset);
-            Ok(PartialValue::OffsetDateTime(val))
-        }
-        None => Ok(PartialValue::PartialDateTime(date, time)),
-    }
+    let val = DateTime::from_optional_offset(date, time, offset);
+    Ok(PartialValue::DateTime(val))
 }
 
 /// Continue to parse local time *without* offset (finding one will result in an error), after the
@@ -147,6 +144,12 @@ fn continue_parsing_time(chars: &mut CharIter, span: Span, hour: u8) -> Result<T
         .check_range(0..=59)
         .map_err(|e| e.kind(Second))?;
 
+    let mut nanos = 0;
+    if let Some((_, '.')) = chars.peek() {
+        chars.next();
+        nanos = parse_subsec(chars, span)?;
+    }
+
     match chars.peek() {
         // ignore offset
         Some((_, 'Z' | 'z' | '+' | '-')) => (),
@@ -158,50 +161,8 @@ fn continue_parsing_time(chars: &mut CharIter, span: Span, hour: u8) -> Result<T
         hour,
         minute,
         second,
-        nanos: 0,
+        nanos,
     })
-}
-
-pub fn parse_subsec_part<'a>(
-    lit: &'a str,
-    span: Span,
-    subsec_lit: &str,
-    subsec_span: Span,
-    date: Option<Date>,
-    mut time: Time,
-) -> Result<DateTimeVal<'a>, Error> {
-    let mut chars = subsec_lit.char_indices().peekable();
-    let val = match date {
-        Some(date) => {
-            let (nanos, offset) = parse_subsec_and_offset(&mut chars, subsec_span)?;
-            time.nanos = nanos;
-            DateTime::from_optional_offset(date, time, offset)
-        }
-        None => {
-            let nanos = parse_subsec_without_offset(&mut chars, subsec_span)?;
-            time.nanos = nanos;
-            DateTime::LocalTime(time)
-        }
-    };
-
-    Ok(DateTimeVal::new(lit, span, val))
-}
-
-/// Parse the subsecond part up to nano seconds, truncating the rest, and an optional offset.
-fn parse_subsec_and_offset(
-    chars: &mut CharIter,
-    span: Span,
-) -> Result<(u32, Option<Offset>), Error> {
-    let nanos = parse_subsec(chars, span)?;
-    let offset = try_to_parse_offset(chars, span)?;
-    Ok((nanos, offset))
-}
-
-/// Parse the subsecond part up to nano seconds, truncating the rest, error on finding an offset.
-fn parse_subsec_without_offset(chars: &mut CharIter, span: Span) -> Result<u32, Error> {
-    let nanos = parse_subsec(chars, span)?;
-    error_on_offset(chars, span)?;
-    Ok(nanos)
 }
 
 fn parse_subsec(chars: &mut CharIter, span: Span) -> Result<u32, Error> {

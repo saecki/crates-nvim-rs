@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use pretty_assertions::assert_eq;
 
 use super::*;
-use crate::datetime::{DateTimeField, Offset};
+use crate::datetime::{DateTimeField, Offset, Time};
 use crate::test::*;
 
 fn check_comments<'a, const SIZE: usize>(

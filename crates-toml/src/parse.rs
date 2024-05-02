@@ -4,15 +4,16 @@ use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
 use common::{FmtChar, FmtStr, Pos, Span};
 
-use crate::datetime::{Date, DateTime, Time};
-use crate::lex::{
-    CharIter, LiteralId, StringId, StringToken, TextOffset, Token, TokenType, Tokens,
-};
+use crate::datetime::{Date, DateTime};
+use crate::lex::{LiteralId, StringId, StringToken, TextOffset, Token, TokenType, Tokens};
+use crate::parse::lit::PartialValue;
 use crate::{Error, Quote, TomlCtx};
 
-pub use num::{IntPrefix, LitPart, Sign};
+pub use lit::LitPart;
+pub use num::{IntPrefix, Sign};
 
 mod datetime;
+mod lit;
 mod num;
 #[cfg(test)]
 mod test;
@@ -43,7 +44,7 @@ macro_rules! one_of {
 
 macro_rules! unexpected_char {
     ($part:expr, $char:expr, $pos: expr) => {{
-        use LitPart::*;
+        use crate::parse::LitPart::*;
         Err(Error::UnexpectedLiteralChar($part, FmtChar($char), $pos))
     }};
 }
@@ -1121,54 +1122,55 @@ fn parse_value<'a>(
             let token = parser.next();
             let lit = parser.literal(id);
             let span = Span::from_pos_len(token.start, lit.len() as u32);
+            let (lit, span) = combine_adjacent_dot_and_lit(parser, lit, span);
 
-            match parse_literal(lit, span) {
+            match lit::parse_literal(lit, span) {
+                Ok(PartialValue::Float(f)) => Value::Float(FloatVal::new(lit, span, f)),
+                Ok(PartialValue::Int(i)) => Value::Int(IntVal::new(lit, span, i)),
                 Ok(PartialValue::Bool(b)) => Value::Bool(BoolVal::new(span, b)),
-                Ok(PartialValue::SpecialFloat(f)) => Value::Float(FloatVal::new(lit, span, f)),
-                Ok(PartialValue::PrefixedInt(i)) => Value::Int(IntVal::new(lit, span, i)),
-                Ok(PartialValue::Int(i)) => {
-                    try_to_parse_fractional_part_of_float(ctx, parser, lit, span, Some(i))
-                }
-                Ok(PartialValue::OverflowOrFloat) => {
-                    try_to_parse_fractional_part_of_float(ctx, parser, lit, span, None)
-                }
-                Ok(PartialValue::FloatWithExp) => match lit.replace('_', "").parse() {
-                    Ok(v) => Value::Float(FloatVal::new(lit, span, v)),
-                    Err(_) => {
-                        ctx.error(Error::FloatLiteralOverflow(span));
-                        Value::Invalid(lit, span)
-                    }
-                },
-                Ok(PartialValue::OffsetDateTime(val)) => {
-                    let date_time = DateTimeVal::new(lit, span, val);
-                    Value::DateTime(date_time)
-                }
+                Ok(PartialValue::DateTime(d)) => Value::DateTime(DateTimeVal::new(lit, span, d)),
                 Ok(PartialValue::PartialDate(date)) => {
                     try_to_parse_time_part(ctx, parser, lit, span, date)
                 }
-                Ok(PartialValue::PartialDateTime(date, time)) => {
-                    try_to_parse_subsecs(ctx, parser, lit, span, Some(date), time)
-                }
-                Ok(PartialValue::PartialTime(time)) => {
-                    try_to_parse_subsecs(ctx, parser, lit, span, None, time)
-                }
                 Ok(PartialValue::InvalidDateTime(e)) => {
                     ctx.error(e);
-                    if lit.contains(['T', 't', ':']) {
-                        eat_subsec_part(parser, lit, span)
+                    if !lit.contains(['T', 't', ':']) {
+                        try_combine_time_part(parser, lit, span)
                     } else {
-                        eat_time_part(parser, lit, span)
+                        Value::Invalid(lit, span)
                     }
-                }
-                Ok(PartialValue::InvalidTime(e)) => {
-                    ctx.error(e);
-                    eat_subsec_part(parser, lit, span)
                 }
                 Err(e) => {
                     ctx.error(e);
                     Value::Invalid(lit, span)
                 }
             }
+        }
+        TokenType::Dot => {
+            parser.next();
+
+            ctx.error(Error::UnexpectedLiteralStart(FmtChar('.'), token.start));
+
+            let lit;
+            let span;
+            let t = parser.peek();
+            let dot_end = token.start.plus(1);
+            match t.ty {
+                TokenType::LiteralOrIdent(id) if t.start == dot_end => {
+                    parser.next();
+                    let l = parser.literal(id);
+                    span = Span::from_pos_len(token.start, l.len() as u32 + 1);
+                    // SAFETY: we know there is a dot directly before the literal
+                    lit = unsafe { lit::extend_str_front(l, 1) };
+                }
+                _ => {
+                    let (string, span) = parser.token_fmt_str_and_span(token);
+                    return Err(Error::ExpectedValueFound(string, span));
+                }
+            }
+            let (lit, span) = combine_adjacent_dot_and_lit(parser, lit, span);
+
+            Value::Invalid(lit, span)
         }
         TokenType::SquareLeft => {
             let l_par = token.start;
@@ -1396,7 +1398,6 @@ fn parse_value<'a>(
         | TokenType::CurlyRight
         | TokenType::Equal
         | TokenType::Comma
-        | TokenType::Dot
         | TokenType::Newline
         | TokenType::EOF => {
             let (string, span) = parser.token_fmt_str_and_span(token);
@@ -1405,218 +1406,6 @@ fn parse_value<'a>(
     };
 
     Ok(value)
-}
-
-/// A possibly only partially parsed value
-enum PartialValue {
-    /// A boolean literal, either `false` or `true`
-    Bool(bool),
-    /// A "special" float value like `nan` or `inf`
-    SpecialFloat(f64),
-    /// An integer that is prefixed by either `0b`, `0o`, or `0x`.
-    PrefixedInt(i64),
-    /// A valid decimal integer, but could also be the integer part of a float.
-    Int(i64),
-    /// Possibly the integer part of a float, otherwise an error.
-    OverflowOrFloat,
-    /// A float with an exponent. There can't be a fractional part after this.
-    FloatWithExp,
-    /// A complete offset date-time, without the sub second part, but with an offset.
-    OffsetDateTime(DateTime),
-    /// A date-time without the subsecond part and an offset, might be followed by the subsecond
-    /// part.
-    PartialDateTime(Date, Time),
-    /// Just the date part, might be followed by the time part. The toml spec allows using a space
-    /// instead of `T` to separate the date and time parts, in that case only the date is parsed
-    /// since the time part is inside the next token.
-    PartialDate(Date),
-    /// A local time without sub second part, might be followed by it.
-    PartialTime(Time),
-    /// An invalid datetime, parsed up to a certain point, this is used to possibly consume
-    /// the next tokens in order to avoid excessive errors.
-    InvalidDateTime(Error),
-    InvalidTime(Error),
-}
-
-fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
-    let mut chars = lit.char_indices().peekable();
-    let c = match chars.next() {
-        None => unreachable!("value literal should never be emtpy"),
-        Some((_, c)) => c,
-    };
-
-    match c {
-        '+' | '-' => {
-            let sign = match c {
-                '+' => Sign::Positive,
-                '-' => Sign::Negative,
-                _ => unsafe { core::hint::unreachable_unchecked() },
-            };
-
-            match chars.next() {
-                Some((_, '0')) => num::parse_prefixed_int_or_date(chars, span, Some(sign)),
-                Some((_, c @ '1'..='9')) => {
-                    let num = (c as u32 - '0' as u32) as i64;
-                    num::parse_decimal_int_float_or_date(chars, lit, span, num, Some(sign))
-                }
-                Some((i, 'i' | 'I')) => {
-                    parse_bare_literal(chars, span, i, c, lit, "inf")?;
-                    let val = sign.val() as f64 * f64::INFINITY;
-                    Ok(PartialValue::SpecialFloat(val))
-                }
-                Some((i, 'n' | 'N')) => {
-                    parse_bare_literal(chars, span, i, c, lit, "nan")?;
-                    let val = match sign {
-                        Sign::Positive => f64::NAN,
-                        Sign::Negative => -f64::NAN,
-                    };
-                    Ok(PartialValue::SpecialFloat(val))
-                }
-                Some((i, c)) => {
-                    let pos = span.start.plus(i as u32);
-                    unexpected_char!(IntOrFloat, c, pos)
-                }
-                None => Err(Error::MissingNumDigitsAfterSign(sign, span.end)),
-            }
-        }
-        '0' => num::parse_prefixed_int_or_date(chars, span, None),
-        '1'..='9' => {
-            let num = (c as u32 - '0' as u32) as i64;
-            num::parse_decimal_int_float_or_date(chars, lit, span, num, None)
-        }
-        'f' | 'F' => {
-            parse_bare_literal(chars, span, 0, c, lit, "false")?;
-            Ok(PartialValue::Bool(false))
-        }
-        't' | 'T' => {
-            parse_bare_literal(chars, span, 0, c, lit, "true")?;
-            Ok(PartialValue::Bool(true))
-        }
-        'i' | 'I' => {
-            parse_bare_literal(chars, span, 0, c, lit, "inf")?;
-            Ok(PartialValue::SpecialFloat(f64::INFINITY))
-        }
-        'n' | 'N' => {
-            parse_bare_literal(chars, span, 0, c, lit, "nan")?;
-            Ok(PartialValue::SpecialFloat(f64::NAN))
-        }
-        '_' => Err(Error::LitStartsWithUnderscore(LitPart::Generic, span.start)),
-        _ => Err(Error::UnexpectedLiteralStart(FmtChar(c), span.start)),
-    }
-}
-
-fn parse_bare_literal(
-    mut chars: CharIter,
-    span: Span,
-    i: usize,
-    first: char,
-    lit: &str,
-    expected: &'static str,
-) -> Result<(), Error> {
-    let mut expected_iter = expected.chars().skip(1);
-
-    if first.is_uppercase() {
-        let pos = span.start.plus(i as u32);
-        return Err(Error::UppercaseBareLitChar(FmtChar(first), expected, pos));
-    }
-
-    while let Some((i, c)) = chars.next() {
-        let Some(e) = expected_iter.next() else {
-            let span = Span::new(span.start.plus(i as u32), span.end);
-            let trailing = FmtStr::from_str(&lit[i..]);
-            return Err(Error::BareLitTrailingChars(trailing, expected, span));
-        };
-
-        if c != e {
-            let pos = span.start.plus(i as u32);
-            if c.to_ascii_lowercase() == e {
-                return Err(Error::UppercaseBareLitChar(FmtChar(c), expected, pos));
-            } else {
-                return Err(Error::UnexpectedBareLitChar(FmtChar(c), expected, pos));
-            }
-        }
-    }
-
-    if expected_iter.next().is_some() {
-        return Err(Error::BareLitMissingChars(expected, span.end));
-    }
-
-    Ok(())
-}
-
-fn try_to_parse_fractional_part_of_float<'a>(
-    ctx: &mut impl TomlCtx,
-    parser: &mut Parser<'a>,
-    int_lit: &'a str,
-    int_span: Span,
-    int_val: Option<i64>,
-) -> Value<'a> {
-    // Check this is actually a floating point literal separated by a dot
-    match parser.peek() {
-        t if t.ty == TokenType::Dot && int_span.end == t.start => {
-            parser.next();
-        }
-        _ => match int_val {
-            Some(val) => return Value::Int(IntVal::new(int_lit, int_span, val)),
-            None => {
-                ctx.error(Error::IntLiteralOverflow(int_span));
-                return Value::Invalid(int_lit, int_span);
-            }
-        },
-    }
-
-    let mut missing_float_fractional_part_error = || {
-        let pos = int_span.end.plus(1);
-        ctx.error(Error::MissingFloatFractionalPart(pos));
-
-        // SAFETY: we know there is a dot directly after int_lit.
-        let lit = unsafe {
-            let ptr = int_lit.as_ptr();
-            let len = int_lit.len() + 1;
-            let slice = std::slice::from_raw_parts(ptr, len);
-            std::str::from_utf8_unchecked(slice)
-        };
-        let mut span = int_span;
-        span.end.char += 1;
-        Value::Invalid(lit, span)
-    };
-
-    let frac_span;
-    let frac_lit = match parser.peek().ty {
-        TokenType::LiteralOrIdent(id) => {
-            let frac = parser.next();
-            let frac_lit = parser.literal(id);
-            frac_span = Span::from_pos_len(frac.start, frac_lit.len() as u32);
-
-            let int_end = int_lit.as_bytes().as_ptr_range().end;
-            let frac_start = frac_lit.as_bytes().as_ptr_range().start;
-            // SAFETY: we know there is a dot directly after int_lit.
-            let dot_end = unsafe { int_end.add(1) };
-            if dot_end != frac_start {
-                return missing_float_fractional_part_error();
-            }
-            frac_lit
-        }
-        _ => return missing_float_fractional_part_error(),
-    };
-
-    // SAFETY: the first and second literal reference the same string and
-    // are only separated by a single dot. See above.
-    let lit = unsafe { concat_literals(int_lit, frac_lit) };
-    let span = Span::across(int_span, frac_span);
-
-    // validate fractional part
-    if let Err(e) = num::validate_float_fractional_part(frac_lit, frac_span) {
-        ctx.error(e);
-        return Value::Invalid(lit, span);
-    }
-
-    let Ok(val) = lit.replace('_', "").parse() else {
-        ctx.error(Error::FloatLiteralOverflow(span));
-        return Value::Invalid(lit, span);
-    };
-
-    Value::Float(FloatVal::new(lit, span, val))
 }
 
 /// toml permits using spaces instead of `T` to separate date and time in and rfc3339
@@ -1629,12 +1418,14 @@ fn try_to_parse_time_part<'a>(
     date_span: Span,
     date: Date,
 ) -> Value<'a> {
-    let (time_lit, time_span) = match parser.peek().ty {
+    let time_lit;
+    let time_span;
+    match parser.peek().ty {
         TokenType::LiteralOrIdent(id) => {
             let token = parser.next();
             let lit = parser.literal(id);
             let span = Span::from_pos_len(token.start, lit.len() as u32);
-            (lit, span)
+            (time_lit, time_span) = combine_adjacent_dot_and_lit(parser, lit, span)
         }
         _ => {
             let val = DateTime::LocalDate(date);
@@ -1651,7 +1442,7 @@ fn try_to_parse_time_part<'a>(
 
     // SAFETY: the first and second literal reference the same string, are on the same line and
     // are only separated by whitespace. See above.
-    let lit = unsafe { concat_literals(date_lit, time_lit) };
+    let lit = unsafe { lit::concat_strs(date_lit, time_lit) };
     let span = Span::across(date_span, time_span);
 
     let mut chars = time_lit.char_indices().peekable();
@@ -1659,168 +1450,71 @@ fn try_to_parse_time_part<'a>(
         Ok(v) => v,
         Err(e) => {
             ctx.error(e);
-            return eat_subsec_part(parser, lit, span);
+            return Value::Invalid(lit, span);
         }
     };
 
-    if let Some(offset) = offset {
-        let val = DateTime::OffsetDateTime(date, time, offset);
-        let date_time = DateTimeVal::new(lit, span, val);
-        return Value::DateTime(date_time);
-    }
-
-    try_to_parse_subsecs(ctx, parser, lit, span, Some(date), time)
+    let val = DateTime::from_optional_offset(date, time, offset);
+    let date_time = DateTimeVal::new(lit, span, val);
+    Value::DateTime(date_time)
 }
 
-fn try_to_parse_subsecs<'a>(
-    ctx: &mut impl TomlCtx,
+fn try_combine_time_part<'a>(
     parser: &mut Parser<'a>,
-    date_time_lit: &'a str,
-    date_time_span: Span,
-    date: Option<Date>,
-    time: Time,
+    date_lit: &'a str,
+    date_span: Span,
 ) -> Value<'a> {
-    match parser.peek() {
-        t if t.ty == TokenType::Dot && date_time_span.end == t.start => {
-            parser.next();
-        }
-        _ => {
-            let val = match date {
-                Some(date) => DateTime::LocalDateTime(date, time),
-                None => DateTime::LocalTime(time),
-            };
-            let date_time = DateTimeVal::new(date_time_lit, date_time_span, val);
-            return Value::DateTime(date_time);
-        }
-    }
-
-    let mut missing_date_time_subsec_part_error = || {
-        let pos = date_time_span.end.plus(1);
-        ctx.error(Error::DateTimeMissingSubsec(pos));
-
-        // SAFETY: we know there is a dot directly after int_lit.
-        let lit = unsafe {
-            let ptr = date_time_lit.as_ptr();
-            let len = date_time_lit.len() + 1;
-            let slice = std::slice::from_raw_parts(ptr, len);
-            std::str::from_utf8_unchecked(slice)
-        };
-        let mut span = date_time_span;
-        span.end.char += 1;
-        Value::Invalid(lit, span)
-    };
-
-    let subsec_span;
-    let subsec_lit = match parser.peek().ty {
+    let time_lit;
+    let time_span;
+    let time = parser.peek();
+    match time.ty {
         TokenType::LiteralOrIdent(id) => {
-            let subsec = parser.next();
-            let subsec_lit = parser.literal(id);
-            subsec_span = Span::from_pos_len(subsec.start, subsec_lit.len() as u32);
-
-            let time_end = date_time_lit.as_bytes().as_ptr_range().end;
-            let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
-            // SAFETY: we know there is a dot directly after date_time_lit.
-            let dot_end = unsafe { time_end.add(1) };
-            if dot_end != subsec_start {
-                return missing_date_time_subsec_part_error();
-            }
-            subsec_lit
-        }
-        _ => return missing_date_time_subsec_part_error(),
-    };
-
-    // SAFETY: the first and second literal reference the same string and
-    // are only separated by a single dot. See above.
-    let lit = unsafe { concat_literals(date_time_lit, subsec_lit) };
-    let span = Span::across(date_time_span, subsec_span);
-
-    // parse subsec part
-    match datetime::parse_subsec_part(lit, span, subsec_lit, subsec_span, date, time) {
-        Ok(date_time) => Value::DateTime(date_time),
-        Err(e) => {
-            ctx.error(e);
-            Value::Invalid(lit, span)
-        }
-    }
-}
-
-fn eat_time_part<'a>(parser: &mut Parser<'a>, date_lit: &'a str, date_span: Span) -> Value<'a> {
-    let (time_lit, time_span) = match parser.peek().ty {
-        TokenType::LiteralOrIdent(id) => {
-            let token = parser.next();
-            let lit = parser.literal(id);
-            let span = Span::from_pos_len(token.start, lit.len() as u32);
-            (lit, span)
+            time_lit = parser.literal(id);
+            time_span = Span::from_pos_len(time.start, time_lit.len() as u32);
         }
         _ => return Value::Invalid(date_lit, date_span),
-    };
+    }
 
     // only assum these literals belong together if they are reasonably close together
     if time_span.start.char > date_span.end.char + 5 {
         return Value::Invalid(date_lit, date_span);
     }
+    parser.next();
 
     // SAFETY: the first and second literal reference the same string, are on the same line and
     // are only separated by whitespace. See above.
-    let lit = unsafe { concat_literals(date_lit, time_lit) };
+    let lit = unsafe { lit::concat_strs(date_lit, time_lit) };
     let span = Span::across(date_span, time_span);
+    let (lit, span) = combine_adjacent_dot_and_lit(parser, lit, span);
 
-    let mut chars = time_lit.char_indices().peekable();
-    let (_time, offset) = match datetime::parse_time_and_offset(&mut chars, time_span) {
-        Ok(v) => v,
-        Err(_) => return eat_subsec_part(parser, lit, span),
-    };
-
-    if offset.is_some() {
-        return Value::Invalid(lit, span);
-    }
-
-    eat_subsec_part(parser, lit, span)
-}
-
-fn eat_subsec_part<'a>(
-    parser: &mut Parser<'a>,
-    date_time_lit: &'a str,
-    date_time_span: Span,
-) -> Value<'a> {
-    match parser.peek() {
-        t if t.ty == TokenType::Dot && date_time_span.end == t.start => {
-            parser.next();
-        }
-        _ => return Value::Invalid(date_time_lit, date_time_span),
-    }
-
-    let subsec_span;
-    let subsec_lit = match parser.peek().ty {
-        TokenType::LiteralOrIdent(id) => {
-            let subsec = parser.next();
-            let subsec_lit = parser.literal(id);
-            subsec_span = Span::from_pos_len(subsec.start, subsec_lit.len() as u32);
-
-            let time_end = date_time_lit.as_bytes().as_ptr_range().end;
-            let subsec_start = subsec_lit.as_bytes().as_ptr_range().start;
-            // SAFETY: we know there is a dot directly after date_time_lit.
-            let dot_end = unsafe { time_end.add(1) };
-            if dot_end != subsec_start {
-                return Value::Invalid(date_time_lit, date_time_span);
-            }
-            subsec_lit
-        }
-        _ => return Value::Invalid(date_time_lit, date_time_span),
-    };
-
-    // SAFETY: the first and second literal reference the same string and
-    // are only separated by a single dot. See above.
-    let lit = unsafe { concat_literals(date_time_lit, subsec_lit) };
-    let span = Span::across(date_time_span, subsec_span);
     Value::Invalid(lit, span)
 }
 
-/// # SAFETY
-/// The literals have to reference the same string
-unsafe fn concat_literals<'a>(left: &'a str, right: &'a str) -> &'a str {
-    let ptr = left.as_ptr();
-    let len = (right.as_ptr() as usize - left.as_ptr() as usize) + right.len();
-    let slice = std::slice::from_raw_parts(ptr, len);
-    std::str::from_utf8_unchecked(slice)
+fn combine_adjacent_dot_and_lit<'a>(
+    parser: &mut Parser<'a>,
+    mut prev_lit: &'a str,
+    mut prev_span: Span,
+) -> (&'a str, Span) {
+    loop {
+        let t = parser.peek();
+        if t.start != prev_span.end {
+            return (prev_lit, prev_span);
+        }
+
+        match t.ty {
+            TokenType::Dot => {
+                // SAFETY: we know there is a dot directly after prev_lit
+                prev_lit = unsafe { lit::extend_str_back(prev_lit, 1) };
+                prev_span.end.char += 1;
+            }
+            TokenType::LiteralOrIdent(id) => {
+                let next_lit = parser.literal(id);
+                // SAFETY: the first and second literal are directly adjacent
+                prev_lit = unsafe { lit::concat_strs(prev_lit, next_lit) };
+                prev_span.end.char += next_lit.len() as u32;
+            }
+            _ => return (prev_lit, prev_span),
+        }
+        parser.next();
+    }
 }
