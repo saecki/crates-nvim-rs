@@ -104,9 +104,26 @@ fn display_body<D: Diagnostic>(
         write!(f, "{ANSII_COLOR_BLUE}{line_nr:4} |{ANSII_CLEAR} ")?;
 
         let line = line.as_ref().trim_end_matches('\r');
-        for part in line.split('\r') {
-            f.write_str(part)?;
+        let mut next_start = 0;
+        for (j, c) in line.char_indices() {
+            match c {
+                // backspace
+                '\u{8}' |
+                // vertical tab
+                '\u{B}' |
+                // form feed
+                '\u{C}' |
+                // carriage return
+                '\r' |
+                // delete
+                '\x7f' => {
+                    f.write_str(&line[next_start..j])?;
+                    next_start = j + 1;
+                }
+                _ => (),
+            }
         }
+        f.write_str(&line[next_start..])?;
         f.write_char('\n')?;
 
         let col_start = if i == 0 { span.start.char as usize } else { 0 };
