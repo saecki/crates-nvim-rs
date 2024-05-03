@@ -2,6 +2,18 @@ use unicode_width::UnicodeWidthStr;
 
 use crate::Span;
 
+pub fn lines(input: &str) -> Vec<&str> {
+    let mut lines = input.split('\n').collect::<Vec<_>>();
+    if let [terminated_lines @ .., _] = lines.as_mut_slice() {
+        for l in terminated_lines {
+            if l.ends_with('\r') {
+                *l = &l[..l.len() - 1];
+            }
+        }
+    }
+    lines
+}
+
 pub trait Diagnostic {
     const SEVERITY: Severity;
 
@@ -103,7 +115,7 @@ fn display_body<D: Diagnostic>(
         let line_nr = start_line + i + 1;
         write!(f, "{ANSII_COLOR_BLUE}{line_nr:4} |{ANSII_CLEAR} ")?;
 
-        let line = line.as_ref().trim_end_matches('\r');
+        let line = line.as_ref();
         let mut next_start = 0;
         for (j, c) in line.char_indices() {
             match c {

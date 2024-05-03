@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 pub use diagnostic::*;
 
-mod diagnostic;
+pub mod diagnostic;
 
 pub trait Ctx: Sized {
     type Error;
