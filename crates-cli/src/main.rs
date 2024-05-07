@@ -1,7 +1,7 @@
 use std::process::ExitCode;
 
 use bumpalo::Bump;
-use common::DisplayDiagnostic;
+use common::{diagnostic, DisplayDiagnostic};
 use toml::{TomlCtx, TomlDiagnostics};
 
 fn main() -> ExitCode {
@@ -17,7 +17,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let lines = text.split('\n').collect::<Vec<_>>();
+    let lines = diagnostic::lines(&text);
 
     let start = std::time::SystemTime::now();
     let mut ctx = TomlDiagnostics::default();
@@ -32,6 +32,7 @@ fn main() -> ExitCode {
     let end = std::time::SystemTime::now();
 
     println!("{:#?}", simple);
+    ctx.sort_diagnostics();
     for error in ctx.errors.iter() {
         println!("{}", error.header(&lines));
         if let Some(hint) = error.hint() {

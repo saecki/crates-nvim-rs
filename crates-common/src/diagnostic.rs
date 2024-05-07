@@ -14,6 +14,14 @@ pub fn lines(input: &str) -> Vec<&str> {
     lines
 }
 
+pub fn cmp<D: Diagnostic>(a: &D, b: &D) -> std::cmp::Ordering {
+    span_cmp(a.span(), b.span())
+}
+
+pub fn span_cmp(a: Span, b: Span) -> std::cmp::Ordering {
+    a.start.cmp(&b.start).then(b.end.cmp(&a.start))
+}
+
 pub trait Diagnostic {
     const SEVERITY: Severity;
 

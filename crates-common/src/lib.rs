@@ -51,6 +51,19 @@ impl<E, W, H> Ctx for Diagnostics<E, W, H> {
     }
 }
 
+impl<E, W, H> Diagnostics<E, W, H>
+where
+    E: Diagnostic,
+    W: Diagnostic,
+    H: Diagnostic,
+{
+    pub fn sort_diagnostics(&mut self) {
+        self.errors.sort_by(diagnostic::cmp);
+        self.warnings.sort_by(diagnostic::cmp);
+        self.hints.sort_by(diagnostic::cmp);
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Span {
     pub start: Pos,

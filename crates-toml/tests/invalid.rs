@@ -238,6 +238,7 @@ fn run_case(input: &str) -> Result<HashMap<String, SimpleVal>, String> {
     let map = ctx.map(&asts);
 
     if !ctx.errors.is_empty() {
+        ctx.sort_diagnostics();
         let lines = diagnostic::lines(input);
         let mut msg = String::new();
         for error in ctx.errors.iter() {
