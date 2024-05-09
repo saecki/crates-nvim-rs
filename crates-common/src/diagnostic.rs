@@ -19,7 +19,7 @@ pub fn cmp<D: Diagnostic>(a: &D, b: &D) -> std::cmp::Ordering {
 }
 
 pub fn span_cmp(a: Span, b: Span) -> std::cmp::Ordering {
-    a.start.cmp(&b.start).then(b.end.cmp(&a.start))
+    a.start.cmp(&b.start)
 }
 
 pub trait Diagnostic {
