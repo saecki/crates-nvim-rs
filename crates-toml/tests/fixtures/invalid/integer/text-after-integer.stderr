@@ -1,0 +1,4 @@
+[91merror[0m: Unexpected characters, expected a line break
+ [94m-->[0m 1:12
+[94m   1 |[0m answer = 42 the ultimate answer?
+     [94m|[0m             [91m^^^^^^^^^^^^^^^^^^^^ Unexpected characters, Expected a line break[0m

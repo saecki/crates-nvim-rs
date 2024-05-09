@@ -1,0 +1,10 @@
+[91merror[0m: Unexpected characters, expected a line break
+ [94m-->[0m 1:8
+[94m   1 |[0m [error] this shouldn't be here
+     [94m|[0m         [91m^^^^^^^^^^^^^^^^^^^^^^ Unexpected characters, Expected a line break[0m
+[91merror[0m: Unterminated string literal, missing `'`
+ [94m-->[0m 1:30
+[94m   1 |[0m [error] this shouldn't be here
+     [94m|[0m                     [94m^ Literal started here[0m
+[94m   1 |[0m [error] this shouldn't be here
+     [94m|[0m                               [91m^ Unterminated string literal[0m
