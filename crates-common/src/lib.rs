@@ -11,10 +11,19 @@ pub trait Ctx: Sized {
     type Hint;
 
     fn error(&mut self, error: impl Into<Self::Error>);
-
     fn warn(&mut self, warning: impl Into<Self::Warning>);
-
     fn hint(&mut self, hint: impl Into<Self::Hint>);
+
+    fn mark(&self) -> DiagnosticMark;
+
+    fn reset(&mut self, mark: DiagnosticMark);
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DiagnosticMark {
+    error: usize,
+    warning: usize,
+    hint: usize,
 }
 
 pub struct Diagnostics<E, W, H> {
@@ -48,6 +57,20 @@ impl<E, W, H> Ctx for Diagnostics<E, W, H> {
 
     fn hint(&mut self, hint: impl Into<H>) {
         self.hints.push(hint.into());
+    }
+
+    fn mark(&self) -> DiagnosticMark {
+        DiagnosticMark {
+            error: self.errors.len(),
+            warning: self.warnings.len(),
+            hint: self.hints.len(),
+        }
+    }
+
+    fn reset(&mut self, mark: DiagnosticMark) {
+        self.errors.truncate(mark.error);
+        self.warnings.truncate(mark.warning);
+        self.hints.truncate(mark.hint);
     }
 }
 

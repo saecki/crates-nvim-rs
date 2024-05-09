@@ -19,6 +19,9 @@ mod num;
 mod test;
 
 macro_rules! recover_on {
+    ($parser:expr, $tokens:pat) => {{
+        recover_on!($parser, $tokens => break)
+    }};
     ($parser:expr, $($tokens:pat => $recover:stmt),+ $(,)?) => {{
         loop {
             use TokenType::*;
@@ -694,41 +697,15 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
     let mut parser = Parser::new(tokens);
     let mut asts = Vec::new();
     let mut comment_storage = Vec::new();
-    let mut newline_required = false;
     let mut prev_comments = Vec::new();
+    let mut newline_required = false;
 
     'root: loop {
-        if newline_required {
-            if let Some(comment) = parser.eat_comment() {
-                let comment = AssocComment::line_end(0, comment);
-                let comment_id = store_comment(&mut comment_storage, comment);
-                match asts.last_mut() {
-                    Some(Ast::Table(t)) => t.append_comment(comment_id),
-                    Some(Ast::Array(a)) => a.append_comment(comment_id),
-                    Some(Ast::Assignment(a)) => a.comments.append(comment_id),
-                    Some(Ast::Comment(_)) | None => unreachable!(
-                        "newline is only required after table/array headers and assignments"
-                    ),
-                }
-            }
-            match parser.peek() {
-                t if t.ty == TokenType::Newline => {
-                    parser.next();
-                }
-                t if t.ty == TokenType::EOF => break 'root,
-                t => {
-                    ctx.error(Error::MissingNewline(t.start));
-                }
-            }
-
-            newline_required = false;
-        }
-
         let token = parser.peek();
         match token.ty {
             TokenType::SquareLeft => {
-                let l_table_square = token.start;
-                parser.next();
+                let mark = ctx.mark();
+                let l_table_square = parser.next().start;
 
                 let l_array_square = match parser.peek() {
                     t if t.ty == TokenType::SquareLeft => {
@@ -748,7 +725,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     Ok(k) => Some(k),
                     Err(e) => {
                         ctx.error(e);
-                        recover_on!(parser, SquareRight | Newline | EOF => break);
+                        recover_on!(parser, SquareRight | Newline | Comment(_) | EOF);
                         None
                     }
                 };
@@ -785,6 +762,21 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                         None
                     }
                 };
+
+                if newline_required {
+                    if ctx.mark() == mark {
+                        // continue if there is just a missing newline
+                        ctx.error(Error::MissingNewline(token.start));
+                    } else {
+                        // avoid excessive error messages
+                        ctx.reset(mark);
+                        recover_on!(parser, Newline | Comment(_) | EOF);
+                        let end = parser.peek().start;
+                        let span = Span::new(token.start, end);
+                        ctx.error(Error::ExpectedNewlineFound(span));
+                        continue 'root;
+                    }
+                }
 
                 let pos = find_associated_comments(&prev_comments, l_table_square.line);
                 asts.extend(prev_comments.drain(..pos).map(Ast::Comment));
@@ -823,35 +815,87 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 continue;
             }
             TokenType::Comment(id) => {
-                let comment = parser.comment(id, token.start);
-                prev_comments.push(comment);
                 parser.next();
+                let comment = parser.comment(id, token.start);
+                if newline_required {
+                    let comment = AssocComment::line_end(0, comment);
+                    let comment_id = store_comment(&mut comment_storage, comment);
+                    match asts.last_mut() {
+                        Some(Ast::Table(t)) => t.append_comment(comment_id),
+                        Some(Ast::Array(a)) => a.append_comment(comment_id),
+                        Some(Ast::Assignment(a)) => a.comments.append(comment_id),
+                        Some(Ast::Comment(_)) | None => unreachable!(
+                            "a comment has to be the last item in a line -> there can't be two comments in a line"
+                        ),
+                    }
+                } else {
+                    prev_comments.push(comment);
+                }
                 continue;
             }
             TokenType::Newline => {
                 parser.next();
+                newline_required = false;
                 continue;
             }
             TokenType::EOF => break 'root,
             _ => (),
         }
 
+        let mark = ctx.mark();
+
         let key = match parse_key(ctx, bump, &mut parser) {
             Ok(k) => k,
             Err(e) => {
-                ctx.error(e);
-                recover_on!(parser, Newline | EOF => continue 'root);
+                recover_on!(parser, Newline | Comment(_) | EOF);
+                if newline_required {
+                    // avoid excessive error messages
+                    ctx.reset(mark);
+                    let end = parser.peek().start;
+                    let span = Span::new(token.start, end);
+                    ctx.error(Error::ExpectedNewlineFound(span));
+                } else {
+                    ctx.error(e);
+                }
+                continue 'root;
             }
         };
 
-        let eq = match parser.next() {
-            t if t.ty == TokenType::Equal => t.start,
+        let eq = match parser.peek() {
+            t if t.ty == TokenType::Equal => {
+                parser.next();
+                t.start
+            }
             t => {
-                let (string, span) = parser.token_fmt_str_and_span(t);
-                ctx.error(Error::ExpectedEqOrDotFound(string, span));
-                recover_on!(parser, Newline | EOF => continue 'root);
+                recover_on!(parser, Newline | Comment(_) | EOF);
+                if newline_required {
+                    // avoid excessive error messages
+                    ctx.reset(mark);
+                    let end = parser.peek().start;
+                    let span = Span::new(token.start, end);
+                    ctx.error(Error::ExpectedNewlineFound(span));
+                } else {
+                    let (string, span) = parser.token_fmt_str_and_span(t);
+                    ctx.error(Error::ExpectedEqOrDotFound(string, span));
+                }
+                continue 'root;
             }
         };
+
+        if newline_required {
+            if ctx.mark() == mark {
+                // continue if there is just a missing newline
+                ctx.error(Error::MissingNewline(token.start));
+            } else {
+                // avoid excessive error messages
+                ctx.reset(mark);
+                recover_on!(parser, Newline | Comment(_) | EOF);
+                let end = parser.peek().start;
+                let span = Span::new(token.start, end);
+                ctx.error(Error::ExpectedNewlineFound(span));
+                continue 'root;
+            }
+        }
 
         // store associated comments here so associated comments of the value are added in the correct order
         let pos = find_associated_comments(&prev_comments, eq.line);
@@ -894,7 +938,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             Ok(v) => v,
             Err(e) => {
                 ctx.error(e);
-                recover_on!(parser, Newline | EOF => continue 'root);
+                recover_on!(parser, Newline | Comment(_) | EOF => continue 'root);
             }
         };
 
@@ -1207,7 +1251,7 @@ fn parse_value<'a>(
                     Err(e) => {
                         ctx.error(e);
                         recover_on!(parser,
-                            Comma | Newline => {
+                            Comma | Newline | Comment(_) => {
                                 parser.next();
                                 continue 'inline_array;
                             },
@@ -1308,7 +1352,7 @@ fn parse_value<'a>(
             let mut assignments = Vec::new();
             let mut comma = None;
             'inline_table: loop {
-                if one_of!(parser.peek().ty, CurlyRight | Newline | EOF) {
+                if one_of!(parser.peek().ty, CurlyRight | Newline | Comment(_) | EOF) {
                     if let Some(pos) = comma {
                         ctx.error(Error::InlineTableTrailingComma(pos));
                     }
@@ -1323,7 +1367,7 @@ fn parse_value<'a>(
                                 parser.next();
                                 continue 'inline_table;
                             },
-                            CurlyRight | Newline | EOF => break 'inline_table,
+                            CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
                         )
                     }
                 };
@@ -1338,7 +1382,7 @@ fn parse_value<'a>(
                                 parser.next();
                                 continue 'inline_table;
                             },
-                            CurlyRight | Newline | EOF => break 'inline_table,
+                            CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
                         )
                     }
                 };
@@ -1352,7 +1396,7 @@ fn parse_value<'a>(
                                 parser.next();
                                 continue 'inline_table;
                             },
-                            CurlyRight | Newline | EOF => break 'inline_table,
+                            CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
                         )
                     }
                 };
