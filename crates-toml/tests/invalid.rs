@@ -15,6 +15,8 @@ enum Mode {
     Fail,
     /// Skip tests
     Skip,
+    /// Skip missing tests
+    SkipMissing,
     /// Ask the user on mismatch
     Review,
     /// Ask the user on mismatch, but only on if there is an existing fixture
@@ -43,6 +45,7 @@ fn main() {
         mode = match v {
             "fail" | "" => Mode::Fail,
             "skip" => Mode::Skip,
+            "skip-missing" => Mode::SkipMissing,
             "review" => Mode::Review,
             "update" => Mode::Update,
             "revise" => Mode::Revise,
@@ -101,7 +104,9 @@ fn main() {
                         );
 
                         return match mode {
-                            Mode::Fail | Mode::Revise | Mode::Update => Err(Failed::from(msg)),
+                            Mode::Fail | Mode::SkipMissing | Mode::Revise | Mode::Update => {
+                                Err(Failed::from(msg))
+                            }
                             Mode::Skip => unreachable!(),
                             Mode::Review => {
                                 print!("\n{msg}");
@@ -199,7 +204,7 @@ fn main() {
                 );
 
                 match mode {
-                    Mode::Fail | Mode::Revise => Err(Failed::from(msg)),
+                    Mode::Fail | Mode::Revise | Mode::SkipMissing => Err(Failed::from(msg)),
                     Mode::Skip => unreachable!(),
                     Mode::Review | Mode::Update => {
                         print!("\n{msg}");
@@ -224,7 +229,15 @@ fn main() {
                     Mode::Force => Err(Failed::from(msg)),
                 }
             })
-            .with_ignored_flag(mode == Mode::Skip)
+            .with_ignored_flag(match mode {
+                Mode::Skip => true,
+                Mode::SkipMissing => {
+                    let expect_path = std::path::Path::new("tests/fixtures")
+                        .join(case.name.with_extension("stderr"));
+                    !expect_path.exists()
+                }
+                _ => false,
+            })
         })
         .collect();
     libtest_mimic::run(&args, tests).exit()
