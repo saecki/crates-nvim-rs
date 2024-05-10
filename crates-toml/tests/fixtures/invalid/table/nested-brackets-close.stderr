@@ -1,4 +1,4 @@
-[91merror[0m: Unexpected characters, expected a line break
+[91merror[0m: Expected a line break, found `b`
  [94m-->[0m 1:3
 [94m   1 |[0m [a]b]
-     [94m|[0m    [91m^^ Unexpected characters, Expected a line break[0m
+     [94m|[0m    [91m^^ Expected a line break[0m

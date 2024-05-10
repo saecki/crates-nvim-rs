@@ -26,10 +26,10 @@
  [94m-->[0m 7:26
 [94m   7 |[0m mixed-case              = valid   = False
      [94m|[0m                           [91m^ Unexpected character[0m
-[91merror[0m: Unexpected characters, expected a line break
+[91merror[0m: Expected a line break, found `=`
  [94m-->[0m 7:34
 [94m   7 |[0m mixed-case              = valid   = False
-     [94m|[0m                                   [91m^^^^^^^ Unexpected characters, Expected a line break[0m
+     [94m|[0m                                   [91m^^^^^^^ Expected a line break[0m
 [91merror[0m: Trailing characters `y` in literal, expected `false`
  [94m-->[0m 8:31
 [94m   8 |[0m starting-same-false     = falsey

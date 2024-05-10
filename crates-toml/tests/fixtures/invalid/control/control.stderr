@@ -1,0 +1,62 @@
+[91merror[0m: Duplicate key `comment-cr` in document root
+ [94m-->[0m 9:0
+[94m   6 |[0m comment-cr   = "CR"     # \x0d
+     [94m|[0m [94m^^^^^^^^^^ Original key defined here[0m
+[94m   9 |[0m comment-cr   = "Carriage return in comment" # \x0da=1
+     [94m|[0m [91m^^^^^^^^^^ Duplicate key[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 11:20
+[94m  11 |[0m string-null = "null\x00"
+     [94m|[0m                     [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 12:20
+[94m  12 |[0m string-lf   = "null\x10"
+     [94m|[0m                     [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 13:20
+[94m  13 |[0m string-cr   = "null\x0d"
+     [94m|[0m                     [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 14:20
+[94m  14 |[0m string-us   = "null\x1f"
+     [94m|[0m                     [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 15:20
+[94m  15 |[0m string-del  = "null\x7f"
+     [94m|[0m                     [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 16:25
+[94m  16 |[0m string-bs   = "backspace\x08"
+     [94m|[0m                          [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 24:21
+[94m  24 |[0m multi-null = """null\x00"""
+     [94m|[0m                      [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 25:21
+[94m  25 |[0m multi-lf   = """null\x10"""
+     [94m|[0m                      [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 26:21
+[94m  26 |[0m multi-cr   = """null\x0d"""
+     [94m|[0m                      [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 27:21
+[94m  27 |[0m multi-us   = """null\x1f"""
+     [94m|[0m                      [91m^ Invalid escape character[0m
+[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+ [94m-->[0m 28:21
+[94m  28 |[0m multi-del  = """null\x7f"""
+     [94m|[0m                      [91m^ Invalid escape character[0m
+[91merror[0m: Expected a line break, found `\x00`
+ [94m-->[0m 36:33
+[94m  36 |[0m bare-null         = "some value" \x00
+     [94m|[0m                                  [91m^^^^ Expected a line break[0m
+[91merror[0m: Unexpected character `\` at start of literal
+ [94m-->[0m 37:20
+[94m  37 |[0m bare-formfeed     = \x0c
+     [94m|[0m                     [91m^ Unexpected character[0m
+[91merror[0m: Unexpected character `\` at start of literal
+ [94m-->[0m 38:20
+[94m  38 |[0m bare-vertical-tab = \x0b
+     [94m|[0m                     [91m^ Unexpected character[0m

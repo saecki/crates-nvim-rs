@@ -4,10 +4,10 @@
      [94m|[0m [94m^ Left `[` defined here[0m
 [94m   1 |[0m [where will it end
      [94m|[0m        [91m^^^^ Expected `]`[0m
-[91merror[0m: Unexpected characters, expected a line break
+[91merror[0m: Expected a line break, found `will`
  [94m-->[0m 1:7
 [94m   1 |[0m [where will it end
-     [94m|[0m        [91m^^^^^^^^^^^ Unexpected characters, Expected a line break[0m
+     [94m|[0m        [91m^^^^^^^^^^^ Expected a line break[0m
 [91merror[0m: Unexpected character `v` at start of literal
  [94m-->[0m 2:7
 [94m   2 |[0m name = value
