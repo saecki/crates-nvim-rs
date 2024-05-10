@@ -1,0 +1,10 @@
+[91merror[0m: Unfinished escape sequence
+ [94m-->[0m 1:27
+[94m   1 |[0m "backslash is the last char\
+     [94m|[0m                            [91m^ Unfinished escape sequence[0m
+[91merror[0m: Unterminated string literal, missing `"`
+ [94m-->[0m 1:28
+[94m   1 |[0m "backslash is the last char\
+     [94m|[0m [94m^ Literal started here[0m
+[94m   1 |[0m "backslash is the last char\
+     [94m|[0m                             [91m^ Unterminated string literal[0m
