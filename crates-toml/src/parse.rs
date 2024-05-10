@@ -740,8 +740,9 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 };
 
                 let key = match parse_key(ctx, bump, &mut parser) {
-                    Ok(k) => Some(k),
-                    Err(e) => {
+                    KeyResult::Ok(k) => Some(k),
+                    KeyResult::UnterminatedStr(k) => Some(k),
+                    KeyResult::Err(e) => {
                         ctx.error(e);
                         recover_on!(parser, SquareRight | Newline | Comment(_) | EOF);
                         None
@@ -864,8 +865,19 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
         let mark = ctx.mark();
 
         let key = match parse_key(ctx, bump, &mut parser) {
-            Ok(k) => k,
-            Err(e) => {
+            KeyResult::Ok(k) => k,
+            KeyResult::UnterminatedStr(_) => {
+                if newline_required {
+                    // avoid excessive error messages
+                    ctx.reset(mark);
+                    let string = parser.token_fmt_str(token);
+                    let end = parser.peek().start;
+                    let span = Span::new(token.start, end);
+                    ctx.error(Error::ExpectedNewlineFound(string, span));
+                }
+                continue 'root;
+            }
+            KeyResult::Err(e) => {
                 recover_on!(parser, Newline | Comment(_) | EOF);
                 if newline_required {
                     // avoid excessive error messages
@@ -1089,11 +1101,13 @@ fn next_comment_id(storage: &[AssocComment<'_>]) -> CommentId {
     CommentId(storage.len() as u32)
 }
 
-fn parse_key<'a>(
-    ctx: &mut impl TomlCtx,
-    bump: &'a Bump,
-    parser: &mut Parser<'a>,
-) -> Result<Key<'a>, Error> {
+enum KeyResult<'a> {
+    Ok(Key<'a>),
+    UnterminatedStr(Key<'a>),
+    Err(Error),
+}
+
+fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>) -> KeyResult<'a> {
     let mut idents = BVec::new_in(bump);
     loop {
         let token = parser.peek();
@@ -1105,13 +1119,18 @@ fn parse_key<'a>(
                     Quote::Basic => IdentKind::BasicString,
                     Quote::Literal => IdentKind::LiteralString,
                     Quote::BasicMultiline => {
-                        return Err(Error::MultilineBasicStringIdent(lit_span));
+                        return KeyResult::Err(Error::MultilineBasicStringIdent(lit_span));
                     }
                     Quote::LiteralMultiline => {
-                        return Err(Error::MultilineLiteralStringIdent(lit_span));
+                        return KeyResult::Err(Error::MultilineLiteralStringIdent(lit_span));
                     }
                 };
-                Ident::from_string(str.lit, lit_span, str.text, str.text_offset, kind)
+                let ident = Ident::from_string(str.lit, lit_span, str.text, str.text_offset, kind);
+                if str.text_offset.end_line == 0 && str.text_offset.end_char == 0 {
+                    parser.next();
+                    return KeyResult::UnterminatedStr(Key::One(ident));
+                }
+                ident
             }
             TokenType::LiteralOrIdent(id) => {
                 let lit = parser.literal(id);
@@ -1139,7 +1158,7 @@ fn parse_key<'a>(
             | TokenType::Newline
             | TokenType::EOF => {
                 let (string, span) = parser.token_fmt_str_and_span(token);
-                return Err(Error::ExpectedKeyFound(string, span));
+                return KeyResult::Err(Error::ExpectedKeyFound(string, span));
             }
         };
         parser.next();
@@ -1152,10 +1171,10 @@ fn parse_key<'a>(
             }
             _ => {
                 return if idents.is_empty() {
-                    Ok(Key::One(ident))
+                    KeyResult::Ok(Key::One(ident))
                 } else {
                     idents.push(DottedIdent { ident, dot: None });
-                    Ok(Key::Dotted(idents.into_bump_slice()))
+                    KeyResult::Ok(Key::Dotted(idents.into_bump_slice()))
                 };
             }
         }
@@ -1381,8 +1400,12 @@ fn parse_value<'a>(
                     break;
                 }
                 let key = match parse_key(ctx, bump, parser) {
-                    Ok(k) => k,
-                    Err(e) => {
+                    KeyResult::Ok(k) => k,
+                    KeyResult::UnterminatedStr(_) => {
+                        // no token other than newline can come after an unterminated string literal
+                        break 'inline_table;
+                    }
+                    KeyResult::Err(e) => {
                         ctx.error(e);
                         recover_on!(parser,
                             Comma => {
