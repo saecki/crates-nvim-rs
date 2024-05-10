@@ -1,0 +1,132 @@
+[91merror[0m: Incomplete date-time, year is missing digits
+ [94m-->[0m 1:19
+[94m   1 |[0m leading-zero-1 = 01
+     [94m|[0m                    [91m^ Missing digits[0m
+[91merror[0m: Incomplete date-time, year is missing digits
+ [94m-->[0m 2:19
+[94m   2 |[0m leading-zero-2 = 00
+     [94m|[0m                    [91m^ Missing digits[0m
+[91merror[0m: Invalid leading `0` in number
+ [94m-->[0m 3:17
+[94m   3 |[0m leading-zero-3 = 0_0
+     [94m|[0m                  [91m^ Invalid leading `0`[0m
+[91merror[0m: Invalid leading `0` in number
+ [94m-->[0m 4:23
+[94m   4 |[0m leading-zero-sign-1 = -01
+     [94m|[0m                        [91m^ Invalid leading `0`[0m
+[91merror[0m: Invalid leading `0` in number
+ [94m-->[0m 5:23
+[94m   5 |[0m leading-zero-sign-2 = +01
+     [94m|[0m                        [91m^ Invalid leading `0`[0m
+[91merror[0m: Invalid leading `0` in number
+ [94m-->[0m 6:23
+[94m   6 |[0m leading-zero-sign-3 = +0_1
+     [94m|[0m                        [91m^ Invalid leading `0`[0m
+[91merror[0m: Unexpected character `+` in integer or float
+ [94m-->[0m 8:20
+[94m   8 |[0m double-sign-plus = ++99
+     [94m|[0m                     [91m^ Unexpected character in integer or float[0m
+[91merror[0m: Unexpected character `-` in integer or float
+ [94m-->[0m 9:19
+[94m   9 |[0m double-sign-nex = --99
+     [94m|[0m                    [91m^ Unexpected character in integer or float[0m
+[91merror[0m: Signs are not permitted for binary, octal, and hexadecimal integers
+ [94m-->[0m 11:15
+[94m  11 |[0m negative-hex = -0xff
+     [94m|[0m                [91m^ Sign not allowed[0m
+[91merror[0m: Signs are not permitted for binary, octal, and hexadecimal integers
+ [94m-->[0m 12:15
+[94m  12 |[0m negative-bin = -0b11010110
+     [94m|[0m                [91m^ Sign not allowed[0m
+[91merror[0m: Signs are not permitted for binary, octal, and hexadecimal integers
+ [94m-->[0m 13:15
+[94m  13 |[0m negative-oct = -0o755
+     [94m|[0m                [91m^ Sign not allowed[0m
+[91merror[0m: Signs are not permitted for binary, octal, and hexadecimal integers
+ [94m-->[0m 15:15
+[94m  15 |[0m positive-hex = +0xff
+     [94m|[0m                [91m^ Sign not allowed[0m
+[91merror[0m: Signs are not permitted for binary, octal, and hexadecimal integers
+ [94m-->[0m 16:15
+[94m  16 |[0m positive-bin = +0b11010110
+     [94m|[0m                [91m^ Sign not allowed[0m
+[91merror[0m: Signs are not permitted for binary, octal, and hexadecimal integers
+ [94m-->[0m 17:15
+[94m  17 |[0m positive-oct = +0o755
+     [94m|[0m                [91m^ Sign not allowed[0m
+[91merror[0m: Integer cannot end with `_`
+ [94m-->[0m 19:17
+[94m  19 |[0m trailing-us = 123_
+     [94m|[0m                  [91m^ Integer cannot end with `_`[0m
+[91merror[0m: Literal cannot start with `_`
+ [94m-->[0m 20:13
+[94m  20 |[0m leading-us = _123
+     [94m|[0m              [91m^ Literal cannot start with `_`[0m
+[91merror[0m: Consecutive underscores (`_`) are not allowed in number literals
+ [94m-->[0m 21:13
+[94m  21 |[0m double-us = 1__23
+     [94m|[0m              [91m^^ Consecutive underscores (`_`) not allowed[0m
+[91merror[0m: Integer literal cannot start with `_`
+ [94m-->[0m 23:17
+[94m  23 |[0m us-after-hex = 0x_1
+     [94m|[0m                  [91m^ Integer literal cannot start with `_`[0m
+[91merror[0m: Integer literal cannot start with `_`
+ [94m-->[0m 24:17
+[94m  24 |[0m us-after-oct = 0o_1
+     [94m|[0m                  [91m^ Integer literal cannot start with `_`[0m
+[91merror[0m: Integer literal cannot start with `_`
+ [94m-->[0m 25:17
+[94m  25 |[0m us-after-bin = 0b_1
+     [94m|[0m                  [91m^ Integer literal cannot start with `_`[0m
+[91merror[0m: Integer literal cannot end with `_`
+ [94m-->[0m 27:21
+[94m  27 |[0m trailing-us-hex = 0x1_
+     [94m|[0m                      [91m^ Integer literal cannot end with `_`[0m
+[91merror[0m: Integer literal cannot end with `_`
+ [94m-->[0m 28:21
+[94m  28 |[0m trailing-us-oct = 0o1_
+     [94m|[0m                      [91m^ Integer literal cannot end with `_`[0m
+[91merror[0m: Integer literal cannot end with `_`
+ [94m-->[0m 29:21
+[94m  29 |[0m trailing-us-bin = 0b1_
+     [94m|[0m                      [91m^ Integer literal cannot end with `_`[0m
+[91merror[0m: Literal cannot start with `_`
+ [94m-->[0m 31:17
+[94m  31 |[0m leading-us-hex = _0x1
+     [94m|[0m                  [91m^ Literal cannot start with `_`[0m
+[91merror[0m: Literal cannot start with `_`
+ [94m-->[0m 32:17
+[94m  32 |[0m leading-us-oct = _0o1
+     [94m|[0m                  [91m^ Literal cannot start with `_`[0m
+[91merror[0m: Literal cannot start with `_`
+ [94m-->[0m 33:17
+[94m  33 |[0m leading-us-bin = _0b1
+     [94m|[0m                  [91m^ Literal cannot start with `_`[0m
+[91merror[0m: Hexadecimal digit `z` out of range, valid digits are `0-9`, `a-f`, and `A-F`
+ [94m-->[0m 35:21
+[94m  35 |[0m invalid-hex-1 = 0xaafz
+     [94m|[0m                      [91m^ Hexadecimal digit  out of range[0m
+[91merror[0m: Hexadecimal digit `g` out of range, valid digits are `0-9`, `a-f`, and `A-F`
+ [94m-->[0m 36:18
+[94m  36 |[0m invalid-hex-2 = 0xgabba00f1
+     [94m|[0m                   [91m^ Hexadecimal digit  out of range[0m
+[91merror[0m: Octal digit `8` out of range, valid digits are `0-7`
+ [94m-->[0m 37:18
+[94m  37 |[0m invalid-oct = 0o778
+     [94m|[0m                   [91m^ Octal digit out of range[0m
+[91merror[0m: Binary digit `2` out of range, valid digits are `0` and `1`
+ [94m-->[0m 38:19
+[94m  38 |[0m invalid-bin = 0b0012
+     [94m|[0m                    [91m^ Binary digit out of range[0m
+[91merror[0m: Found uppercase hexadecimal int prefix `X`, only lowercase `x` is permitted
+ [94m-->[0m 40:15
+[94m  40 |[0m capital-hex = 0X1
+     [94m|[0m                [91m^ Uppercase radix[0m
+[91merror[0m: Found uppercase octal int prefix `O`, only lowercase `o` is permitted
+ [94m-->[0m 41:15
+[94m  41 |[0m capital-oct = 0O0
+     [94m|[0m                [91m^ Uppercase radix[0m
+[91merror[0m: Found uppercase binary int prefix `B`, only lowercase `b` is permitted
+ [94m-->[0m 42:15
+[94m  42 |[0m capital-bin = 0B0
+     [94m|[0m                [91m^ Uppercase radix[0m
