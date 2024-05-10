@@ -166,7 +166,7 @@ pub fn parse_decimal_int_float_or_date(
 
     if last_underscore {
         let pos = span.end.minus(1);
-        return Err(Error::LitEndsWithUnderscore(LitPart::IntOrFloat, pos));
+        return Err(Error::LitEndsWithUnderscore(LitPart::Int, pos));
     }
 
     match parse_state {

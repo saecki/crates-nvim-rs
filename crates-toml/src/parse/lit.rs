@@ -26,6 +26,7 @@ pub enum PartialValue {
 pub enum LitPart {
     Generic,
     IntOrFloat,
+    Int,
     PrefixedInt(IntPrefix),
     FloatIntegral,
     FloatFract,
@@ -37,6 +38,7 @@ impl LitPart {
         match self {
             LitPart::Generic => "literal",
             LitPart::IntOrFloat => "integer or float",
+            LitPart::Int => "integer",
             LitPart::PrefixedInt(IntPrefix::Binary) => "binary integer",
             LitPart::PrefixedInt(IntPrefix::Octal) => "octal integer",
             LitPart::PrefixedInt(IntPrefix::Hexadecimal) => "hexadecimal integer",
