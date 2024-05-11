@@ -614,6 +614,49 @@ fn nested_inline_array() {
 }
 
 #[test]
+fn unclosed_inline_array_error_on_last_line() {
+    let inputs = [
+        "array = [\n  0,\n  1",   // without newline
+        "array = [\n  0,\n  1\n", // with newline
+    ];
+    for input in inputs {
+        check_error(
+            input,
+            |bump, comments| {
+                [Ast::Assignment(ta(
+                    comments,
+                    0,
+                    0,
+                    "array",
+                    Value::InlineArray(InlineArray {
+                        comments: empty_comments(comments, 0),
+                        l_par: Pos { line: 0, char: 8 },
+                        values: bump.alloc([
+                            InlineArrayValue {
+                                comments: empty_comments(comments, 1),
+                                val: int(1, 2, "0"),
+                                comma: Some(Pos { line: 1, char: 3 }),
+                            },
+                            InlineArrayValue {
+                                comments: empty_comments(comments, 1),
+                                val: int(2, 2, "1"),
+                                comma: None,
+                            },
+                        ]),
+                        r_par: None,
+                    }),
+                ))]
+            },
+            Error::ExpectedRightSquareFound(
+                "`EOF`".into(),
+                Pos { line: 0, char: 8 },
+                Span::pos(Pos { line: 2, char: 3 }),
+            ),
+        );
+    }
+}
+
+#[test]
 fn inline_table() {
     check("table = { a = 3, b = true }", |bump, comments| {
         [Ast::Assignment(ta(
@@ -1211,5 +1254,3 @@ fn local_time_hour_out_of_range() {
         ),
     );
 }
-
-// TODO: date time error tests
