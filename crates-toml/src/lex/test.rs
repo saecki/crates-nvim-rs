@@ -649,6 +649,38 @@ fn not_fully_closed_literal_multi_line_string_2() {
 }
 
 #[test]
+fn unclosed_multi_line_string_error_on_last_line() {
+    let inputs = [
+        (Quote::BasicMultiline, "\"\"\"some unclosed string\n"),
+        (Quote::LiteralMultiline, "'''some unclosed string\n"),
+    ];
+    for (quote, input) in inputs {
+        check_error(
+            input,
+            Tokens {
+                tokens: &[Token {
+                    ty: TokenType::String(StringId(0)),
+                    start: Pos { line: 0, char: 0 },
+                }],
+                strings: &[StringToken {
+                    quote,
+                    lit: input,
+                    lit_end: Pos { line: 1, char: 0 },
+                    text: &input[3..],
+                    text_offset: TextOffset::chars(3, 0),
+                }],
+                literals: &[],
+                eof: Token {
+                    ty: TokenType::EOF,
+                    start: Pos { line: 1, char: 0 },
+                },
+            },
+            Error::MissingQuote(quote, Pos { line: 0, char: 0 }, Pos { line: 0, char: 23 }),
+        );
+    }
+}
+
+#[test]
 fn comment_without_newline() {
     check(
         "# hello there",

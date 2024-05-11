@@ -425,7 +425,22 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
         let start = lexer.next_byte_pos();
         let c = loop {
             let Some(c) = lexer.next() else {
-                ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
+                let mut pos = lexer.pos();
+                let mut chars = lexer.input.chars();
+                if chars.next_back() == Some('\n') {
+                    let cr = chars.next_back() == Some('\r');
+                    let line_end = lexer.input.len() - (1 + cr as usize);
+                    let text = &lexer.input.as_bytes()[..line_end];
+                    let line_len = text
+                        .iter()
+                        .rev()
+                        .position(|b| *b == b'\n')
+                        .unwrap_or(text.len());
+
+                    pos.line -= 1;
+                    pos.char = line_len as u32;
+                }
+                ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, pos));
 
                 let end = lexer.byte_pos;
                 end_string(lexer, str, end, end);
