@@ -11,7 +11,10 @@ SNAPSHOT=review cargo test
 ```
 Possible values for the `SNAPSHOT` mode environment variable are:
 - `fail` (default) to just fail the test with an error message.
+- `skip` to skip all tests
+- `skip-missing` to skip tests with missing fixtures, but still run all others.
 - `review` to review each change individually and decide whether to update the output fixture.
+- `update` to only review changed fixtures, not missing ones.
 - `revise` to review correct fixtures and decide whether to invalidate (remove) them.
 - `force` to update all output fixtures
 
