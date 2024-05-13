@@ -22,7 +22,7 @@ pub trait CargoCtx:
     type CargoWarning: From<CargoWarning>;
     type CargoHint: From<CargoHint>;
 
-    fn check<'a>(&mut self, map: &MapTable<'a>) -> State<'a> {
+    fn check<'a>(&mut self, map: &'a MapTable<'a>) -> State<'a> {
         check(self, map)
     }
 }

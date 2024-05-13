@@ -103,6 +103,44 @@ impl Diagnostic for Error {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Warning {}
+
+impl Diagnostic for Warning {
+    const SEVERITY: Severity = Severity::Warning;
+
+    fn span(&self) -> Span {
+        todo!()
+    }
+
+    fn description(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Hint {}
+
+impl Diagnostic for Hint {
+    const SEVERITY: Severity = Severity::Hint;
+
+    fn span(&self) -> Span {
+        todo!()
+    }
+
+    fn description(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+}
+
 impl Display for NumField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(num_field(*self))

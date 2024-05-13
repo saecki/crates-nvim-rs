@@ -1,20 +1,43 @@
+use common::Span;
+use semver::{SemverCtx, VersionReq};
 use toml::map::{
-    MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
-    MapTableEntryReprKind, Scalar,
+    MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr, Scalar,
 };
 use toml::onevec::OneVec;
-use toml::parse::{InlineArrayValue, StringVal};
+use toml::parse::{BoolVal, InlineArrayValue, StringVal};
 
 use crate::error::CargoError;
 use crate::CargoCtx;
 
-#[derive(Clone, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub struct State<'a> {
     dependencies: Vec<Dependency<'a>>,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Dependency<'a> {
     pub kind: DependencyKind,
+    /// ```toml
+    /// # always the `<name>`
+    /// <name> = "..."
+    /// <name> = { package = "..." }
+    ///
+    /// [dependencies.<name>]
+    /// version = "..."
+    /// ```
+    pub name: Option<StringVal<'a>>,
+    /// ```toml
+    /// # either `<name>`
+    /// <name> = "..."
+    ///
+    /// # or `<package>`
+    /// explicit_name = { package = "<package>", ... }
+    ///
+    /// [dependencies.explicit_name]
+    /// package = "<package>"
+    /// ```
+    pub package: Option<StringVal<'a>>,
+    pub version: Option<(StringVal<'a>, Option<VersionReq>)>,
     pub entry: MapTableEntry<'a>,
 }
 
@@ -54,7 +77,7 @@ pub fn check<'a>(ctx: &mut impl CargoCtx, map: &'a MapTable<'a>) -> State<'a> {
                     &mut state,
                     &entry.reprs,
                     table,
-                    DependencyKind::Default,
+                    DependencyKind::Normal,
                     None,
                 ),
                 _ => ctx.error(CargoError::ExpectedTable(
@@ -71,8 +94,17 @@ pub fn check<'a>(ctx: &mut impl CargoCtx, map: &'a MapTable<'a>) -> State<'a> {
     state
 }
 
+#[derive(Default)]
+struct DependencyBuilder<'a> {
+    workspace: Option<BoolVal>,
+    version: Option<(StringVal<'a>, Option<VersionReq>)>,
+    path: Option<StringVal<'a>>,
+    git: Option<StringVal<'a>>,
+    rev: Option<StringVal<'a>>,
+}
+
 fn parse_dependencies<'a>(
-    ctx: &mut impl CargoCtx,
+    ctx: &mut (impl CargoCtx + SemverCtx),
     state: &mut State<'a>,
     table_reprs: &'a OneVec<MapTableEntryRepr<'a>>,
     table: &'a MapTable<'a>,
@@ -87,26 +119,26 @@ fn parse_dependencies<'a>(
             MapNode::Scalar(_) => todo!("error"),
             MapNode::Table(t) => {
                 let repr = entry.reprs.first();
-                let syntax = match &repr.kind {
-                    MapTableEntryReprKind::Table(_) => todo!(),
-                    MapTableEntryReprKind::ArrayEntry(_) => todo!("error"),
-                    MapTableEntryReprKind::ToplevelAssignment(_) => todo!(),
-                    MapTableEntryReprKind::InlineTableAssignment(_) => todo!(),
-                };
-                let mut builder = CrateBuilder::new(
-                    Range::from_span_cols(repr.key.repr_ident().lit_span()),
-                    Range::from_span_lines(repr.kind.span()),
-                    syntax,
-                    todo!("section"),
-                );
+                let mut builder = DependencyBuilder::default();
                 for (k, e) in t.iter() {
                     match *k {
                         "version" => {
                             if let Some(s) = expect_string_in_table(ctx, e) {
-                                todo!();
+                                let pos = s.text_span().start;
+                                let req = match semver::parse_requirement(&s.lit, pos) {
+                                    Ok(v) => Some(v),
+                                    Err(e) => {
+                                        ctx.error(e);
+                                        None
+                                    }
+                                };
+
+                                builder.version = Some((s, req));
                             }
                         }
-                        "registry" => todo!(),
+                        "registry" => {
+                            expect_string_in_table(ctx, e);
+                        }
                         "path" => todo!(),
                         "git" => todo!(),
                         "branch" => todo!(),
@@ -114,11 +146,13 @@ fn parse_dependencies<'a>(
                         "package" => todo!(),
                         "default-features" => todo!(),
                         "default_features" => todo!("warning or error"),
-                        "features" => builder.feat = parse_dependency_features(ctx, e),
+                        "features" => {
+                            check_dependency_features(ctx, e);
+                        }
                         "workspace" => todo!(),
                         "optional" => todo!(),
                         _ => todo!("warning"),
-                    }
+                    };
                 }
 
                 match builder.try_build(ctx) {
@@ -133,11 +167,10 @@ fn parse_dependencies<'a>(
     }
 }
 
-fn parse_dependency_features<'a>(
-    ctx: &mut impl CargoCtx,
-    entry: &'a MapTableEntry<'a>,
-) -> Vec<DependencyFeature<'a>> {
-    let array = expect_array_in_table(ctx, entry)?;
+fn check_dependency_features<'a>(ctx: &mut impl CargoCtx, entry: &'a MapTableEntry<'a>) {
+    let Some(array) = expect_array_in_table(ctx, entry) else {
+        return;
+    };
     let features = match array {
         MapArray::Toplevel(_) => todo!("error: array of tables"),
         MapArray::Inline(i) => i,
@@ -148,46 +181,9 @@ fn parse_dependency_features<'a>(
         todo!("multiline arrays")
     }
 
-    let mut items = Vec::with_capacity(features.len());
-    for (i, e) in features.iter().enumerate() {
-        let Some(f) = expect_string_in_array(ctx, e) else {
-            continue;
-        };
-
-        let decl_start_col = (i.checked_sub(1))
-            .map(|i| features[i].repr.span().end.char)
-            .unwrap_or_else(|| features.repr.l_par.char + 1);
-
-        let decl_end_col = (e.repr.comma.map(|p| p.char))
-            .or_else(|| features.get(i + 1).map(|f| f.repr.span().start.char))
-            .or_else(|| features.repr.r_par.map(|p| p.char))
-            .unwrap_or(features.repr.span().end.char);
-
-        items.push(TomlFeature {
-            name: f.text.to_string(),
-            col: Range::from_span_cols(f.text_span()),
-            decl_col: Range::new(decl_start_col, decl_end_col),
-            quote: Quotes {
-                s: f.l_quote().to_string(),
-                e: f.r_quote().map(ToString::to_string),
-            },
-            comma: e.repr.comma.is_some(),
-        });
+    for e in features.iter() {
+        expect_string_in_array(ctx, e);
     }
-
-    let line = features_span.start.line;
-    let col = Range::from_span_cols(features_span);
-    let decl_col = Range::from_span_cols(entry.reprs.first().kind.span());
-
-    let text = lines[line as usize].as_ref()[col.s as usize..col.e as usize].to_string();
-
-    Some(TomlCrateFeat {
-        items,
-        text,
-        line,
-        col,
-        decl_col,
-    })
 }
 
 fn expect_array_in_table<'a>(

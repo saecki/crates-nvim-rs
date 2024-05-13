@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
-use common::Pos;
-pub use error::Error;
+use common::{Ctx, Diagnostics, Pos};
+pub use error::{Error, Hint, Warning};
 pub use parse::*;
 
 use crate::inlinestr::InlineStr;
@@ -13,6 +13,25 @@ mod inlinestr;
 mod parse;
 #[cfg(test)]
 mod test;
+
+pub trait SemverCtx:
+    Ctx<Error = Self::SemverError, Warning = Self::SemverWarning, Hint = Self::SemverHint>
+{
+    type SemverError: From<Error>;
+    type SemverWarning: From<Warning>;
+    type SemverHint: From<Hint>;
+}
+
+impl<E, W, H> SemverCtx for Diagnostics<E, W, H>
+where
+    E: From<Error>,
+    W: From<Warning>,
+    H: From<Hint>,
+{
+    type SemverError = E;
+    type SemverWarning = W;
+    type SemverHint = H;
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Offset {
