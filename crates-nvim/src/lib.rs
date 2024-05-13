@@ -5,10 +5,12 @@ use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
 use nvim_oxi::{Dictionary, Function, Object};
 use serde::{Deserialize, Serialize};
-use toml::TomlCtx;
+use toml::{MapTable, TomlCtx};
 
-use crate::error::{CargoError, CargoHint, CargoWarning, Error, Hint, Warning};
+use check::{check, State};
+use error::{CargoError, CargoHint, CargoWarning, Error, Hint, Warning};
 
+pub mod check;
 pub mod error;
 
 type NvimDiagnostics = Diagnostics<Error, Warning, Hint>;
@@ -19,6 +21,10 @@ pub trait CargoCtx:
     type CargoError: From<CargoError>;
     type CargoWarning: From<CargoWarning>;
     type CargoHint: From<CargoHint>;
+
+    fn check<'a>(&mut self, map: &MapTable<'a>) -> State<'a> {
+        check(self, map)
+    }
 }
 
 impl<E, W, H> CargoCtx for Diagnostics<E, W, H>
@@ -62,42 +68,44 @@ impl ToObject for VimDiagnostic {
 
 #[nvim_oxi::module]
 pub fn crates_nvim_lib() -> nvim_oxi::Result<Dictionary> {
-    let check_toml = Function::from_fn::<_, nvim_oxi::Error>(move |()| {
-        let buf = nvim_oxi::api::get_current_buf();
-        let num_lines = buf.line_count()?;
-        let raw_lines = buf.get_lines(0..num_lines, true)?;
+    let update = Function::from_fn::<_, nvim_oxi::Error>(move |()| update());
 
-        let mut lines = Vec::with_capacity(raw_lines.len());
-        let mut text = String::new();
-        for line in raw_lines.into_iter() {
-            // HACK
-            let str = unsafe { std::str::from_utf8_unchecked(line.as_bytes()) };
-            text.push_str(str);
-            text.push('\n');
+    Ok(Dictionary::from_iter([("update", update)]))
+}
 
-            // HACK
-            lines.push(str.to_string());
-        }
+fn update() -> Result<(), nvim_oxi::Error> {
+    let buf = nvim_oxi::api::get_current_buf();
+    let num_lines = buf.line_count()?;
+    let raw_lines = buf.get_lines(0..num_lines, true)?;
 
-        let mut ctx = NvimDiagnostics::default();
-        let bump = Bump::new();
-        let tokens = ctx.lex(&bump, &text);
-        let asts = ctx.parse(&bump, &tokens);
-        let _map = ctx.map(&asts);
+    let mut lines = Vec::with_capacity(raw_lines.len());
+    let mut text = String::new();
+    for line in raw_lines.into_iter() {
+        // HACK
+        let str = unsafe { std::str::from_utf8_unchecked(line.as_bytes()) };
+        text.push_str(str);
+        text.push('\n');
 
-        let errors = ctx.errors.iter().map(map_vim_diagnostic).collect();
-        let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
-        let hints = ctx.hints.iter().map(map_vim_diagnostic).collect();
+        lines.push(str.to_string());
+    }
 
-        let diagnostics = VimDiagnostics {
-            errors,
-            warnings,
-            hints,
-        };
-        Ok(diagnostics.to_object()?)
-    });
+    let mut ctx = NvimDiagnostics::default();
+    let bump = Bump::new();
+    let tokens = ctx.lex(&bump, &text);
+    let asts = ctx.parse(&bump, &tokens);
+    let map = ctx.map(&asts);
+    let state = ctx.check(&map);
 
-    Ok(Dictionary::from_iter([("check_toml", check_toml)]))
+    let errors = ctx.errors.iter().map(map_vim_diagnostic).collect();
+    let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
+    let hints = ctx.hints.iter().map(map_vim_diagnostic).collect();
+
+    let diagnostics = VimDiagnostics {
+        errors,
+        warnings,
+        hints,
+    };
+    Ok(diagnostics.to_object()?)
 }
 
 fn map_vim_diagnostic(d: &impl Diagnostic) -> VimDiagnostic {

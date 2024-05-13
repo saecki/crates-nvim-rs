@@ -1,5 +1,6 @@
 use bumpalo::Bump;
 use common::{Ctx, Diagnostics};
+
 pub use error::{Error, Hint, Warning};
 pub use lex::{lex, Quote, Token, TokenType, Tokens};
 pub use map::{map, MapTable};
@@ -9,7 +10,6 @@ pub mod datetime;
 pub mod error;
 mod lex;
 pub mod map;
-
 #[macro_use]
 pub mod onevec;
 pub mod container;
