@@ -51,7 +51,7 @@ macro_rules! unexpected_char {
         Err(Error::UnexpectedLiteralChar($part, FmtChar($char), $pos))
     }};
 }
-pub(self) use unexpected_char;
+use unexpected_char;
 
 #[derive(Debug, PartialEq)]
 pub struct Asts<'a> {

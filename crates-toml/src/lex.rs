@@ -150,6 +150,7 @@ impl std::fmt::Display for Quote {
 }
 
 impl Quote {
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> u32 {
         match self {
             Quote::Basic | Quote::Literal => 1,

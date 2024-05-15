@@ -128,7 +128,7 @@ pub fn parse_literal(lit: &str, span: Span) -> Result<PartialValue, Error> {
 }
 
 fn parse_bare_literal(
-    mut chars: CharIter,
+    chars: CharIter,
     lit: &str,
     span: Span,
     i: usize,
@@ -142,7 +142,7 @@ fn parse_bare_literal(
         return Err(Error::UppercaseBareLitChar(FmtChar(first), expected, pos));
     }
 
-    while let Some((i, c)) = chars.next() {
+    for (i, c) in chars {
         let Some(e) = expected_iter.next() else {
             let span = Span::new(span.start.plus(i as u32), span.end);
             let trailing = FmtStr::from_str(&lit[i..]);
@@ -177,7 +177,7 @@ pub unsafe fn concat_strs<'a>(left: &'a str, right: &'a str) -> &'a str {
 
 /// # SAFETY
 /// At least `additional` bytes are required inside the source string after the `lit` slice.
-pub unsafe fn extend_str_back<'a>(lit: &'a str, additional: usize) -> &'a str {
+pub unsafe fn extend_str_back(lit: &str, additional: usize) -> &str {
     let ptr = lit.as_ptr();
     let len = lit.len() + additional;
     let slice = std::slice::from_raw_parts(ptr, len);
@@ -186,7 +186,7 @@ pub unsafe fn extend_str_back<'a>(lit: &'a str, additional: usize) -> &'a str {
 
 /// # SAFETY
 /// At least `additional` bytes are required inside the source string before the `lit` slice.
-pub unsafe fn extend_str_front<'a>(lit: &'a str, additional: usize) -> &'a str {
+pub unsafe fn extend_str_front(lit: &str, additional: usize) -> &str {
     let ptr = lit.as_ptr().sub(additional);
     let len = lit.len() + additional;
     let slice = std::slice::from_raw_parts(ptr, len);

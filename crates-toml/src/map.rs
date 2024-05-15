@@ -161,8 +161,14 @@ impl<'a> MapArrayToplevel<'a> {
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
+}
 
-    pub fn into_iter(self) -> impl Iterator<Item = MapArrayToplevelEntry<'a>> {
+impl<'a> IntoIterator for MapArrayToplevel<'a> {
+    type Item = MapArrayToplevelEntry<'a>;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
     }
 }
@@ -218,8 +224,14 @@ impl<'a> MapArrayInline<'a> {
     pub fn iter(&'a self) -> impl Iterator<Item = &'a MapArrayInlineEntry<'a>> {
         self.inner.iter()
     }
+}
 
-    pub fn into_iter(self) -> impl Iterator<Item = MapArrayInlineEntry<'a>> {
+impl<'a> IntoIterator for MapArrayInline<'a> {
+    type Item = MapArrayInlineEntry<'a>;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
     }
 }

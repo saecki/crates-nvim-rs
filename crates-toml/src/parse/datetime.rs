@@ -227,10 +227,10 @@ fn error_on_offset(chars: &mut CharIter, span: Span) -> Result<(), Error> {
     match chars.next() {
         Some((i, c)) => {
             let pos = span.start.plus(i as u32);
-            return match c {
+            match c {
                 'Z' | 'z' | '+' | '-' => Err(Error::LocalDateTimeOffset(pos)),
                 _ => Err(Error::UnexpectedCharInDateTime(FmtChar(c), pos)),
-            };
+            }
         }
         None => Ok(()),
     }

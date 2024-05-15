@@ -232,6 +232,7 @@ impl FmtStr {
         Self(value.into_boxed_str())
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(value: &str) -> Self {
         Self(value.into())
     }

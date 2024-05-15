@@ -267,7 +267,7 @@ fn run_case(input: &str) -> Result<HashMap<String, SimpleVal>, String> {
     Ok(crates_toml::map::simple::map_table(map))
 }
 
-fn dialog<'a, const SIZE: usize>(options: [&'a str; SIZE]) -> &'a str {
+fn dialog<const SIZE: usize>(options: [&str; SIZE]) -> &str {
     for o in options {
         // HACK: only works for ascii
         let (first, remainder) = o.split_at(1);
