@@ -41,6 +41,12 @@ impl From<toml::Error> for Error {
     }
 }
 
+impl From<semver::Error> for Error {
+    fn from(value: semver::Error) -> Self {
+        Self::Semver(value)
+    }
+}
+
 impl From<CargoError> for Error {
     fn from(value: CargoError) -> Self {
         Self::Cargo(value)
@@ -81,6 +87,7 @@ impl Diagnostic for CargoError {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Warning {
     Toml(toml::Warning),
+    Semver(semver::Warning),
     Cargo(CargoWarning),
 }
 
@@ -90,6 +97,7 @@ impl Diagnostic for Warning {
     fn span(&self) -> Span {
         match self {
             Warning::Toml(w) => w.span(),
+            Warning::Semver(w) => w.span(),
             Warning::Cargo(w) => w.span(),
         }
     }
@@ -97,6 +105,7 @@ impl Diagnostic for Warning {
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
             Warning::Toml(w) => w.description(f),
+            Warning::Semver(w) => w.description(f),
             Warning::Cargo(w) => w.description(f),
         }
     }
@@ -104,6 +113,7 @@ impl Diagnostic for Warning {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
             Warning::Toml(w) => w.annotation(f),
+            Warning::Semver(w) => w.annotation(f),
             Warning::Cargo(w) => w.annotation(f),
         }
     }
@@ -112,6 +122,12 @@ impl Diagnostic for Warning {
 impl From<toml::Warning> for Warning {
     fn from(value: toml::Warning) -> Self {
         Self::Toml(value)
+    }
+}
+
+impl From<semver::Warning> for Warning {
+    fn from(value: semver::Warning) -> Self {
+        Self::Semver(value)
     }
 }
 
@@ -145,6 +161,7 @@ impl Diagnostic for CargoWarning {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Hint {
     Toml(toml::Hint),
+    Semver(semver::Hint),
     Cargo(CargoHint),
 }
 
@@ -154,6 +171,7 @@ impl Diagnostic for Hint {
     fn span(&self) -> Span {
         match self {
             Hint::Toml(h) => h.span(),
+            Hint::Semver(h) => h.span(),
             Hint::Cargo(h) => h.span(),
         }
     }
@@ -161,6 +179,7 @@ impl Diagnostic for Hint {
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
             Hint::Toml(h) => h.description(f),
+            Hint::Semver(h) => h.description(f),
             Hint::Cargo(h) => h.description(f),
         }
     }
@@ -168,6 +187,7 @@ impl Diagnostic for Hint {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
             Hint::Toml(h) => h.annotation(f),
+            Hint::Semver(h) => h.annotation(f),
             Hint::Cargo(h) => h.annotation(f),
         }
     }
@@ -176,6 +196,12 @@ impl Diagnostic for Hint {
 impl From<toml::Hint> for Hint {
     fn from(value: toml::Hint) -> Self {
         Self::Toml(value)
+    }
+}
+
+impl From<semver::Hint> for Hint {
+    fn from(value: semver::Hint) -> Self {
+        Self::Semver(value)
     }
 }
 

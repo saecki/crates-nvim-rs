@@ -1,5 +1,5 @@
 use common::Span;
-use semver::{SemverCtx, VersionReq};
+use semver::VersionReq;
 use toml::map::{
     MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr, Scalar,
 };
@@ -7,7 +7,7 @@ use toml::onevec::OneVec;
 use toml::parse::{BoolVal, InlineArrayValue, StringVal};
 
 use crate::error::CargoError;
-use crate::CargoCtx;
+use crate::NvimCtx;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct State<'a> {
@@ -18,6 +18,7 @@ pub struct State<'a> {
 pub struct Dependency<'a> {
     pub kind: DependencyKind,
     /// ```toml
+    /// [dependencies]
     /// # always the `<name>`
     /// <name> = "..."
     /// <name> = { package = "..." }
@@ -25,8 +26,9 @@ pub struct Dependency<'a> {
     /// [dependencies.<name>]
     /// version = "..."
     /// ```
-    pub name: Option<StringVal<'a>>,
+    pub name: &'a str,
     /// ```toml
+    /// [dependencies]
     /// # either `<name>`
     /// <name> = "..."
     ///
@@ -36,8 +38,13 @@ pub struct Dependency<'a> {
     /// [dependencies.explicit_name]
     /// package = "<package>"
     /// ```
-    pub package: Option<StringVal<'a>>,
-    pub version: Option<(StringVal<'a>, Option<VersionReq>)>,
+    pub package: &'a str,
+    pub workspace: Option<&'a BoolVal>,
+    pub registry: Option<&'a StringVal<'a>>,
+    pub version: Option<(&'a StringVal<'a>, Option<VersionReq>)>,
+    pub path: Option<&'a str>,
+    pub git: Option<&'a str>,
+    pub rev: Option<&'a str>,
     pub entry: MapTableEntry<'a>,
 }
 
@@ -52,7 +59,7 @@ pub struct DependencyFeature<'a> {
     pub repr: InlineArrayValue<'a>,
 }
 
-pub fn check<'a>(ctx: &mut impl CargoCtx, map: &'a MapTable<'a>) -> State<'a> {
+pub fn check<'a>(ctx: &mut impl NvimCtx, map: &'a MapTable<'a>) -> State<'a> {
     let mut state = State::default();
     for (key, entry) in map.iter() {
         match *key {
@@ -96,15 +103,22 @@ pub fn check<'a>(ctx: &mut impl CargoCtx, map: &'a MapTable<'a>) -> State<'a> {
 
 #[derive(Default)]
 struct DependencyBuilder<'a> {
-    workspace: Option<BoolVal>,
-    version: Option<(StringVal<'a>, Option<VersionReq>)>,
-    path: Option<StringVal<'a>>,
-    git: Option<StringVal<'a>>,
-    rev: Option<StringVal<'a>>,
+    workspace: Option<&'a BoolVal>,
+    version: Option<(&'a StringVal<'a>, Option<VersionReq>)>,
+    registry: Option<&'a StringVal<'a>>,
+    path: Option<&'a StringVal<'a>>,
+    git: Option<&'a StringVal<'a>>,
+    rev: Option<&'a StringVal<'a>>,
+}
+
+impl<'a> DependencyBuilder<'a> {
+    fn try_build(&self, ctx: &mut impl NvimCtx) -> Option<Dependency<'a>> {
+        todo!()
+    }
 }
 
 fn parse_dependencies<'a>(
-    ctx: &mut (impl CargoCtx + SemverCtx),
+    ctx: &mut impl NvimCtx,
     state: &mut State<'a>,
     table_reprs: &'a OneVec<MapTableEntryRepr<'a>>,
     table: &'a MapTable<'a>,
@@ -156,7 +170,7 @@ fn parse_dependencies<'a>(
                 }
 
                 match builder.try_build(ctx) {
-                    Some(c) => c,
+                    Some(d) => d,
                     None => continue,
                 }
             }
@@ -167,7 +181,7 @@ fn parse_dependencies<'a>(
     }
 }
 
-fn check_dependency_features<'a>(ctx: &mut impl CargoCtx, entry: &'a MapTableEntry<'a>) {
+fn check_dependency_features<'a>(ctx: &mut impl NvimCtx, entry: &'a MapTableEntry<'a>) {
     let Some(array) = expect_array_in_table(ctx, entry) else {
         return;
     };
@@ -187,7 +201,7 @@ fn check_dependency_features<'a>(ctx: &mut impl CargoCtx, entry: &'a MapTableEnt
 }
 
 fn expect_array_in_table<'a>(
-    ctx: &mut impl CargoCtx,
+    ctx: &mut impl NvimCtx,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a MapArray<'a>> {
     match &entry.node {
@@ -203,7 +217,7 @@ fn expect_array_in_table<'a>(
 }
 
 fn expect_string_in_table<'a>(
-    ctx: &mut impl CargoCtx,
+    ctx: &mut impl NvimCtx,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
@@ -219,7 +233,7 @@ fn expect_string_in_table<'a>(
 }
 
 fn expect_string_in_array<'a>(
-    ctx: &mut impl CargoCtx,
+    ctx: &mut impl NvimCtx,
     entry: &'a MapArrayInlineEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {

@@ -4,14 +4,36 @@ use common::{Diagnostic, Span};
 use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
 use nvim_oxi::{Dictionary, Function, Object};
+use semver::SemverCtx;
 use serde::{Deserialize, Serialize};
-use toml::{MapTable, TomlCtx};
 
-use check::{check, State};
 use error::{CargoError, CargoHint, CargoWarning, Error, Hint, Warning};
+use toml::TomlCtx;
 
 pub mod check;
 pub mod error;
+
+#[rustfmt::skip]
+pub trait NvimCtx: 
+    Ctx<Error = Self::NvimError, Warning = Self::NvimWarning, Hint = Self::NvimHint>
+    + SemverCtx<SemverError = Self::NvimError, SemverWarning = Self::NvimWarning, SemverHint = Self::NvimHint>
+    + CargoCtx<CargoError = Self::NvimError, CargoWarning = Self::NvimWarning, CargoHint = Self::NvimHint>
+{
+    type NvimError: From<Error> + From<toml::Error> + From<semver::Error> + From<CargoError>;
+    type NvimWarning: From<Warning> + From<toml::Warning> + From<semver::Warning> + From<CargoWarning>;
+    type NvimHint: From<Hint> + From<toml::Hint> + From<semver::Hint> + From<CargoHint>;
+}
+
+impl<E, W, H> NvimCtx for Diagnostics<E, W, H>
+where
+    E: From<Error> + From<toml::Error> + From<semver::Error> + From<CargoError>,
+    W: From<Warning> + From<toml::Warning> + From<semver::Warning> + From<CargoWarning>,
+    H: From<Hint> + From<toml::Hint> + From<semver::Hint> + From<CargoHint>,
+{
+    type NvimError = E;
+    type NvimWarning = W;
+    type NvimHint = H;
+}
 
 type NvimDiagnostics = Diagnostics<Error, Warning, Hint>;
 
@@ -21,10 +43,6 @@ pub trait CargoCtx:
     type CargoError: From<CargoError>;
     type CargoWarning: From<CargoWarning>;
     type CargoHint: From<CargoHint>;
-
-    fn check<'a>(&mut self, map: &'a MapTable<'a>) -> State<'a> {
-        check(self, map)
-    }
 }
 
 impl<E, W, H> CargoCtx for Diagnostics<E, W, H>
@@ -94,7 +112,7 @@ fn update() -> Result<(), nvim_oxi::Error> {
     let tokens = ctx.lex(&bump, &text);
     let asts = ctx.parse(&bump, &tokens);
     let map = ctx.map(&asts);
-    let state = ctx.check(&map);
+    let state = check::check(&mut ctx, &map);
 
     let errors = ctx.errors.iter().map(map_vim_diagnostic).collect();
     let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
