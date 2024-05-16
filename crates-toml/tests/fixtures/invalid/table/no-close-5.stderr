@@ -1,6 +1,6 @@
-[91merror[0m: Expected `]`, found `\n`
+[91merror[0m: Expected `.` or `]`, found `\n`
  [94m-->[0m 1:10
 [94m   1 |[0m [fwfw.wafw
      [94m|[0m [94m^ Left `[` defined here[0m
 [94m   1 |[0m [fwfw.wafw
-     [94m|[0m           [91m^ Expected `]`[0m
+     [94m|[0m           [91m^ Expected `.` or `]`[0m
