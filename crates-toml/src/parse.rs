@@ -753,7 +753,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     t if t.ty == TokenType::SquareRight => Some(parser.next().start),
                     t => {
                         let (string, span) = parser.token_fmt_str_and_span(t);
-                        ctx.error(Error::ExpectedRightSquareFound(string, l_par, span));
+                        ctx.error(Error::ExpectedDotOrRightSquareFound(string, l_par, span));
                         None
                     }
                 });
@@ -773,11 +773,12 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     }
                     t => {
                         let (string, span) = parser.token_fmt_str_and_span(t);
-                        ctx.error(Error::ExpectedRightSquareFound(
-                            string,
-                            l_table_square,
-                            span,
-                        ));
+                        let err = if r_array_square.is_some() {
+                            Error::ExpectedRightSquareFound
+                        } else {
+                            Error::ExpectedDotOrRightSquareFound
+                        };
+                        ctx.error(err(string, l_table_square, span));
                         None
                     }
                 };
