@@ -57,6 +57,7 @@ impl From<CargoError> for Error {
 pub enum CargoError {
     ExpectedTable(String, Span),
     ExpectedStringInTable(String, Span),
+    ExpectedBoolInTable(String, Span),
     ExpectedArrayInTable(String, Span),
     ExpectedStringInArray(Span),
 }
@@ -68,6 +69,7 @@ impl Diagnostic for CargoError {
         match self {
             CargoError::ExpectedTable(_, s) => *s,
             CargoError::ExpectedStringInTable(_, s) => *s,
+            CargoError::ExpectedBoolInTable(_, s) => *s,
             CargoError::ExpectedArrayInTable(_, s) => *s,
             CargoError::ExpectedStringInArray(s) => *s,
         }

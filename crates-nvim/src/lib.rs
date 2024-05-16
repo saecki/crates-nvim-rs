@@ -56,7 +56,7 @@ where
     type CargoHint = H;
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct VimDiagnostics {
     pub errors: Vec<VimDiagnostic>,
     pub warnings: Vec<VimDiagnostic>,
@@ -69,7 +69,7 @@ impl ToObject for VimDiagnostics {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VimDiagnostic {
     pub lnum: u32,
     pub end_lnum: u32,
@@ -114,6 +114,8 @@ fn update() -> Result<(), nvim_oxi::Error> {
     let map = ctx.map(&asts);
     let state = check::check(&mut ctx, &map);
 
+    dbg!(state);
+
     let errors = ctx.errors.iter().map(map_vim_diagnostic).collect();
     let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
     let hints = ctx.hints.iter().map(map_vim_diagnostic).collect();
@@ -123,7 +125,10 @@ fn update() -> Result<(), nvim_oxi::Error> {
         warnings,
         hints,
     };
-    Ok(diagnostics.to_object()?)
+
+    dbg!(diagnostics);
+
+    Ok(())
 }
 
 fn map_vim_diagnostic(d: &impl Diagnostic) -> VimDiagnostic {

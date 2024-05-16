@@ -421,7 +421,7 @@ impl Value<'_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StringVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
@@ -436,7 +436,7 @@ impl<'a> StringVal<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IntVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,
@@ -462,7 +462,7 @@ impl<'a> FloatVal<'a> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BoolVal {
     pub lit_span: Span,
     pub val: bool,
@@ -474,7 +474,7 @@ impl BoolVal {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DateTimeVal<'a> {
     pub lit: &'a str,
     pub lit_span: Span,

@@ -57,7 +57,7 @@ pub enum IdentField {
     BuildMetadata,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VersionReq {
     pub pos: Pos,
     pub len: u32,
@@ -78,7 +78,7 @@ impl VersionReq {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Comparator {
     /// This is always `<=` [`Self::version_offset`]. Even if [`Self::op`] is [`Op::Wl`] this will
     /// point to the start of the comparator
@@ -118,7 +118,7 @@ pub enum Op {
     Bl,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompVersion {
     /// `*` Only valid for [`Op::Wl`]
     Wl(WlChar),
