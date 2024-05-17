@@ -1,4 +1,4 @@
-use common::{Diagnostic, Severity, Span};
+use common::{Diagnostic, FmtStr, Severity, Span};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -55,10 +55,10 @@ impl From<CargoError> for Error {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CargoError {
-    ExpectedTable(String, Span),
-    ExpectedStringInTable(String, Span),
-    ExpectedBoolInTable(String, Span),
-    ExpectedArrayInTable(String, Span),
+    ExpectedTable(FmtStr, Span),
+    ExpectedStringInTable(FmtStr, Span),
+    ExpectedBoolInTable(FmtStr, Span),
+    ExpectedArrayInTable(FmtStr, Span),
     ExpectedStringInArray(Span),
 }
 

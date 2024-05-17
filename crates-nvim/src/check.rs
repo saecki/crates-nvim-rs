@@ -1,4 +1,4 @@
-use common::Span;
+use common::{FmtStr, Span};
 use semver::{SemverCtx, VersionReq};
 use toml::map::{MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, Scalar};
 use toml::parse::{BoolVal, StringVal};
@@ -104,17 +104,21 @@ pub fn check<'a>(ctx: &mut impl NvimCtx, map: &'a MapTable<'a>) -> State<'a> {
             "profile" => (),
             "workspace" => (),
 
-            "dependencies" => match &entry.node {
-                MapNode::Table(table) => {
+            "dependencies" => {
+                if let Some(table) = expect_table_in_table(ctx, entry) {
                     parse_dependencies(ctx, &mut state, table, DependencyKind::Normal, None)
                 }
-                _ => ctx.error(CargoError::ExpectedTable(
-                    key.to_string(),
-                    entry.reprs.first().key.repr_ident().lit_span(),
-                )),
-            },
-            "dev-dependencies" => todo!(),
-            "build-dependencies" => todo!(),
+            }
+            "dev-dependencies" => {
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, &mut state, table, DependencyKind::Dev, None)
+                }
+            }
+            "build-dependencies" => {
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, &mut state, table, DependencyKind::Build, None)
+                }
+            }
             "target" => todo!(),
             _ => todo!("warning unused {key}"),
         }
@@ -341,6 +345,22 @@ fn parse_dependency_features<'a>(
     }
 }
 
+fn expect_table_in_table<'a>(
+    ctx: &mut impl NvimCtx,
+    entry: &'a MapTableEntry<'a>,
+) -> Option<&'a MapTable<'a>> {
+    match &entry.node {
+        MapNode::Table(a) => Some(a),
+        _ => {
+            let repr = entry.reprs.first();
+            let key = FmtStr::from_str(repr.key.repr_ident().text);
+            let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
+            ctx.error(CargoError::ExpectedArrayInTable(key, span));
+            None
+        }
+    }
+}
+
 fn expect_array_in_table<'a>(
     ctx: &mut impl NvimCtx,
     entry: &'a MapTableEntry<'a>,
@@ -349,7 +369,7 @@ fn expect_array_in_table<'a>(
         MapNode::Array(a) => Some(a),
         _ => {
             let repr = entry.reprs.first();
-            let key = repr.key.repr_ident().text.to_string();
+            let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(CargoError::ExpectedArrayInTable(key, span));
             None
@@ -365,7 +385,7 @@ fn expect_string_in_table<'a>(
         MapNode::Scalar(Scalar::String(s)) => Some(s),
         _ => {
             let repr = entry.reprs.first();
-            let key = repr.key.repr_ident().text.to_string();
+            let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(CargoError::ExpectedStringInTable(key, span));
             None
@@ -394,7 +414,7 @@ fn expect_bool_in_table<'a>(
         MapNode::Scalar(Scalar::Bool(b)) => Some(b),
         _ => {
             let repr = entry.reprs.first();
-            let key = repr.key.repr_ident().text.to_string();
+            let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(CargoError::ExpectedBoolInTable(key, span));
             None
