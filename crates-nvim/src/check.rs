@@ -147,7 +147,7 @@ impl<'a> DependencyBuilder<'a> {
     ) -> Dependency<'a> {
         let spec = if let Some(workspace) = self.workspace {
             if workspace.val == false {
-                todo!("error");
+                todo!("error workspace cannot be false");
             }
 
             // TODO: diagnostics
@@ -266,7 +266,7 @@ fn parse_dependencies<'a>(
                 let mut builder = DependencyBuilder::default();
                 for (k, e) in t.iter() {
                     match *k {
-                        "workspace" => builder.workspace = expect_bool_in_table(ctx, entry),
+                        "workspace" => builder.workspace = expect_bool_in_table(ctx, e),
                         "version" => builder.version = expect_string_in_table(ctx, e),
                         "registry" => builder.registry = expect_string_in_table(ctx, e),
                         "path" => builder.path = expect_string_in_table(ctx, e),
@@ -275,7 +275,7 @@ fn parse_dependencies<'a>(
                         "tag" => builder.tag = expect_string_in_table(ctx, e),
                         "rev" => builder.rev = expect_string_in_table(ctx, e),
                         "package" => {
-                            if let Some(p) = expect_string_in_table(ctx, entry) {
+                            if let Some(p) = expect_string_in_table(ctx, e) {
                                 package = p.text;
                             }
                         }
@@ -295,7 +295,7 @@ fn parse_dependencies<'a>(
                             parse_dependency_features(ctx, &mut features.list, e);
                         }
                         "optional" => {
-                            expect_bool_in_table(ctx, entry);
+                            expect_bool_in_table(ctx, e);
                         }
                         _ => todo!("warning"),
                     };
