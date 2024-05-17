@@ -84,16 +84,19 @@ fn dotted_key() {
                 MapNode::Table(MapTable::from_pairs([("c", MapTableEntry::from_one(
                     MapNode::Scalar(Scalar::Int(&value)),
                     MapTableEntryRepr::new(
+                        ParentId(0),
                         MapTableKeyRepr::Dotted(2, &key),
                         MapTableEntryReprKind::ToplevelAssignment(&assignment),
                     ),
                 ))])),
                 MapTableEntryRepr::new(
+                    ParentId(0),
                     MapTableKeyRepr::Dotted(1, &key),
                     MapTableEntryReprKind::ToplevelAssignment(&assignment),
                 ),
             ))])),
             MapTableEntryRepr::new(
+                ROOT_PARENT,
                 MapTableKeyRepr::Dotted(0, &key),
                 MapTableEntryReprKind::ToplevelAssignment(&assignment),
             ),
@@ -174,6 +177,7 @@ a.b.d = 2
                     ("c", MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Int(&value1)),
                         MapTableEntryRepr::new(
+                            ParentId(0),
                             MapTableKeyRepr::Dotted(2, &key1),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                         ),
@@ -181,6 +185,7 @@ a.b.d = 2
                     ("d", MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Int(&value2)),
                         MapTableEntryRepr::new(
+                            ParentId(1),
                             MapTableKeyRepr::Dotted(2, &key2),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                         ),
@@ -188,10 +193,12 @@ a.b.d = 2
                 ])),
                 onevec![
                     MapTableEntryRepr::new(
+                        ParentId(0),
                         MapTableKeyRepr::Dotted(1, &key1),
                         MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                     ),
                     MapTableEntryRepr::new(
+                        ParentId(1),
                         MapTableKeyRepr::Dotted(1, &key2),
                         MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                     ),
@@ -199,10 +206,12 @@ a.b.d = 2
             ))])),
             onevec![
                 MapTableEntryRepr::new(
+                    ROOT_PARENT,
                     MapTableKeyRepr::Dotted(0, &key1),
                     MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                 ),
                 MapTableEntryRepr::new(
+                    ROOT_PARENT,
                     MapTableKeyRepr::Dotted(0, &key2),
                     MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                 ),
@@ -273,6 +282,7 @@ def = 23.0
                     MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Bool(&value1)),
                         MapTableEntryRepr::new(
+                        ParentId(0),
                             MapTableKeyRepr::One(&key1),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                         ),
@@ -283,6 +293,7 @@ def = 23.0
                     MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Float(&value2)),
                         MapTableEntryRepr::new(
+                            ParentId(0),
                             MapTableKeyRepr::One(&key2),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                         ),
@@ -290,6 +301,7 @@ def = 23.0
                 ),
             ])),
             MapTableEntryRepr::new(
+                ROOT_PARENT,
                 MapTableKeyRepr::One(&table_key),
                 MapTableEntryReprKind::Table(&table),
             ),
@@ -374,6 +386,7 @@ fn inline_array() {
                 ),
             ]))),
             MapTableEntryRepr::new(
+                ROOT_PARENT,
                 MapTableKeyRepr::One(&array_key),
                 MapTableEntryReprKind::ToplevelAssignment(&assignment),
             ),
@@ -458,12 +471,14 @@ fruit.apple = 3
                     MapTableEntry::from_one(
                         MapNode::Scalar(Scalar::Int(&value)),
                         MapTableEntryRepr::new(
+                            ParentId(0),
                             MapTableKeyRepr::Dotted(1, &key),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment),
                         ),
                     ),
                 )])),
                 MapTableEntryRepr::new(
+                    ROOT_PARENT,
                     MapTableKeyRepr::Dotted(0, &key),
                     MapTableEntryReprKind::ToplevelAssignment(&assignment),
                 ),
