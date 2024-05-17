@@ -300,7 +300,7 @@ impl Scalar<'_> {
 }
 
 enum PathSegment<'a> {
-    Ident(&'a str),
+    Ident(&'a Ident<'a>),
     ArrayIndex(usize),
 }
 
@@ -324,7 +324,7 @@ impl<'a> Mapper<'a> {
     }
 
     #[inline]
-    fn with_key<T>(&mut self, key: &'a str, f: impl FnOnce(&mut Self) -> T) -> T {
+    fn with_key<T>(&mut self, key: &'a Ident<'a>, f: impl FnOnce(&mut Self) -> T) -> T {
         let len = self.current_path.len();
         self.push_key(key);
         let val = f(self);
@@ -341,7 +341,7 @@ impl<'a> Mapper<'a> {
         val
     }
 
-    fn push_key(&mut self, key: &'a str) {
+    fn push_key(&mut self, key: &'a Ident<'a>) {
         self.current_path.push(PathSegment::Ident(key));
     }
 
@@ -375,10 +375,10 @@ fn fmt_path(path: &[PathSegment]) -> String {
     let [PathSegment::Ident(first), others @ ..] = path else {
         unreachable!()
     };
-    let mut buf = String::from(*first);
+    let mut buf = String::from(first.text);
     for c in others {
         match c {
-            PathSegment::Ident(k) => write!(&mut buf, ".{k}").unwrap(),
+            PathSegment::Ident(k) => write!(&mut buf, ".{}", k.text).unwrap(),
             PathSegment::ArrayIndex(i) => write!(&mut buf, "[{i}]").unwrap(),
         }
     }
@@ -502,7 +502,7 @@ fn insert_node_at_path<'a>(
             Key::One(i) => {
                 let key_repr = MapTableKeyRepr::One(i);
                 let repr = MapTableEntryRepr::new(key_repr, repr_kind);
-                let res = insert_node(ctx, mapper, map, i.text, value, repr);
+                let res = insert_node(ctx, mapper, map, i, value, repr);
                 if let Err(e) = res {
                     ctx.error(e);
                 }
@@ -521,7 +521,7 @@ fn insert_node_at_path<'a>(
                 Vacant(vacant) => {
                     let offset = i + 1;
                     for i in idents[offset..].iter() {
-                        mapper.push_key(i.ident.lit);
+                        mapper.push_key(&i.ident);
                     }
                     let mut node = map_insert_value(ctx, mapper, value);
 
@@ -563,7 +563,7 @@ fn insert_node_at_path<'a>(
         let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
         let repr = MapTableEntryRepr::new(key_repr, repr_kind);
 
-        let res = insert_node(ctx, mapper, current, last.ident.text, value, repr);
+        let res = insert_node(ctx, mapper, current, &last.ident, value, repr);
         if let Err(e) = res {
             ctx.error(e);
         }
@@ -574,13 +574,13 @@ fn insert_node<'a>(
     ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
-    key: &'a str,
+    key: &'a Ident<'a>,
     value: InsertValue<'a>,
     repr: MapTableEntryRepr<'a>,
 ) -> Result<(), Error> {
     use std::collections::hash_map::Entry::*;
 
-    let existing_entry = match map.inner.entry(key) {
+    let existing_entry = match map.inner.entry(key.text) {
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
             let node = mapper.with_key(key, |mapper| map_insert_value(ctx, mapper, value));
@@ -649,7 +649,7 @@ fn insert_array_entry_at_path<'a>(
         let idents = match key {
             Key::One(i) => {
                 let key_repr = MapTableKeyRepr::One(i);
-                let res = insert_array_entry(ctx, mapper, map, i.text, key_repr, array_entry);
+                let res = insert_array_entry(ctx, mapper, map, i, key_repr, array_entry);
                 if let Err(e) = res {
                     ctx.error(e);
                 }
@@ -668,7 +668,7 @@ fn insert_array_entry_at_path<'a>(
                 Vacant(vacant) => {
                     let offset = i + 1;
                     for i in idents[offset..].iter() {
-                        mapper.push_key(i.ident.lit);
+                        mapper.push_key(&i.ident);
                     }
                     mapper.push_index(0);
                     let mut node = MapTable::new();
@@ -709,7 +709,7 @@ fn insert_array_entry_at_path<'a>(
         }
 
         let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
-        let res = insert_array_entry(ctx, mapper, current, last.ident.text, key_repr, array_entry);
+        let res = insert_array_entry(ctx, mapper, current, &last.ident, key_repr, array_entry);
         if let Err(e) = res {
             ctx.error(e);
         }
@@ -720,20 +720,20 @@ fn insert_array_entry<'a>(
     ctx: &mut impl TomlCtx,
     mapper: &mut Mapper<'a>,
     map: &mut MapTable<'a>,
-    key: &'a str,
+    key: &'a Ident<'a>,
     key_repr: MapTableKeyRepr<'a>,
     array_entry: &'a ArrayEntry<'a>,
 ) -> Result<(), Error> {
     let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
     let repr = MapTableEntryRepr::new(key_repr, repr_kind);
 
-    match map.inner.entry(key) {
+    match map.inner.entry(key.text) {
         Occupied(occupied) => {
             let entry = occupied.into_mut();
             let array = match &mut entry.node {
                 MapNode::Array(MapArray::Toplevel(a)) => a,
                 MapNode::Array(MapArray::Inline(_)) => {
-                    let path = mapper.joined_path(key);
+                    let path = mapper.joined_path(key.text);
                     let orig = entry.reprs.first().kind.span();
                     let new = repr.key.repr_ident().lit_span();
                     return Err(Error::CannotExtendInlineArray { path, orig, new });
@@ -799,7 +799,7 @@ fn get_table_to_extend<'a, 'b>(
     mapper: &mut Mapper<'a>,
     node: &'b mut MapNode<'a>,
     reprs: &OneVec<MapTableEntryRepr<'a>>,
-    ident: &'b Ident<'a>,
+    ident: &'a Ident<'a>,
     is_assignment: bool,
 ) -> Result<&'b mut MapTable<'a>, Error>
 where
@@ -807,7 +807,7 @@ where
 {
     let next = match node {
         MapNode::Table(t) => {
-            mapper.push_key(ident.text);
+            mapper.push_key(ident);
             t
         }
         MapNode::Array(MapArray::Toplevel(t)) => {
@@ -824,7 +824,7 @@ where
             // sub-tables, and even sub-arrays of tables, inside the most recent
             // table.
 
-            mapper.push_key(ident.text);
+            mapper.push_key(ident);
             mapper.push_index(t.inner.len() - 1);
             &mut t.inner.last_mut().node
         }
