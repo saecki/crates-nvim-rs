@@ -4,7 +4,7 @@ use toml::map::{MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry,
 use toml::parse::{BoolVal, StringVal};
 
 use crate::error::CargoError;
-use crate::NvimCtx;
+use crate::IdeCtx;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct State<'a> {
@@ -85,7 +85,7 @@ pub struct DependencyFeatures<'a> {
     pub list: Vec<&'a StringVal<'a>>,
 }
 
-pub fn check<'a>(ctx: &mut impl NvimCtx, map: &'a MapTable<'a>) -> State<'a> {
+pub fn check<'a>(ctx: &mut impl IdeCtx, map: &'a MapTable<'a>) -> State<'a> {
     let mut state = State::default();
     for (key, entry) in map.iter() {
         match *key {
@@ -141,7 +141,7 @@ struct DependencyBuilder<'a> {
 impl<'a> DependencyBuilder<'a> {
     fn try_build(
         &self,
-        ctx: &mut impl NvimCtx,
+        ctx: &mut impl IdeCtx,
         entry: &'a MapTableEntry<'a>,
         name: &'a str,
         package: &'a str,
@@ -237,7 +237,7 @@ impl<'a> DependencyBuilder<'a> {
 }
 
 fn parse_dependencies<'a>(
-    ctx: &mut impl NvimCtx,
+    ctx: &mut impl IdeCtx,
     state: &mut State<'a>,
     table: &'a MapTable<'a>,
     kind: DependencyKind,
@@ -326,7 +326,7 @@ fn parse_version_req(ctx: &mut impl SemverCtx, str: &StringVal) -> Option<Versio
 }
 
 fn parse_dependency_features<'a>(
-    ctx: &mut impl NvimCtx,
+    ctx: &mut impl IdeCtx,
     features: &mut Vec<&'a StringVal<'a>>,
     entry: &'a MapTableEntry<'a>,
 ) {
@@ -346,7 +346,7 @@ fn parse_dependency_features<'a>(
 }
 
 fn expect_table_in_table<'a>(
-    ctx: &mut impl NvimCtx,
+    ctx: &mut impl IdeCtx,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a MapTable<'a>> {
     match &entry.node {
@@ -362,7 +362,7 @@ fn expect_table_in_table<'a>(
 }
 
 fn expect_array_in_table<'a>(
-    ctx: &mut impl NvimCtx,
+    ctx: &mut impl IdeCtx,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a MapArray<'a>> {
     match &entry.node {
@@ -378,7 +378,7 @@ fn expect_array_in_table<'a>(
 }
 
 fn expect_string_in_table<'a>(
-    ctx: &mut impl NvimCtx,
+    ctx: &mut impl IdeCtx,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
@@ -394,7 +394,7 @@ fn expect_string_in_table<'a>(
 }
 
 fn expect_string_in_array<'a>(
-    ctx: &mut impl NvimCtx,
+    ctx: &mut impl IdeCtx,
     entry: &'a MapArrayInlineEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
@@ -407,7 +407,7 @@ fn expect_string_in_array<'a>(
 }
 
 fn expect_bool_in_table<'a>(
-    ctx: &mut impl NvimCtx,
+    ctx: &mut impl IdeCtx,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a BoolVal> {
     match &entry.node {

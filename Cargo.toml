@@ -1,18 +1,20 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates-nvim",
-    "crates-toml",
-    "crates-cli",
-    "crates-semver",
-    "crates-common",
+    "crates/cli",
+    "crates/nvim",
+    "crates/ide",
+    "crates/toml",
+    "crates/semver",
+    "crates/common",
     "fuzz",
 ]
 
 [workspace.dependencies]
-toml = { package = "crates-toml", path = "crates-toml" }
-semver = { package = "crates-semver", path = "crates-semver" }
-common = { package = "crates-common", path = "crates-common" }
+ide = { package = "crates-ide", path = "crates/ide" }
+toml = { package = "crates-toml", path = "crates/toml" }
+semver = { package = "crates-semver", path = "crates/semver" }
+common = { package = "crates-common", path = "crates/common" }
 bumpalo = { version = "3.15.4", features = ["collections"] }
 memchr = "2.7.2"
 

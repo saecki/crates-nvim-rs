@@ -1,0 +1,10 @@
+[package]
+name = "crates-ide"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+toml = { workspace = true }
+semver = { workspace = true }
+common = { workspace = true }
+bumpalo = { workspace = true }
