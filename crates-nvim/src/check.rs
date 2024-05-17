@@ -38,6 +38,7 @@ pub struct Dependency<'a> {
     pub kind: DependencyKind,
     pub target: Option<&'a StringVal<'a>>,
     pub spec: DependencySpec<'a>,
+    pub features: DependencyFeatures<'a>,
     /// The entire toml entry
     pub entry: &'a MapTableEntry<'a>,
 }
@@ -72,8 +73,10 @@ pub enum DependencySpec<'a> {
     Missing,
 }
 
-pub struct DependencyFeature<'a> {
-    pub repr: InlineArrayValue<'a>,
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DependencyFeatures<'a> {
+    pub default: Option<&'a BoolVal>,
+    pub list: Vec<&'a StringVal<'a>>,
 }
 
 pub fn check<'a>(ctx: &mut impl NvimCtx, map: &'a MapTable<'a>) -> State<'a> {
@@ -131,6 +134,7 @@ impl<'a> DependencyBuilder<'a> {
         entry: &'a MapTableEntry<'a>,
         name: &'a str,
         package: &'a str,
+        features: DependencyFeatures<'a>,
         kind: DependencyKind,
         target: Option<&'a StringVal<'a>>,
     ) -> Dependency<'a> {
@@ -198,6 +202,7 @@ impl<'a> DependencyBuilder<'a> {
             kind,
             target,
             spec,
+            features,
             entry,
         }
     }
@@ -212,6 +217,7 @@ fn parse_dependencies<'a>(
 ) {
     for (&name, entry) in table.iter() {
         let mut package = name;
+        let mut features = DependencyFeatures::default();
 
         let dep = match &entry.node {
             MapNode::Scalar(Scalar::String(version)) => {
@@ -227,6 +233,7 @@ fn parse_dependencies<'a>(
                     kind,
                     target,
                     spec,
+                    features,
                     entry,
                 }
             }
@@ -247,10 +254,20 @@ fn parse_dependencies<'a>(
                                 package = p.text;
                             }
                         }
-                        "default-features" => todo!(),
-                        "default_features" => todo!("warning or hint"),
+                        "default-features" => {
+                            // should take predendence over `default_features`
+                            features.default = expect_bool_in_table(ctx, e);
+                        }
+                        "default_features" => {
+                            // TODO: warning or hint
+
+                            // `default-features` takes predendence
+                            if features.default.is_none() {
+                                features.default = expect_bool_in_table(ctx, e);
+                            }
+                        }
                         "features" => {
-                            check_dependency_features(ctx, e);
+                            parse_dependency_features(ctx, &mut features.list, e);
                         }
                         "optional" => {
                             expect_bool_in_table(ctx, entry);
@@ -259,7 +276,7 @@ fn parse_dependencies<'a>(
                     };
                 }
 
-                builder.try_build(ctx, entry, name, package, kind, target)
+                builder.try_build(ctx, entry, name, package, features, kind, target)
             }
             MapNode::Array(_) => todo!("error"),
         };
@@ -279,22 +296,23 @@ fn parse_version_req(ctx: &mut impl SemverCtx, str: &StringVal) -> Option<Versio
     }
 }
 
-fn check_dependency_features<'a>(ctx: &mut impl NvimCtx, entry: &'a MapTableEntry<'a>) {
+fn parse_dependency_features<'a>(
+    ctx: &mut impl NvimCtx,
+    features: &mut Vec<&'a StringVal<'a>>,
+    entry: &'a MapTableEntry<'a>,
+) {
     let Some(array) = expect_array_in_table(ctx, entry) else {
         return;
     };
-    let features = match array {
+    let array = match array {
         MapArray::Toplevel(_) => todo!("error: array of tables"),
         MapArray::Inline(i) => i,
     };
 
-    let features_span = features.repr.span();
-    if features_span.start.line != features_span.end.line {
-        todo!("multiline arrays")
-    }
-
-    for e in features.iter() {
-        expect_string_in_array(ctx, e);
+    for e in array.iter() {
+        if let Some(str) = expect_string_in_array(ctx, e) {
+            features.push(str);
+        }
     }
 }
 
