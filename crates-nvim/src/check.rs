@@ -1,7 +1,7 @@
 use common::Span;
 use semver::{SemverCtx, VersionReq};
 use toml::map::{MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, Scalar};
-use toml::parse::{BoolVal, InlineArrayValue, StringVal};
+use toml::parse::{BoolVal, StringVal};
 
 use crate::error::CargoError;
 use crate::NvimCtx;
@@ -56,9 +56,7 @@ pub enum DependencySpec<'a> {
     Path(&'a StringVal<'a>),
     Git {
         repo: &'a StringVal<'a>,
-        // TODO: add GitSpec enum?
-        branch: Option<&'a StringVal<'a>>,
-        rev: Option<&'a StringVal<'a>>,
+        spec: DependencyGitSpec<'a>,
     },
     Version {
         version: &'a StringVal<'a>,
@@ -71,6 +69,14 @@ pub enum DependencySpec<'a> {
     /// - `git`
     /// - `version`
     Missing,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DependencyGitSpec<'a> {
+    Branch(&'a StringVal<'a>),
+    Tag(&'a StringVal<'a>),
+    Rev(&'a StringVal<'a>),
+    None,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -124,6 +130,7 @@ struct DependencyBuilder<'a> {
     path: Option<&'a StringVal<'a>>,
     git: Option<&'a StringVal<'a>>,
     branch: Option<&'a StringVal<'a>>,
+    tag: Option<&'a StringVal<'a>>,
     rev: Option<&'a StringVal<'a>>,
 }
 
@@ -165,14 +172,31 @@ impl<'a> DependencyBuilder<'a> {
             // TODO: diagnostics
 
             DependencySpec::Path(path)
-        } else if let Some(git) = self.git {
+        } else if let Some(repo) = self.git {
             // TODO: diagnostics
 
-            DependencySpec::Git {
-                repo: git,
-                branch: self.branch,
-                rev: self.rev,
-            }
+            let spec = if let Some(branch) = self.branch {
+                if let Some(tag) = self.tag {
+                    todo!("error {tag:?}")
+                }
+                if let Some(rev) = self.rev {
+                    todo!("error {rev:?}")
+                }
+
+                DependencyGitSpec::Branch(branch)
+            } else if let Some(tag) = self.tag {
+                if let Some(rev) = self.rev {
+                    todo!("error {rev:?}")
+                }
+
+                DependencyGitSpec::Tag(tag)
+            } else if let Some(rev) = self.rev {
+                DependencyGitSpec::Rev(rev)
+            } else {
+                DependencyGitSpec::None
+            };
+
+            DependencySpec::Git { repo, spec }
         } else if let Some(version) = self.version {
             // TODO: diagnostics
             if self.path.is_some() {
@@ -248,6 +272,7 @@ fn parse_dependencies<'a>(
                         "path" => builder.path = expect_string_in_table(ctx, e),
                         "git" => builder.git = expect_string_in_table(ctx, e),
                         "branch" => builder.branch = expect_string_in_table(ctx, e),
+                        "tag" => builder.tag = expect_string_in_table(ctx, e),
                         "rev" => builder.rev = expect_string_in_table(ctx, e),
                         "package" => {
                             if let Some(p) = expect_string_in_table(ctx, entry) {
