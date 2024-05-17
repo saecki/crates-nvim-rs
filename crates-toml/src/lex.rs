@@ -663,12 +663,17 @@ fn string_escape_unicode<'a>(
                 lexer.newline();
                 return ControlFlow::Continue(());
             }
+            '"' => {
+                // escapes are only permitted in basic strings
+                ctx.error(Error::UnfinishedEscapeSequence(Span::new(
+                    esc_start,
+                    lexer.pos(),
+                )));
+
+                return string_closing_quote(ctx, lexer, str);
+            }
             _ => {
                 ctx.error(Error::InvalidUnicodeEscapeChar(FmtChar(c), lexer.pos()));
-
-                if c == str.quote.char() {
-                    return string_closing_quote(ctx, lexer, str);
-                }
             }
         }
 
