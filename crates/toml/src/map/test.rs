@@ -7,12 +7,6 @@ use crate::test::*;
 
 use super::*;
 
-impl<'a> MapTableEntry<'a> {
-    fn new(node: MapNode<'a>, reprs: OneVec<MapTableEntryRepr<'a>>) -> Self {
-        Self { node, reprs }
-    }
-}
-
 fn check(input: &str, expected: MapTable) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
@@ -485,8 +479,7 @@ fruit.apple = 3
             ),
         )]),
         Error::DuplicateKey {
-            path: None,
-            key: "fruit".into(),
+            path: "fruit".into(),
             orig: Span::from_pos_len(Pos::new(0, 0), 5),
             duplicate: Span::from_pos_len(Pos::new(1, 1), 5),
         },

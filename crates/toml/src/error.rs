@@ -74,8 +74,7 @@ pub enum Error {
     DateAndTimeTooFarApart(Span),
 
     DuplicateKey {
-        path: Option<FmtStr>,
-        key: FmtStr,
+        path: FmtStr,
         orig: Span,
         duplicate: Span,
     },
@@ -280,12 +279,7 @@ impl Diagnostic for Error {
             LocalDateTimeOffset(_) => write!(f, "Local-time doesn't permit an offset, see: https://toml.io/en/v1.0.0#local-time"),
             DateAndTimeTooFarApart(_) => write!(f, "Date and time too far apart, they may only be separated by exactly one space"),
 
-            DuplicateKey { path, key, .. } => {
-                match path {
-                    Some(path) => write!(f, "Duplicate key `{key}` in table `{path}`"),
-                    None => write!(f, "Duplicate key `{key}` in document root"),
-                }
-            }
+            DuplicateKey { path, .. } => write!(f, "Duplicate key `{path}`"),
             CannotExtendInlineTable { path, .. } => write!(f, "Cannot extend inline table `{path}`"),
             CannotExtendInlineArray { path, .. } => write!(f, "Cannot extend inline array `{path}`"),
             CannotExtendInlineArrayAsTable { path, .. } => write!(f, "Cannot extend inline array `{path}`, not a table"),
