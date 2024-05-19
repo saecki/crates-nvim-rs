@@ -1,4 +1,4 @@
-[91merror[0m: Duplicate key `dupe` in table `table1.table2`
+[91merror[0m: Duplicate key `table1.table2.dupe`
  [94m-->[0m 1:35
 [94m   1 |[0m table1 = { table2.dupe = 1, table2.dupe = 2 }
      [94m|[0m                   [94m^^^^ Original key defined here[0m

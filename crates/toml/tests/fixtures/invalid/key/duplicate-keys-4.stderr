@@ -1,4 +1,4 @@
-[91merror[0m: Duplicate key `'spelling'` in document root
+[91merror[0m: Duplicate key `spelling`
  [94m-->[0m 2:0
 [94m   1 |[0m spelling   = "favorite"
      [94m|[0m [94m^^^^^^^^ Original key defined here[0m
