@@ -158,16 +158,9 @@ pub fn display_line(f: &mut impl std::fmt::Write, line_nr: usize, line: &str) ->
     let mut next_start = 0;
     for (j, c) in line.char_indices() {
         match c {
+            '\t' => (),
             // backspace
-            '\u{8}' |
-            // vertical tab
-            '\u{B}' |
-            // form feed
-            '\u{C}' |
-            // carriage return
-            '\r' |
-            // delete
-            '\x7f' => {
+            '\x00'..='\x1f' | '\x7f' => {
                 f.write_str(&line[next_start..j])?;
                 next_start = j + 1;
             }
