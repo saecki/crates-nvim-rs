@@ -4,6 +4,7 @@ use super::*;
 
 use pretty_assertions::assert_eq;
 
+#[track_caller]
 fn check(input: &str, expected: Tokens<'_>) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
@@ -13,6 +14,7 @@ fn check(input: &str, expected: Tokens<'_>) {
     assert_eq!(std::vec::Vec::<Warning>::new(), ctx.warnings);
 }
 
+#[track_caller]
 fn check_error(input: &str, expected: Tokens<'_>, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
@@ -26,6 +28,7 @@ fn check_error(input: &str, expected: Tokens<'_>, error: Error) {
     assert_eq!(std::vec::Vec::<Warning>::new(), ctx.warnings);
 }
 
+#[track_caller]
 fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
@@ -52,6 +55,7 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     }
 }
 
+#[track_caller]
 fn check_str_error(input: &str, expected_lit: &str, expected_text: &str, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();

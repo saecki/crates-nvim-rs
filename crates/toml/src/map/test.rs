@@ -7,6 +7,7 @@ use crate::test::*;
 
 use super::*;
 
+#[track_caller]
 fn check(input: &str, expected: MapTable) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
@@ -22,6 +23,7 @@ fn check(input: &str, expected: MapTable) {
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
+#[track_caller]
 fn check_error(input: &str, expected: MapTable, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
