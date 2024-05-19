@@ -14,6 +14,7 @@ pub mod map;
 pub mod onevec;
 pub mod container;
 pub mod parse;
+pub mod diagnostic;
 #[cfg(test)]
 mod test;
 
