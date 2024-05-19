@@ -3,7 +3,7 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 
 use bumpalo::Bump;
-use common::{diagnostic, DisplayDiagnostic};
+use common::diagnostic;
 use crates_toml::map::simple::SimpleVal;
 use crates_toml::{TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
@@ -255,11 +255,7 @@ fn run_case(input: &str) -> Result<HashMap<String, SimpleVal>, String> {
         let lines = diagnostic::lines(input);
         let mut msg = String::new();
         for error in ctx.errors.iter() {
-            _ = writeln!(&mut msg, "{}", error.header(&lines));
-            if let Some(hint) = error.hint() {
-                _ = write!(&mut msg, "{}", hint.body(&lines));
-            }
-            _ = write!(&mut msg, "{}", error.body(&lines));
+            _ = crates_toml::diagnostic::display_error(&mut msg, error, &lines);
         }
         return Err(msg);
     }

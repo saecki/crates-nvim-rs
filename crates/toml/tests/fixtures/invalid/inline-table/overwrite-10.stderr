@@ -1,4 +1,4 @@
-[91merror[0m: Duplicate key `b` in table `a`
+[91merror[0m: Duplicate key `a.b`
  [94m-->[0m 4:14
 [94m   4 |[0m a = {b.a = 1, b = 2, b.c = 3}
      [94m|[0m      [94m^ Original key defined here[0m

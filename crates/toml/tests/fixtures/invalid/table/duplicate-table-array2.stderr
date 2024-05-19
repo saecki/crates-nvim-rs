@@ -1,4 +1,4 @@
-[91merror[0m: Duplicate key `tbl` in document root
+[91merror[0m: Duplicate key `tbl`
  [94m-->[0m 2:1
 [94m   1 |[0m [[tbl]]
      [94m|[0m   [94m^^^ Original key defined here[0m

@@ -4,5 +4,6 @@
      [94m|[0m [94m^^^^^^^[0m
 [94m  14 |[0m   z = 9
      [94m|[0m [94m^^^^^^^ Original array defined here[0m
+[94m  16 |[0m [a]
 [94m  17 |[0m   b.c.t = "Using dotted keys to add to [a.b.c] after explicitly defining it above is not allowed"
      [94m|[0m   [91m^ Cannot extend table with dotted key[0m
