@@ -33,6 +33,7 @@ pub fn parse_simple(input: &str) -> (TomlDiagnostics, HashMap<String, SimpleVal>
     (ctx, table)
 }
 
+#[track_caller]
 pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
     let (ctx, table) = parse_simple(input);
     assert_eq!(
@@ -44,6 +45,7 @@ pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
+#[track_caller]
 pub fn check_simple_error(input: &str, expected: HashMap<String, SimpleVal>, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
