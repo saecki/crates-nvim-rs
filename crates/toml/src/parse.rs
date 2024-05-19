@@ -1149,9 +1149,14 @@ fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>
                     .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
 
                 if let Some((i, c)) = invalid_char {
-                    let mut pos = token.start;
-                    pos.char += i as u32;
-                    ctx.error(Error::InvalidCharInIdentifier(FmtChar(c), pos));
+                    let pos = token.start.plus(i as u32);
+                    let error = Error::InvalidCharInIdentifier(FmtChar(c), pos);
+
+                    if lit.chars().all(|c| matches!(c, '\x00'..='\x30' | '\x7f')) {
+                        return KeyResult::Err(error);
+                    }
+
+                    ctx.error(error);
                 }
 
                 let span = Span::from_pos_len(token.start, lit.len() as u32);
