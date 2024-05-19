@@ -1152,7 +1152,7 @@ fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>
                     let pos = token.start.plus(i as u32);
                     let error = Error::InvalidCharInIdentifier(FmtChar(c), pos);
 
-                    if lit.chars().all(|c| matches!(c, '\x00'..='\x30' | '\x7f')) {
+                    if lit.chars().all(|c| matches!(c, '\x00'..='\x1f' | '\x7f')) {
                         return KeyResult::Err(error);
                     }
 
