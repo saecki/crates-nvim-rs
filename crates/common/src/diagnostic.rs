@@ -120,31 +120,9 @@ fn display_body<D: Diagnostic>(
     let color = ansii_esc_color(D::SEVERITY);
 
     for (i, line) in text[start_line..end_line].iter().enumerate() {
-        let line_nr = start_line + i + 1;
-        write!(f, "{ANSII_COLOR_BLUE}{line_nr:4} |{ANSII_CLEAR} ")?;
-
+        let line_nr = start_line + i;
         let line = line.as_ref();
-        let mut next_start = 0;
-        for (j, c) in line.char_indices() {
-            match c {
-                // backspace
-                '\u{8}' |
-                // vertical tab
-                '\u{B}' |
-                // form feed
-                '\u{C}' |
-                // carriage return
-                '\r' |
-                // delete
-                '\x7f' => {
-                    f.write_str(&line[next_start..j])?;
-                    next_start = j + 1;
-                }
-                _ => (),
-            }
-        }
-        f.write_str(&line[next_start..])?;
-        f.write_char('\n')?;
+        display_line(f, line_nr, line)?;
 
         let col_start = if i == 0 { span.start.char as usize } else { 0 };
         let col_end = if i == num_lines - 1 {
@@ -169,6 +147,35 @@ fn display_body<D: Diagnostic>(
         writeln!(f, "{ANSII_CLEAR}")?;
     }
 
+    Ok(())
+}
+
+/// `line_nr` is 0-based
+pub fn display_line(f: &mut impl std::fmt::Write, line_nr: usize, line: &str) -> std::fmt::Result {
+    let line_nr = line_nr + 1;
+    write!(f, "{ANSII_COLOR_BLUE}{line_nr:4} |{ANSII_CLEAR} ")?;
+
+    let mut next_start = 0;
+    for (j, c) in line.char_indices() {
+        match c {
+            // backspace
+            '\u{8}' |
+            // vertical tab
+            '\u{B}' |
+            // form feed
+            '\u{C}' |
+            // carriage return
+            '\r' |
+            // delete
+            '\x7f' => {
+                f.write_str(&line[next_start..j])?;
+                next_start = j + 1;
+            }
+            _ => (),
+        }
+    }
+    f.write_str(&line[next_start..])?;
+    f.write_char('\n')?;
     Ok(())
 }
 

@@ -74,31 +74,37 @@ pub enum Error {
     DateAndTimeTooFarApart(Span),
 
     DuplicateKey {
+        lines: Box<[u32]>,
         path: FmtStr,
         orig: Span,
         duplicate: Span,
     },
     CannotExtendInlineTable {
+        lines: Box<[u32]>,
         path: FmtStr,
         orig: Span,
         new: Span,
     },
     CannotExtendInlineArray {
+        lines: Box<[u32]>,
         path: FmtStr,
         orig: Span,
         new: Span,
     },
     CannotExtendInlineArrayAsTable {
+        lines: Box<[u32]>,
         path: FmtStr,
         orig: Span,
         new: Span,
     },
     CannotExtendTableWithDottedKey {
+        lines: Box<[u32]>,
         path: FmtStr,
         orig: Span,
         new: Span,
     },
     CannotExtendArrayWithDottedKey {
+        lines: Box<[u32]>,
         path: FmtStr,
         orig: Span,
         new: Span,
@@ -466,6 +472,81 @@ impl Error {
             CannotExtendArrayWithDottedKey { orig, .. } => {
                 Some(Hint::CannotExtendArrayWithDottedKey(*orig))
             }
+        }
+    }
+}
+
+impl Error {
+    pub fn lines(&self) -> Option<&[u32]> {
+        use Error::*;
+        match self {
+            MissingQuote(..) => None,
+            ExcessiveQuotes(..) => None,
+            InvalidStringChar(..) => None,
+            InvalidEscapeChar(..) => None,
+            InvalidUnicodeEscapeChar(..) => None,
+            InvalidUnicodeCodepoint(..) => None,
+            InvalidLineEndingEscape(..) => None,
+            UnfinishedEscapeSequence(..) => None,
+            InvalidCharInIdentifier(..) => None,
+            MultilineBasicStringIdent(..) => None,
+            MultilineLiteralStringIdent(..) => None,
+            InvalidCommentChar(..) => None,
+
+            ExpectedEqOrDotFound(..) => None,
+            ExpectedRightCurlyFound(..) => None,
+            ExpectedRightSquareFound(..) => None,
+            ExpectedDotOrRightSquareFound(..) => None,
+            ExpectedKeyFound(..) => None,
+            ExpectedValueFound(..) => None,
+            MissingComma(..) => None,
+            ExpectedNewlineFound(..) => None,
+            MissingNewline(..) => None,
+            InlineTableTrailingComma(..) => None,
+            SpaceBetweenArrayPars(..) => None,
+
+            UnexpectedLiteralStart(..) => None,
+            UnexpectedLiteralChar(..) => None,
+            LitStartsWithUnderscore(..) => None,
+            LitEndsWithUnderscore(..) => None,
+            ConsecutiveUnderscoresInLiteral(..) => None,
+            MissingNumDigitsAfterSign(..) => None,
+            InvalidLeadingZero(..) => None,
+            ExpectedRadixOrDateTime(..) => None,
+            UnexpectedCharSignedLeadingZeroNum(..) => None,
+
+            UppercaseBareLitChar(..) => None,
+            UnexpectedBareLitChar(..) => None,
+            BareLitTrailingChars(..) => None,
+            BareLitMissingChars(..) => None,
+
+            MissingFloatFractionalPart(..) => None,
+            FloatLiteralOverflow(..) => None,
+
+            EmptyPrefixedIntValue(..) => None,
+            PrefixedIntSignNotAllowed(..) => None,
+            UppercaseIntRadix(..) => None,
+            PrefixedIntValueStartsWithUnderscore(..) => None,
+            PrefixedIntValueEndsWithUnderscore(..) => None,
+            IntDigitTooBig(..) => None,
+            IntLiteralOverflow(..) => None,
+
+            UnexpectedCharInDateTime(..) => None,
+            DateTimeExpectedCharFound { .. } => None,
+            DateTimeMissingChar(..) => None,
+            DateTimeIncomplete(..) => None,
+            DateTimeMissing(..) => None,
+            DateTimeOutOfBounds { .. } => None,
+            DateTimeMissingSubsec(..) => None,
+            LocalDateTimeOffset(..) => None,
+            DateAndTimeTooFarApart(..) => None,
+
+            DuplicateKey { lines, .. } => Some(lines),
+            CannotExtendInlineTable { lines, .. } => Some(lines),
+            CannotExtendInlineArray { lines, .. } => Some(lines),
+            CannotExtendInlineArrayAsTable { lines, .. } => Some(lines),
+            CannotExtendTableWithDottedKey { lines, .. } => Some(lines),
+            CannotExtendArrayWithDottedKey { lines, .. } => Some(lines),
         }
     }
 }

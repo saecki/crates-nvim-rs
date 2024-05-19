@@ -40,7 +40,7 @@ use std::collections::hash_map::Entry::*;
 use std::collections::HashMap;
 
 use bumpalo::Bump;
-use common::{FmtStr, Span};
+use common::{FmtChar, FmtStr, Span};
 
 use crate::onevec::OneVec;
 use crate::parse::{
@@ -360,7 +360,6 @@ struct Path<'a, 'b> {
 #[derive(Clone)]
 enum PathSegment<'a, 'b> {
     Table(&'b OneVec<MapTableEntryRepr<'a>>),
-    // TODO: do we need to store parent information for arrays?
     Array(usize),
 }
 
@@ -397,31 +396,89 @@ fn fmt_path(path: &Path) -> String {
             let mut buf = fmt_path(prev);
             match path.segment {
                 PathSegment::Table(reprs) => {
-                    let key = reprs.first().key.repr_ident().text;
-                    write!(&mut buf, ".{key}").unwrap()
+                    let key = reprs.first().key.repr_ident();
+                    buf.push('.');
+                    fmt_path_segment(&mut buf, key).unwrap();
                 }
                 PathSegment::Array(i) => write!(&mut buf, "[{i}]").unwrap(),
             }
             buf
         }
         None => match path.segment {
-            PathSegment::Table(reprs) => reprs.first().key.repr_ident().text.to_string(),
+            PathSegment::Table(reprs) => {
+                let mut buf = String::new();
+                let key = reprs.first().key.repr_ident();
+                fmt_path_segment(&mut buf, key).unwrap();
+                buf
+            }
             PathSegment::Array(_) => unreachable!(),
         },
     }
 }
 
-fn joined_path(prev: Option<&Path>, key: &str) -> FmtStr {
-    use std::fmt::Write as _;
+fn joined_path(prev: Option<&Path>, key: &Ident) -> FmtStr {
     let str = match prev {
         Some(prev) => {
             let mut buf = fmt_path(prev);
-            write!(&mut buf, ".{key}").unwrap();
+            buf.push('.');
+            fmt_path_segment(&mut buf, key).unwrap();
             buf
         }
-        None => key.to_string(),
+        None => {
+            let mut buf = String::new();
+            fmt_path_segment(&mut buf, key).unwrap();
+            buf
+        }
     };
     FmtStr::from_string(str)
+}
+
+fn fmt_path_segment(f: &mut impl std::fmt::Write, key: &Ident) -> std::fmt::Result {
+    if key.text.is_empty() {
+        f.write_str("''")?;
+    } else {
+        let is_invalid_plain_ident =
+            (key.text.chars()).any(|c| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
+        if is_invalid_plain_ident {
+            f.write_char('\'')?;
+            for c in key.text.chars() {
+                write!(f, "{}", FmtChar(c))?;
+            }
+            f.write_char('\'')?;
+        } else {
+            f.write_str(key.text)?;
+        }
+    }
+    Ok(())
+}
+
+fn context_lines(path: Option<&Path>, original: ParentId, duplicate: ParentId) -> Box<[u32]> {
+    fn collect_lines(lines: &mut Vec<u32>, mut path: &Path, mut parent: ParentId) {
+        loop {
+            match path.segment {
+                PathSegment::Table(reprs) => {
+                    let repr = &reprs[parent.0 as usize];
+                    lines.push(repr.key.repr_ident().lit_start.line);
+                    parent = repr.parent;
+                }
+                PathSegment::Array(_) => (),
+            }
+
+            let Some(prev) = path.prev else { break };
+            path = prev;
+        }
+    }
+
+    let Some(path) = path else {
+        return Box::new([]);
+    };
+
+    let mut lines = Vec::new();
+    collect_lines(&mut lines, path, original);
+    collect_lines(&mut lines, path, duplicate);
+    lines.sort();
+    lines.dedup();
+    lines.into_boxed_slice()
 }
 
 /// Value to be lazily mapped and inserted
@@ -552,7 +609,7 @@ fn insert_node_at_path<'a, 'b>(
         Key::One(i) => {
             let key_repr = MapTableKeyRepr::One(i);
             let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-            let res = insert_node(ctx, bump, path, map, parent, i, value, repr);
+            let res = insert_node(ctx, bump, path, map, i, value, repr);
             if let Err(e) = res {
                 ctx.error(e);
             }
@@ -619,7 +676,7 @@ fn insert_node_at_path<'a, 'b>(
     let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
     let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
 
-    let res = insert_node(ctx, bump, path, current, parent, &last.ident, value, repr);
+    let res = insert_node(ctx, bump, path, current, &last.ident, value, repr);
     if let Err(e) = res {
         ctx.error(e);
     }
@@ -630,7 +687,6 @@ fn insert_node<'a, 'b>(
     bump: &'b Bump,
     path: Option<&'b Path<'a, 'b>>,
     map: &mut MapTable<'a>,
-    parent: ParentId,
     key: &'a Ident<'a>,
     value: InsertValue<'a>,
     repr: MapTableEntryRepr<'a>,
@@ -684,7 +740,7 @@ fn insert_node<'a, 'b>(
     }
 
     // extend existing table with items from super table
-    existing_entry.reprs.push(repr);
+    let parent = insert_repr(&mut existing_entry.reprs, repr);
     let path = append_key(path, &existing_entry.reprs);
     insert_top_level_assignments(ctx, bump, Some(&path), parent, existing_table, assignments);
 
@@ -816,10 +872,13 @@ fn insert_array_entry<'a, 'b>(
             let array = match &mut entry.node {
                 MapNode::Array(MapArray::Toplevel(a)) => a,
                 MapNode::Array(MapArray::Inline(_)) => {
-                    let path = joined_path(path, repr.key.repr_ident().lit);
-                    let orig = entry.reprs.first().kind.span();
-                    let new = repr.key.repr_ident().lit_span();
-                    return Err(Error::CannotExtendInlineArray { path, orig, new });
+                    let orig = entry.reprs.first();
+                    return Err(Error::CannotExtendInlineArray {
+                        lines: context_lines(path, orig.parent, repr.parent),
+                        path: joined_path(path, repr.key.repr_ident()),
+                        orig: orig.kind.span(),
+                        new: repr.key.repr_ident().lit_span(),
+                    });
                 }
                 MapNode::Table(_) | MapNode::Scalar(_) => {
                     return Err(duplicate_key_error(path, entry.reprs.first(), &repr));
@@ -909,10 +968,13 @@ where
         }
         MapNode::Array(MapArray::Toplevel(a)) => {
             if repr.kind.is_assignment() {
-                let path = joined_path(prev, repr.key.repr_ident().lit);
-                let orig = entry.reprs.first().kind.span();
-                let new = repr.key.repr_ident().lit_span();
-                return Err(Error::CannotExtendArrayWithDottedKey { path, orig, new });
+                let orig = entry.reprs.first();
+                return Err(Error::CannotExtendArrayWithDottedKey {
+                    lines: context_lines(prev, orig.parent, repr.parent),
+                    orig: orig.kind.span(),
+                    path: joined_path(prev, repr.key.repr_ident()),
+                    new: repr.key.repr_ident().lit_span(),
+                });
             }
 
             // From the toml spec (https://toml.io/en/v1.0.0#array-of-tables):
@@ -921,7 +983,6 @@ where
             // sub-tables, and even sub-arrays of tables, inside the most recent
             // table.
 
-            // TODO: A MapArrayToplevel should probably store the id to the parent table.
             let parent = insert_repr(&mut entry.reprs, repr);
             let path = Some(&*bump.alloc(append_key(prev, &entry.reprs)));
             let path = bump.alloc(append_index(path, a.inner.len() - 1));
@@ -929,17 +990,16 @@ where
             (parent, path, t)
         }
         MapNode::Array(MapArray::Inline(_)) => {
-            let path = joined_path(prev, repr.key.repr_ident().lit);
-            let orig = entry.reprs.first().kind.span();
-            let new = repr.key.repr_ident().lit_span();
-            return Err(Error::CannotExtendInlineArrayAsTable { path, orig, new });
+            let orig = entry.reprs.first();
+            return Err(Error::CannotExtendInlineArrayAsTable {
+                lines: context_lines(prev, orig.parent, repr.parent),
+                path: joined_path(prev, repr.key.repr_ident()),
+                orig: orig.kind.span(),
+                new: repr.key.repr_ident().lit_span(),
+            });
         }
         MapNode::Scalar(_) => {
-            return Err(Error::DuplicateKey {
-                path: joined_path(prev, repr.key.repr_ident().lit),
-                orig: entry.reprs.first().key.repr_ident().lit_span(),
-                duplicate: repr.key.repr_ident().lit_span(),
-            });
+            return Err(duplicate_key_error(prev, entry.reprs.first(), &repr));
         }
     };
 
@@ -947,10 +1007,14 @@ where
         match &existing.kind {
             MapTableEntryReprKind::Table(_) => {
                 if is_assignment {
-                    let path = next_path.fmt_path();
-                    let orig = entry.reprs.first().kind.span();
-                    let new = entry.reprs.last().key.repr_ident().lit_span();
-                    return Err(Error::CannotExtendTableWithDottedKey { path, orig, new });
+                    let orig = entry.reprs.first();
+                    let dupe = entry.reprs.last();
+                    return Err(Error::CannotExtendTableWithDottedKey {
+                        lines: context_lines(prev, orig.parent, dupe.parent),
+                        path: next_path.fmt_path(),
+                        orig: orig.kind.span(),
+                        new: dupe.key.repr_ident().lit_span(),
+                    });
                 }
             }
             MapTableEntryReprKind::ArrayEntry(_) => (),
@@ -958,10 +1022,14 @@ where
             | MapTableEntryReprKind::InlineTableAssignment(_) => {
                 if existing.key.is_last_ident() {
                     // `next` is an inline table
-                    let path = next_path.fmt_path();
-                    let orig = entry.reprs.first().kind.span();
-                    let new = entry.reprs.last().key.repr_ident().lit_span();
-                    return Err(Error::CannotExtendInlineTable { path, orig, new });
+                    let orig = entry.reprs.first();
+                    let dupe = entry.reprs.last();
+                    return Err(Error::CannotExtendInlineTable {
+                        lines: context_lines(prev, orig.parent, dupe.parent),
+                        path: next_path.fmt_path(),
+                        orig: orig.kind.span(),
+                        new: entry.reprs.last().key.repr_ident().lit_span(),
+                    });
                 }
             }
         }
@@ -985,7 +1053,8 @@ fn duplicate_key_error(
     duplicate: &MapTableEntryRepr<'_>,
 ) -> Error {
     Error::DuplicateKey {
-        path: joined_path(path, duplicate.key.repr_ident().lit),
+        lines: context_lines(path, original.parent, duplicate.parent),
+        path: joined_path(path, duplicate.key.repr_ident()),
         orig: original.key.repr_ident().lit_span(),
         duplicate: duplicate.key.repr_ident().lit_span(),
     }

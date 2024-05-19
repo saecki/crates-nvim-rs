@@ -481,6 +481,7 @@ fruit.apple = 3
             ),
         )]),
         Error::DuplicateKey {
+            lines: Box::new([]),
             path: "fruit".into(),
             orig: Span::from_pos_len(Pos::new(0, 0), 5),
             duplicate: Span::from_pos_len(Pos::new(1, 1), 5),
@@ -709,6 +710,7 @@ b.y = 2
             )])),
         )]),
         Error::CannotExtendArrayWithDottedKey {
+            lines: Box::new([0, 2]),
             path: "a.b".into(),
             orig: Span::from_pos_len(Pos { line: 0, char: 0 }, 7),
             new: Span::from_pos_len(Pos { line: 3, char: 0 }, 1),
@@ -737,6 +739,7 @@ fn toml_test_repro_append_with_dotted_keys_1() {
             )])),
         )]),
         Error::CannotExtendTableWithDottedKey {
+            lines: Box::new([0, 3]),
             path: "a.b".into(),
             orig: Span::new(Pos { line: 0, char: 0 }, Pos { line: 1, char: 7 }),
             new: Span::from_pos_len(Pos { line: 4, char: 2 }, 1),

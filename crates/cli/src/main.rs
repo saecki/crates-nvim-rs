@@ -1,7 +1,8 @@
 use std::process::ExitCode;
 
 use bumpalo::Bump;
-use common::{diagnostic, DisplayDiagnostic};
+use common::diagnostic;
+use toml::diagnostic::display_error;
 use toml::{TomlCtx, TomlDiagnostics};
 
 fn main() -> ExitCode {
@@ -33,12 +34,11 @@ fn main() -> ExitCode {
 
     println!("{:#?}", simple);
     ctx.sort_diagnostics();
+    let mut msg = String::new();
     for error in ctx.errors.iter() {
-        println!("{}", error.header(&lines));
-        if let Some(hint) = error.hint() {
-            print!("{}", hint.body(&lines));
-        }
-        println!("{}", error.body(&lines));
+        display_error(&mut msg, error, &lines).unwrap();
+        println!("{msg}");
+        msg.clear()
     }
 
     let us_lexing = lexing.duration_since(start).unwrap().as_micros();
