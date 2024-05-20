@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 common = { workspace = true }
-memchr = { workspace = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

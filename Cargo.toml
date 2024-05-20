@@ -16,7 +16,6 @@ toml = { package = "crates-toml", path = "crates/toml" }
 semver = { package = "crates-semver", path = "crates/semver" }
 common = { package = "crates-common", path = "crates/common" }
 bumpalo = { version = "3.15.4", features = ["collections"] }
-memchr = "2.7.2"
 
 [profile.release]
 strip = true
