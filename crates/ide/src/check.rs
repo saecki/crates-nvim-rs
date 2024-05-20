@@ -3,7 +3,7 @@ use semver::{SemverCtx, VersionReq};
 use toml::map::{MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, Scalar};
 use toml::parse::{BoolVal, StringVal};
 
-use crate::error::CargoError;
+use crate::cargo;
 use crate::IdeCtx;
 
 #[derive(Debug, Default, PartialEq)]
@@ -355,7 +355,7 @@ fn expect_table_in_table<'a>(
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(CargoError::ExpectedArrayInTable(key, span));
+            ctx.error(cargo::Error::ExpectedArrayInTable(key, span));
             None
         }
     }
@@ -371,7 +371,7 @@ fn expect_array_in_table<'a>(
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(CargoError::ExpectedArrayInTable(key, span));
+            ctx.error(cargo::Error::ExpectedArrayInTable(key, span));
             None
         }
     }
@@ -387,7 +387,7 @@ fn expect_string_in_table<'a>(
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(CargoError::ExpectedStringInTable(key, span));
+            ctx.error(cargo::Error::ExpectedStringInTable(key, span));
             None
         }
     }
@@ -400,7 +400,7 @@ fn expect_string_in_array<'a>(
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
         _ => {
-            ctx.error(CargoError::ExpectedStringInArray(entry.repr.span()));
+            ctx.error(cargo::Error::ExpectedStringInArray(entry.repr.span()));
             None
         }
     }
@@ -416,7 +416,7 @@ fn expect_bool_in_table<'a>(
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(CargoError::ExpectedBoolInTable(key, span));
+            ctx.error(cargo::Error::ExpectedBoolInTable(key, span));
             None
         }
     }

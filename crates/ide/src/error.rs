@@ -1,10 +1,12 @@
-use common::{Diagnostic, FmtStr, Severity, Span};
+use common::{Diagnostic, Severity, Span};
+
+use crate::cargo;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Toml(toml::Error),
     Semver(semver::Error),
-    Cargo(CargoError),
+    Cargo(cargo::Error),
 }
 
 impl Diagnostic for Error {
@@ -47,42 +49,9 @@ impl From<semver::Error> for Error {
     }
 }
 
-impl From<CargoError> for Error {
-    fn from(value: CargoError) -> Self {
+impl From<cargo::Error> for Error {
+    fn from(value: cargo::Error) -> Self {
         Self::Cargo(value)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum CargoError {
-    ExpectedTable(FmtStr, Span),
-    ExpectedStringInTable(FmtStr, Span),
-    ExpectedBoolInTable(FmtStr, Span),
-    ExpectedArrayInTable(FmtStr, Span),
-    ExpectedStringInArray(Span),
-}
-
-impl Diagnostic for CargoError {
-    const SEVERITY: Severity = Severity::Error;
-
-    fn span(&self) -> Span {
-        match self {
-            CargoError::ExpectedTable(_, s) => *s,
-            CargoError::ExpectedStringInTable(_, s) => *s,
-            CargoError::ExpectedBoolInTable(_, s) => *s,
-            CargoError::ExpectedArrayInTable(_, s) => *s,
-            CargoError::ExpectedStringInArray(s) => *s,
-        }
-    }
-
-    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
-    }
-
-    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
     }
 }
 
@@ -90,7 +59,7 @@ impl Diagnostic for CargoError {
 pub enum Warning {
     Toml(toml::Warning),
     Semver(semver::Warning),
-    Cargo(CargoWarning),
+    Cargo(cargo::Warning),
 }
 
 impl Diagnostic for Warning {
@@ -133,30 +102,9 @@ impl From<semver::Warning> for Warning {
     }
 }
 
-impl From<CargoWarning> for Warning {
-    fn from(value: CargoWarning) -> Self {
+impl From<cargo::Warning> for Warning {
+    fn from(value: cargo::Warning) -> Self {
         Self::Cargo(value)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum CargoWarning {}
-
-impl Diagnostic for CargoWarning {
-    const SEVERITY: Severity = Severity::Warning;
-
-    fn span(&self) -> Span {
-        todo!()
-    }
-
-    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
-    }
-
-    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
     }
 }
 
@@ -164,7 +112,7 @@ impl Diagnostic for CargoWarning {
 pub enum Hint {
     Toml(toml::Hint),
     Semver(semver::Hint),
-    Cargo(CargoHint),
+    Cargo(cargo::Hint),
 }
 
 impl Diagnostic for Hint {
@@ -207,29 +155,8 @@ impl From<semver::Hint> for Hint {
     }
 }
 
-impl From<CargoHint> for Hint {
-    fn from(value: CargoHint) -> Self {
+impl From<cargo::Hint> for Hint {
+    fn from(value: cargo::Hint) -> Self {
         Self::Cargo(value)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum CargoHint {}
-
-impl Diagnostic for CargoHint {
-    const SEVERITY: Severity = Severity::Hint;
-
-    fn span(&self) -> Span {
-        todo!()
-    }
-
-    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
-    }
-
-    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
     }
 }
