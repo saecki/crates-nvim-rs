@@ -13,8 +13,8 @@ pub mod map;
 #[macro_use]
 pub mod onevec;
 pub mod container;
-pub mod parse;
 pub mod diagnostic;
+pub mod parse;
 #[cfg(test)]
 mod test;
 
