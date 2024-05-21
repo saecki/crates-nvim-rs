@@ -632,8 +632,8 @@ fn insert_node_at_path<'a, 'b>(
                     let node = MapNode::Table(MapTable::new());
                     let entry = vacant.insert(MapTableEntry::from_one(node, repr));
 
-                    path = Some(bump.alloc(append_key(path, &entry.reprs)));
                     parent = ParentId(0);
+                    path = Some(bump.alloc(append_key(path, &entry.reprs)));
 
                     let MapNode::Table(next) = &mut entry.node else {
                         unreachable!()
@@ -648,8 +648,8 @@ fn insert_node_at_path<'a, 'b>(
                 let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
                 let reprs = OneVec::new(repr);
 
-                let path = append_key(path, &reprs);
                 parent = ParentId(0);
+                let path = append_key(path, &reprs);
 
                 let node = map_insert_value(ctx, bump, &path, parent, value);
                 vacant.insert(MapTableEntry::new(node, reprs));
@@ -783,8 +783,8 @@ fn insert_array_entry_at_path<'a, 'b>(
                     let node = MapNode::Table(MapTable::new());
                     let entry = vacant.insert(MapTableEntry::from_one(node, repr));
 
-                    path = Some(bump.alloc(append_key(path, &entry.reprs)));
                     parent = ParentId(0);
+                    path = Some(bump.alloc(append_key(path, &entry.reprs)));
 
                     let MapNode::Table(next) = &mut entry.node else {
                         unreachable!()
@@ -800,9 +800,9 @@ fn insert_array_entry_at_path<'a, 'b>(
                 let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
                 let reprs = OneVec::new(repr);
 
+                parent = ParentId(0);
                 let path = append_key(path, &reprs);
                 let path = append_index(Some(&path), 0);
-                parent = ParentId(0);
 
                 let mut node = MapTable::new();
                 insert_top_level_assignments(
