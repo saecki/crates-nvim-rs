@@ -29,7 +29,7 @@ fn main() -> ExitCode {
     let parsing = std::time::SystemTime::now();
     let map = ctx.map(&asts);
     let mapping = std::time::SystemTime::now();
-    let simple = toml::map::simple::map_table(map);
+    let simple = toml::util::map_simple(map);
     let end = std::time::SystemTime::now();
 
     println!("{:#?}", simple);

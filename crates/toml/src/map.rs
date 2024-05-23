@@ -50,7 +50,6 @@ use crate::parse::{
 };
 use crate::{Asts, Error, TomlCtx};
 
-pub mod simple;
 #[cfg(test)]
 mod test;
 

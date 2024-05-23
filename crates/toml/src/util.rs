@@ -30,24 +30,23 @@ impl std::fmt::Debug for SimpleVal {
     }
 }
 
-pub fn map_table(map: MapTable) -> HashMap<String, SimpleVal> {
+pub fn map_simple(map: MapTable) -> HashMap<String, SimpleVal> {
     let iter = map
         .into_iter()
-        .map(|(k, e)| (k.to_string(), map_val(e.node)));
+        .map(|(k, e)| (k.to_string(), map_simple_val(e.node)));
     HashMap::from_iter(iter)
 }
 
-pub fn map_val(node: MapNode) -> SimpleVal {
+pub fn map_simple_val(node: MapNode) -> SimpleVal {
     match node {
-        MapNode::Table(t) => SimpleVal::Table(map_table(t)),
+        MapNode::Table(t) => SimpleVal::Table(map_simple(t)),
         MapNode::Array(MapArray::Toplevel(a)) => SimpleVal::Array(
-            a.inner
-                .into_iter()
-                .map(|e| SimpleVal::Table(map_table(e.node)))
+            a.into_iter()
+                .map(|e| SimpleVal::Table(map_simple(e.node)))
                 .collect(),
         ),
         MapNode::Array(MapArray::Inline(a)) => {
-            SimpleVal::Array(a.inner.into_iter().map(|e| map_val(e.node)).collect())
+            SimpleVal::Array(a.into_iter().map(|e| map_simple_val(e.node)).collect())
         }
         MapNode::Scalar(s) => match s {
             Scalar::String(s) => SimpleVal::String(s.text.to_string()),

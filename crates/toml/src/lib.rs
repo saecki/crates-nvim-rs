@@ -10,6 +10,7 @@ pub mod datetime;
 pub mod error;
 mod lex;
 pub mod map;
+pub mod util;
 #[macro_use]
 pub mod onevec;
 pub mod container;

@@ -4,7 +4,7 @@ use std::io::Write as _;
 
 use bumpalo::Bump;
 use common::diagnostic;
-use crates_toml::map::simple::SimpleVal;
+use crates_toml::util::SimpleVal;
 use crates_toml::{TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
 
@@ -260,7 +260,7 @@ fn run_case(input: &str) -> Result<HashMap<String, SimpleVal>, String> {
         return Err(msg);
     }
 
-    Ok(crates_toml::map::simple::map_table(map))
+    Ok(crates_toml::util::map_simple(map))
 }
 
 fn dialog<const SIZE: usize>(options: [&str; SIZE]) -> &str {

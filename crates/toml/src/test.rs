@@ -7,8 +7,8 @@ pub use pretty_assertions::assert_eq;
 pub use std::collections::HashMap;
 
 use crate::lex::TextOffset;
-pub use crate::map::simple::SimpleVal;
 pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
+pub use crate::util::{self, SimpleVal};
 pub use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
@@ -29,7 +29,7 @@ pub fn parse_simple(input: &str) -> (TomlDiagnostics, HashMap<String, SimpleVal>
     let tokens = ctx.lex(&bump, input);
     let asts = ctx.parse(&bump, &tokens);
     let map = ctx.map(&asts);
-    let table = crate::map::simple::map_table(map);
+    let table = util::map_simple(map);
     (ctx, table)
 }
 
@@ -53,7 +53,7 @@ pub fn check_simple_error(input: &str, expected: HashMap<String, SimpleVal>, err
     let asts = ctx.parse(&bump, &tokens);
     let map = ctx.map(&asts);
 
-    let test_table = crate::map::simple::map_table(map);
+    let test_table = util::map_simple(map);
     assert_eq!(
         expected, test_table,
         "\nerrors: {:#?}\nwarnings: {:#?}",

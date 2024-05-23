@@ -10,6 +10,6 @@ fuzz_target!(|data: &[u8]| {
         let tokens = ctx.lex(&bump, input);
         let asts = ctx.parse(&bump, &tokens);
         let map = ctx.map(&asts);
-        let _ = toml::map::simple::map_table(map);
+        let _ = toml::util::map_simple(map);
     }
 });
