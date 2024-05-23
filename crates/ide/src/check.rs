@@ -2,6 +2,7 @@ use common::{FmtStr, Span};
 use semver::{SemverCtx, VersionReq};
 use toml::map::{MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, Scalar};
 use toml::parse::{BoolVal, StringVal};
+use toml::util::Datatype;
 
 use crate::cargo;
 use crate::IdeCtx;
@@ -63,7 +64,11 @@ pub enum DependencySpec<'a> {
         registry: Option<&'a StringVal<'a>>,
         req: Option<VersionReq>,
     },
-    /// None of the following is present
+    /// One of the following combinations is present:
+    /// - `git` and `registry`
+    /// - `git` and `path`
+    Conflicting,
+    /// None of the following is present:
     /// - `workspace`
     /// - `path`
     /// - `git`
@@ -76,6 +81,11 @@ pub enum DependencyGitSpec<'a> {
     Branch(&'a StringVal<'a>),
     Tag(&'a StringVal<'a>),
     Rev(&'a StringVal<'a>),
+    /// More than one of the following is present:
+    /// - `branch`
+    /// - `tag`
+    /// - `rev`
+    Conflicting,
     None,
 }
 
@@ -338,8 +348,8 @@ fn parse_dependency_features<'a>(
         MapArray::Inline(i) => i,
     };
 
-    for e in array.iter() {
-        if let Some(str) = expect_string_in_array(ctx, e) {
+    for (i, e) in array.iter().enumerate() {
+        if let Some(str) = expect_string_in_array(ctx, i, e) {
             features.push(str);
         }
     }
@@ -351,11 +361,16 @@ fn expect_table_in_table<'a>(
 ) -> Option<&'a MapTable<'a>> {
     match &entry.node {
         MapNode::Table(a) => Some(a),
-        _ => {
+        n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(cargo::Error::ExpectedArrayInTable(key, span));
+            ctx.error(cargo::Error::WrongDatatypeInTable {
+                key,
+                expected: Datatype::Table,
+                found: n.datatype(),
+                span,
+            });
             None
         }
     }
@@ -367,11 +382,16 @@ fn expect_array_in_table<'a>(
 ) -> Option<&'a MapArray<'a>> {
     match &entry.node {
         MapNode::Array(a) => Some(a),
-        _ => {
+        n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(cargo::Error::ExpectedArrayInTable(key, span));
+            ctx.error(cargo::Error::WrongDatatypeInTable {
+                key,
+                expected: Datatype::Array,
+                found: n.datatype(),
+                span,
+            });
             None
         }
     }
@@ -383,11 +403,16 @@ fn expect_string_in_table<'a>(
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
-        _ => {
+        n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(cargo::Error::ExpectedStringInTable(key, span));
+            ctx.error(cargo::Error::WrongDatatypeInTable {
+                key,
+                expected: Datatype::String,
+                found: n.datatype(),
+                span,
+            });
             None
         }
     }
@@ -395,12 +420,18 @@ fn expect_string_in_table<'a>(
 
 fn expect_string_in_array<'a>(
     ctx: &mut impl IdeCtx,
+    index: usize,
     entry: &'a MapArrayInlineEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
-        _ => {
-            ctx.error(cargo::Error::ExpectedStringInArray(entry.repr.span()));
+        n => {
+            ctx.error(cargo::Error::WrongDatatypeInArray {
+                index,
+                expected: Datatype::String,
+                found: n.datatype(),
+                span: entry.repr.span(),
+            });
             None
         }
     }
@@ -412,11 +443,16 @@ fn expect_bool_in_table<'a>(
 ) -> Option<&'a BoolVal> {
     match &entry.node {
         MapNode::Scalar(Scalar::Bool(b)) => Some(b),
-        _ => {
+        n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
             let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
-            ctx.error(cargo::Error::ExpectedBoolInTable(key, span));
+            ctx.error(cargo::Error::WrongDatatypeInTable {
+                key,
+                expected: Datatype::Bool,
+                found: n.datatype(),
+                span,
+            });
             None
         }
     }

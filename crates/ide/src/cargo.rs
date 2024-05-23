@@ -1,4 +1,5 @@
 use common::{Ctx, Diagnostic, Diagnostics, FmtStr, Severity, Span};
+use toml::util::Datatype;
 
 pub trait CargoCtx:
     Ctx<Error = Self::CargoError, Warning = Self::CargoWarning, Hint = Self::CargoHint>
@@ -19,57 +20,129 @@ where
     type CargoHint = H;
 }
 
+// TODO: add context lines
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
-    ExpectedTable(FmtStr, Span),
-    ExpectedStringInTable(FmtStr, Span),
-    ExpectedBoolInTable(FmtStr, Span),
-    ExpectedArrayInTable(FmtStr, Span),
-    ExpectedStringInArray(Span),
+    WrongDatatypeInTable {
+        key: FmtStr,
+        expected: Datatype,
+        found: Datatype,
+        span: Span,
+    },
+    WrongDatatypeInArray {
+        index: usize,
+        expected: Datatype,
+        found: Datatype,
+        span: Span,
+    },
+    /// In the 2024 edition keys with underscores are unsupported.
+    UnsupportedUnderscore {
+        old: &'static str,
+        new: &'static str,
+        span: Span,
+    },
 }
 
 impl Diagnostic for Error {
     const SEVERITY: Severity = Severity::Error;
 
     fn span(&self) -> Span {
+        use Error::*;
         match self {
-            Error::ExpectedTable(_, s) => *s,
-            Error::ExpectedStringInTable(_, s) => *s,
-            Error::ExpectedBoolInTable(_, s) => *s,
-            Error::ExpectedArrayInTable(_, s) => *s,
-            Error::ExpectedStringInArray(s) => *s,
+            WrongDatatypeInTable { span, .. } => *span,
+            WrongDatatypeInArray { span, .. } => *span,
+            UnsupportedUnderscore { span, .. } => *span,
         }
     }
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
+        use Error::*;
+        match self {
+            WrongDatatypeInTable {
+                key,
+                expected,
+                found,
+                ..
+            } => write!(
+                f,
+                "Expected `{key}` to be of type `{expected}`, found `{found}`"
+            ),
+            WrongDatatypeInArray {
+                index,
+                expected,
+                found,
+                ..
+            } => write!(
+                f,
+                "Expected element {index} to be of type `{expected}`, found `{found}`"
+            ),
+            UnsupportedUnderscore { old, new, .. } => {
+                write!(
+                    f,
+                    "`{old}` is unsupported in the 2024 edition; instead use `{new}`"
+                )
+            }
+        }
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
+        use Error::*;
+        match self {
+            WrongDatatypeInTable { expected, .. } => write!(f, "Expected type `{expected}`"),
+            WrongDatatypeInArray { expected, .. } => write!(f, "Expected type `{expected}`"),
+            UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
+        }
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Warning {}
+pub enum Warning {
+    /// Warn about future removal in the 2024 edition.
+    DeprecatedUnderscore {
+        old: &'static str,
+        new: &'static str,
+        span: Span,
+    },
+    /// Warn about future removal in the 2024 edition.
+    RedundantDeprecatedUnderscore {
+        old: &'static str,
+        new: &'static str,
+        span: Span,
+    },
+}
 
 impl Diagnostic for Warning {
     const SEVERITY: Severity = Severity::Warning;
 
     fn span(&self) -> Span {
-        todo!()
+        use Warning::*;
+        match self {
+            DeprecatedUnderscore { span, .. } => *span,
+            RedundantDeprecatedUnderscore { span, .. } => *span,
+        }
     }
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
+        use Warning::*;
+        match self {
+            DeprecatedUnderscore { old, new, .. } => {
+                write!(f, "`{old}` is deprecated in favor of `{new}` and will be unsupported in the 2024 edition")
+            }
+            RedundantDeprecatedUnderscore { old, new, .. } => {
+                write!(
+                    f,
+                    "`{old}` is redundant with `{new}` and will be unsupported in the 2024 edition"
+                )
+            }
+        }
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        _ = f;
-        todo!()
+        use Warning::*;
+        match self {
+            DeprecatedUnderscore { new, .. } => write!(f, "Deprecated in favor of `{new}`"),
+            RedundantDeprecatedUnderscore { new, .. } => write!(f, "Redundant with `{new}`"),
+        }
     }
 }
 

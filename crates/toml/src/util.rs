@@ -3,6 +3,77 @@ use std::collections::HashMap;
 use crate::datetime::DateTime;
 use crate::map::{MapArray, MapNode, MapTable, Scalar};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Datatype {
+    Table,
+    Array,
+    String,
+    Int,
+    Float,
+    Bool,
+    DateTime,
+}
+
+impl Datatype {
+    pub fn to_str(&self) -> &'static str {
+        match self {
+            Datatype::Table => "table",
+            Datatype::Array => "array",
+            Datatype::String => "string",
+            Datatype::Int => "int",
+            Datatype::Float => "float",
+            Datatype::Bool => "bool",
+            Datatype::DateTime => "date-time",
+        }
+    }
+}
+
+impl std::fmt::Display for Datatype {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.to_str())
+    }
+}
+
+impl MapNode<'_> {
+    pub fn datatype(&self) -> Datatype {
+        match self {
+            MapNode::Table(_) => Datatype::Table,
+            MapNode::Array(_) => Datatype::Array,
+            MapNode::Scalar(s) => s.datatype(),
+        }
+    }
+}
+
+impl Scalar<'_> {
+    pub fn datatype(&self) -> Datatype {
+        match self {
+            Scalar::String(_) => Datatype::String,
+            Scalar::Int(_) => Datatype::Int,
+            Scalar::Float(_) => Datatype::Float,
+            Scalar::Bool(_) => Datatype::Bool,
+            Scalar::DateTime(_) => Datatype::DateTime,
+            // FIXME: what's to do here?
+            Scalar::Invalid(_, _) => todo!(),
+        }
+    }
+}
+
+impl SimpleVal {
+    pub fn datatype(&self) -> Datatype {
+        match self {
+            SimpleVal::Table(_) => Datatype::Table,
+            SimpleVal::Array(_) => Datatype::Array,
+            SimpleVal::String(_) => Datatype::String,
+            SimpleVal::Int(_) => Datatype::Int,
+            SimpleVal::Float(_) => Datatype::Float,
+            SimpleVal::Bool(_) => Datatype::Bool,
+            SimpleVal::DateTime(_) => Datatype::DateTime,
+            // FIXME: what's to do here?
+            SimpleVal::Invalid(_) => todo!(),
+        }
+    }
+}
+
 #[derive(PartialEq)]
 pub enum SimpleVal {
     Table(HashMap<String, SimpleVal>),
