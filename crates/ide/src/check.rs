@@ -124,9 +124,29 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, map: &'a MapTable<'a>) -> State<'a> {
                     parse_dependencies(ctx, &mut state, table, DependencyKind::Dev, None)
                 }
             }
+            "dev_dependencies" => {
+                const OLD: &str = "dev_dependencies";
+                const NEW: &str = "dev-dependencies";
+                let ignored = deprecated_underscore(ctx, map, OLD, NEW, entry);
+                if !ignored {
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
+                        parse_dependencies(ctx, &mut state, table, DependencyKind::Dev, None)
+                    }
+                }
+            }
             "build-dependencies" => {
                 if let Some(table) = expect_table_in_table(ctx, entry) {
                     parse_dependencies(ctx, &mut state, table, DependencyKind::Build, None)
+                }
+            }
+            "build_dependencies" => {
+                const OLD: &str = "build_dependencies";
+                const NEW: &str = "build-dependencies";
+                let ignored = deprecated_underscore(ctx, map, OLD, NEW, entry);
+                if !ignored {
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
+                        parse_dependencies(ctx, &mut state, table, DependencyKind::Build, None)
+                    }
                 }
             }
             "target" => todo!(),
@@ -294,30 +314,13 @@ fn parse_dependencies<'a>(
                             }
                         }
                         "default-features" => {
-                            // should take predendence over `default_features`
                             features.default = expect_bool_in_table(ctx, e);
                         }
                         "default_features" => {
-                            let old = "default_features";
-                            let new = "default-features";
-                            if let Some(n) = t.get(new) {
-                                ctx.warn(cargo::Warning::RedundantDeprecatedUnderscore {
-                                    old,
-                                    new,
-                                    old_span: e.reprs.first().kind.span(),
-                                    new_span: n.reprs.first().kind.span(),
-                                });
-                            } else {
-                                ctx.warn(cargo::Warning::DeprecatedUnderscore {
-                                    old,
-                                    new,
-                                    span: e.reprs.first().kind.span(),
-                                });
-                            }
-                            // TODO: warning or hint
-
-                            // `default-features` takes predendence
-                            if features.default.is_none() {
+                            const OLD: &str = "default_features";
+                            const NEW: &str = "default-features";
+                            let ignored = deprecated_underscore(ctx, table, OLD, NEW, e);
+                            if !ignored {
                                 features.default = expect_bool_in_table(ctx, e);
                             }
                         }
@@ -476,5 +479,32 @@ fn expect_bool_in_table<'a>(
             });
             None
         }
+    }
+}
+
+/// Returns whether the key is ignored
+fn deprecated_underscore(
+    ctx: &mut impl IdeCtx,
+    table: &MapTable,
+    old: &'static str,
+    new: &'static str,
+    old_entry: &MapTableEntry,
+) -> bool {
+    // TODO: in the 2024 edition this becomes an error
+    if let Some(new_entry) = table.get(new) {
+        ctx.warn(cargo::Warning::RedundantDeprecatedUnderscore {
+            old,
+            new,
+            old_span: old_entry.reprs.first().kind.span(),
+            new_span: new_entry.reprs.first().kind.span(),
+        });
+        true
+    } else {
+        ctx.warn(cargo::Warning::DeprecatedUnderscore {
+            old,
+            new,
+            span: old_entry.reprs.first().kind.span(),
+        });
+        false
     }
 }
