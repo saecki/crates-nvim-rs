@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use common::{Diagnostic, FmtChar, FmtStr, Pos, Severity, Span};
+use common::{Diagnostic, DiagnosticHint, FmtChar, FmtStr, Pos, Severity, Span};
 
 use crate::{parse, IdentField, NumField, WlChar};
 
@@ -26,6 +26,8 @@ pub enum Error {
 }
 
 impl Diagnostic for Error {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Error;
 
     fn span(&self) -> Span {
@@ -107,6 +109,8 @@ impl Diagnostic for Error {
 pub enum Warning {}
 
 impl Diagnostic for Warning {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Warning;
 
     fn span(&self) -> Span {
@@ -123,16 +127,31 @@ impl Diagnostic for Warning {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Hint {}
+pub enum Info {}
 
-impl Diagnostic for Hint {
-    const SEVERITY: Severity = Severity::Hint;
+impl Diagnostic for Info {
+    type Hint = Hint;
+
+    const SEVERITY: Severity = Severity::Info;
 
     fn span(&self) -> Span {
         todo!()
     }
 
     fn description(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Hint {}
+
+impl DiagnosticHint for Hint {
+    fn span(&self) -> Span {
         todo!()
     }
 

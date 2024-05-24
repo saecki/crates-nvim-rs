@@ -1,23 +1,23 @@
-use common::{Ctx, Diagnostic, Diagnostics, FmtStr, Severity, Span};
+use common::{Ctx, Diagnostic, DiagnosticHint, Diagnostics, FmtStr, Severity, Span};
 use toml::util::Datatype;
 
 pub trait CargoCtx:
-    Ctx<Error = Self::CargoError, Warning = Self::CargoWarning, Hint = Self::CargoHint>
+    Ctx<Error = Self::CargoError, Warning = Self::CargoWarning, Info = Self::CargoInfo>
 {
     type CargoError: From<Error>;
     type CargoWarning: From<Warning>;
-    type CargoHint: From<Hint>;
+    type CargoInfo: From<Info>;
 }
 
-impl<E, W, H> CargoCtx for Diagnostics<E, W, H>
+impl<E, W, I> CargoCtx for Diagnostics<E, W, I>
 where
     E: From<Error>,
     W: From<Warning>,
-    H: From<Hint>,
+    I: From<Info>,
 {
     type CargoError = E;
     type CargoWarning = W;
-    type CargoHint = H;
+    type CargoInfo = I;
 }
 
 // TODO: add context lines
@@ -44,6 +44,8 @@ pub enum Error {
 }
 
 impl Diagnostic for Error {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Error;
 
     fn span(&self) -> Span {
@@ -93,6 +95,15 @@ impl Diagnostic for Error {
             UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
         }
     }
+
+    fn hint(&self) -> Option<Self::Hint> {
+        use Error::*;
+        match self {
+            WrongDatatypeInTable { .. } => todo!(),
+            WrongDatatypeInArray { .. } => todo!(),
+            UnsupportedUnderscore { .. } => todo!(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -112,6 +123,8 @@ pub enum Warning {
 }
 
 impl Diagnostic for Warning {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Warning;
 
     fn span(&self) -> Span {
@@ -144,13 +157,25 @@ impl Diagnostic for Warning {
             RedundantDeprecatedUnderscore { new, .. } => write!(f, "Redundant with `{new}`"),
         }
     }
+
+    fn hint(&self) -> Option<Self::Hint> {
+        use Warning::*;
+        match self {
+            DeprecatedUnderscore { .. } => todo!(),
+            RedundantDeprecatedUnderscore { new_span, .. } => {
+                Some(Hint::RedundantDeprecatedUnderscore(*new_span))
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Hint {}
+pub enum Info {}
 
-impl Diagnostic for Hint {
-    const SEVERITY: Severity = Severity::Hint;
+impl Diagnostic for Info {
+    type Hint = Hint;
+
+    const SEVERITY: Severity = Severity::Info;
 
     fn span(&self) -> Span {
         todo!()
@@ -163,6 +188,21 @@ impl Diagnostic for Hint {
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         _ = f;
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Hint {
+    RedundantDeprecatedUnderscore(Span),
+}
+
+impl DiagnosticHint for Hint {
+    fn span(&self) -> Span {
+        todo!()
+    }
+
+    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
         todo!()
     }
 }

@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use common::{Ctx, Diagnostics, Pos};
-pub use error::{Error, Hint, Warning};
+pub use error::{Error, Hint, Info, Warning};
 pub use parse::*;
 
 use crate::inlinestr::InlineStr;
@@ -15,22 +15,22 @@ mod parse;
 mod test;
 
 pub trait SemverCtx:
-    Ctx<Error = Self::SemverError, Warning = Self::SemverWarning, Hint = Self::SemverHint>
+    Ctx<Error = Self::SemverError, Warning = Self::SemverWarning, Info = Self::SemverInfo>
 {
     type SemverError: From<Error>;
     type SemverWarning: From<Warning>;
-    type SemverHint: From<Hint>;
+    type SemverInfo: From<Info>;
 }
 
-impl<E, W, H> SemverCtx for Diagnostics<E, W, H>
+impl<E, W, I> SemverCtx for Diagnostics<E, W, I>
 where
     E: From<Error>,
     W: From<Warning>,
-    H: From<Hint>,
+    I: From<Info>,
 {
     type SemverError = E;
     type SemverWarning = W;
-    type SemverHint = H;
+    type SemverInfo = I;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

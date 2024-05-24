@@ -8,11 +8,11 @@ pub mod diagnostic;
 pub trait Ctx: Sized {
     type Error;
     type Warning;
-    type Hint;
+    type Info;
 
     fn error(&mut self, error: impl Into<Self::Error>);
     fn warn(&mut self, warning: impl Into<Self::Warning>);
-    fn hint(&mut self, hint: impl Into<Self::Hint>);
+    fn info(&mut self, info: impl Into<Self::Info>);
 
     fn mark(&self) -> DiagnosticMark;
 
@@ -23,29 +23,29 @@ pub trait Ctx: Sized {
 pub struct DiagnosticMark {
     error: usize,
     warning: usize,
-    hint: usize,
+    info: usize,
 }
 
-pub struct Diagnostics<E, W, H> {
+pub struct Diagnostics<E, W, I> {
     pub errors: Vec<E>,
     pub warnings: Vec<W>,
-    pub hints: Vec<H>,
+    pub infos: Vec<I>,
 }
 
-impl<E, W, H> Default for Diagnostics<E, W, H> {
+impl<E, W, I> Default for Diagnostics<E, W, I> {
     fn default() -> Self {
         Self {
             errors: Vec::new(),
             warnings: Vec::new(),
-            hints: Vec::new(),
+            infos: Vec::new(),
         }
     }
 }
 
-impl<E, W, H> Ctx for Diagnostics<E, W, H> {
+impl<E, W, I> Ctx for Diagnostics<E, W, I> {
     type Error = E;
     type Warning = W;
-    type Hint = H;
+    type Info = I;
 
     fn error(&mut self, error: impl Into<E>) {
         self.errors.push(error.into());
@@ -55,35 +55,35 @@ impl<E, W, H> Ctx for Diagnostics<E, W, H> {
         self.warnings.push(warning.into());
     }
 
-    fn hint(&mut self, hint: impl Into<H>) {
-        self.hints.push(hint.into());
+    fn info(&mut self, info: impl Into<I>) {
+        self.infos.push(info.into());
     }
 
     fn mark(&self) -> DiagnosticMark {
         DiagnosticMark {
             error: self.errors.len(),
             warning: self.warnings.len(),
-            hint: self.hints.len(),
+            info: self.infos.len(),
         }
     }
 
     fn reset(&mut self, mark: DiagnosticMark) {
         self.errors.truncate(mark.error);
         self.warnings.truncate(mark.warning);
-        self.hints.truncate(mark.hint);
+        self.infos.truncate(mark.info);
     }
 }
 
-impl<E, W, H> Diagnostics<E, W, H>
+impl<E, W, I> Diagnostics<E, W, I>
 where
     E: Diagnostic,
     W: Diagnostic,
-    H: Diagnostic,
+    I: Diagnostic,
 {
     pub fn sort_diagnostics(&mut self) {
         self.errors.sort_by(diagnostic::cmp);
         self.warnings.sort_by(diagnostic::cmp);
-        self.hints.sort_by(diagnostic::cmp);
+        self.infos.sort_by(diagnostic::cmp);
     }
 }
 

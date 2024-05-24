@@ -1,7 +1,7 @@
 use bumpalo::Bump;
 use common::{Ctx, Diagnostics};
 
-pub use error::{Error, Hint, Warning};
+pub use error::{Error, Hint, Info, Warning};
 pub use lex::{lex, Quote, Token, TokenType, Tokens};
 pub use map::{map, MapTable};
 pub use parse::{parse, Ast, Asts};
@@ -14,17 +14,16 @@ pub mod util;
 #[macro_use]
 pub mod onevec;
 pub mod container;
-pub mod diagnostic;
 pub mod parse;
 #[cfg(test)]
 mod test;
 
 pub trait TomlCtx:
-    Ctx<Error = Self::TomlError, Warning = Self::TomlWarning, Hint = Self::TomlHint>
+    Ctx<Error = Self::TomlError, Warning = Self::TomlWarning, Info = Self::TomlInfo>
 {
     type TomlError: From<Error>;
     type TomlWarning: From<Warning>;
-    type TomlHint: From<Hint>;
+    type TomlInfo: From<Info>;
 
     fn lex<'a>(&mut self, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
         lex(self, bump, input)
@@ -39,15 +38,15 @@ pub trait TomlCtx:
     }
 }
 
-impl<E, W, H> TomlCtx for Diagnostics<E, W, H>
+impl<E, W, I> TomlCtx for Diagnostics<E, W, I>
 where
     E: From<Error>,
     W: From<Warning>,
-    H: From<Hint>,
+    I: From<Info>,
 {
     type TomlError = E;
     type TomlWarning = W;
-    type TomlHint = H;
+    type TomlInfo = I;
 }
 
-pub type TomlDiagnostics = Diagnostics<Error, Warning, Hint>;
+pub type TomlDiagnostics = Diagnostics<Error, Warning, Info>;

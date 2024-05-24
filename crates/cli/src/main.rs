@@ -2,7 +2,6 @@ use std::process::ExitCode;
 
 use bumpalo::Bump;
 use common::diagnostic;
-use toml::diagnostic::display_error;
 use toml::{TomlCtx, TomlDiagnostics};
 
 fn main() -> ExitCode {
@@ -36,7 +35,7 @@ fn main() -> ExitCode {
     ctx.sort_diagnostics();
     let mut msg = String::new();
     for error in ctx.errors.iter() {
-        display_error(&mut msg, error, &lines).unwrap();
+        diagnostic::display(&mut msg, error, &lines).unwrap();
         println!("{msg}");
         msg.clear()
     }

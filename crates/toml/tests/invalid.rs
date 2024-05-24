@@ -255,7 +255,7 @@ fn run_case(input: &str) -> Result<HashMap<String, SimpleVal>, String> {
         let lines = diagnostic::lines(input);
         let mut msg = String::new();
         for error in ctx.errors.iter() {
-            _ = crates_toml::diagnostic::display_error(&mut msg, error, &lines);
+            _ = diagnostic::display(&mut msg, error, &lines);
         }
         return Err(msg);
     }

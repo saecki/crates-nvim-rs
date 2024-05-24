@@ -11,7 +11,7 @@ use toml::TomlCtx;
 pub struct VimDiagnostics {
     pub errors: Vec<VimDiagnostic>,
     pub warnings: Vec<VimDiagnostic>,
-    pub hints: Vec<VimDiagnostic>,
+    pub infos: Vec<VimDiagnostic>,
 }
 
 impl ToObject for VimDiagnostics {
@@ -69,12 +69,12 @@ fn update() -> Result<(), nvim_oxi::Error> {
 
     let errors = ctx.errors.iter().map(map_vim_diagnostic).collect();
     let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
-    let hints = ctx.hints.iter().map(map_vim_diagnostic).collect();
+    let infos = ctx.infos.iter().map(map_vim_diagnostic).collect();
 
     let diagnostics = VimDiagnostics {
         errors,
         warnings,
-        hints,
+        infos,
     };
 
     dbg!(diagnostics);

@@ -1,4 +1,4 @@
-use common::{Diagnostic, FmtChar, FmtStr, Pos, Severity, Span};
+use common::{Diagnostic, DiagnosticHint, FmtChar, FmtStr, Pos, Severity, Span};
 
 use crate::datetime::DateTimeField;
 use crate::parse::{IntPrefix, LitPart, Sign};
@@ -112,11 +112,12 @@ pub enum Error {
 }
 
 impl Diagnostic for Error {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Error;
 
     fn span(&self) -> Span {
         use Error::*;
-
         match self {
             MissingQuote(_, _, p) => Span::pos(*p),
             ExcessiveQuotes(_, s) => *s,
@@ -192,7 +193,6 @@ impl Diagnostic for Error {
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
-
         match self {
             MissingQuote(quote, _, _) => write!(f, "Unterminated string literal, missing `{quote}`"),
             ExcessiveQuotes(quote, _) => write!(f, "Excess quotes, only up to two consecutive quotes (`{}`) are allowed inside a multi-line string", quote.singleline()),
@@ -296,7 +296,6 @@ impl Diagnostic for Error {
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
-
         match self {
             MissingQuote(..) => write!(f, "Unterminated string literal"),
             ExcessiveQuotes(..) => write!(f, "Excess quotes"),
@@ -392,12 +391,9 @@ impl Diagnostic for Error {
             }
         }
     }
-}
 
-impl Error {
-    pub fn hint(&self) -> Option<Hint> {
+    fn hint(&self) -> Option<Self::Hint> {
         use Error::*;
-
         match self {
             MissingQuote(q, p, _) => Some(Hint::MissingQuote(*q, *p)),
             ExcessiveQuotes(..) => None,
@@ -474,10 +470,8 @@ impl Error {
             }
         }
     }
-}
 
-impl Error {
-    pub fn lines(&self) -> Option<&[u32]> {
+    fn lines(&self) -> Option<&[u32]> {
         use Error::*;
         match self {
             MissingQuote(..) => None,
@@ -555,7 +549,30 @@ impl Error {
 pub enum Warning {}
 
 impl Diagnostic for Warning {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Warning;
+
+    fn span(&self) -> Span {
+        todo!()
+    }
+
+    fn description(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+
+    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Info {}
+
+impl Diagnostic for Info {
+    type Hint = Hint;
+
+    const SEVERITY: Severity = Severity::Info;
 
     fn span(&self) -> Span {
         todo!()
@@ -583,12 +600,9 @@ pub enum Hint {
     CannotExtendArrayWithDottedKey(Span),
 }
 
-impl Diagnostic for Hint {
-    const SEVERITY: Severity = Severity::Hint;
-
+impl DiagnosticHint for Hint {
     fn span(&self) -> Span {
         use Hint::*;
-
         match self {
             MissingQuote(q, p) => Span::from_pos_len(*p, q.len()),
             ExpectedRightCurlyFound(p) => Span::ascii_char(*p),
@@ -602,9 +616,8 @@ impl Diagnostic for Hint {
         }
     }
 
-    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Hint::*;
-
         match self {
             MissingQuote(_, _) => write!(f, "Literal started here"),
             ExpectedRightCurlyFound(_) => write!(f, "Left `{{` defined here"),
@@ -616,10 +629,6 @@ impl Diagnostic for Hint {
             CannotExtendTableWithDottedKey(_) => write!(f, "Original array defined here"),
             CannotExtendArrayWithDottedKey(_) => write!(f, "Original array defined here"),
         }
-    }
-
-    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        self.description(f)
     }
 }
 

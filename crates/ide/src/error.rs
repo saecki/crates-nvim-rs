@@ -1,4 +1,4 @@
-use common::{Diagnostic, Severity, Span};
+use common::{Diagnostic, DiagnosticHint, Severity, Span};
 
 use crate::cargo;
 
@@ -10,6 +10,8 @@ pub enum Error {
 }
 
 impl Diagnostic for Error {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Error;
 
     fn span(&self) -> Span {
@@ -33,6 +35,22 @@ impl Diagnostic for Error {
             Error::Toml(e) => e.annotation(f),
             Error::Semver(e) => e.annotation(f),
             Error::Cargo(e) => e.annotation(f),
+        }
+    }
+
+    fn hint(&self) -> Option<Self::Hint> {
+        match self {
+            Error::Toml(e) => e.hint().map(Hint::Toml),
+            Error::Semver(e) => e.hint().map(Hint::Semver),
+            Error::Cargo(e) => e.hint().map(Hint::Cargo),
+        }
+    }
+
+    fn lines(&self) -> Option<&[u32]> {
+        match self {
+            Error::Toml(e) => e.lines(),
+            Error::Semver(e) => e.lines(),
+            Error::Cargo(e) => e.lines(),
         }
     }
 }
@@ -63,6 +81,8 @@ pub enum Warning {
 }
 
 impl Diagnostic for Warning {
+    type Hint = Hint;
+
     const SEVERITY: Severity = Severity::Warning;
 
     fn span(&self) -> Span {
@@ -88,6 +108,22 @@ impl Diagnostic for Warning {
             Warning::Cargo(w) => w.annotation(f),
         }
     }
+
+    fn hint(&self) -> Option<Self::Hint> {
+        match self {
+            Warning::Toml(w) => w.hint().map(Hint::Toml),
+            Warning::Semver(w) => w.hint().map(Hint::Semver),
+            Warning::Cargo(w) => w.hint().map(Hint::Cargo),
+        }
+    }
+
+    fn lines(&self) -> Option<&[u32]> {
+        match self {
+            Warning::Toml(w) => w.lines(),
+            Warning::Semver(w) => w.lines(),
+            Warning::Cargo(w) => w.lines(),
+        }
+    }
 }
 
 impl From<toml::Warning> for Warning {
@@ -109,54 +145,89 @@ impl From<cargo::Warning> for Warning {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+pub enum Info {
+    Toml(toml::Info),
+    Semver(semver::Info),
+    Cargo(cargo::Info),
+}
+
+impl Diagnostic for Info {
+    type Hint = Hint;
+
+    const SEVERITY: Severity = Severity::Info;
+
+    fn span(&self) -> Span {
+        match self {
+            Info::Toml(h) => h.span(),
+            Info::Semver(h) => h.span(),
+            Info::Cargo(h) => h.span(),
+        }
+    }
+
+    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Info::Toml(h) => h.description(f),
+            Info::Semver(h) => h.description(f),
+            Info::Cargo(h) => h.description(f),
+        }
+    }
+
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Info::Toml(h) => h.annotation(f),
+            Info::Semver(h) => h.annotation(f),
+            Info::Cargo(h) => h.annotation(f),
+        }
+    }
+
+    fn hint(&self) -> Option<Self::Hint> {
+        match self {
+            Info::Toml(i) => i.hint().map(Hint::Toml),
+            Info::Semver(i) => i.hint().map(Hint::Semver),
+            Info::Cargo(i) => i.hint().map(Hint::Cargo),
+        }
+    }
+
+    fn lines(&self) -> Option<&[u32]> {
+        match self {
+            Info::Toml(i) => i.lines(),
+            Info::Semver(i) => i.lines(),
+            Info::Cargo(i) => i.lines(),
+        }
+    }
+}
+
+impl From<toml::Info> for Info {
+    fn from(value: toml::Info) -> Self {
+        Self::Toml(value)
+    }
+}
+
+impl From<semver::Info> for Info {
+    fn from(value: semver::Info) -> Self {
+        Self::Semver(value)
+    }
+}
+
+impl From<cargo::Info> for Info {
+    fn from(value: cargo::Info) -> Self {
+        Self::Cargo(value)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum Hint {
     Toml(toml::Hint),
     Semver(semver::Hint),
     Cargo(cargo::Hint),
 }
 
-impl Diagnostic for Hint {
-    const SEVERITY: Severity = Severity::Hint;
-
+impl DiagnosticHint for Hint {
     fn span(&self) -> Span {
-        match self {
-            Hint::Toml(h) => h.span(),
-            Hint::Semver(h) => h.span(),
-            Hint::Cargo(h) => h.span(),
-        }
+        todo!()
     }
 
-    fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        match self {
-            Hint::Toml(h) => h.description(f),
-            Hint::Semver(h) => h.description(f),
-            Hint::Cargo(h) => h.description(f),
-        }
-    }
-
-    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        match self {
-            Hint::Toml(h) => h.annotation(f),
-            Hint::Semver(h) => h.annotation(f),
-            Hint::Cargo(h) => h.annotation(f),
-        }
-    }
-}
-
-impl From<toml::Hint> for Hint {
-    fn from(value: toml::Hint) -> Self {
-        Self::Toml(value)
-    }
-}
-
-impl From<semver::Hint> for Hint {
-    fn from(value: semver::Hint) -> Self {
-        Self::Semver(value)
-    }
-}
-
-impl From<cargo::Hint> for Hint {
-    fn from(value: cargo::Hint) -> Self {
-        Self::Cargo(value)
+    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        todo!()
     }
 }
