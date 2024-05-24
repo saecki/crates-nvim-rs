@@ -53,7 +53,8 @@ use crate::{Asts, Error, TomlCtx};
 #[cfg(test)]
 mod test;
 
-// The ids is irrelevant, since the caller won't have any [`MapTableEntry::reprs`] array to index anyway.
+// The id is irrelevant, since the caller won't have any [`MapTableEntry::reprs`]
+// array to index anyway, but this will most likely panic if used wrong.
 const ROOT_PARENT: ParentId = ParentId(u32::MAX);
 
 #[derive(Debug, Default, PartialEq)]
