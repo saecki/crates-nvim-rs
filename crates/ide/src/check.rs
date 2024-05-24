@@ -54,15 +54,19 @@ pub enum DependencyKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DependencySpec<'a> {
     Workspace(&'a BoolVal),
-    Path(&'a StringVal<'a>),
     Git {
         repo: &'a StringVal<'a>,
         spec: DependencyGitSpec<'a>,
+        version: Option<DependencyVersion<'a>>,
     },
-    Version {
-        version: &'a StringVal<'a>,
+    Path {
+        path: &'a StringVal<'a>,
+        version: Option<DependencyVersion<'a>>,
         registry: Option<&'a StringVal<'a>>,
-        req: Option<VersionReq>,
+    },
+    Registry {
+        version: DependencyVersion<'a>,
+        registry: Option<&'a StringVal<'a>>,
     },
     /// One of the following combinations is present:
     /// - `git` and `registry`
@@ -73,7 +77,16 @@ pub enum DependencySpec<'a> {
     /// - `path`
     /// - `git`
     /// - `version`
+    ///
+    /// This is still valid, but will be considered an error in future versions.
+    /// Default to the latest crates.io version.
     Missing,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DependencyVersion<'a> {
+    str: &'a StringVal<'a>,
+    req: Option<VersionReq>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -179,79 +192,111 @@ impl<'a> DependencyBuilder<'a> {
         kind: DependencyKind,
         target: Option<&'a StringVal<'a>>,
     ) -> Dependency<'a> {
-        let spec = if let Some(workspace) = self.workspace {
-            if workspace.val == false {
-                todo!("error workspace cannot be false");
-            }
-
-            // TODO: diagnostics
-            if self.version.is_some() {
-                todo!("warning")
-            }
-            if self.registry.is_some() {
-                todo!("warning")
-            }
-            if self.path.is_some() {
-                todo!("warning")
-            }
-            if self.git.is_some() {
-                todo!("warning")
-            }
-            if self.rev.is_some() {
-                todo!("warning")
-            }
-
-            DependencySpec::Workspace(workspace)
-        } else if let Some(path) = self.path {
-            // TODO: diagnostics
-
-            DependencySpec::Path(path)
-        } else if let Some(repo) = self.git {
-            // TODO: diagnostics
-
-            let spec = if let Some(branch) = self.branch {
-                if let Some(tag) = self.tag {
-                    todo!("error {tag:?}")
-                }
-                if let Some(rev) = self.rev {
-                    todo!("error {rev:?}")
+        let spec = 'spec: {
+            if let Some(workspace) = self.workspace {
+                if workspace.val == false {
+                    todo!("error workspace cannot be false");
                 }
 
-                DependencyGitSpec::Branch(branch)
-            } else if let Some(tag) = self.tag {
-                if let Some(rev) = self.rev {
-                    todo!("error {rev:?}")
+                // TODO: diagnostics
+                if let Some(_version) = self.version {
+                    todo!("warning")
+                }
+                if let Some(_registry) = self.registry {
+                    todo!("warning")
+                }
+                if let Some(_path) = self.path {
+                    todo!("warning")
+                }
+                if let Some(_git) = self.git {
+                    todo!("warning")
+                }
+                if let Some(_tag) = self.tag {
+                    todo!("warning")
+                }
+                if let Some(_branch) = self.branch {
+                    todo!("warning")
+                }
+                if let Some(_rev) = self.rev {
+                    todo!("warning")
                 }
 
-                DependencyGitSpec::Tag(tag)
-            } else if let Some(rev) = self.rev {
-                DependencyGitSpec::Rev(rev)
-            } else {
-                DependencyGitSpec::None
-            };
-
-            DependencySpec::Git { repo, spec }
-        } else if let Some(version) = self.version {
-            // TODO: diagnostics
-            if self.path.is_some() {
-                todo!("warning")
-            }
-            if self.git.is_some() {
-                todo!("warning")
-            }
-            if self.rev.is_some() {
-                todo!("warning")
+                break 'spec DependencySpec::Workspace(workspace);
             }
 
-            let req = parse_version_req(ctx, version);
-            DependencySpec::Version {
-                version,
-                registry: self.registry,
-                req,
+            match (self.git, self.path, self.registry) {
+                (Some(_git), Some(_path), Some(_registry)) => {
+                    // TODO: error
+                    DependencySpec::Conflicting
+                }
+                (Some(_git), _, Some(_registry)) => {
+                    // TODO: error
+                    DependencySpec::Conflicting
+                }
+                (Some(_git), Some(_path), _) => {
+                    // TODO: error
+                    DependencySpec::Conflicting
+                }
+                (Some(repo), None, None) => {
+                    // TODO: diagnostics
+
+                    let spec = match (self.branch, self.tag, self.rev) {
+                        (Some(_b), Some(_t), Some(_r)) => {
+                            // TODO: error
+                            DependencyGitSpec::Conflicting
+                        }
+                        (Some(_b), Some(_t), None) => {
+                            // TODO: error
+                            DependencyGitSpec::Conflicting
+                        }
+                        (Some(_b), None, Some(_r)) => {
+                            // TODO: error
+                            DependencyGitSpec::Conflicting
+                        }
+                        (None, Some(_t), Some(_r)) => {
+                            // TODO: error
+                            DependencyGitSpec::Conflicting
+                        }
+                        (Some(branch), None, None) => DependencyGitSpec::Branch(branch),
+                        (None, Some(tag), None) => DependencyGitSpec::Tag(tag),
+                        (None, None, Some(rev)) => DependencyGitSpec::Rev(rev),
+                        (None, None, None) => DependencyGitSpec::None,
+                    };
+
+                    let version = self.version.map(|v| parse_version_req(ctx, v));
+
+                    DependencySpec::Git {
+                        repo,
+                        spec,
+                        version,
+                    }
+                }
+                (None, Some(path), registry) => {
+                    // TODO: diagnostics
+
+                    let version = self.version.map(|v| parse_version_req(ctx, v));
+
+                    DependencySpec::Path {
+                        path,
+                        version,
+                        registry,
+                    }
+                }
+                (None, None, registry) => {
+                    match self.version {
+                        Some(version) => {
+                            // TODO: diagnostics
+
+                            let version = parse_version_req(ctx, version);
+                            DependencySpec::Registry { version, registry }
+                        }
+                        None => {
+                            // TODO: error
+                            DependencySpec::Missing
+                        }
+                    }
+                }
             }
-        } else {
-            // TODO warning (error in future versions)
-            DependencySpec::Missing
         };
 
         Dependency {
@@ -279,11 +324,10 @@ fn parse_dependencies<'a>(
 
         let dep = match &entry.node {
             MapNode::Scalar(Scalar::String(version)) => {
-                let req = parse_version_req(ctx, version);
-                let spec = DependencySpec::Version {
+                let version = parse_version_req(ctx, version);
+                let spec = DependencySpec::Registry {
                     version,
                     registry: None,
-                    req,
                 };
                 Dependency {
                     name,
@@ -343,15 +387,19 @@ fn parse_dependencies<'a>(
     }
 }
 
-fn parse_version_req(ctx: &mut impl SemverCtx, str: &StringVal) -> Option<VersionReq> {
+fn parse_version_req<'a>(
+    ctx: &mut impl SemverCtx,
+    str: &'a StringVal<'a>,
+) -> DependencyVersion<'a> {
     let pos = str.text_span().start;
-    match semver::parse_requirement(str.lit, pos) {
+    let req = match semver::parse_requirement(str.lit, pos) {
         Ok(v) => Some(v),
         Err(e) => {
             ctx.error(e);
             None
         }
-    }
+    };
+    DependencyVersion { str, req }
 }
 
 fn parse_dependency_features<'a>(
