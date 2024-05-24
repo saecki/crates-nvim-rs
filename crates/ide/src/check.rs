@@ -298,6 +298,22 @@ fn parse_dependencies<'a>(
                             features.default = expect_bool_in_table(ctx, e);
                         }
                         "default_features" => {
+                            let old = "default_features";
+                            let new = "default-features";
+                            if let Some(n) = t.get(new) {
+                                ctx.warn(cargo::Warning::RedundantDeprecatedUnderscore {
+                                    old,
+                                    new,
+                                    old_span: e.reprs.first().kind.span(),
+                                    new_span: n.reprs.first().kind.span(),
+                                });
+                            } else {
+                                ctx.warn(cargo::Warning::DeprecatedUnderscore {
+                                    old,
+                                    new,
+                                    span: e.reprs.first().kind.span(),
+                                });
+                            }
                             // TODO: warning or hint
 
                             // `default-features` takes predendence
@@ -361,6 +377,7 @@ fn expect_table_in_table<'a>(
 ) -> Option<&'a MapTable<'a>> {
     match &entry.node {
         MapNode::Table(a) => Some(a),
+        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
@@ -382,6 +399,7 @@ fn expect_array_in_table<'a>(
 ) -> Option<&'a MapArray<'a>> {
     match &entry.node {
         MapNode::Array(a) => Some(a),
+        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
@@ -403,6 +421,7 @@ fn expect_string_in_table<'a>(
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
+        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
@@ -425,6 +444,7 @@ fn expect_string_in_array<'a>(
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
+        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
             ctx.error(cargo::Error::WrongDatatypeInArray {
                 index,
@@ -443,6 +463,7 @@ fn expect_bool_in_table<'a>(
 ) -> Option<&'a BoolVal> {
     match &entry.node {
         MapNode::Scalar(Scalar::Bool(b)) => Some(b),
+        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);

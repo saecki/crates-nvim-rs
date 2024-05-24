@@ -12,6 +12,7 @@ pub enum Datatype {
     Float,
     Bool,
     DateTime,
+    Invalid,
 }
 
 impl Datatype {
@@ -24,6 +25,7 @@ impl Datatype {
             Datatype::Float => "float",
             Datatype::Bool => "bool",
             Datatype::DateTime => "date-time",
+            Datatype::Invalid => "invalid",
         }
     }
 }
@@ -52,8 +54,7 @@ impl Scalar<'_> {
             Scalar::Float(_) => Datatype::Float,
             Scalar::Bool(_) => Datatype::Bool,
             Scalar::DateTime(_) => Datatype::DateTime,
-            // FIXME: what's to do here?
-            Scalar::Invalid(_, _) => todo!(),
+            Scalar::Invalid(_, _) => Datatype::Invalid,
         }
     }
 }
@@ -68,8 +69,7 @@ impl SimpleVal {
             SimpleVal::Float(_) => Datatype::Float,
             SimpleVal::Bool(_) => Datatype::Bool,
             SimpleVal::DateTime(_) => Datatype::DateTime,
-            // FIXME: what's to do here?
-            SimpleVal::Invalid(_) => todo!(),
+            SimpleVal::Invalid(_) => Datatype::Invalid,
         }
     }
 }

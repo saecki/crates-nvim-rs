@@ -118,7 +118,8 @@ pub enum Warning {
     RedundantDeprecatedUnderscore {
         old: &'static str,
         new: &'static str,
-        span: Span,
+        old_span: Span,
+        new_span: Span,
     },
 }
 
@@ -131,7 +132,7 @@ impl Diagnostic for Warning {
         use Warning::*;
         match self {
             DeprecatedUnderscore { span, .. } => *span,
-            RedundantDeprecatedUnderscore { span, .. } => *span,
+            RedundantDeprecatedUnderscore { old_span, .. } => *old_span,
         }
     }
 
@@ -161,7 +162,7 @@ impl Diagnostic for Warning {
     fn hint(&self) -> Option<Self::Hint> {
         use Warning::*;
         match self {
-            DeprecatedUnderscore { .. } => todo!(),
+            DeprecatedUnderscore { .. } => None,
             RedundantDeprecatedUnderscore { new_span, .. } => {
                 Some(Hint::RedundantDeprecatedUnderscore(*new_span))
             }
@@ -199,10 +200,14 @@ pub enum Hint {
 
 impl DiagnosticHint for Hint {
     fn span(&self) -> Span {
-        todo!()
+        match self {
+            Hint::RedundantDeprecatedUnderscore(s) => *s,
+        }
     }
 
-    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        todo!()
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Hint::RedundantDeprecatedUnderscore(_) => write!(f, "Used instead"),
+        }
     }
 }
