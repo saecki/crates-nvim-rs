@@ -46,11 +46,11 @@ impl Diagnostic for Error {
         }
     }
 
-    fn lines(&self) -> Option<&[u32]> {
+    fn context_lines(&self) -> Option<&[u32]> {
         match self {
-            Error::Toml(e) => e.lines(),
-            Error::Semver(e) => e.lines(),
-            Error::Cargo(e) => e.lines(),
+            Error::Toml(e) => e.context_lines(),
+            Error::Semver(e) => e.context_lines(),
+            Error::Cargo(e) => e.context_lines(),
         }
     }
 }
@@ -117,11 +117,11 @@ impl Diagnostic for Warning {
         }
     }
 
-    fn lines(&self) -> Option<&[u32]> {
+    fn context_lines(&self) -> Option<&[u32]> {
         match self {
-            Warning::Toml(w) => w.lines(),
-            Warning::Semver(w) => w.lines(),
-            Warning::Cargo(w) => w.lines(),
+            Warning::Toml(w) => w.context_lines(),
+            Warning::Semver(w) => w.context_lines(),
+            Warning::Cargo(w) => w.context_lines(),
         }
     }
 }
@@ -188,11 +188,11 @@ impl Diagnostic for Info {
         }
     }
 
-    fn lines(&self) -> Option<&[u32]> {
+    fn context_lines(&self) -> Option<&[u32]> {
         match self {
-            Info::Toml(i) => i.lines(),
-            Info::Semver(i) => i.lines(),
-            Info::Cargo(i) => i.lines(),
+            Info::Toml(i) => i.context_lines(),
+            Info::Semver(i) => i.context_lines(),
+            Info::Cargo(i) => i.context_lines(),
         }
     }
 }

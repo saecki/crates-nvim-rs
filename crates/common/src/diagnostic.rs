@@ -27,21 +27,38 @@ pub trait Diagnostic {
 
     const SEVERITY: Severity;
 
+    /// The span of text that is highlighted by this diagnostic.
     fn span(&self) -> Span;
+
+    /// A complete error description.
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result;
+
+    /// A shorter description shown inline next to the spanned text.
+    ///
+    /// This should not contain names that are spanned to reduce clutter.
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result;
 
+    /// A supporting hint providing further information related to this diagnostic.
     fn hint(&self) -> Option<Self::Hint> {
         None
     }
 
-    fn lines(&self) -> Option<&[u32]> {
+    /// Other relevant lines for this diagnostic. These may overlap with spans defined by this
+    /// diagnostic or its hint.
+    ///
+    /// The line numbers are 0-based.
+    fn context_lines(&self) -> Option<&[u32]> {
         None
     }
 }
 
 pub trait DiagnosticHint {
+    /// The span of text that is highlighted by this diagnostic.
     fn span(&self) -> Span;
+
+    /// A shorter description shown inline next to the spanned text.
+    ///
+    /// This should not contain names that are spanned to reduce clutter.
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result;
 }
 
@@ -70,7 +87,7 @@ pub fn display(
     lines: &[&str],
 ) -> std::fmt::Result {
     writeln!(f, "{}", diagnostic.header(&lines))?;
-    let context_lines = diagnostic.lines().unwrap_or(&[]);
+    let context_lines = diagnostic.context_lines().unwrap_or(&[]);
 
     let mut start_line = 0;
     if let Some(hint) = diagnostic.hint() {

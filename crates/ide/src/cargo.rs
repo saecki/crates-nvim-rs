@@ -95,15 +95,6 @@ impl Diagnostic for Error {
             UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
         }
     }
-
-    fn hint(&self) -> Option<Self::Hint> {
-        use Error::*;
-        match self {
-            WrongDatatypeInTable { .. } => todo!(),
-            WrongDatatypeInArray { .. } => todo!(),
-            UnsupportedUnderscore { .. } => todo!(),
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

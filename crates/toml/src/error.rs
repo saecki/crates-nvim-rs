@@ -471,7 +471,7 @@ impl Diagnostic for Error {
         }
     }
 
-    fn lines(&self) -> Option<&[u32]> {
+    fn context_lines(&self) -> Option<&[u32]> {
         use Error::*;
         match self {
             MissingQuote(..) => None,
