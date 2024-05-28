@@ -1,7 +1,7 @@
 use common::{FmtStr, Span};
 use semver::{SemverCtx, VersionReq};
 use toml::map::{MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, Scalar};
-use toml::parse::{BoolVal, StringVal};
+use toml::parse::{BoolVal, Ident, StringVal};
 use toml::util::Datatype;
 
 use crate::cargo;
@@ -53,20 +53,20 @@ pub enum DependencyKind {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DependencySpec<'a> {
-    Workspace(&'a BoolVal),
+    Workspace(BoolAssignment<'a>),
     Git {
-        repo: &'a StringVal<'a>,
+        repo: StringAssignment<'a>,
         spec: DependencyGitSpec<'a>,
         version: Option<DependencyVersion<'a>>,
     },
     Path {
-        path: &'a StringVal<'a>,
+        path: StringAssignment<'a>,
         version: Option<DependencyVersion<'a>>,
-        registry: Option<&'a StringVal<'a>>,
+        registry: Option<StringAssignment<'a>>,
     },
     Registry {
         version: DependencyVersion<'a>,
-        registry: Option<&'a StringVal<'a>>,
+        registry: Option<StringAssignment<'a>>,
     },
     /// One of the following combinations is present:
     /// - `git` and `registry`
@@ -85,15 +85,15 @@ pub enum DependencySpec<'a> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DependencyVersion<'a> {
-    str: &'a StringVal<'a>,
+    str: StringAssignment<'a>,
     req: Option<VersionReq>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DependencyGitSpec<'a> {
-    Branch(&'a StringVal<'a>),
-    Tag(&'a StringVal<'a>),
-    Rev(&'a StringVal<'a>),
+    Branch(StringAssignment<'a>),
+    Tag(StringAssignment<'a>),
+    Rev(StringAssignment<'a>),
     /// More than one of the following is present:
     /// - `branch`
     /// - `tag`
@@ -104,8 +104,32 @@ pub enum DependencyGitSpec<'a> {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct DependencyFeatures<'a> {
-    pub default: Option<&'a BoolVal>,
+    pub default: Option<BoolAssignment<'a>>,
     pub list: Vec<&'a StringVal<'a>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StringAssignment<'a> {
+    pub ident: &'a Ident<'a>,
+    pub val: &'a StringVal<'a>,
+}
+
+impl<'a> StringAssignment<'a> {
+    pub fn span(&self) -> Span {
+        Span::new(self.ident.lit_start, self.val.lit_span.end)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoolAssignment<'a> {
+    pub ident: &'a Ident<'a>,
+    pub val: &'a BoolVal,
+}
+
+impl<'a> BoolAssignment<'a> {
+    pub fn span(&self) -> Span {
+        Span::new(self.ident.lit_start, self.val.lit_span.end)
+    }
 }
 
 pub fn check<'a>(ctx: &mut impl IdeCtx, map: &'a MapTable<'a>) -> State<'a> {
@@ -171,19 +195,19 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, map: &'a MapTable<'a>) -> State<'a> {
 
 #[derive(Default)]
 struct DependencyBuilder<'a> {
-    workspace: Option<&'a BoolVal>,
-    version: Option<&'a StringVal<'a>>,
-    registry: Option<&'a StringVal<'a>>,
-    path: Option<&'a StringVal<'a>>,
-    git: Option<&'a StringVal<'a>>,
-    branch: Option<&'a StringVal<'a>>,
-    tag: Option<&'a StringVal<'a>>,
-    rev: Option<&'a StringVal<'a>>,
+    workspace: Option<BoolAssignment<'a>>,
+    version: Option<StringAssignment<'a>>,
+    registry: Option<StringAssignment<'a>>,
+    path: Option<StringAssignment<'a>>,
+    git: Option<StringAssignment<'a>>,
+    branch: Option<StringAssignment<'a>>,
+    tag: Option<StringAssignment<'a>>,
+    rev: Option<StringAssignment<'a>>,
 }
 
 impl<'a> DependencyBuilder<'a> {
     fn try_build(
-        &self,
+        self,
         ctx: &mut impl IdeCtx,
         entry: &'a MapTableEntry<'a>,
         name: &'a str,
@@ -194,7 +218,7 @@ impl<'a> DependencyBuilder<'a> {
     ) -> Dependency<'a> {
         let spec = 'spec: {
             if let Some(workspace) = self.workspace {
-                if workspace.val == false {
+                if workspace.val.val == false {
                     todo!("error workspace cannot be false");
                 }
 
@@ -225,44 +249,42 @@ impl<'a> DependencyBuilder<'a> {
             }
 
             match (self.git, self.path, self.registry) {
-                (Some(_git), Some(_path), Some(_registry)) => {
-                    // TODO: error
+                (Some(git), _, Some(registry)) => {
+                    ctx.error(cargo::Error::AmbigousDepSpecGitRegistry(git.span()));
+                    ctx.error(cargo::Error::AmbigousDepSpecGitRegistry(registry.span()));
                     DependencySpec::Conflicting
                 }
-                (Some(_git), _, Some(_registry)) => {
-                    // TODO: error
-                    DependencySpec::Conflicting
-                }
-                (Some(_git), Some(_path), _) => {
-                    // TODO: error
+                (Some(git), Some(path), _) => {
+                    ctx.error(cargo::Error::AmbigousDepSpecGitPath(git.span()));
+                    ctx.error(cargo::Error::AmbigousDepSpecGitPath(path.span()));
                     DependencySpec::Conflicting
                 }
                 (Some(repo), None, None) => {
                     // TODO: diagnostics
 
-                    let spec = match (self.branch, self.tag, self.rev) {
-                        (Some(_b), Some(_t), Some(_r)) => {
-                            // TODO: error
-                            DependencyGitSpec::Conflicting
+                    let num = self.branch.is_some() as u8
+                        + self.tag.is_some() as u8
+                        + self.rev.is_some() as u8;
+                    let spec = if num > 1 {
+                        if let Some(b) = &self.branch {
+                            ctx.error(cargo::Error::AmbigousGitSpec(b.span()));
                         }
-                        (Some(_b), Some(_t), None) => {
-                            // TODO: error
-                            DependencyGitSpec::Conflicting
+                        if let Some(t) = &self.tag {
+                            ctx.error(cargo::Error::AmbigousGitSpec(t.span()));
                         }
-                        (Some(_b), None, Some(_r)) => {
-                            // TODO: error
-                            DependencyGitSpec::Conflicting
+                        if let Some(r) = &self.rev {
+                            ctx.error(cargo::Error::AmbigousGitSpec(r.span()));
                         }
-                        (None, Some(_t), Some(_r)) => {
-                            // TODO: error
-                            DependencyGitSpec::Conflicting
-                        }
-                        (Some(branch), None, None) => DependencyGitSpec::Branch(branch),
-                        (None, Some(tag), None) => DependencyGitSpec::Tag(tag),
-                        (None, None, Some(rev)) => DependencyGitSpec::Rev(rev),
-                        (None, None, None) => DependencyGitSpec::None,
+                        DependencyGitSpec::Conflicting
+                    } else if let Some(branch) = self.branch {
+                        DependencyGitSpec::Branch(branch)
+                    } else if let Some(tag) = self.tag {
+                        DependencyGitSpec::Tag(tag)
+                    } else if let Some(rev) = self.rev {
+                        DependencyGitSpec::Rev(rev)
+                    } else {
+                        DependencyGitSpec::None
                     };
-
                     let version = self.version.map(|v| parse_version_req(ctx, v));
 
                     DependencySpec::Git {
@@ -323,8 +345,10 @@ fn parse_dependencies<'a>(
         let mut features = DependencyFeatures::default();
 
         let dep = match &entry.node {
-            MapNode::Scalar(Scalar::String(version)) => {
-                let version = parse_version_req(ctx, version);
+            MapNode::Scalar(Scalar::String(val)) => {
+                let ident = entry.reprs.first().key.repr_ident();
+                let str = StringAssignment { ident, val };
+                let version = parse_version_req(ctx, str);
                 let spec = DependencySpec::Registry {
                     version,
                     registry: None,
@@ -354,7 +378,7 @@ fn parse_dependencies<'a>(
                         "rev" => builder.rev = expect_string_in_table(ctx, e),
                         "package" => {
                             if let Some(p) = expect_string_in_table(ctx, e) {
-                                package = p.text;
+                                package = p.val.text;
                             }
                         }
                         "default-features" => {
@@ -389,10 +413,10 @@ fn parse_dependencies<'a>(
 
 fn parse_version_req<'a>(
     ctx: &mut impl SemverCtx,
-    str: &'a StringVal<'a>,
+    str: StringAssignment<'a>,
 ) -> DependencyVersion<'a> {
-    let pos = str.text_span().start;
-    let req = match semver::parse_requirement(str.lit, pos) {
+    let pos = str.val.text_span().start;
+    let req = match semver::parse_requirement(str.val.lit, pos) {
         Ok(v) => Some(v),
         Err(e) => {
             ctx.error(e);
@@ -469,9 +493,12 @@ fn expect_array_in_table<'a>(
 fn expect_string_in_table<'a>(
     ctx: &mut impl IdeCtx,
     entry: &'a MapTableEntry<'a>,
-) -> Option<&'a StringVal<'a>> {
+) -> Option<StringAssignment<'a>> {
     match &entry.node {
-        MapNode::Scalar(Scalar::String(s)) => Some(s),
+        MapNode::Scalar(Scalar::String(val)) => {
+            let ident = entry.reprs.first().key.repr_ident();
+            Some(StringAssignment { ident, val })
+        }
         MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
             let repr = entry.reprs.first();
@@ -511,9 +538,12 @@ fn expect_string_in_array<'a>(
 fn expect_bool_in_table<'a>(
     ctx: &mut impl IdeCtx,
     entry: &'a MapTableEntry<'a>,
-) -> Option<&'a BoolVal> {
+) -> Option<BoolAssignment<'a>> {
     match &entry.node {
-        MapNode::Scalar(Scalar::Bool(b)) => Some(b),
+        MapNode::Scalar(Scalar::Bool(val)) => {
+            let ident = entry.reprs.first().key.repr_ident();
+            Some(BoolAssignment { ident, val })
+        }
         MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
             let repr = entry.reprs.first();

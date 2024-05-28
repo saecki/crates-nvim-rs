@@ -41,6 +41,9 @@ pub enum Error {
         new: &'static str,
         span: Span,
     },
+    AmbigousDepSpecGitPath(Span),
+    AmbigousDepSpecGitRegistry(Span),
+    AmbigousGitSpec(Span),
 }
 
 impl Diagnostic for Error {
@@ -54,6 +57,9 @@ impl Diagnostic for Error {
             WrongDatatypeInTable { span, .. } => *span,
             WrongDatatypeInArray { span, .. } => *span,
             UnsupportedUnderscore { span, .. } => *span,
+            AmbigousDepSpecGitPath(s) => *s,
+            AmbigousDepSpecGitRegistry(s) => *s,
+            AmbigousGitSpec(s) => *s,
         }
     }
 
@@ -84,6 +90,18 @@ impl Diagnostic for Error {
                     "`{old}` is unsupported in the 2024 edition; instead use `{new}`"
                 )
             }
+            AmbigousDepSpecGitPath(_) => write!(
+                f,
+                "Ambigous dependency specification, only one of `git` or `path` is allowed"
+            ),
+            AmbigousDepSpecGitRegistry(_) => write!(
+                f,
+                "Ambigous dependency specification, only one of `git` or `registry` is allowed"
+            ),
+            AmbigousGitSpec(_) => write!(
+                f,
+                "Ambigous dependency specification, only one of `branch`, `tag` or `rev` is allowed",
+            ),
         }
     }
 
@@ -93,6 +111,18 @@ impl Diagnostic for Error {
             WrongDatatypeInTable { expected, .. } => write!(f, "Expected type `{expected}`"),
             WrongDatatypeInArray { expected, .. } => write!(f, "Expected type `{expected}`"),
             UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
+            AmbigousDepSpecGitPath(_) => write!(
+                f,
+                "Only one of `git` or `path` is allowed"
+            ),
+            AmbigousDepSpecGitRegistry(_) => write!(
+                f,
+                "Only one of `git` or `registry` is allowed"
+            ),
+            AmbigousGitSpec(_) => write!(
+                f,
+                "Only one of `branch`, `tag` or `rev` is allowed",
+            ),
         }
     }
 }
