@@ -40,6 +40,7 @@ pub struct Dependency<'a> {
     pub target: Option<&'a StringVal<'a>>,
     pub spec: DependencySpec<'a>,
     pub features: DependencyFeatures<'a>,
+    pub optional: Option<BoolAssignment<'a>>,
     /// The entire toml entry
     pub entry: &'a MapTableEntry<'a>,
 }
@@ -72,6 +73,9 @@ pub enum DependencySpec<'a> {
     /// - `git` and `registry`
     /// - `git` and `path`
     Conflicting,
+    /// Invalid specification:
+    /// - `workspace` is false
+    Invalid,
     /// None of the following is present:
     /// - `workspace`
     /// - `path`
@@ -80,7 +84,9 @@ pub enum DependencySpec<'a> {
     ///
     /// This is still valid, but will be considered an error in future versions.
     /// Default to the latest crates.io version.
-    Missing,
+    Missing {
+        registry: Option<StringAssignment<'a>>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -203,6 +209,7 @@ struct DependencyBuilder<'a> {
     branch: Option<StringAssignment<'a>>,
     tag: Option<StringAssignment<'a>>,
     rev: Option<StringAssignment<'a>>,
+    optional: Option<BoolAssignment<'a>>,
 }
 
 impl<'a> DependencyBuilder<'a> {
@@ -219,33 +226,40 @@ impl<'a> DependencyBuilder<'a> {
         let spec = 'spec: {
             if let Some(workspace) = self.workspace {
                 if workspace.val.val == false {
-                    todo!("error workspace cannot be false");
+                    ctx.error(cargo::Error::DepWorkspaceIsFalse(workspace.span()));
+                    break 'spec DependencySpec::Invalid;
                 }
 
-                // TODO: diagnostics
-                if let Some(_version) = self.version {
-                    todo!("warning")
-                }
-                if let Some(_registry) = self.registry {
-                    todo!("warning")
-                }
-                if let Some(_path) = self.path {
-                    todo!("warning")
-                }
-                if let Some(_git) = self.git {
-                    todo!("warning")
-                }
-                if let Some(_tag) = self.tag {
-                    todo!("warning")
-                }
-                if let Some(_branch) = self.branch {
-                    todo!("warning")
-                }
-                if let Some(_rev) = self.rev {
-                    todo!("warning")
+                let ignored = [
+                    self.version.map(|v| ("version", v.span())),
+                    self.registry.map(|v| ("registry", v.span())),
+                    self.path.map(|v| ("path", v.span())),
+                    self.git.map(|v| ("git", v.span())),
+                    self.branch.map(|v| ("branch", v.span())),
+                    self.tag.map(|v| ("tag", v.span())),
+                    self.rev.map(|v| ("rev", v.span())),
+                ];
+                let workspace_span = workspace.span();
+                for (key, key_span) in ignored.into_iter().flatten() {
+                    ctx.warn(cargo::Warning::WorkspaceDepIgnoredKey {
+                        key,
+                        key_span,
+                        workspace_span,
+                    });
                 }
 
                 break 'spec DependencySpec::Workspace(workspace);
+            }
+
+            if self.git.is_none() {
+                let ignored = [
+                    self.branch.as_ref().map(|v| ("branch", v.span())),
+                    self.tag.as_ref().map(|v| ("tag", v.span())),
+                    self.rev.as_ref().map(|v| ("rev", v.span())),
+                ];
+                for (key, span) in ignored.into_iter().flatten() {
+                    ctx.error(cargo::Error::DepIgnoredGitKey(key, span));
+                }
             }
 
             match (self.git, self.path, self.registry) {
@@ -260,8 +274,6 @@ impl<'a> DependencyBuilder<'a> {
                     DependencySpec::Conflicting
                 }
                 (Some(repo), None, None) => {
-                    // TODO: diagnostics
-
                     let num = self.branch.is_some() as u8
                         + self.tag.is_some() as u8
                         + self.rev.is_some() as u8;
@@ -294,8 +306,6 @@ impl<'a> DependencyBuilder<'a> {
                     }
                 }
                 (None, Some(path), registry) => {
-                    // TODO: diagnostics
-
                     let version = self.version.map(|v| parse_version_req(ctx, v));
 
                     DependencySpec::Path {
@@ -305,17 +315,15 @@ impl<'a> DependencyBuilder<'a> {
                     }
                 }
                 (None, None, registry) => {
-                    match self.version {
-                        Some(version) => {
-                            // TODO: diagnostics
-
-                            let version = parse_version_req(ctx, version);
-                            DependencySpec::Registry { version, registry }
+                    if let Some(version) = self.version {
+                        let version = parse_version_req(ctx, version);
+                        DependencySpec::Registry { version, registry }
+                    } else {
+                        for repr in entry.reprs.iter() {
+                            // TODO: in the 2024 edition this becomes an error
+                            ctx.warn(cargo::Warning::MissingDepSpec(repr.repr_span()));
                         }
-                        None => {
-                            // TODO: error
-                            DependencySpec::Missing
-                        }
+                        DependencySpec::Missing { registry }
                     }
                 }
             }
@@ -328,6 +336,7 @@ impl<'a> DependencyBuilder<'a> {
             target,
             spec,
             features,
+            optional: self.optional,
             entry,
         }
     }
@@ -360,6 +369,7 @@ fn parse_dependencies<'a>(
                     target,
                     spec,
                     features,
+                    optional: None,
                     entry,
                 }
             }
@@ -456,12 +466,11 @@ fn expect_table_in_table<'a>(
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
-            let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(cargo::Error::WrongDatatypeInTable {
                 key,
                 expected: Datatype::Table,
                 found: n.datatype(),
-                span,
+                span: repr.repr_span(),
             });
             None
         }
@@ -478,12 +487,11 @@ fn expect_array_in_table<'a>(
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
-            let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(cargo::Error::WrongDatatypeInTable {
                 key,
                 expected: Datatype::Array,
                 found: n.datatype(),
-                span,
+                span: repr.repr_span(),
             });
             None
         }
@@ -503,12 +511,11 @@ fn expect_string_in_table<'a>(
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
-            let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(cargo::Error::WrongDatatypeInTable {
                 key,
                 expected: Datatype::String,
                 found: n.datatype(),
-                span,
+                span: repr.repr_span(),
             });
             None
         }
@@ -548,12 +555,11 @@ fn expect_bool_in_table<'a>(
         n => {
             let repr = entry.reprs.first();
             let key = FmtStr::from_str(repr.key.repr_ident().text);
-            let span = Span::across(repr.key.repr_ident().lit_span(), repr.kind.span());
             ctx.error(cargo::Error::WrongDatatypeInTable {
                 key,
                 expected: Datatype::Bool,
                 found: n.datatype(),
-                span,
+                span: repr.repr_span(),
             });
             None
         }

@@ -125,6 +125,11 @@ impl<'a> MapTableEntryRepr<'a> {
     fn new(parent: ParentId, key: MapTableKeyRepr<'a>, kind: MapTableEntryReprKind<'a>) -> Self {
         Self { parent, key, kind }
     }
+
+    /// The span from the [`MapTableKeyRepr::repr_ident`] to the end of the value.
+    pub fn repr_span(&self) -> Span {
+        Span::new(self.key.repr_ident().lit_start, self.kind.span().end)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
