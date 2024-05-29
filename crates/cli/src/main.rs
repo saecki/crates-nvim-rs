@@ -2,7 +2,8 @@ use std::process::ExitCode;
 
 use bumpalo::Bump;
 use common::diagnostic;
-use toml::{TomlCtx, TomlDiagnostics};
+use ide::{IdeCtx, IdeDiagnostics};
+use toml::TomlCtx;
 
 fn main() -> ExitCode {
     let Some(path) = std::env::args().nth(1) else {
@@ -20,7 +21,7 @@ fn main() -> ExitCode {
     let lines = diagnostic::lines(&text);
 
     let start = std::time::SystemTime::now();
-    let mut ctx = TomlDiagnostics::default();
+    let mut ctx = IdeDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, &text);
     let lexing = std::time::SystemTime::now();
@@ -28,6 +29,8 @@ fn main() -> ExitCode {
     let parsing = std::time::SystemTime::now();
     let map = ctx.map(&asts);
     let mapping = std::time::SystemTime::now();
+    let _state = ctx.check(&map);
+    let checking = std::time::SystemTime::now();
     let simple = toml::util::map_simple(map);
     let end = std::time::SystemTime::now();
 
@@ -39,17 +42,29 @@ fn main() -> ExitCode {
         println!("{msg}");
         msg.clear()
     }
+    for warning in ctx.warnings.iter() {
+        diagnostic::display(&mut msg, warning, &lines).unwrap();
+        println!("{msg}");
+        msg.clear()
+    }
+    for info in ctx.infos.iter() {
+        diagnostic::display(&mut msg, info, &lines).unwrap();
+        println!("{msg}");
+        msg.clear()
+    }
 
     let us_lexing = lexing.duration_since(start).unwrap().as_micros();
     let us_parsing = parsing.duration_since(lexing).unwrap().as_micros();
     let us_mapping = mapping.duration_since(parsing).unwrap().as_micros();
-    let us_simple = end.duration_since(mapping).unwrap().as_micros();
+    let us_checking = checking.duration_since(mapping).unwrap().as_micros();
+    let us_simple = end.duration_since(checking).unwrap().as_micros();
     let us_total = end.duration_since(start).unwrap().as_micros();
 
     {
         println!("lexing {}us", us_lexing);
         println!("parsing {}us", us_parsing);
         println!("mapping {}us", us_mapping);
+        println!("checking {}us", us_checking);
         println!("simple {}us", us_simple);
         println!("total {}us", us_total);
     };
