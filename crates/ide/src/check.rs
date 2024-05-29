@@ -426,7 +426,8 @@ fn parse_version_req<'a>(
     str: StringAssignment<'a>,
 ) -> DependencyVersion<'a> {
     let pos = str.val.text_span().start;
-    let req = match semver::parse_requirement(str.val.lit, pos) {
+    // TODO: spans from the semver parser may be incorrect when escape sequences are used for ascii characters
+    let req = match semver::parse_requirement(str.val.text, pos) {
         Ok(v) => Some(v),
         Err(e) => {
             ctx.error(e);
