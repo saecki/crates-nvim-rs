@@ -30,6 +30,7 @@ pub enum Error {
         span: Span,
     },
     WrongDatatypeInArray {
+        // TODO: is this even useful?
         index: usize,
         expected: Datatype,
         found: Datatype,
@@ -80,16 +81,15 @@ impl Diagnostic for Error {
                 ..
             } => write!(
                 f,
-                "Expected `{key}` to be of type `{expected}`, found `{found}`"
+                "Expected `{key}` to be of type {expected}, found {found}"
             ),
             WrongDatatypeInArray {
-                index,
                 expected,
                 found,
                 ..
             } => write!(
                 f,
-                "Expected element {index} to be of type `{expected}`, found `{found}`"
+                "Expected value to be of type {expected}, found {found}"
             ),
             UnsupportedUnderscore { old, new, .. } => {
                 write!(
@@ -123,8 +123,8 @@ impl Diagnostic for Error {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
         match self {
-            WrongDatatypeInTable { expected, .. } => write!(f, "Expected type `{expected}`"),
-            WrongDatatypeInArray { expected, .. } => write!(f, "Expected type `{expected}`"),
+            WrongDatatypeInTable { expected, .. } => write!(f, "Expected {expected}"),
+            WrongDatatypeInArray { expected, .. } => write!(f, "Expected {expected}"),
             UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
             DepWorkspaceIsFalse(_) => write!(f, "`workspace` cannot be false"),
             AmbigousDepSpecGitPath(_) => write!(f, "Only one of `git` or `path` is allowed"),
