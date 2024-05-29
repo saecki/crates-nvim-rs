@@ -35,14 +35,22 @@ pub struct Dependency<'a> {
     /// [dependencies.explicit_name]
     /// package = "<package>"
     /// ```
-    pub package: &'a str,
+    pub package: Option<StringAssignment<'a>>,
     pub kind: DependencyKind,
-    pub target: Option<&'a StringVal<'a>>,
+    pub target: Option<&'a str>,
     pub spec: DependencySpec<'a>,
     pub features: DependencyFeatures<'a>,
     pub optional: Option<BoolAssignment<'a>>,
     /// The entire toml entry
     pub entry: &'a MapTableEntry<'a>,
+}
+
+impl<'a> Dependency<'a> {
+    pub fn package(&self) -> &'a str {
+        (self.package.as_ref())
+            .map(|p| p.val.text)
+            .unwrap_or(self.name)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,9 +146,9 @@ impl<'a> BoolAssignment<'a> {
     }
 }
 
-pub fn check<'a>(ctx: &mut impl IdeCtx, map: &'a MapTable<'a>) -> State<'a> {
+pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
     let mut state = State::default();
-    for (key, entry) in map.iter() {
+    for (key, entry) in table.iter() {
         match *key {
             // TODO
             "package" => (),
@@ -170,7 +178,7 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, map: &'a MapTable<'a>) -> State<'a> {
             "dev_dependencies" => {
                 const OLD: &str = "dev_dependencies";
                 const NEW: &str = "dev-dependencies";
-                let ignored = deprecated_underscore(ctx, map, OLD, NEW, entry);
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
                 if !ignored {
                     if let Some(table) = expect_table_in_table(ctx, entry) {
                         parse_dependencies(ctx, &mut state, table, DependencyKind::Dev, None)
@@ -185,22 +193,84 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, map: &'a MapTable<'a>) -> State<'a> {
             "build_dependencies" => {
                 const OLD: &str = "build_dependencies";
                 const NEW: &str = "build-dependencies";
-                let ignored = deprecated_underscore(ctx, map, OLD, NEW, entry);
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
                 if !ignored {
                     if let Some(table) = expect_table_in_table(ctx, entry) {
                         parse_dependencies(ctx, &mut state, table, DependencyKind::Build, None)
                     }
                 }
             }
-            "target" => todo!(),
+            "target" => {
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_target(ctx, &mut state, table);
+                }
+            }
             _ => todo!("warning unused {key}"),
         }
     }
     state
 }
 
+pub fn parse_target<'a>(ctx: &mut impl IdeCtx, state: &mut State<'a>, table: &'a MapTable<'a>) {
+    for (key, entry) in table.iter() {
+        // TODO: validate target spec
+        if let Some(table) = expect_table_in_table(ctx, entry) {
+            parse_target_dependencies(ctx, state, table, key);
+        }
+    }
+}
+
+pub fn parse_target_dependencies<'a>(
+    ctx: &mut impl IdeCtx,
+    state: &mut State<'a>,
+    table: &'a MapTable<'a>,
+    target: &'a str,
+) {
+    for (key, entry) in table.iter() {
+        match *key {
+            "dependencies" => {
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, state, table, DependencyKind::Normal, Some(target))
+                }
+            }
+            "dev-dependencies" => {
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, state, table, DependencyKind::Dev, Some(target))
+                }
+            }
+            "dev_dependencies" => {
+                const OLD: &str = "dev_dependencies";
+                const NEW: &str = "dev-dependencies";
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
+                if !ignored {
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
+                        parse_dependencies(ctx, state, table, DependencyKind::Dev, Some(target))
+                    }
+                }
+            }
+            "build-dependencies" => {
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, state, table, DependencyKind::Build, Some(target))
+                }
+            }
+            "build_dependencies" => {
+                const OLD: &str = "build_dependencies";
+                const NEW: &str = "build-dependencies";
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
+                if !ignored {
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
+                        parse_dependencies(ctx, state, table, DependencyKind::Build, Some(target))
+                    }
+                }
+            }
+            _ => todo!("warning unused {key}"),
+        }
+    }
+}
+
 #[derive(Default)]
 struct DependencyBuilder<'a> {
+    package: Option<StringAssignment<'a>>,
     workspace: Option<BoolAssignment<'a>>,
     version: Option<StringAssignment<'a>>,
     registry: Option<StringAssignment<'a>>,
@@ -218,10 +288,9 @@ impl<'a> DependencyBuilder<'a> {
         ctx: &mut impl IdeCtx,
         entry: &'a MapTableEntry<'a>,
         name: &'a str,
-        package: &'a str,
         features: DependencyFeatures<'a>,
         kind: DependencyKind,
-        target: Option<&'a StringVal<'a>>,
+        target: Option<&'a str>,
     ) -> Dependency<'a> {
         let spec = 'spec: {
             if let Some(workspace) = self.workspace {
@@ -331,7 +400,7 @@ impl<'a> DependencyBuilder<'a> {
 
         Dependency {
             name,
-            package,
+            package: self.package,
             kind,
             target,
             spec,
@@ -347,10 +416,9 @@ fn parse_dependencies<'a>(
     state: &mut State<'a>,
     table: &'a MapTable<'a>,
     kind: DependencyKind,
-    target: Option<&'a StringVal<'a>>,
+    target: Option<&'a str>,
 ) {
     for (&name, entry) in table.iter() {
-        let mut package = name;
         let mut features = DependencyFeatures::default();
 
         let dep = match &entry.node {
@@ -364,7 +432,7 @@ fn parse_dependencies<'a>(
                 };
                 Dependency {
                     name,
-                    package: name,
+                    package: None,
                     kind,
                     target,
                     spec,
@@ -386,14 +454,9 @@ fn parse_dependencies<'a>(
                         "branch" => builder.branch = expect_string_in_table(ctx, e),
                         "tag" => builder.tag = expect_string_in_table(ctx, e),
                         "rev" => builder.rev = expect_string_in_table(ctx, e),
-                        "package" => {
-                            if let Some(p) = expect_string_in_table(ctx, e) {
-                                package = p.val.text;
-                            }
-                        }
-                        "default-features" => {
-                            features.default = expect_bool_in_table(ctx, e);
-                        }
+                        "package" => builder.package = expect_string_in_table(ctx, e),
+                        "optional" => builder.optional = expect_bool_in_table(ctx, e),
+                        "default-features" => features.default = expect_bool_in_table(ctx, e),
                         "default_features" => {
                             const OLD: &str = "default_features";
                             const NEW: &str = "default-features";
@@ -402,17 +465,19 @@ fn parse_dependencies<'a>(
                                 features.default = expect_bool_in_table(ctx, e);
                             }
                         }
-                        "features" => {
-                            parse_dependency_features(ctx, &mut features.list, e);
+                        "features" => parse_dependency_features(ctx, &mut features.list, e),
+                        _ => {
+                            for repr in e.reprs.iter() {
+                                ctx.warn(cargo::Warning::DepIgnoredUnknownKey(
+                                    FmtStr::from_str(k),
+                                    repr.repr_span(),
+                                ));
+                            }
                         }
-                        "optional" => {
-                            expect_bool_in_table(ctx, e);
-                        }
-                        _ => todo!("warning"),
                     };
                 }
 
-                builder.try_build(ctx, entry, name, package, features, kind, target)
+                builder.try_build(ctx, entry, name, features, kind, target)
             }
             MapNode::Array(_) => todo!("error"),
         };
