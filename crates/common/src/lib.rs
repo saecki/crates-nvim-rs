@@ -1,7 +1,7 @@
 use std::fmt::Write as _;
 use std::ops::Deref;
 
-pub use diagnostic::*;
+use crate::diagnostic::Diagnostic;
 
 pub mod diagnostic;
 

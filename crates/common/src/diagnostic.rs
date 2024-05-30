@@ -285,11 +285,12 @@ pub fn display_line(f: &mut impl std::fmt::Write, line_nr: usize, line: &str) ->
     Ok(())
 }
 
-const ANSII_CLEAR: &str = "\x1b[0m";
-const ANSII_COLOR_RED: &str = "\x1b[91m";
-const ANSII_COLOR_YELLOW: &str = "\x1b[93m";
-const ANSII_COLOR_BLUE: &str = "\x1b[94m";
-const ANSII_COLOR_CYAN: &str = "\x1b[96m";
+pub const ANSII_CLEAR: &str = "\x1b[0m";
+pub const ANSII_UNDERLINED: &str = "\x1b[4m";
+pub const ANSII_COLOR_RED: &str = "\x1b[91m";
+pub const ANSII_COLOR_YELLOW: &str = "\x1b[93m";
+pub const ANSII_COLOR_BLUE: &str = "\x1b[94m";
+pub const ANSII_COLOR_CYAN: &str = "\x1b[96m";
 
 fn ansii_esc_color(severity: Severity) -> &'static str {
     match severity {

@@ -1,4 +1,5 @@
-use common::{Ctx, Diagnostic, DiagnosticHint, Diagnostics, FmtStr, Severity, Span};
+use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
+use common::{Ctx, Diagnostics, FmtStr, Span};
 use toml::util::Datatype;
 
 pub trait CargoCtx:

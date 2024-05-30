@@ -1,5 +1,6 @@
 use bumpalo::Bump;
-use common::{Diagnostic, Span};
+use common::diagnostic::Diagnostic;
+use common::Span;
 use ide::{IdeCtx, IdeDiagnostics};
 use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;

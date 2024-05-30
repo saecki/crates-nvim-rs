@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
-use common::{Diagnostic, DiagnosticHint, FmtChar, FmtStr, Pos, Severity, Span};
+use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
+use common::{FmtChar, FmtStr, Pos, Span};
 
 use crate::{parse, IdentField, NumField, WlChar};
 
