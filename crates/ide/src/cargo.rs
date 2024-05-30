@@ -22,6 +22,7 @@ where
 }
 
 // TODO: add context lines
+// TODO: use full paths instead of just the last key
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     WrongDatatypeInTable {
