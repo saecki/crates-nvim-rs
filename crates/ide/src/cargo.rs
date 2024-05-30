@@ -164,7 +164,7 @@ pub enum Warning {
         key_span: Span,
         workspace_span: Span,
     },
-    DepIgnoredUnknownKey(FmtStr, Span),
+    IgnoredUnknownKey(FmtStr, Span),
 }
 
 impl Diagnostic for Warning {
@@ -179,7 +179,7 @@ impl Diagnostic for Warning {
             RedundantDeprecatedUnderscore { old_span, .. } => *old_span,
             MissingDepSpec(s) => *s,
             WorkspaceDepIgnoredKey { key_span, .. } => *key_span,
-            DepIgnoredUnknownKey(_, s) => *s,
+            IgnoredUnknownKey(_, s) => *s,
         }
     }
 
@@ -197,7 +197,7 @@ impl Diagnostic for Warning {
             }
             MissingDepSpec(_) => write!(f, "Missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"),
             WorkspaceDepIgnoredKey { key, .. } => write!(f, "Key `{key}` is ignored, because `workspace` is set"),
-            DepIgnoredUnknownKey(key, _) => write!(f, "Unknown key `{key}` is ignored"),
+            IgnoredUnknownKey(key, _) => write!(f, "Unknown key `{key}` is ignored"),
         }
     }
 
@@ -210,7 +210,7 @@ impl Diagnostic for Warning {
                 write!(f, "Missing one of `workspace`, `path`, `git` or `version`")
             }
             WorkspaceDepIgnoredKey { .. } => write!(f, "Key is ignored"),
-            DepIgnoredUnknownKey(key, _) => write!(f, "Unknown key `{key}` is ignored"),
+            IgnoredUnknownKey(key, _) => write!(f, "Unknown key `{key}` is ignored"),
         }
     }
 
@@ -225,7 +225,7 @@ impl Diagnostic for Warning {
             WorkspaceDepIgnoredKey { workspace_span, .. } => {
                 Some(Hint::WorkspaceDepIgnoredKey(*workspace_span))
             }
-            DepIgnoredUnknownKey(_, _) => None,
+            IgnoredUnknownKey(_, _) => None,
         }
     }
 }

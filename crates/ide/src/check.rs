@@ -205,7 +205,7 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
                     parse_target(ctx, &mut state, table);
                 }
             }
-            _ => todo!("warning unused {key}"),
+            _ => warn_unused(ctx, key, entry),
         }
     }
     state
@@ -263,7 +263,7 @@ pub fn parse_target_dependencies<'a>(
                     }
                 }
             }
-            _ => todo!("warning unused {key}"),
+            _ => warn_unused(ctx, key, entry),
         }
     }
 }
@@ -466,14 +466,7 @@ fn parse_dependencies<'a>(
                             }
                         }
                         "features" => parse_dependency_features(ctx, &mut features.list, e),
-                        _ => {
-                            for repr in e.reprs.iter() {
-                                ctx.warn(cargo::Warning::DepIgnoredUnknownKey(
-                                    FmtStr::from_str(k),
-                                    repr.repr_span(),
-                                ));
-                            }
-                        }
+                        _ => warn_unused(ctx, k, e),
                     };
                 }
 
@@ -629,6 +622,15 @@ fn expect_bool_in_table<'a>(
             });
             None
         }
+    }
+}
+
+fn warn_unused(ctx: &mut impl IdeCtx, key: &str, entry: &MapTableEntry) {
+    for repr in entry.reprs.iter() {
+        ctx.warn(cargo::Warning::IgnoredUnknownKey(
+            FmtStr::from_str(key),
+            repr.repr_span(),
+        ));
     }
 }
 
