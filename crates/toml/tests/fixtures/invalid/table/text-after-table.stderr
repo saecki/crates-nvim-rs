@@ -1,10 +1,12 @@
 [91merror[0m: Expected a line break, found `this`
- [94m-->[0m 1:8
+    [94m-->[0m 1:8
+     [94m|[0m
 [94m   1 |[0m [error] this shouldn't be here
      [94m|[0m         [91m^^^^^^^^^^^^^^^^^^^^^^ Expected a line break[0m
 [91merror[0m: Unterminated string literal, missing `'`
- [94m-->[0m 1:30
+    [94m-->[0m 1:30
+     [94m|[0m
 [94m   1 |[0m [error] this shouldn't be here
-     [94m|[0m                     [94m^ Literal started here[0m
+     [94m|[0m                     [94m- Literal started here[0m
 [94m   1 |[0m [error] this shouldn't be here
      [94m|[0m                               [91m^ Unterminated string literal[0m

@@ -1,10 +1,12 @@
 [91merror[0m: Expected a key, found `\n`
- [94m-->[0m 1:1
+    [94m-->[0m 1:1
+     [94m|[0m
 [94m   1 |[0m [
      [94m|[0m  [91m^ Expected a key[0m
 [91merror[0m: Expected `.` or `]`, found `\n`
- [94m-->[0m 1:1
+    [94m-->[0m 1:1
+     [94m|[0m
 [94m   1 |[0m [
-     [94m|[0m [94m^ Left `[` defined here[0m
+     [94m|[0m [94m- Left `[` defined here[0m
 [94m   1 |[0m [
      [94m|[0m  [91m^ Expected `.` or `]`[0m

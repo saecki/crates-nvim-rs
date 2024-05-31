@@ -1,4 +1,5 @@
 [91merror[0m: Unexpected character `.` in float exponent
- [94m-->[0m 1:17
+    [94m-->[0m 1:17
+     [94m|[0m
 [94m   1 |[0m exp-point-1 = 1e2.3
      [94m|[0m                  [91m^ Unexpected character in float exponent[0m

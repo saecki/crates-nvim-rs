@@ -1,4 +1,5 @@
 [91merror[0m: Expected a value, found `\n`
- [94m-->[0m 1:8
+    [94m-->[0m 1:8
+     [94m|[0m
 [94m   1 |[0m "key" = 
      [94m|[0m         [91m^ Expected a value[0m

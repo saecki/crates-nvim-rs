@@ -1,8 +1,10 @@
 [91merror[0m: Missing comma (`,`)
- [94m-->[0m 1:11
+    [94m-->[0m 1:11
+     [94m|[0m
 [94m   1 |[0m wrong = [ 1 2 3 ]
      [94m|[0m            [91m^ Missing comma (`,`)[0m
 [91merror[0m: Missing comma (`,`)
- [94m-->[0m 1:13
+    [94m-->[0m 1:13
+     [94m|[0m
 [94m   1 |[0m wrong = [ 1 2 3 ]
      [94m|[0m              [91m^ Missing comma (`,`)[0m

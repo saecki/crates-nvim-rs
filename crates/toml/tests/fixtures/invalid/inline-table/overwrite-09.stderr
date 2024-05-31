@@ -1,9 +1,10 @@
 [91merror[0m: Cannot extend table `tab.nested` with dotted key
- [94m-->[0m 5:0
+    [94m-->[0m 5:0
+     [94m|[0m
 [94m   1 |[0m [tab.nested]
-     [94m|[0m [94m^^^^^^^^^^^^[0m
+     [94m|[0m [94m------------[0m
 [94m   2 |[0m inline-t = { nest = {} }
-     [94m|[0m [94m^^^^^^^^^^^^^^^^^^^^^^^^ Original array defined here[0m
+     [94m|[0m [94m------------------------ Original array defined here[0m
 [94m   4 |[0m [tab]
 [94m   5 |[0m nested.inline-t.nest = 2
      [94m|[0m [91m^^^^^^ Cannot extend table with dotted key[0m

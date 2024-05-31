@@ -1,4 +1,5 @@
 [91merror[0m: Invalid character `\r` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`
- [94m-->[0m 2:0
+    [94m-->[0m 2:0
+     [94m|[0m
 [94m   2 |[0m 
      [94m|[0m [91m^ Invalid character in identifier[0m

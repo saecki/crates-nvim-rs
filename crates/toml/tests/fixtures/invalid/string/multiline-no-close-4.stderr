@@ -1,6 +1,7 @@
 [91merror[0m: Unterminated string literal, missing `"""`
- [94m-->[0m 3:6
+    [94m-->[0m 3:6
+     [94m|[0m
 [94m   1 |[0m bee = """
-     [94m|[0m       [94m^^^ Literal started here[0m
+     [94m|[0m       [94m--- Literal started here[0m
 [94m   3 |[0m gee ""
      [94m|[0m       [91m^ Unterminated string literal[0m

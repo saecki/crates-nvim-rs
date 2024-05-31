@@ -1,4 +1,5 @@
 [91merror[0m: Incomplete date-time, month is missing digits
- [94m-->[0m 2:17
+    [94m-->[0m 2:17
+     [94m|[0m
 [94m   2 |[0m no-leads = 1987-7-05T17:45:00
      [94m|[0m                  [91m^ Missing digits[0m

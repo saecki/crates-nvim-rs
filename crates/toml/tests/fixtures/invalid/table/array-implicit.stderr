@@ -1,6 +1,7 @@
 [91merror[0m: Duplicate key `albums`
- [94m-->[0m 13:2
+    [94m-->[0m 13:2
+     [94m|[0m
 [94m  10 |[0m [[albums.songs]]
-     [94m|[0m   [94m^^^^^^ Original key defined here[0m
+     [94m|[0m   [94m------ Original key defined here[0m
 [94m  13 |[0m [[albums]]
      [94m|[0m   [91m^^^^^^ Duplicate key[0m

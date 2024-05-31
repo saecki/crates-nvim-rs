@@ -1,4 +1,5 @@
 [91merror[0m: Float fractional part cannot start with `_`
- [94m-->[0m 1:19
+    [94m-->[0m 1:19
+     [94m|[0m
 [94m   1 |[0m us-after-point = 1._2
      [94m|[0m                    [91m^ Float fractional part cannot start with `_`[0m

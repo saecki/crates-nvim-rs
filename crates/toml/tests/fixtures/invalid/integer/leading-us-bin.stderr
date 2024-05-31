@@ -1,4 +1,5 @@
 [91merror[0m: Literal cannot start with `_`
- [94m-->[0m 1:17
+    [94m-->[0m 1:17
+     [94m|[0m
 [94m   1 |[0m leading-us-bin = _0b1
      [94m|[0m                  [91m^ Literal cannot start with `_`[0m

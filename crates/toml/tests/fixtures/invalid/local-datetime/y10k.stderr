@@ -1,4 +1,5 @@
 [91merror[0m: Unexpected character `0` in date-time after year, expected `-`
- [94m-->[0m 2:8
+    [94m-->[0m 2:8
+     [94m|[0m
 [94m   2 |[0m d = 10000-01-01 00:00:00
      [94m|[0m         [91m^ Unexpected character[0m

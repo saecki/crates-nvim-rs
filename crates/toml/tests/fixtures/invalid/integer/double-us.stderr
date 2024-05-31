@@ -1,4 +1,5 @@
 [91merror[0m: Consecutive underscores (`_`) are not allowed in number literals
- [94m-->[0m 1:13
+    [94m-->[0m 1:13
+     [94m|[0m
 [94m   1 |[0m double-us = 1__23
      [94m|[0m              [91m^^ Consecutive underscores (`_`) not allowed[0m

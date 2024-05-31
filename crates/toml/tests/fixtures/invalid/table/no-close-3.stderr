@@ -1,10 +1,12 @@
 [91merror[0m: Unterminated string literal, missing `"`
- [94m-->[0m 1:20
+    [94m-->[0m 1:20
+     [94m|[0m
 [94m   1 |[0m ["where will it end]
-     [94m|[0m  [94m^ Literal started here[0m
+     [94m|[0m  [94m- Literal started here[0m
 [94m   1 |[0m ["where will it end]
      [94m|[0m                     [91m^ Unterminated string literal[0m
 [91merror[0m: Unexpected character `v` at start of literal
- [94m-->[0m 2:7
+    [94m-->[0m 2:7
+     [94m|[0m
 [94m   2 |[0m name = value
      [94m|[0m        [91m^ Unexpected character[0m

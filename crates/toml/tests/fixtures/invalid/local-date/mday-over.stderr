@@ -1,4 +1,5 @@
 [91merror[0m: Date-time day `32` out of range, the valid range is `1..=31`
- [94m-->[0m 3:12
+    [94m-->[0m 3:12
+     [94m|[0m
 [94m   3 |[0m d = 2006-01-32
      [94m|[0m             [91m^^ Day out of range[0m

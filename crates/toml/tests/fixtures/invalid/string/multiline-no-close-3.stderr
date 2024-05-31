@@ -1,6 +1,7 @@
 [91merror[0m: Unterminated string literal, missing `"""`
- [94m-->[0m 4:5
+    [94m-->[0m 4:5
+     [94m|[0m
 [94m   1 |[0m not-closed= """
-     [94m|[0m             [94m^^^ Literal started here[0m
+     [94m|[0m             [94m--- Literal started here[0m
 [94m   4 |[0m eteta
      [94m|[0m      [91m^ Unterminated string literal[0m

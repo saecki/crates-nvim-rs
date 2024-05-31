@@ -1,6 +1,7 @@
 [91merror[0m: Cannot extend inline array `tab.inner.table`, not a table
- [94m-->[0m 1:34
+    [94m-->[0m 1:34
+     [94m|[0m
 [94m   1 |[0m tab = { inner.table = [{}], inner.table.val = "bad" }
-     [94m|[0m         [94m^^^^^^^^^^^^^^^^^^^ Original array defined here[0m
+     [94m|[0m         [94m------------------- Original array defined here[0m
 [94m   1 |[0m tab = { inner.table = [{}], inner.table.val = "bad" }
      [94m|[0m                                   [91m^^^^^ Cannot extend inline array, not a table[0m

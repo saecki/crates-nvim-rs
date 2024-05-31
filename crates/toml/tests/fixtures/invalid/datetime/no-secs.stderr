@@ -1,4 +1,5 @@
 [91merror[0m: Unexpected character `Z` in date-time after minute, expected `:`
- [94m-->[0m 2:26
+    [94m-->[0m 2:26
+     [94m|[0m
 [94m   2 |[0m no-secs = 1987-07-05T17:45Z
      [94m|[0m                           [91m^ Unexpected character[0m

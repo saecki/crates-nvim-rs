@@ -1,6 +1,7 @@
 [91merror[0m: Unterminated string literal, missing `"`
- [94m-->[0m 1:15
+    [94m-->[0m 1:15
+     [94m|[0m
 [94m   1 |[0m backslash = "\"
-     [94m|[0m             [94m^ Literal started here[0m
+     [94m|[0m             [94m- Literal started here[0m
 [94m   1 |[0m backslash = "\"
      [94m|[0m                [91m^ Unterminated string literal[0m

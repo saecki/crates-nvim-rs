@@ -1,6 +1,7 @@
 [91merror[0m: Duplicate key `tbl.a.b`
- [94m-->[0m 1:23
+    [94m-->[0m 1:23
+     [94m|[0m
 [94m   1 |[0m tbl = { a.b = "a_b", a.b.c = "a_b_c" }
-     [94m|[0m           [94m^ Original key defined here[0m
+     [94m|[0m           [94m- Original key defined here[0m
 [94m   1 |[0m tbl = { a.b = "a_b", a.b.c = "a_b_c" }
      [94m|[0m                        [91m^ Duplicate key[0m

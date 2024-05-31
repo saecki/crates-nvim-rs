@@ -1,4 +1,5 @@
 [91merror[0m: Expected a line break, found `No`
- [94m-->[0m 1:40
+    [94m-->[0m 1:40
+     [94m|[0m
 [94m   1 |[0m string = "Is there life after strings?" No.
      [94m|[0m                                         [91m^^^ Expected a line break[0m

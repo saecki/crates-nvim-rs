@@ -1,4 +1,5 @@
 [91merror[0m: Invalid line ending backslash, missing newline
- [94m-->[0m 2:8
+    [94m-->[0m 2:8
+     [94m|[0m
 [94m   2 |[0m k = """t\ """
      [94m|[0m         [91m^^ Invalid line ending backslash[0m

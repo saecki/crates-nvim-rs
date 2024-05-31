@@ -1,7 +1,8 @@
 [91merror[0m: Cannot extend array `a.b` with dotted key
- [94m-->[0m 4:0
+    [94m-->[0m 4:0
+     [94m|[0m
 [94m   1 |[0m [[a.b]]
-     [94m|[0m [94m^^^^^^^ Original array defined here[0m
+     [94m|[0m [94m------- Original array defined here[0m
 [94m   3 |[0m [a]
 [94m   4 |[0m b.y = 2
      [94m|[0m [91m^ Cannot extend array with dotted key[0m

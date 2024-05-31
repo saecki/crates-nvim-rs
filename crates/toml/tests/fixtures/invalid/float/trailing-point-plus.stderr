@@ -1,4 +1,5 @@
 [91merror[0m: Missing fractional part of float literal, expected at least one digit
- [94m-->[0m 1:25
+    [94m-->[0m 1:25
+     [94m|[0m
 [94m   1 |[0m trailing-point-plus = +1.
      [94m|[0m                          [91m^ Missing fractional part of float literal[0m

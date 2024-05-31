@@ -1,4 +1,5 @@
 [91merror[0m: Invalid character `\r`in string
- [94m-->[0m 1:23
+    [94m-->[0m 1:23
+     [94m|[0m
 [94m   1 |[0m rawmulti-cd   = '''null'''
      [94m|[0m                        [91m^ Invalid character[0m

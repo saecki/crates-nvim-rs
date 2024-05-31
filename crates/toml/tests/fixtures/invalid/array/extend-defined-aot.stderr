@@ -1,7 +1,8 @@
 [91merror[0m: Cannot extend array `tab.arr` with dotted key
- [94m-->[0m 3:0
+    [94m-->[0m 3:0
+     [94m|[0m
 [94m   1 |[0m [[tab.arr]]
-     [94m|[0m [94m^^^^^^^^^^^ Original array defined here[0m
+     [94m|[0m [94m----------- Original array defined here[0m
 [94m   2 |[0m [tab]
 [94m   3 |[0m arr.val1=1
      [94m|[0m [91m^^^ Cannot extend array with dotted key[0m

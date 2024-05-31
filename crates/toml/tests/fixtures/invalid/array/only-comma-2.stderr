@@ -1,8 +1,10 @@
 [91merror[0m: Expected a value, found `,`
- [94m-->[0m 1:16
+    [94m-->[0m 1:16
+     [94m|[0m
 [94m   1 |[0m only-comma-2 = [,,]
      [94m|[0m                 [91m^ Expected a value[0m
 [91merror[0m: Expected a value, found `,`
- [94m-->[0m 1:17
+    [94m-->[0m 1:17
+     [94m|[0m
 [94m   1 |[0m only-comma-2 = [,,]
      [94m|[0m                  [91m^ Expected a value[0m

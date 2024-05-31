@@ -1,6 +1,7 @@
 [91merror[0m: Unterminated string literal, missing `'''`
- [94m-->[0m 2:18
+    [94m-->[0m 2:18
+     [94m|[0m
 [94m   1 |[0m invalid = '''
-     [94m|[0m           [94m^^^ Literal started here[0m
+     [94m|[0m           [94m--- Literal started here[0m
 [94m   2 |[0m     this will fail
      [94m|[0m                   [91m^ Unterminated string literal[0m

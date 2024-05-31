@@ -1,4 +1,5 @@
 [91merror[0m: Unexpected character `t` in literal, expected `true`
- [94m-->[0m 1:29
+    [94m-->[0m 1:29
+     [94m|[0m
 [94m   1 |[0m almost-true-with-extra  = truthy
      [94m|[0m                              [91m^ Unexpected character[0m

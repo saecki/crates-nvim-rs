@@ -1,4 +1,5 @@
 [91merror[0m: Expected a line break, found `\x00`
- [94m-->[0m 1:33
+    [94m-->[0m 1:33
+     [94m|[0m
 [94m   1 |[0m bare-null         = "some value" 
      [94m|[0m                                  [91m^ Expected a line break[0m

@@ -1,6 +1,7 @@
 [91merror[0m: Cannot extend inline table `tbl.fruit`
- [94m-->[0m 1:41
+    [94m-->[0m 1:41
+     [94m|[0m
 [94m   1 |[0m tbl = { fruit = { apple.color = "red" }, fruit.apple.texture = { smooth = true } }
-     [94m|[0m         [94m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Original table defined here[0m
+     [94m|[0m         [94m-------------------------------- Original table defined here[0m
 [94m   1 |[0m tbl = { fruit = { apple.color = "red" }, fruit.apple.texture = { smooth = true } }
      [94m|[0m                                          [91m^^^^^ Cannot extend inline table[0m

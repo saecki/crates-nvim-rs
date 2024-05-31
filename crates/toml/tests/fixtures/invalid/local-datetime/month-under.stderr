@@ -1,4 +1,5 @@
 [91merror[0m: Date-time month `0` out of range, the valid range is `1..=12`
- [94m-->[0m 2:9
+    [94m-->[0m 2:9
+     [94m|[0m
 [94m   2 |[0m d = 2007-00-01T00:00:00
      [94m|[0m          [91m^^ Month out of range[0m
