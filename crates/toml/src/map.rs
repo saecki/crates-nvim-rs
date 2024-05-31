@@ -357,26 +357,45 @@ impl Scalar<'_> {
 
 /// Linked list of path segments with parent span information, mainly used for diagnostics.
 #[derive(Clone)]
-struct Path<'a, 'b> {
-    prev: Option<&'b Path<'a, 'b>>,
-    segment: PathSegment<'a, 'b>,
+pub struct Path<'a, 'b> {
+    pub prev: Option<&'b Path<'a, 'b>>,
+    pub segment: PathSegment<'a, 'b>,
 }
 
 #[derive(Clone)]
-enum PathSegment<'a, 'b> {
+pub enum PathSegment<'a, 'b> {
     Table(&'b OneVec<MapTableEntryRepr<'a>>),
     Array(usize),
 }
 
 impl<'a, 'b> Path<'a, 'b> {
-    fn fmt_path(&self) -> FmtStr {
+    #[inline(always)]
+    pub fn root(reprs: &'b OneVec<MapTableEntryRepr<'a>>) -> Self {
+        append_key(None, reprs)
+    }
+
+    #[inline(always)]
+    pub fn append_key(&'b self, reprs: &'b OneVec<MapTableEntryRepr<'a>>) -> Self {
+        append_key(Some(self), reprs)
+    }
+
+    #[inline(always)]
+    pub fn append_index(&'b self, index: usize) -> Self {
+        append_index(Some(self), index)
+    }
+
+    pub fn joined_path(&self, ident: &Ident) -> FmtStr {
+        joined_path(Some(self), ident)
+    }
+
+    pub fn fmt_path(&self) -> FmtStr {
         let path = fmt_path(&self);
         FmtStr::from_string(path)
     }
 }
 
-#[inline]
-fn append_key<'a, 'b>(
+#[inline(always)]
+pub fn append_key<'a, 'b>(
     prev: Option<&'b Path<'a, 'b>>,
     reprs: &'b OneVec<MapTableEntryRepr<'a>>,
 ) -> Path<'a, 'b> {
@@ -386,8 +405,8 @@ fn append_key<'a, 'b>(
     }
 }
 
-#[inline]
-fn append_index<'a, 'b>(prev: Option<&'b Path<'a, 'b>>, index: usize) -> Path<'a, 'b> {
+#[inline(always)]
+pub fn append_index<'a, 'b>(prev: Option<&'b Path<'a, 'b>>, index: usize) -> Path<'a, 'b> {
     Path {
         prev,
         segment: PathSegment::Array(index),
@@ -421,7 +440,7 @@ fn fmt_path(path: &Path) -> String {
     }
 }
 
-fn joined_path(prev: Option<&Path>, key: &Ident) -> FmtStr {
+pub fn joined_path(prev: Option<&Path>, key: &Ident) -> FmtStr {
     let str = match prev {
         Some(prev) => {
             let mut buf = fmt_path(prev);
@@ -457,23 +476,7 @@ fn fmt_path_segment(f: &mut impl std::fmt::Write, key: &Ident) -> std::fmt::Resu
     Ok(())
 }
 
-fn context_lines(path: Option<&Path>, original: ParentId, duplicate: ParentId) -> Box<[u32]> {
-    fn collect_lines(lines: &mut Vec<u32>, mut path: &Path, mut parent: ParentId) {
-        loop {
-            match path.segment {
-                PathSegment::Table(reprs) => {
-                    let repr = &reprs[parent.0 as usize];
-                    lines.push(repr.key.repr_ident().lit_start.line);
-                    parent = repr.parent;
-                }
-                PathSegment::Array(_) => (),
-            }
-
-            let Some(prev) = path.prev else { break };
-            path = prev;
-        }
-    }
-
+pub fn context_lines(path: Option<&Path>, original: ParentId, duplicate: ParentId) -> Box<[u32]> {
     let Some(path) = path else {
         return Box::new([]);
     };
@@ -484,6 +487,22 @@ fn context_lines(path: Option<&Path>, original: ParentId, duplicate: ParentId) -
     lines.sort();
     lines.dedup();
     lines.into_boxed_slice()
+}
+
+fn collect_lines(lines: &mut Vec<u32>, mut path: &Path, mut parent: ParentId) {
+    loop {
+        match path.segment {
+            PathSegment::Table(reprs) => {
+                let repr = &reprs[parent.0 as usize];
+                lines.push(repr.key.repr_ident().lit_start.line);
+                parent = repr.parent;
+            }
+            PathSegment::Array(_) => (),
+        }
+
+        let Some(prev) = path.prev else { break };
+        path = prev;
+    }
 }
 
 /// Value to be lazily mapped and inserted
@@ -807,7 +826,7 @@ fn insert_array_entry_at_path<'a, 'b>(
 
                 parent = ParentId(0);
                 let path = append_key(path, &reprs);
-                let path = append_index(Some(&path), 0);
+                let path = path.append_index(0);
 
                 let mut node = MapTable::new();
                 insert_top_level_assignments(

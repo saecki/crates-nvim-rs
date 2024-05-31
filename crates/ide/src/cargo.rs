@@ -22,35 +22,34 @@ where
 }
 
 // TODO: add context lines
-// TODO: use full paths instead of just the last key
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     WrongDatatypeInTable {
-        key: FmtStr,
+        path: FmtStr,
         expected: Datatype,
         found: Datatype,
         span: Span,
     },
     WrongDatatypeInArray {
-        // TODO: is this even useful?
-        index: usize,
+        path: FmtStr,
         expected: Datatype,
         found: Datatype,
         span: Span,
     },
     /// In the 2024 edition keys with underscores are unsupported.
     UnsupportedUnderscore {
+        path: Option<FmtStr>,
         old: &'static str,
         new: &'static str,
         span: Span,
     },
-    DepWorkspaceIsFalse(Span),
-    AmbigousDepSpecGitPath(Span),
-    AmbigousDepSpecGitRegistry(Span),
-    AmbigousGitSpec(Span),
+    DepWorkspaceIsFalse(FmtStr, Span),
+    AmbigousDepSpecGitPath(FmtStr, Span),
+    AmbigousDepSpecGitRegistry(FmtStr, Span),
+    AmbigousGitSpec(FmtStr, Span),
     /// Invalid in the 2024 edition.
-    MissingDepSpec(Span),
-    DepIgnoredGitKey(&'static str, Span),
+    MissingDepSpec(FmtStr, Span),
+    DepIgnoredGitKey(FmtStr, &'static str, Span),
 }
 
 impl Diagnostic for Error {
@@ -64,12 +63,12 @@ impl Diagnostic for Error {
             WrongDatatypeInTable { span, .. } => *span,
             WrongDatatypeInArray { span, .. } => *span,
             UnsupportedUnderscore { span, .. } => *span,
-            DepWorkspaceIsFalse(s) => *s,
-            AmbigousDepSpecGitPath(s) => *s,
-            AmbigousDepSpecGitRegistry(s) => *s,
-            AmbigousGitSpec(s) => *s,
-            MissingDepSpec(s) => *s,
-            DepIgnoredGitKey(_, s) => *s,
+            DepWorkspaceIsFalse(_, s) => *s,
+            AmbigousDepSpecGitPath(_, s) => *s,
+            AmbigousDepSpecGitRegistry(_, s) => *s,
+            AmbigousGitSpec(_, s) => *s,
+            MissingDepSpec(_, s) => *s,
+            DepIgnoredGitKey(_, _, s) => *s,
         }
     }
 
@@ -77,47 +76,48 @@ impl Diagnostic for Error {
         use Error::*;
         match self {
             WrongDatatypeInTable {
-                key,
+                path,
                 expected,
                 found,
                 ..
             } => write!(
                 f,
-                "Expected `{key}` to be of type {expected}, found {found}"
+                "Expected `{path}` to be of type {expected}, found {found}"
             ),
             WrongDatatypeInArray {
+                path,
                 expected,
                 found,
                 ..
             } => write!(
                 f,
-                "Expected value to be of type {expected}, found {found}"
+                "Expected `{path}` to be of type {expected}, found {found}"
             ),
-            UnsupportedUnderscore { old, new, .. } => {
-                write!(
-                    f,
-                    "`{old}` is unsupported in the 2024 edition; instead use `{new}`"
-                )
+            UnsupportedUnderscore { path, old, new, .. } => {
+                if let Some(path) = path {
+                    write!(f, "`{path}`: ")?;
+                }
+                write!(f, "`{old}` has been replaced with `{new}` and is unsupported in the 2024 edition")
             }
-            DepWorkspaceIsFalse(_) => write!(f, "`workspace` cannot be false"),
-            AmbigousDepSpecGitPath(_) => write!(
+            DepWorkspaceIsFalse(path, _) => write!(f, "Invalid dependency specification `{path}`; `workspace` cannot be false"),
+            AmbigousDepSpecGitPath(path, _) => write!(
                 f,
-                "Ambigous dependency specification, only one of `git` or `path` is allowed"
+                "Dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed",
             ),
-            AmbigousDepSpecGitRegistry(_) => write!(
+            AmbigousDepSpecGitRegistry(path, _) => write!(
                 f,
-                "Ambigous dependency specification, only one of `git` or `registry` is allowed"
+                "Dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed",
             ),
-            AmbigousGitSpec(_) => write!(
+            AmbigousGitSpec(path, _) => write!(
                 f,
-                "Ambigous dependency specification, only one of `branch`, `tag` or `rev` is allowed",
+                "Dependency specification `{path}` is ambigous, only one of `branch`, `tag` or `rev` is allowed",
             ),
-            MissingDepSpec(_) => write!(
+            MissingDepSpec(path, _) => write!(
                 f,
-                "Missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition",
+                "Dependency `{path}` is missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition",
             ),
-            DepIgnoredGitKey(key, _) => {
-                write!(f, "Specifying `{key}` without `git` is not allowed")
+            DepIgnoredGitKey(path, key, _) => {
+                write!(f, "Invalid dependency specification `{path}`; `{key}` without `git` is not allowed")
             }
         }
     }
@@ -128,17 +128,17 @@ impl Diagnostic for Error {
             WrongDatatypeInTable { expected, .. } => write!(f, "Expected {expected}"),
             WrongDatatypeInArray { expected, .. } => write!(f, "Expected {expected}"),
             UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
-            DepWorkspaceIsFalse(_) => write!(f, "`workspace` cannot be false"),
-            AmbigousDepSpecGitPath(_) => write!(f, "Only one of `git` or `path` is allowed"),
-            AmbigousDepSpecGitRegistry(_) => {
+            DepWorkspaceIsFalse(_, _) => write!(f, "`workspace` cannot be false"),
+            AmbigousDepSpecGitPath(_, _) => write!(f, "Only one of `git` or `path` is allowed"),
+            AmbigousDepSpecGitRegistry(_, _) => {
                 write!(f, "Only one of `git` or `registry` is allowed")
             }
-            AmbigousGitSpec(_) => write!(f, "Only one of `branch`, `tag` or `rev` is allowed"),
-            MissingDepSpec(_) => {
+            AmbigousGitSpec(_, _) => write!(f, "Only one of `branch`, `tag` or `rev` is allowed"),
+            MissingDepSpec(_, _) => {
                 write!(f, "Missing one of `workspace`, `path`, `git` or `version`")
             }
-            DepIgnoredGitKey(key, _) => {
-                write!(f, "Specifying `{key}` without `git` is not allowed")
+            DepIgnoredGitKey(_, _, _) => {
+                write!(f, "Not allowed without `git`")
             }
         }
     }
@@ -148,12 +148,14 @@ impl Diagnostic for Error {
 pub enum Warning {
     /// Warn about future removal in the 2024 edition.
     DeprecatedUnderscore {
+        path: Option<FmtStr>,
         old: &'static str,
         new: &'static str,
         span: Span,
     },
     /// Warn about future removal in the 2024 edition.
     RedundantDeprecatedUnderscore {
+        path: Option<FmtStr>,
         old: &'static str,
         new: &'static str,
         old_span: Span,
@@ -161,7 +163,7 @@ pub enum Warning {
     },
     MissingDepSpec(Span),
     WorkspaceDepIgnoredKey {
-        key: &'static str,
+        path: FmtStr,
         key_span: Span,
         workspace_span: Span,
     },
@@ -187,18 +189,24 @@ impl Diagnostic for Warning {
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Warning::*;
         match self {
-            DeprecatedUnderscore { old, new, .. } => {
+            DeprecatedUnderscore { path, old, new, .. } => {
+                if let Some(path) = path {
+                    write!(f, "`{path}`: ")?;
+                }
                 write!(f, "`{old}` is deprecated in favor of `{new}` and will be unsupported in the 2024 edition")
             }
-            RedundantDeprecatedUnderscore { old, new, .. } => {
+            RedundantDeprecatedUnderscore { path, old, new, .. } => {
+                if let Some(path) = path {
+                    write!(f, "`{path}`: ")?;
+                }
                 write!(
                     f,
                     "`{old}` is redundant with `{new}` and will be unsupported in the 2024 edition"
                 )
             }
             MissingDepSpec(_) => write!(f, "Missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"),
-            WorkspaceDepIgnoredKey { key, .. } => write!(f, "Key `{key}` is ignored, because `workspace` is set"),
-            IgnoredUnknownKey(key, _) => write!(f, "Unknown key `{key}` is ignored"),
+            WorkspaceDepIgnoredKey { path, .. } => write!(f, "Key `{path}` is ignored, because `workspace` is set"),
+            IgnoredUnknownKey(path, _) => write!(f, "Unknown key `{path}` is ignored"),
         }
     }
 
@@ -211,7 +219,7 @@ impl Diagnostic for Warning {
                 write!(f, "Missing one of `workspace`, `path`, `git` or `version`")
             }
             WorkspaceDepIgnoredKey { .. } => write!(f, "Key is ignored"),
-            IgnoredUnknownKey(key, _) => write!(f, "Unknown key `{key}` is ignored"),
+            IgnoredUnknownKey(_, _) => write!(f, "Unknown key is ignored"),
         }
     }
 

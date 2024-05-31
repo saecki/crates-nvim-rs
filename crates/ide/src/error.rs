@@ -225,10 +225,18 @@ pub enum Hint {
 
 impl DiagnosticHint for Hint {
     fn span(&self) -> Span {
-        todo!()
+        match self {
+            Hint::Toml(h) => h.span(),
+            Hint::Semver(h) => h.span(),
+            Hint::Cargo(h) => h.span(),
+        }
     }
 
-    fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        todo!()
+    fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
+        match self {
+            Hint::Toml(h) => h.annotation(f),
+            Hint::Semver(h) => h.annotation(f),
+            Hint::Cargo(h) => h.annotation(f),
+        }
     }
 }

@@ -89,6 +89,7 @@ pub fn display(
     writeln!(f, "{}", diagnostic.header(&lines))?;
     let context_lines = diagnostic.context_lines().unwrap_or(&[]);
 
+    // TODO: check if hint should be displayed after main diagnostic
     let mut start_line = 0;
     if let Some(hint) = diagnostic.hint() {
         let span = hint.span();
