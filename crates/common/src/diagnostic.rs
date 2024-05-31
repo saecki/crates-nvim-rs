@@ -86,36 +86,52 @@ pub fn display(
     diagnostic: &impl Diagnostic,
     lines: &[&str],
 ) -> std::fmt::Result {
-    writeln!(f, "{}", diagnostic.header(&lines))?;
-    let context_lines = diagnostic.context_lines().unwrap_or(&[]);
-
-    // TODO: check if hint should be displayed after main diagnostic
-    let mut start_line = 0;
-    if let Some(hint) = diagnostic.hint() {
-        let span = hint.span();
-        for &l in context_lines {
-            if l < span.start.line {
+    fn display_context_lines(
+        f: &mut impl std::fmt::Write,
+        lines: &[&str],
+        context_lines: &[u32],
+        range: std::ops::Range<u32>,
+    ) -> std::fmt::Result {
+        for &l in context_lines.iter() {
+            if l < range.start {
+                continue;
+            }
+            if l < range.end {
                 display_line(f, l as usize, &lines[l as usize])?;
             } else {
                 break;
             }
         }
-        write!(f, "{}", hint.body(&lines))?;
-        start_line = span.end.line + 1;
+        Ok(())
     }
 
-    let span = diagnostic.span();
-    for &l in context_lines {
-        if l < start_line {
-            continue;
-        }
-        if l < span.start.line {
-            display_line(f, l as usize, &lines[l as usize])?;
-        } else {
-            break;
+    writeln!(f, "{}", diagnostic.header(&lines))?;
+    let context_lines = diagnostic.context_lines().unwrap_or(&[]);
+    let main_span = diagnostic.span();
+    let hint = diagnostic.hint();
+    let mut current_line = 0;
+
+    if let Some(hint) = &hint {
+        let hint_span = hint.span();
+        if hint_span.start < main_span.start {
+            display_context_lines(f, lines, context_lines, current_line..hint_span.start.line)?;
+            write!(f, "{}", hint.body(&lines))?;
+            current_line = hint_span.end.line + 1;
         }
     }
+
+    display_context_lines(f, lines, context_lines, current_line..main_span.start.line)?;
     write!(f, "{}", diagnostic.body(&lines))?;
+    current_line = main_span.end.line + 1;
+
+    if let Some(hint) = &hint {
+        let hint_span = hint.span();
+        if hint_span.start >= main_span.start {
+            display_context_lines(f, lines, context_lines, current_line..hint_span.start.line)?;
+            write!(f, "{}", hint.body(&lines))?;
+        }
+    }
+
     Ok(())
 }
 
