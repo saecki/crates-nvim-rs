@@ -106,6 +106,8 @@ pub fn display(
     }
 
     writeln!(f, "{}", diagnostic.header(&lines))?;
+    writeln!(f, "     {ANSII_COLOR_BLUE}|{ANSII_CLEAR}")?;
+
     let context_lines = diagnostic.context_lines().unwrap_or(&[]);
     let main_span = diagnostic.span();
     let hint = diagnostic.hint();
@@ -174,7 +176,7 @@ fn display_header<D: Diagnostic>(
     let char = text[pos.line as usize].as_ref()[0..pos.char as usize]
         .chars()
         .count();
-    write!(f, " {ANSII_COLOR_BLUE}-->{ANSII_CLEAR} {line_nr}:{char}")
+    write!(f, "    {ANSII_COLOR_BLUE}-->{ANSII_CLEAR} {line_nr}:{char}")
 }
 
 pub trait DisplayDiagnosticBody: Diagnostic + Sized {
@@ -262,15 +264,11 @@ fn display_body<F: std::fmt::Write>(
             line.len()
         };
         let num_spaces = line[0..col_start].width();
-        write!(
-            f,
-            "     {ANSII_COLOR_BLUE}|{ANSII_CLEAR} {:num_spaces$}",
-            ""
-        )?;
+        write!(f, "     {ANSII_COLOR_BLUE}|{ANSII_CLEAR} ")?;
+        write!(f, "{:num_spaces$}{color}", "")?;
 
         let spanned_text = &line[col_start..col_end];
         let num_carets = spanned_text.width().max(1);
-        write!(f, "{color}")?;
         for _ in 0..num_carets {
             f.write_char(underline_char)?;
         }
