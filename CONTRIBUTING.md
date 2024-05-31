@@ -17,6 +17,7 @@ Possible values for the `SNAPSHOT` mode environment variable are:
 - `update` to only review changed fixtures, not missing ones.
 - `revise` to review correct fixtures and decide whether to invalidate (remove) them.
 - `force` to update all output fixtures
+- `force-existing` to update all existing fixtures
 
 Additionally a filter can be specified like this:
 ```

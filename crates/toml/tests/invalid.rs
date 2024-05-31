@@ -25,6 +25,8 @@ enum Mode {
     Revise,
     /// Force overwrite the fixtures on mismatch
     Force,
+    /// Force overwrite existing fixtures
+    ForceExisting,
 }
 
 fn main() {
@@ -50,6 +52,7 @@ fn main() {
             "update" => Mode::Update,
             "revise" => Mode::Revise,
             "force" => Mode::Force,
+            "force-existing" => Mode::ForceExisting,
             _ => panic!("invalid mode `{v}`"),
         }
     }
@@ -104,9 +107,11 @@ fn main() {
                         );
 
                         return match mode {
-                            Mode::Fail | Mode::SkipMissing | Mode::Revise | Mode::Update => {
-                                Err(Failed::from(msg))
-                            }
+                            Mode::Fail
+                            | Mode::SkipMissing
+                            | Mode::Revise
+                            | Mode::Update
+                            | Mode::ForceExisting => Err(Failed::from(msg)),
                             Mode::Skip => unreachable!(),
                             Mode::Review => {
                                 print!("\n{msg}");
@@ -226,7 +231,12 @@ fn main() {
                             _ => unreachable!(),
                         }
                     }
-                    Mode::Force => Err(Failed::from(msg)),
+                    Mode::Force | Mode::ForceExisting => {
+                        let dir = expect_path.parent().unwrap();
+                        std::fs::create_dir_all(dir).unwrap();
+                        std::fs::write(expect_path, actual_text).unwrap();
+                        Ok(())
+                    }
                 }
             })
             .with_ignored_flag(match mode {
