@@ -248,6 +248,7 @@ fn display_body<F: std::fmt::Write>(
     let end_line = span.end.line as usize + 1;
     let num_lines = end_line - start_line;
     let color = ansii_esc_color(severity);
+    let underline_char = underline_char(severity);
 
     for (i, line) in text[start_line..end_line].iter().enumerate() {
         let line_nr = start_line + i;
@@ -269,7 +270,10 @@ fn display_body<F: std::fmt::Write>(
 
         let spanned_text = &line[col_start..col_end];
         let num_carets = spanned_text.width().max(1);
-        write!(f, "{color}{:^<num_carets$}", "")?;
+        write!(f, "{color}")?;
+        for _ in 0..num_carets {
+            f.write_char(underline_char)?;
+        }
         if i == num_lines - 1 {
             f.write_char(' ')?;
             annotation(f)?;
@@ -315,5 +319,14 @@ fn ansii_esc_color(severity: Severity) -> &'static str {
         Severity::Warning => ANSII_COLOR_YELLOW,
         Severity::Info => ANSII_COLOR_CYAN,
         Severity::Hint => ANSII_COLOR_BLUE,
+    }
+}
+
+fn underline_char(severity: Severity) -> char {
+    match severity {
+        Severity::Error => '^',
+        Severity::Warning => '^',
+        Severity::Info => '^',
+        Severity::Hint => '-',
     }
 }
