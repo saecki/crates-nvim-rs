@@ -21,35 +21,43 @@ where
     type CargoInfo = I;
 }
 
-// TODO: add context lines
 #[derive(Debug, PartialEq, Eq)]
-pub enum Error {
-    WrongDatatypeInTable {
-        path: FmtStr,
+pub struct Error {
+    lines: Box<[u32]>,
+    path: FmtStr,
+    span: Span,
+    kind: ErrorKind,
+}
+
+impl Error {
+    pub fn new(lines: Box<[u32]>, path: FmtStr, span: Span, kind: ErrorKind) -> Self {
+        Self {
+            lines,
+            path,
+            span,
+            kind,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ErrorKind {
+    WrongDatatype {
         expected: Datatype,
         found: Datatype,
-        span: Span,
-    },
-    WrongDatatypeInArray {
-        path: FmtStr,
-        expected: Datatype,
-        found: Datatype,
-        span: Span,
     },
     /// In the 2024 edition keys with underscores are unsupported.
     UnsupportedUnderscore {
-        path: Option<FmtStr>,
         old: &'static str,
         new: &'static str,
-        span: Span,
     },
-    DepWorkspaceIsFalse(FmtStr, Span),
-    AmbigousDepSpecGitPath(FmtStr, Span),
-    AmbigousDepSpecGitRegistry(FmtStr, Span),
-    AmbigousGitSpec(FmtStr, Span),
+    DepWorkspaceIsFalse,
+    AmbigousDepSpecGitPath,
+    AmbigousDepSpecGitRegistry,
+    AmbigousGitSpec,
     /// Invalid in the 2024 edition.
-    MissingDepSpec(FmtStr, Span),
-    DepIgnoredGitKey(FmtStr, &'static str, Span),
+    MissingDepSpec,
+    DepIgnoredGitKey(&'static str),
 }
 
 impl Diagnostic for Error {
@@ -58,116 +66,86 @@ impl Diagnostic for Error {
     const SEVERITY: Severity = Severity::Error;
 
     fn span(&self) -> Span {
-        use Error::*;
-        match self {
-            WrongDatatypeInTable { span, .. } => *span,
-            WrongDatatypeInArray { span, .. } => *span,
-            UnsupportedUnderscore { span, .. } => *span,
-            DepWorkspaceIsFalse(_, s) => *s,
-            AmbigousDepSpecGitPath(_, s) => *s,
-            AmbigousDepSpecGitRegistry(_, s) => *s,
-            AmbigousGitSpec(_, s) => *s,
-            MissingDepSpec(_, s) => *s,
-            DepIgnoredGitKey(_, _, s) => *s,
-        }
+        self.span
     }
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        use Error::*;
-        match self {
-            WrongDatatypeInTable {
-                path,
-                expected,
-                found,
-                ..
-            } => write!(
-                f,
-                "Expected `{path}` to be of type {expected}, found {found}"
-            ),
-            WrongDatatypeInArray {
-                path,
-                expected,
-                found,
-                ..
-            } => write!(
-                f,
-                "Expected `{path}` to be of type {expected}, found {found}"
-            ),
-            UnsupportedUnderscore { path, old, new, .. } => {
-                if let Some(path) = path {
+        use ErrorKind::*;
+        let Self { path, kind, .. } = self;
+        match kind {
+            WrongDatatype { expected, found } => write!(f, "Expected `{path}` to be of type {expected}, found {found}"),
+            UnsupportedUnderscore { old, new } => {
+                if !path.is_empty() {
                     write!(f, "`{path}`: ")?;
                 }
                 write!(f, "`{old}` has been replaced with `{new}` and is unsupported in the 2024 edition")
             }
-            DepWorkspaceIsFalse(path, _) => write!(f, "Invalid dependency specification `{path}`; `workspace` cannot be false"),
-            AmbigousDepSpecGitPath(path, _) => write!(
-                f,
-                "Dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed",
-            ),
-            AmbigousDepSpecGitRegistry(path, _) => write!(
-                f,
-                "Dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed",
-            ),
-            AmbigousGitSpec(path, _) => write!(
-                f,
-                "Dependency specification `{path}` is ambigous, only one of `branch`, `tag` or `rev` is allowed",
-            ),
-            MissingDepSpec(path, _) => write!(
-                f,
-                "Dependency `{path}` is missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition",
-            ),
-            DepIgnoredGitKey(path, key, _) => {
-                write!(f, "Invalid dependency specification `{path}`; `{key}` without `git` is not allowed")
-            }
+            DepWorkspaceIsFalse => write!(f, "Invalid dependency specification `{path}`; `workspace` cannot be false"),
+            AmbigousDepSpecGitPath => write!(f, "Dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed"),
+            AmbigousDepSpecGitRegistry => write!(f, "Dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed"),
+            AmbigousGitSpec => write!(f, "Dependency specification `{path}` is ambigous, only one of `branch`, `tag` or `rev` is allowed"),
+            MissingDepSpec => write!(f, "Dependency `{path}` is missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition"),
+            DepIgnoredGitKey(key) => write!(f, "Invalid dependency specification `{path}`; `{key}` without `git` is not allowed"),
         }
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        use Error::*;
-        match self {
-            WrongDatatypeInTable { expected, .. } => write!(f, "Expected {expected}"),
-            WrongDatatypeInArray { expected, .. } => write!(f, "Expected {expected}"),
+        use ErrorKind::*;
+        let Self { kind, .. } = self;
+        match kind {
+            WrongDatatype { expected, .. } => write!(f, "Expected {expected}"),
             UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
-            DepWorkspaceIsFalse(_, _) => write!(f, "`workspace` cannot be false"),
-            AmbigousDepSpecGitPath(_, _) => write!(f, "Only one of `git` or `path` is allowed"),
-            AmbigousDepSpecGitRegistry(_, _) => {
-                write!(f, "Only one of `git` or `registry` is allowed")
-            }
-            AmbigousGitSpec(_, _) => write!(f, "Only one of `branch`, `tag` or `rev` is allowed"),
-            MissingDepSpec(_, _) => {
-                write!(f, "Missing one of `workspace`, `path`, `git` or `version`")
-            }
-            DepIgnoredGitKey(_, _, _) => {
-                write!(f, "Not allowed without `git`")
-            }
+            DepWorkspaceIsFalse => write!(f, "`workspace` cannot be false"),
+            AmbigousDepSpecGitPath => write!(f, "Only one of `git` or `path` is allowed"),
+            AmbigousDepSpecGitRegistry => write!(f, "Only one of `git` or `registry` is allowed"),
+            AmbigousGitSpec => write!(f, "Only one of `branch`, `tag` or `rev` is allowed"),
+            MissingDepSpec => write!(f, "Missing one of `workspace`, `path`, `git` or `version`"),
+            DepIgnoredGitKey(_) => write!(f, "Not allowed without `git`"),
         }
+    }
+
+    fn context_lines(&self) -> Option<&[u32]> {
+        Some(&self.lines)
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Warning {
+pub struct Warning {
+    pub lines: Box<[u32]>,
+    pub path: FmtStr,
+    pub span: Span,
+    pub kind: WarningKind,
+}
+
+impl Warning {
+    pub fn new(lines: Box<[u32]>, path: FmtStr, span: Span, kind: WarningKind) -> Self {
+        Self {
+            lines,
+            path,
+            span,
+            kind,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WarningKind {
     /// Warn about future removal in the 2024 edition.
     DeprecatedUnderscore {
-        path: Option<FmtStr>,
         old: &'static str,
         new: &'static str,
-        span: Span,
     },
     /// Warn about future removal in the 2024 edition.
     RedundantDeprecatedUnderscore {
-        path: Option<FmtStr>,
         old: &'static str,
         new: &'static str,
-        old_span: Span,
         new_span: Span,
     },
-    MissingDepSpec(Span),
+    MissingDepSpec,
     WorkspaceDepIgnoredKey {
-        path: FmtStr,
-        key_span: Span,
         workspace_span: Span,
     },
-    IgnoredUnknownKey(FmtStr, Span),
+    IgnoredUnknownKey,
 }
 
 impl Diagnostic for Warning {
@@ -176,66 +154,61 @@ impl Diagnostic for Warning {
     const SEVERITY: Severity = Severity::Warning;
 
     fn span(&self) -> Span {
-        use Warning::*;
-        match self {
-            DeprecatedUnderscore { span, .. } => *span,
-            RedundantDeprecatedUnderscore { old_span, .. } => *old_span,
-            MissingDepSpec(s) => *s,
-            WorkspaceDepIgnoredKey { key_span, .. } => *key_span,
-            IgnoredUnknownKey(_, s) => *s,
-        }
+        self.span
     }
 
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        use Warning::*;
-        match self {
-            DeprecatedUnderscore { path, old, new, .. } => {
-                if let Some(path) = path {
+        use WarningKind::*;
+        let Self { path, kind, .. } = self;
+        match kind {
+            DeprecatedUnderscore { old, new } => {
+                if !path.is_empty() {
                     write!(f, "`{path}`: ")?;
                 }
                 write!(f, "`{old}` is deprecated in favor of `{new}` and will be unsupported in the 2024 edition")
             }
-            RedundantDeprecatedUnderscore { path, old, new, .. } => {
-                if let Some(path) = path {
+            RedundantDeprecatedUnderscore { old, new, .. } => {
+                if !path.is_empty() {
                     write!(f, "`{path}`: ")?;
                 }
-                write!(
-                    f,
-                    "`{old}` is redundant with `{new}` and will be unsupported in the 2024 edition"
-                )
+                write!(f, "`{old}` is redundant with `{new}` and will be unsupported in the 2024 edition")
             }
-            MissingDepSpec(_) => write!(f, "Missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"),
-            WorkspaceDepIgnoredKey { path, .. } => write!(f, "Key `{path}` is ignored, because `workspace` is set"),
-            IgnoredUnknownKey(path, _) => write!(f, "Unknown key `{path}` is ignored"),
+            MissingDepSpec => write!(f, "Missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"),
+            WorkspaceDepIgnoredKey { .. } => write!(f, "Key `{path}` is ignored, because `workspace` is set"),
+            IgnoredUnknownKey => write!(f, "Unknown key `{path}` is ignored"),
         }
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        use Warning::*;
-        match self {
+        use WarningKind::*;
+        let Self { kind, .. } = self;
+        match kind {
             DeprecatedUnderscore { new, .. } => write!(f, "Deprecated in favor of `{new}`"),
-            RedundantDeprecatedUnderscore { new, .. } => write!(f, "Redundant with `{new}`"),
-            MissingDepSpec(_) => {
-                write!(f, "Missing one of `workspace`, `path`, `git` or `version`")
-            }
+            RedundantDeprecatedUnderscore { .. } => write!(f, "Ignored"),
+            MissingDepSpec => write!(f, "Missing one of `workspace`, `path`, `git` or `version`"),
             WorkspaceDepIgnoredKey { .. } => write!(f, "Key is ignored"),
-            IgnoredUnknownKey(_, _) => write!(f, "Unknown key is ignored"),
+            IgnoredUnknownKey => write!(f, "Unknown key is ignored"),
         }
     }
 
     fn hint(&self) -> Option<Self::Hint> {
-        use Warning::*;
-        match self {
+        use WarningKind::*;
+        let Self { kind, .. } = self;
+        match kind {
             DeprecatedUnderscore { .. } => None,
             RedundantDeprecatedUnderscore { new_span, .. } => {
                 Some(Hint::RedundantDeprecatedUnderscore(*new_span))
             }
-            MissingDepSpec(_) => None,
-            WorkspaceDepIgnoredKey { workspace_span, .. } => {
+            MissingDepSpec => None,
+            WorkspaceDepIgnoredKey { workspace_span } => {
                 Some(Hint::WorkspaceDepIgnoredKey(*workspace_span))
             }
-            IgnoredUnknownKey(_, _) => None,
+            IgnoredUnknownKey => None,
         }
+    }
+
+    fn context_lines(&self) -> Option<&[u32]> {
+        Some(&self.lines)
     }
 }
 

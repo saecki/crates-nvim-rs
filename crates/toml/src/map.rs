@@ -200,14 +200,14 @@ pub struct MapArrayToplevel<'a> {
 }
 
 impl<'a> MapArrayToplevel<'a> {
-    pub fn new(node: MapTable<'a>, repr: &'a ArrayEntry<'a>) -> Self {
+    pub fn new(node: MapTable<'a>, parent: ParentId, repr: &'a ArrayEntry<'a>) -> Self {
         Self {
-            inner: OneVec::new(MapArrayToplevelEntry::new(node, repr)),
+            inner: OneVec::new(MapArrayToplevelEntry::new(node, parent, repr)),
         }
     }
 
-    fn push(&mut self, node: MapTable<'a>, repr: &'a ArrayEntry<'a>) {
-        self.inner.push(MapArrayToplevelEntry::new(node, repr));
+    fn push(&mut self, entry: MapArrayToplevelEntry<'a>) {
+        self.inner.push(entry);
     }
 
     pub fn len(&self) -> usize {
@@ -232,36 +232,41 @@ impl<'a> IntoIterator for MapArrayToplevel<'a> {
 #[derive(Debug, PartialEq)]
 pub struct MapArrayToplevelEntry<'a> {
     pub node: MapTable<'a>,
+    pub parent: ParentId,
     pub repr: &'a ArrayEntry<'a>,
 }
 
 impl<'a> MapArrayToplevelEntry<'a> {
-    pub fn new(node: MapTable<'a>, repr: &'a ArrayEntry<'a>) -> Self {
-        Self { node, repr }
+    pub fn new(node: MapTable<'a>, parent: ParentId, repr: &'a ArrayEntry<'a>) -> Self {
+        Self { node, parent, repr }
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MapArrayInline<'a> {
+    pub parent: ParentId,
     pub repr: &'a InlineArray<'a>,
-    inner: Vec<MapArrayInlineEntry<'a>>,
+    inner: Box<[MapArrayInlineEntry<'a>]>,
 }
 
 impl<'a> MapArrayInline<'a> {
-    pub fn new(repr: &'a InlineArray<'a>) -> Self {
+    pub fn new(parent: ParentId, repr: &'a InlineArray<'a>) -> Self {
         Self {
             repr,
-            inner: Vec::new(),
+            parent,
+            inner: Box::new([]),
         }
     }
 
-    pub fn from_iter(
-        repr: &'a InlineArray<'a>,
-        iter: impl IntoIterator<Item = MapArrayInlineEntry<'a>>,
-    ) -> Self {
+    pub fn from_iter<T>(parent: ParentId, repr: &'a InlineArray<'a>, iter: T) -> Self
+    where
+        T: IntoIterator<Item = MapArrayInlineEntry<'a>>,
+        <T as IntoIterator>::IntoIter: ExactSizeIterator<Item = MapArrayInlineEntry<'a>>,
+    {
         Self {
+            parent,
             repr,
-            inner: Vec::from_iter(iter),
+            inner: iter.into_iter().collect(),
         }
     }
 
@@ -288,7 +293,7 @@ impl<'a> IntoIterator for MapArrayInline<'a> {
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
+        self.inner.into_vec().into_iter()
     }
 }
 
@@ -392,6 +397,16 @@ impl<'a, 'b> Path<'a, 'b> {
         let path = fmt_path(&self);
         FmtStr::from_string(path)
     }
+
+    pub fn context_lines<const LEN: usize>(&self, parents: [ParentId; LEN]) -> Box<[u32]> {
+        let mut lines = Vec::new();
+        for p in parents {
+            collect_lines(&mut lines, self, p);
+        }
+        lines.sort();
+        lines.dedup();
+        lines.into_boxed_slice()
+    }
 }
 
 #[inline(always)]
@@ -476,14 +491,18 @@ fn fmt_path_segment(f: &mut impl std::fmt::Write, key: &Ident) -> std::fmt::Resu
     Ok(())
 }
 
-pub fn context_lines(path: Option<&Path>, original: ParentId, duplicate: ParentId) -> Box<[u32]> {
+pub fn context_lines<const LEN: usize>(
+    path: Option<&Path>,
+    parents: [ParentId; LEN],
+) -> Box<[u32]> {
     let Some(path) = path else {
         return Box::new([]);
     };
 
     let mut lines = Vec::new();
-    collect_lines(&mut lines, path, original);
-    collect_lines(&mut lines, path, duplicate);
+    for p in parents {
+        collect_lines(&mut lines, path, p);
+    }
     lines.sort();
     lines.dedup();
     lines.into_boxed_slice()
@@ -612,7 +631,7 @@ fn map_value<'a, 'b>(
                 let node = map_value(ctx, bump, &path, parent, &value.val);
                 MapArrayInlineEntry::new(node, value)
             });
-            let array = MapArrayInline::from_iter(inline_array, entries);
+            let array = MapArrayInline::from_iter(parent, inline_array, entries);
             MapNode::Array(MapArray::Inline(array))
         }
         Value::Invalid(s, r) => MapNode::Scalar(Scalar::Invalid(s, *r)),
@@ -837,7 +856,7 @@ fn insert_array_entry_at_path<'a, 'b>(
                     &mut node,
                     &array_entry.assignments,
                 );
-                let toplevel_array = MapArrayToplevel::new(node, array_entry);
+                let toplevel_array = MapArrayToplevel::new(node, parent, array_entry);
                 let node = MapNode::Array(MapArray::Toplevel(toplevel_array));
 
                 vacant.insert(MapTableEntry::new(node, reprs));
@@ -898,7 +917,7 @@ fn insert_array_entry<'a, 'b>(
                 MapNode::Array(MapArray::Inline(_)) => {
                     let orig = entry.reprs.first();
                     return Err(Error::CannotExtendInlineArray {
-                        lines: context_lines(path, orig.parent, repr.parent),
+                        lines: context_lines(path, [orig.parent, repr.parent]),
                         path: joined_path(path, repr.key.repr_ident()),
                         orig: orig.kind.span(),
                         new: repr.key.repr_ident().lit_span(),
@@ -923,7 +942,7 @@ fn insert_array_entry<'a, 'b>(
                 &mut node,
                 &array_entry.assignments,
             );
-            array.push(node, array_entry);
+            array.push(MapArrayToplevelEntry::new(node, parent, array_entry));
         }
         Vacant(vacant) => {
             let parent = ParentId(0);
@@ -940,7 +959,7 @@ fn insert_array_entry<'a, 'b>(
                 &mut node,
                 &array_entry.assignments,
             );
-            let toplevel_array = MapArrayToplevel::new(node, array_entry);
+            let toplevel_array = MapArrayToplevel::new(node, parent, array_entry);
             let node = MapNode::Array(MapArray::Toplevel(toplevel_array));
 
             vacant.insert(MapTableEntry::new(node, reprs));
@@ -994,7 +1013,7 @@ where
             if repr.kind.is_assignment() {
                 let orig = entry.reprs.first();
                 return Err(Error::CannotExtendArrayWithDottedKey {
-                    lines: context_lines(prev, orig.parent, repr.parent),
+                    lines: context_lines(prev, [orig.parent, repr.parent]),
                     orig: orig.kind.span(),
                     path: joined_path(prev, repr.key.repr_ident()),
                     new: repr.key.repr_ident().lit_span(),
@@ -1016,7 +1035,7 @@ where
         MapNode::Array(MapArray::Inline(_)) => {
             let orig = entry.reprs.first();
             return Err(Error::CannotExtendInlineArrayAsTable {
-                lines: context_lines(prev, orig.parent, repr.parent),
+                lines: context_lines(prev, [orig.parent, repr.parent]),
                 path: joined_path(prev, repr.key.repr_ident()),
                 orig: orig.kind.span(),
                 new: repr.key.repr_ident().lit_span(),
@@ -1034,7 +1053,7 @@ where
                     let orig = entry.reprs.first();
                     let dupe = entry.reprs.last();
                     return Err(Error::CannotExtendTableWithDottedKey {
-                        lines: context_lines(prev, orig.parent, dupe.parent),
+                        lines: context_lines(prev, [orig.parent, dupe.parent]),
                         path: next_path.fmt_path(),
                         orig: orig.kind.span(),
                         new: dupe.key.repr_ident().lit_span(),
@@ -1049,7 +1068,7 @@ where
                     let orig = entry.reprs.first();
                     let dupe = entry.reprs.last();
                     return Err(Error::CannotExtendInlineTable {
-                        lines: context_lines(prev, orig.parent, dupe.parent),
+                        lines: context_lines(prev, [orig.parent, dupe.parent]),
                         path: next_path.fmt_path(),
                         orig: orig.kind.span(),
                         new: entry.reprs.last().key.repr_ident().lit_span(),
@@ -1077,7 +1096,7 @@ fn duplicate_key_error(
     duplicate: &MapTableEntryRepr<'_>,
 ) -> Error {
     Error::DuplicateKey {
-        lines: context_lines(path, original.parent, duplicate.parent),
+        lines: context_lines(path, [original.parent, duplicate.parent]),
         path: joined_path(path, duplicate.key.repr_ident()),
         orig: original.key.repr_ident().lit_span(),
         duplicate: duplicate.key.repr_ident().lit_span(),

@@ -1,6 +1,9 @@
-use common::Span;
+use common::{FmtStr, Span};
 use semver::{SemverCtx, VersionReq};
-use toml::map::{self, MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, Scalar};
+use toml::map::{
+    self, MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
+    ParentId, Scalar,
+};
 use toml::parse::{BoolVal, Ident, StringVal};
 use toml::util::Datatype;
 
@@ -60,7 +63,7 @@ pub enum DependencyKind {
     Build,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DependencySpec<'a> {
     Workspace(BoolAssignment<'a>),
     Git {
@@ -97,13 +100,13 @@ pub enum DependencySpec<'a> {
     },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DependencyVersion<'a> {
     str: StringAssignment<'a>,
     req: Option<VersionReq>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DependencyGitSpec<'a> {
     Branch(StringAssignment<'a>),
     Tag(StringAssignment<'a>),
@@ -116,33 +119,41 @@ pub enum DependencyGitSpec<'a> {
     None,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct DependencyFeatures<'a> {
     pub default: Option<BoolAssignment<'a>>,
     pub list: Vec<&'a StringVal<'a>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StringAssignment<'a> {
-    pub ident: &'a Ident<'a>,
+    pub repr: &'a MapTableEntryRepr<'a>,
     pub val: &'a StringVal<'a>,
 }
 
 impl<'a> StringAssignment<'a> {
+    pub fn ident(&self) -> &'a Ident<'a> {
+        self.repr.key.repr_ident()
+    }
+
     pub fn span(&self) -> Span {
-        Span::new(self.ident.lit_start, self.val.lit_span.end)
+        self.repr.repr_span()
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct BoolAssignment<'a> {
-    pub ident: &'a Ident<'a>,
+    pub repr: &'a MapTableEntryRepr<'a>,
     pub val: &'a BoolVal,
 }
 
 impl<'a> BoolAssignment<'a> {
+    pub fn ident(&self) -> &'a Ident<'a> {
+        self.repr.key.repr_ident()
+    }
+
     pub fn span(&self) -> Span {
-        Span::new(self.ident.lit_start, self.val.lit_span.end)
+        self.repr.repr_span()
     }
 }
 
@@ -340,30 +351,32 @@ impl<'a> DependencyBuilder<'a> {
         let spec = 'spec: {
             if let Some(workspace) = self.workspace {
                 if workspace.val.val == false {
-                    ctx.error(cargo::Error::DepWorkspaceIsFalse(
+                    ctx.error(cargo::Error::new(
+                        path.context_lines([workspace.repr.parent]),
                         path.fmt_path(),
                         workspace.span(),
+                        cargo::ErrorKind::DepWorkspaceIsFalse,
                     ));
                     break 'spec DependencySpec::Invalid;
                 }
 
                 let ignored = [
-                    self.version.map(|v| (v.ident, v.span())),
-                    self.registry.map(|v| (v.ident, v.span())),
-                    self.path.map(|v| (v.ident, v.span())),
-                    self.git.map(|v| (v.ident, v.span())),
-                    self.branch.map(|v| (v.ident, v.span())),
-                    self.tag.map(|v| (v.ident, v.span())),
-                    self.rev.map(|v| (v.ident, v.span())),
+                    self.version.map(|v| v.repr),
+                    self.registry.map(|v| v.repr),
+                    self.path.map(|v| v.repr),
+                    self.git.map(|v| v.repr),
+                    self.branch.map(|v| v.repr),
+                    self.tag.map(|v| v.repr),
+                    self.rev.map(|v| v.repr),
                 ];
                 let workspace_span = workspace.span();
-                for (ident, key_span) in ignored.into_iter().flatten() {
-                    let path = path.joined_path(ident);
-                    ctx.warn(cargo::Warning::WorkspaceDepIgnoredKey {
-                        path,
-                        key_span,
-                        workspace_span,
-                    });
+                for repr in ignored.into_iter().flatten() {
+                    ctx.warn(cargo::Warning::new(
+                        path.context_lines([repr.parent]),
+                        path.joined_path(repr.key.repr_ident()),
+                        repr.repr_span(),
+                        cargo::WarningKind::WorkspaceDepIgnoredKey { workspace_span },
+                    ));
                 }
 
                 break 'spec DependencySpec::Workspace(workspace);
@@ -371,36 +384,50 @@ impl<'a> DependencyBuilder<'a> {
 
             if self.git.is_none() {
                 let ignored = [
-                    self.branch.as_ref().map(|v| ("branch", v.span())),
-                    self.tag.as_ref().map(|v| ("tag", v.span())),
-                    self.rev.as_ref().map(|v| ("rev", v.span())),
+                    ("branch", &self.branch),
+                    ("tag", &self.tag),
+                    ("rev", &self.rev),
                 ];
-                for (key, span) in ignored.into_iter().flatten() {
-                    let path = path.fmt_path();
-                    ctx.error(cargo::Error::DepIgnoredGitKey(path, key, span));
+                for (key, assignment) in ignored {
+                    if let Some(a) = assignment {
+                        ctx.error(cargo::Error::new(
+                            path.context_lines([a.repr.parent]),
+                            path.fmt_path(),
+                            a.span(),
+                            cargo::ErrorKind::DepIgnoredGitKey(key),
+                        ));
+                    }
                 }
             }
 
             match (self.git, self.path, self.registry) {
                 (Some(git), _, Some(registry)) => {
-                    ctx.error(cargo::Error::AmbigousDepSpecGitRegistry(
+                    ctx.error(cargo::Error::new(
+                        path.context_lines([git.repr.parent]),
                         path.fmt_path(),
                         git.span(),
+                        cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
-                    ctx.error(cargo::Error::AmbigousDepSpecGitRegistry(
+                    ctx.error(cargo::Error::new(
+                        path.context_lines([registry.repr.parent]),
                         path.fmt_path(),
                         registry.span(),
+                        cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
                     DependencySpec::Conflicting
                 }
                 (Some(git), Some(path_key), _) => {
-                    ctx.error(cargo::Error::AmbigousDepSpecGitPath(
+                    ctx.error(cargo::Error::new(
+                        path.context_lines([git.repr.parent]),
                         path.fmt_path(),
                         git.span(),
+                        cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
-                    ctx.error(cargo::Error::AmbigousDepSpecGitPath(
+                    ctx.error(cargo::Error::new(
+                        path.context_lines([path_key.repr.parent]),
                         path.fmt_path(),
                         path_key.span(),
+                        cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
                     DependencySpec::Conflicting
                 }
@@ -409,14 +436,15 @@ impl<'a> DependencyBuilder<'a> {
                         + self.tag.is_some() as u8
                         + self.rev.is_some() as u8;
                     let spec = if num > 1 {
-                        if let Some(b) = &self.branch {
-                            ctx.error(cargo::Error::AmbigousGitSpec(path.fmt_path(), b.span()));
-                        }
-                        if let Some(t) = &self.tag {
-                            ctx.error(cargo::Error::AmbigousGitSpec(path.fmt_path(), t.span()));
-                        }
-                        if let Some(r) = &self.rev {
-                            ctx.error(cargo::Error::AmbigousGitSpec(path.fmt_path(), r.span()));
+                        for key in [&self.branch, &self.tag, &self.rev] {
+                            if let Some(key) = key {
+                                ctx.error(cargo::Error::new(
+                                    path.context_lines([key.repr.parent]),
+                                    path.fmt_path(),
+                                    key.span(),
+                                    cargo::ErrorKind::AmbigousGitSpec,
+                                ));
+                            }
                         }
                         DependencyGitSpec::Conflicting
                     } else if let Some(branch) = self.branch {
@@ -452,7 +480,12 @@ impl<'a> DependencyBuilder<'a> {
                     } else {
                         for repr in entry.reprs.iter() {
                             // TODO: in the 2024 edition this becomes an error
-                            ctx.warn(cargo::Warning::MissingDepSpec(repr.repr_span()));
+                            ctx.warn(cargo::Warning::new(
+                                map::context_lines(path.prev, [repr.parent]),
+                                path.fmt_path(),
+                                repr.repr_span(),
+                                cargo::WarningKind::MissingDepSpec,
+                            ));
                         }
                         DependencySpec::Missing { registry }
                     }
@@ -487,8 +520,8 @@ fn parse_dependencies<'a>(
 
         let dep = match &entry.node {
             MapNode::Scalar(Scalar::String(val)) => {
-                let ident = entry.reprs.first().key.repr_ident();
-                let str = StringAssignment { ident, val };
+                let repr = entry.reprs.first();
+                let str = StringAssignment { repr, val };
                 let version = parse_version_req(ctx, str);
                 let spec = DependencySpec::Registry {
                     version,
@@ -585,7 +618,7 @@ fn parse_dependency_features<'a>(
 
     for (i, entry) in array.iter().enumerate() {
         let path = path.append_index(i);
-        if let Some(str) = expect_string_in_array(ctx, &path, entry) {
+        if let Some(str) = expect_string_in_array(ctx, &path, array.parent, entry) {
             features.push(str);
         }
     }
@@ -600,13 +633,9 @@ fn expect_table_in_table<'a>(
         MapNode::Table(a) => Some(a),
         MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
-            let repr = entry.reprs.first();
-            ctx.error(cargo::Error::WrongDatatypeInTable {
-                path: path.fmt_path(),
-                expected: Datatype::Table,
-                found: n.datatype(),
-                span: repr.repr_span(),
-            });
+            for repr in entry.reprs.iter() {
+                ctx.error(wrong_datatype(path, n, repr, Datatype::Table));
+            }
             None
         }
     }
@@ -621,13 +650,9 @@ fn expect_array_in_table<'a>(
         MapNode::Array(a) => Some(a),
         MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
-            let repr = entry.reprs.first();
-            ctx.error(cargo::Error::WrongDatatypeInTable {
-                path: path.fmt_path(),
-                expected: Datatype::Array,
-                found: n.datatype(),
-                span: repr.repr_span(),
-            });
+            for repr in entry.reprs.iter() {
+                ctx.error(wrong_datatype(path, n, repr, Datatype::Array));
+            }
             None
         }
     }
@@ -640,18 +665,14 @@ fn expect_string_in_table<'a>(
 ) -> Option<StringAssignment<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(val)) => {
-            let ident = entry.reprs.first().key.repr_ident();
-            Some(StringAssignment { ident, val })
+            let repr = entry.reprs.first();
+            Some(StringAssignment { repr, val })
         }
         MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
-            let repr = entry.reprs.first();
-            ctx.error(cargo::Error::WrongDatatypeInTable {
-                path: path.fmt_path(),
-                expected: Datatype::String,
-                found: n.datatype(),
-                span: repr.repr_span(),
-            });
+            for repr in entry.reprs.iter() {
+                ctx.error(wrong_datatype(path, n, repr, Datatype::String));
+            }
             None
         }
     }
@@ -660,18 +681,22 @@ fn expect_string_in_table<'a>(
 fn expect_string_in_array<'a>(
     ctx: &mut impl IdeCtx,
     path: &map::Path,
+    parent: ParentId,
     entry: &'a MapArrayInlineEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
         MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
-            ctx.error(cargo::Error::WrongDatatypeInArray {
-                path: path.fmt_path(),
-                expected: Datatype::String,
-                found: n.datatype(),
-                span: entry.repr.span(),
-            });
+            ctx.error(cargo::Error::new(
+                map::context_lines(path.prev, [parent]),
+                path.fmt_path(),
+                entry.repr.span(),
+                cargo::ErrorKind::WrongDatatype {
+                    expected: Datatype::String,
+                    found: n.datatype(),
+                },
+            ));
             None
         }
     }
@@ -684,18 +709,14 @@ fn expect_bool_in_table<'a>(
 ) -> Option<BoolAssignment<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::Bool(val)) => {
-            let ident = entry.reprs.first().key.repr_ident();
-            Some(BoolAssignment { ident, val })
+            let repr = entry.reprs.first();
+            Some(BoolAssignment { repr, val })
         }
         MapNode::Scalar(Scalar::Invalid(_, _)) => None,
         n => {
-            let repr = entry.reprs.first();
-            ctx.error(cargo::Error::WrongDatatypeInTable {
-                path: path.fmt_path(),
-                expected: Datatype::Bool,
-                found: n.datatype(),
-                span: repr.repr_span(),
-            });
+            for repr in entry.reprs.iter() {
+                ctx.error(wrong_datatype(path, n, repr, Datatype::Bool));
+            }
             None
         }
     }
@@ -703,9 +724,11 @@ fn expect_bool_in_table<'a>(
 
 fn warn_unused(ctx: &mut impl IdeCtx, path: &map::Path, entry: &MapTableEntry) {
     for repr in entry.reprs.iter() {
-        ctx.warn(cargo::Warning::IgnoredUnknownKey(
+        ctx.warn(cargo::Warning::new(
+            map::context_lines(path.prev, [repr.parent]),
             path.fmt_path(),
             repr.repr_span(),
+            cargo::WarningKind::IgnoredUnknownKey,
         ));
     }
 }
@@ -719,24 +742,45 @@ fn deprecated_underscore(
     new: &'static str,
     old_entry: &MapTableEntry,
 ) -> bool {
-    let path = path.map(map::Path::fmt_path);
+    let ignored;
     // TODO: in the 2024 edition this becomes an error
-    if let Some(new_entry) = table.get(new) {
-        ctx.warn(cargo::Warning::RedundantDeprecatedUnderscore {
-            path,
+    let kind = if let Some(new_entry) = table.get(new) {
+        ignored = true;
+        cargo::WarningKind::RedundantDeprecatedUnderscore {
             old,
             new,
-            old_span: old_entry.reprs.first().kind.span(),
             new_span: new_entry.reprs.first().kind.span(),
-        });
-        true
+        }
     } else {
-        ctx.warn(cargo::Warning::DeprecatedUnderscore {
-            path,
-            old,
-            new,
-            span: old_entry.reprs.first().kind.span(),
-        });
-        false
+        ignored = false;
+        cargo::WarningKind::DeprecatedUnderscore { old, new }
+    };
+
+    for repr in old_entry.reprs.iter() {
+        ctx.warn(cargo::Warning::new(
+            map::context_lines(path, [repr.parent]),
+            path.map_or(FmtStr::empty(), map::Path::fmt_path),
+            repr.repr_span(),
+            kind.clone(),
+        ));
     }
+
+    ignored
+}
+
+fn wrong_datatype(
+    path: &map::Path,
+    node: &MapNode,
+    repr: &MapTableEntryRepr,
+    expected: Datatype,
+) -> cargo::Error {
+    cargo::Error::new(
+        map::context_lines(path.prev, [repr.parent]),
+        path.fmt_path(),
+        repr.repr_span(),
+        cargo::ErrorKind::WrongDatatype {
+            expected,
+            found: node.datatype(),
+        },
+    )
 }

@@ -367,7 +367,7 @@ fn inline_array() {
     check(
         input,
         MapTable::from_pairs([("array", MapTableEntry::from_one(
-            MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(&array, [
+            MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentId(0), &array, [
                 MapArrayInlineEntry::new(
                     MapNode::Scalar(Scalar::Int(&value1)),
                     &inline_array_value1,

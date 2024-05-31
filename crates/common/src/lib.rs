@@ -228,6 +228,10 @@ impl std::fmt::Display for FmtStr {
 }
 
 impl FmtStr {
+    pub fn empty() -> Self {
+        Self::from_str("")
+    }
+
     pub fn from_string(value: String) -> Self {
         Self(value.into_boxed_str())
     }
