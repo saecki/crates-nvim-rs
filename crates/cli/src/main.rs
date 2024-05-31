@@ -99,14 +99,15 @@ fn main() -> ExitCode {
     let us_simple = end.duration_since(checking).unwrap().as_micros();
     let us_total = end.duration_since(start).unwrap().as_micros();
 
-    println!("lexing {}us", us_lexing);
-    println!("parsing {}us", us_parsing);
-    println!("mapping {}us", us_mapping);
+    println!("lexing   {:4}us", us_lexing);
+    println!("parsing  {:4}us", us_parsing);
+    println!("mapping  {:4}us", us_mapping);
     if mode == Mode::Check {
-        println!("checking {}us", us_checking);
+        println!("checking {:4}us", us_checking);
     }
-    println!("simple {}us", us_simple);
-    println!("total {}us", us_total);
+    println!("simple   {:4}us", us_simple);
+    println!("---------------");
+    println!("total    {:4}us", us_total);
 
     ExitCode::SUCCESS
 }
