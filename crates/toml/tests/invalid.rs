@@ -171,6 +171,13 @@ fn main() {
                     return Ok(());
                 }
 
+                if let Mode::Force | Mode::ForceExisting = mode {
+                    let dir = expect_path.parent().unwrap();
+                    std::fs::create_dir_all(dir).unwrap();
+                    std::fs::write(expect_path, actual_text).unwrap();
+                    return Ok(());
+                }
+
                 let mut msg = String::new();
                 _ = writeln!(
                     &mut msg,
@@ -231,12 +238,7 @@ fn main() {
                             _ => unreachable!(),
                         }
                     }
-                    Mode::Force | Mode::ForceExisting => {
-                        let dir = expect_path.parent().unwrap();
-                        std::fs::create_dir_all(dir).unwrap();
-                        std::fs::write(expect_path, actual_text).unwrap();
-                        Ok(())
-                    }
+                    Mode::Force | Mode::ForceExisting => unreachable!(),
                 }
             })
             .with_ignored_flag(match mode {
