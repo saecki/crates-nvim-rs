@@ -217,6 +217,10 @@ impl<'a> MapArrayToplevel<'a> {
     pub fn is_empty(&self) -> bool {
         self.inner.len() == 0
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &MapArrayToplevelEntry<'a>> {
+        self.inner.iter()
+    }
 }
 
 impl<'a> IntoIterator for MapArrayToplevel<'a> {

@@ -538,13 +538,33 @@ fn parse_dependencies<'a>(
                     entry,
                 }
             }
-            MapNode::Scalar(_) => todo!("error"),
+            MapNode::Scalar(Scalar::Invalid(..)) => continue,
+            MapNode::Scalar(_) => {
+                let repr = entry.reprs.first();
+                ctx.error(cargo::Error::new(
+                    map::context_lines(path.prev, [repr.parent]),
+                    path.fmt_path(),
+                    repr.repr_span(),
+                    cargo::ErrorKind::DepWrongDatatype(entry.node.datatype()),
+                ));
+                continue;
+            }
             MapNode::Table(table) => {
                 let mut builder = DependencyBuilder::default();
                 parse_dependency(ctx, &mut builder, &mut features, &path, table);
                 builder.try_build(ctx, &path, entry, name, features, kind, target)
             }
-            MapNode::Array(_) => todo!("error"),
+            MapNode::Array(_) => {
+                for repr in entry.reprs.iter() {
+                    ctx.error(cargo::Error::new(
+                        map::context_lines(path.prev, [repr.parent]),
+                        path.fmt_path(),
+                        repr.repr_span(),
+                        cargo::ErrorKind::DepWrongDatatype(entry.node.datatype()),
+                    ));
+                }
+                continue;
+            }
         };
 
         state.dependencies.push(dep);
@@ -612,7 +632,20 @@ fn parse_dependency_features<'a>(
         return;
     };
     let array = match array {
-        MapArray::Toplevel(_) => todo!("error: array of tables"),
+        MapArray::Toplevel(_) => {
+            for (i, repr) in entry.reprs.iter().enumerate() {
+                ctx.error(cargo::Error::new(
+                    map::context_lines(path.prev, [repr.parent]),
+                    path.append_index(i).fmt_path(),
+                    repr.repr_span(),
+                    cargo::ErrorKind::WrongDatatype {
+                        expected: Datatype::String,
+                        found: Datatype::Table,
+                    },
+                ));
+            }
+            return;
+        }
         MapArray::Inline(i) => i,
     };
 

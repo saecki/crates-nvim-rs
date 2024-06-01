@@ -51,6 +51,7 @@ pub enum ErrorKind {
         old: &'static str,
         new: &'static str,
     },
+    DepWrongDatatype(Datatype),
     DepWorkspaceIsFalse,
     AmbigousDepSpecGitPath,
     AmbigousDepSpecGitRegistry,
@@ -80,6 +81,7 @@ impl Diagnostic for Error {
                 }
                 write!(f, "`{old}` has been replaced with `{new}` and is unsupported in the 2024 edition")
             }
+            DepWrongDatatype(found) => write!(f, "Expected `{path}` to be of type string or table, found {found}"),
             DepWorkspaceIsFalse => write!(f, "Invalid dependency specification `{path}`; `workspace` cannot be false"),
             AmbigousDepSpecGitPath => write!(f, "Dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed"),
             AmbigousDepSpecGitRegistry => write!(f, "Dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed"),
@@ -95,6 +97,7 @@ impl Diagnostic for Error {
         match kind {
             WrongDatatype { expected, .. } => write!(f, "Expected {expected}"),
             UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
+            DepWrongDatatype(..) => write!(f, "Expected string or table"),
             DepWorkspaceIsFalse => write!(f, "`workspace` cannot be false"),
             AmbigousDepSpecGitPath => write!(f, "Only one of `git` or `path` is allowed"),
             AmbigousDepSpecGitRegistry => write!(f, "Only one of `git` or `registry` is allowed"),
