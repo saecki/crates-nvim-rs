@@ -191,8 +191,7 @@ impl<'a> TableHeader<'a> {
     #[inline]
     pub fn span(&self) -> Span {
         let start = self.l_par;
-        let end = self
-            .r_par()
+        let end = (self.r_par().map(|p| p.plus(1)))
             .or_else(|| self.key.as_ref().map(|k| k.span().end))
             .unwrap_or_else(|| self.l_par.plus(1));
         Span { start, end }
@@ -264,8 +263,7 @@ impl<'a> ArrayHeader<'a> {
         let start = self.l_pars.0;
 
         let r_pars = self.r_pars();
-        let end = (r_pars.1)
-            .or(r_pars.0)
+        let end = (r_pars.1.or(r_pars.0).map(|p| p.plus(1)))
             .or_else(|| self.key.as_ref().map(|k| k.span().end))
             .unwrap_or_else(|| self.l_pars.1.plus(1));
         Span { start, end }
@@ -273,8 +271,8 @@ impl<'a> ArrayHeader<'a> {
 
     #[inline(always)]
     pub fn r_pars(&self) -> (Option<Pos>, Option<Pos>) {
-        let a = (self.r_par_offsets.0).map(|o| self.l_pars.0.plus(o.get() + 1));
-        let b = (self.r_par_offsets.1).map(|o| self.l_pars.0.plus(o.get() + 1));
+        let a = (self.r_par_offsets.0).map(|o| self.l_pars.0.plus(o.get()));
+        let b = (self.r_par_offsets.1).map(|o| self.l_pars.0.plus(o.get()));
         (a, b)
     }
 }
