@@ -446,7 +446,7 @@ fn inline_array() {
                         comma: None,
                     },
                 ]),
-                r_par: Some(Pos { line: 0, char: 16 }),
+                end: End::Par(Pos { line: 0, char: 16 }),
             }),
         ))]
     });
@@ -480,7 +480,7 @@ fn multi_line_inline_array() {
                         comma: Some(Pos { line: 3, char: 3 }),
                     },
                 ]),
-                r_par: Some(Pos { line: 4, char: 0 }),
+                end: End::Par(Pos { line: 4, char: 0 }),
             }),
         ))]
     });
@@ -516,7 +516,7 @@ fn inline_array_recover_comma() {
                             comma: None,
                         },
                     ]),
-                    r_par: Some(Pos { line: 0, char: 16 }),
+                    end: End::Par(Pos { line: 0, char: 16 }),
                 }),
             ))]
         },
@@ -554,7 +554,7 @@ fn inline_array_recover_invalid() {
                             comma: Some(Pos { line: 0, char: 16 }),
                         },
                     ]),
-                    r_par: Some(Pos { line: 0, char: 19 }),
+                    end: End::Par(Pos { line: 0, char: 19 }),
                 }),
             ))]
         },
@@ -587,7 +587,7 @@ fn nested_inline_array() {
                                 val: int(0, 10, "0"),
                                 comma: None,
                             }]),
-                            r_par: Some(Pos { line: 0, char: 11 }),
+                            end: End::Par(Pos { line: 0, char: 11 }),
                         }),
                         comma: Some(Pos { line: 0, char: 12 }),
                     },
@@ -601,12 +601,12 @@ fn nested_inline_array() {
                                 val: int(0, 15, "1"),
                                 comma: None,
                             }]),
-                            r_par: Some(Pos { line: 0, char: 16 }),
+                            end: End::Par(Pos { line: 0, char: 16 }),
                         }),
                         comma: None,
                     },
                 ]),
-                r_par: Some(Pos { line: 0, char: 17 }),
+                end: End::Par(Pos { line: 0, char: 17 }),
             }),
         ))]
     });
@@ -642,7 +642,7 @@ fn unclosed_inline_array_error_on_last_line() {
                                 comma: None,
                             },
                         ]),
-                        r_par: None,
+                        end: End::None(Pos { line: 2, char: 3 }),
                     }),
                 ))]
             },
@@ -675,7 +675,7 @@ fn inline_table() {
                         comma: None,
                     },
                 ]),
-                r_par: Some(Pos { line: 0, char: 26 }),
+                end: End::Par(Pos { line: 0, char: 26 }),
             }),
         ))]
     });
@@ -703,7 +703,7 @@ fn inline_table_recover_missing_comma() {
                             comma: None,
                         },
                     ]),
-                    r_par: Some(Pos { line: 0, char: 26 }),
+                    end: End::Par(Pos { line: 0, char: 26 }),
                 }),
             ))]
         },
@@ -733,7 +733,7 @@ fn inline_table_recover_invalid() {
                             comma: Some(Pos { line: 0, char: 25 }),
                         },
                     ]),
-                    r_par: Some(Pos { line: 0, char: 29 }),
+                    end: End::Par(Pos { line: 0, char: 29 }),
                 }),
             ))]
         },
@@ -1106,7 +1106,7 @@ fn associated_comments_in_inline_array() {
                                 val: int(5, 0, "1"), comma: Some(Pos { line: 7, char: 0 }),
                             }
                         ]),
-                        r_par: Some(Pos { line: 9, char: 0 }),
+                        end: End::Par(Pos { line: 9, char: 0 }),
                     }),
                 ),
             })];
@@ -1124,6 +1124,16 @@ fn associated_comments_in_inline_array() {
             asts
         }
     );
+}
+
+#[test]
+fn many_unclosed_inline_arrays() {
+    _ = parse_simple("a=[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[");
+}
+
+#[test]
+fn many_unclosed_inline_tables() {
+    _ = parse_simple("a={{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{");
 }
 
 #[test]

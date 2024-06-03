@@ -2,7 +2,7 @@ use common::Pos;
 use pretty_assertions::assert_eq;
 
 use crate::onevec;
-use crate::parse::TableHeader;
+use crate::parse::{End, TableHeader};
 use crate::test::*;
 
 use super::*;
@@ -351,7 +351,7 @@ fn inline_array() {
             inline_array_value2.clone(),
             inline_array_value3.clone(),
         ],
-        r_par: Some(Pos::new(0, 17)),
+        end: End::Par(Pos::new(0, 17)),
     };
     let assignment = twrap(
         &[],

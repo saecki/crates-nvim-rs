@@ -489,17 +489,24 @@ impl<'a> DateTimeVal<'a> {
 pub struct InlineTable<'a> {
     pub l_par: Pos,
     pub assignments: &'a [InlineTableAssignment<'a>],
-    pub r_par: Option<Pos>,
+    pub end: End,
 }
 
 impl InlineTable<'_> {
     #[inline]
     pub fn span(&self) -> Span {
-        let start = self.l_par;
-        let end = (self.r_par.map(|p| p.plus(1)))
-            .or_else(|| self.assignments.last().map(|a| a.span().end))
-            .unwrap_or_else(|| self.l_par.plus(1));
-        Span { start, end }
+        Span {
+            start: self.l_par,
+            end: self.end.end_pos(),
+        }
+    }
+
+    #[inline]
+    pub fn r_par(&self) -> Option<Pos> {
+        match self.end {
+            End::Par(p) => Some(p),
+            End::None(_) => None,
+        }
     }
 }
 
@@ -526,17 +533,42 @@ pub struct InlineArray<'a> {
     pub comments: CommentRange,
     pub l_par: Pos,
     pub values: &'a [InlineArrayValue<'a>],
-    pub r_par: Option<Pos>,
+    pub end: End,
 }
 
 impl InlineArray<'_> {
     #[inline]
     pub fn span(&self) -> Span {
-        let start = self.l_par;
-        let end = (self.r_par.map(|p| p.plus(1)))
-            .or_else(|| self.values.last().map(|a| a.span().end))
-            .unwrap_or_else(|| self.l_par.plus(1));
-        Span { start, end }
+        Span {
+            start: self.l_par,
+            end: self.end.end_pos(),
+        }
+    }
+
+    #[inline]
+    pub fn r_par(&self) -> Option<Pos> {
+        match self.end {
+            End::Par(p) => Some(p),
+            End::None(_) => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum End {
+    /// Position of the closing parenthesis.
+    Par(Pos),
+    /// End of the parent value,
+    None(Pos),
+}
+
+impl End {
+    #[inline]
+    pub fn end_pos(&self) -> Pos {
+        match self {
+            End::Par(p) => p.plus(1),
+            End::None(p) => *p,
+        }
     }
 }
 
@@ -1356,6 +1388,7 @@ fn parse_value<'a>(
                             val,
                             comma: None,
                         });
+
                         break;
                     }
                     _ => {
@@ -1392,11 +1425,21 @@ fn parse_value<'a>(
             array_comments.extend_to(next_comment_id(comment_storage));
             mark_contained_comments(comment_storage, &array_comments, level);
 
+            let end = match r_par {
+                Some(p) => End::Par(p),
+                None => {
+                    let end = values
+                        .last()
+                        .map(|v| v.span().end)
+                        .unwrap_or_else(|| l_par.plus(1));
+                    End::None(end)
+                }
+            };
             Value::InlineArray(InlineArray {
                 comments: array_comments,
                 l_par,
                 values: bump.alloc_slice_fill_iter(values),
-                r_par,
+                end,
             })
         }
         TokenType::CurlyLeft => {
@@ -1489,10 +1532,21 @@ fn parse_value<'a>(
                 }
             };
 
+            let end = match r_par {
+                Some(p) => End::Par(p),
+                None => {
+                    let end = assignments
+                        .last()
+                        .map(|a| a.span().end)
+                        .unwrap_or_else(|| l_par.plus(1));
+                    End::None(end)
+                }
+            };
+
             Value::InlineTable(InlineTable {
                 l_par,
                 assignments: bump.alloc_slice_fill_iter(assignments),
-                r_par,
+                end,
             })
         }
         TokenType::Comment(_)
