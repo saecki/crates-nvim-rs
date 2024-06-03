@@ -153,12 +153,19 @@ pub struct Table<'a> {
 impl<'a> Table<'a> {
     #[inline]
     pub fn span(&self) -> Span {
-        let header_span = self.header.span();
-        let start = header_span.start;
-        let end = (self.assignments.last())
-            .map(|a| a.assignment.val.span().end)
-            .unwrap_or(header_span.end);
-        Span { start, end }
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.header.start()
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        (self.assignments.last())
+            .map(|a| a.assignment.val.end())
+            .unwrap_or_else(|| self.header.end())
     }
 
     pub fn append_comment(&mut self, id: CommentId) {
@@ -190,11 +197,19 @@ impl<'a> TableHeader<'a> {
 
     #[inline]
     pub fn span(&self) -> Span {
-        let start = self.l_par;
-        let end = (self.r_par().map(|p| p.plus(1)))
-            .or_else(|| self.key.as_ref().map(|k| k.span().end))
-            .unwrap_or_else(|| self.l_par.plus(1));
-        Span { start, end }
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.l_par
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        (self.r_par().map(|p| p.plus(1)))
+            .or_else(|| self.key.as_ref().map(|k| k.end()))
+            .unwrap_or_else(|| self.l_par.plus(1))
     }
 
     pub fn r_par(&self) -> Option<Pos> {
@@ -212,12 +227,19 @@ pub struct ArrayEntry<'a> {
 impl<'a> ArrayEntry<'a> {
     #[inline]
     pub fn span(&self) -> Span {
-        let header_span = self.header.span();
-        let start = header_span.start;
-        let end = (self.assignments.last())
-            .map(|a| a.assignment.val.span().end)
-            .unwrap_or(header_span.end);
-        Span { start, end }
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.header.start()
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        (self.assignments.last())
+            .map(|a| a.assignment.val.end())
+            .unwrap_or_else(|| self.header.end())
     }
 
     /// Comment on the same line as the last item of this table
@@ -260,13 +282,20 @@ impl<'a> ArrayHeader<'a> {
 
     #[inline]
     pub fn span(&self) -> Span {
-        let start = self.l_pars.0;
+        Span::new(self.start(), self.end())
+    }
 
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.l_pars.0
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
         let r_pars = self.r_pars();
-        let end = (r_pars.1.or(r_pars.0).map(|p| p.plus(1)))
-            .or_else(|| self.key.as_ref().map(|k| k.span().end))
-            .unwrap_or_else(|| self.l_pars.1.plus(1));
-        Span { start, end }
+        (r_pars.1.or(r_pars.0).map(|p| p.plus(1)))
+            .or_else(|| self.key.as_ref().map(|k| k.end()))
+            .unwrap_or_else(|| self.l_pars.1.plus(1))
     }
 
     #[inline(always)]
@@ -284,9 +313,19 @@ pub struct ToplevelAssignment<'a> {
 }
 
 impl ToplevelAssignment<'_> {
-    #[inline]
+    #[inline(always)]
     pub fn span(&self) -> Span {
         self.assignment.span()
+    }
+
+    #[inline(always)]
+    pub fn start(&self) -> Pos {
+        self.assignment.start()
+    }
+
+    #[inline(always)]
+    pub fn end(&self) -> Pos {
+        self.assignment.end()
     }
 }
 
@@ -300,7 +339,17 @@ pub struct Assignment<'a> {
 impl Assignment<'_> {
     #[inline]
     pub fn span(&self) -> Span {
-        Span::across(self.key.span(), self.val.span())
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.key.start()
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        self.val.end()
     }
 }
 
@@ -319,13 +368,26 @@ pub struct DottedIdent<'a> {
 impl Key<'_> {
     #[inline]
     pub fn span(&self) -> Span {
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
         match self {
-            Key::One(i) => i.lit_span(),
+            Key::One(i) => i.lit_start,
+            Key::Dotted(idents) => idents.first().unwrap().ident.lit_start,
+        }
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        match self {
+            Key::One(i) => i.lit_end(),
             Key::Dotted(idents) => {
-                let start = idents.first().unwrap().ident.lit_span().start;
                 let last = idents.last().unwrap();
-                let end = last.dot.map_or(last.ident.lit_span().end, |p| p.plus(1));
-                Span { start, end }
+                last.dot
+                    .map(|p| p.plus(1))
+                    .unwrap_or_else(|| last.ident.lit_end())
             }
         }
     }
@@ -377,6 +439,11 @@ impl<'a> Ident<'a> {
     }
 
     #[inline(always)]
+    pub fn lit_end(&self) -> Pos {
+        self.lit_start.plus(self.lit.len() as u32)
+    }
+
+    #[inline(always)]
     pub fn text_span(&self) -> Span {
         let start = self.lit_start.plus(self.text_start_offset as u32);
         let len = self.lit.len() as u32 - (self.text_start_offset + self.text_end_offset) as u32;
@@ -415,6 +482,34 @@ impl Value<'_> {
             Value::InlineTable(t) => t.span(),
             Value::InlineArray(a) => a.span(),
             Value::Invalid(_, r) => *r,
+        }
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        match self {
+            Value::String(s) => s.lit_span.start,
+            Value::Int(i) => i.lit_span.start,
+            Value::Float(f) => f.lit_span.start,
+            Value::Bool(b) => b.lit_span.start,
+            Value::DateTime(d) => d.lit_span.start,
+            Value::InlineTable(t) => t.start(),
+            Value::InlineArray(a) => a.start(),
+            Value::Invalid(_, s) => s.end,
+        }
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        match self {
+            Value::String(s) => s.lit_span.end,
+            Value::Int(i) => i.lit_span.end,
+            Value::Float(f) => f.lit_span.end,
+            Value::Bool(b) => b.lit_span.end,
+            Value::DateTime(d) => d.lit_span.end,
+            Value::InlineTable(t) => t.end(),
+            Value::InlineArray(a) => a.end(),
+            Value::Invalid(_, s) => s.end,
         }
     }
 }
@@ -495,10 +590,17 @@ pub struct InlineTable<'a> {
 impl InlineTable<'_> {
     #[inline]
     pub fn span(&self) -> Span {
-        Span {
-            start: self.l_par,
-            end: self.end.end_pos(),
-        }
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.l_par
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        self.end.end_pos()
     }
 
     #[inline]
@@ -519,12 +621,19 @@ pub struct InlineTableAssignment<'a> {
 impl InlineTableAssignment<'_> {
     #[inline]
     pub fn span(&self) -> Span {
-        let start = self.assignment.key.span().start;
-        let end = self
-            .comma
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.assignment.key.start()
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        self.comma
             .map(|c| c.plus(1))
-            .unwrap_or_else(|| self.assignment.val.span().end);
-        Span { start, end }
+            .unwrap_or_else(|| self.assignment.val.end())
     }
 }
 
@@ -540,9 +649,19 @@ impl InlineArray<'_> {
     #[inline]
     pub fn span(&self) -> Span {
         Span {
-            start: self.l_par,
-            end: self.end.end_pos(),
+            start: self.start(),
+            end: self.end(),
         }
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.l_par
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        self.end.end_pos()
     }
 
     #[inline]
@@ -582,12 +701,19 @@ pub struct InlineArrayValue<'a> {
 impl InlineArrayValue<'_> {
     #[inline]
     pub fn span(&self) -> Span {
-        let start = self.val.span().start;
-        let end = self
-            .comma
+        Span::new(self.start(), self.end())
+    }
+
+    #[inline]
+    pub fn start(&self) -> Pos {
+        self.val.start()
+    }
+
+    #[inline]
+    pub fn end(&self) -> Pos {
+        self.comma
             .map(|c| c.plus(1))
-            .unwrap_or_else(|| self.val.span().end);
-        Span { start, end }
+            .unwrap_or_else(|| self.val.end())
     }
 }
 
@@ -1346,7 +1472,7 @@ fn parse_value<'a>(
                     }
                 };
 
-                let val_line = val.span().start.line;
+                let val_line = val.start().line;
                 let mut val_comments = mark_comments_above(comment_storage, val_line, level + 1);
                 if let Some(comment) = parser.eat_comment() {
                     add_comment(
@@ -1392,7 +1518,7 @@ fn parse_value<'a>(
                         break;
                     }
                     _ => {
-                        ctx.error(Error::MissingComma(val.span().end));
+                        ctx.error(Error::MissingComma(val.end()));
                         // try to continue
                         None
                     }
@@ -1430,7 +1556,7 @@ fn parse_value<'a>(
                 None => {
                     let end = values
                         .last()
-                        .map(|v| v.span().end)
+                        .map(|v| v.end())
                         .unwrap_or_else(|| l_par.plus(1));
                     End::None(end)
                 }
@@ -1513,7 +1639,7 @@ fn parse_value<'a>(
                         break;
                     }
                     _ => {
-                        let pos = assignment.val.span().end;
+                        let pos = assignment.val.end();
                         ctx.error(Error::MissingComma(pos));
                         // try to continue
                         None
@@ -1537,7 +1663,7 @@ fn parse_value<'a>(
                 None => {
                     let end = assignments
                         .last()
-                        .map(|a| a.span().end)
+                        .map(|a| a.end())
                         .unwrap_or_else(|| l_par.plus(1));
                     End::None(end)
                 }
