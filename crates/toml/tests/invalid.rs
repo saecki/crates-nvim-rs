@@ -1,9 +1,9 @@
-use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::io::Write as _;
 
 use bumpalo::Bump;
 use common::diagnostic;
+use crates_toml::map::MapInner;
 use crates_toml::util::SimpleVal;
 use crates_toml::{TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
@@ -255,7 +255,7 @@ fn main() {
     libtest_mimic::run(&args, tests).exit()
 }
 
-fn run_case(input: &str) -> Result<HashMap<String, SimpleVal>, String> {
+fn run_case(input: &str) -> Result<MapInner<String, SimpleVal>, String> {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);

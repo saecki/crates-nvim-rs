@@ -3,9 +3,14 @@ name = "crates-toml"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["indexmap"]
+indexmap = ["dep:indexmap"]
+
 [dependencies]
 common = { workspace = true }
 bumpalo = { workspace = true }
+indexmap = { version = "2.2.6", optional = true }
 
 [dev-dependencies]
 pretty_assertions = "1.4.0"

@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use crate::datetime::DateTime;
-use crate::map::{MapArray, MapNode, MapTable, Scalar};
+use crate::map::{MapInner, MapArray, MapNode, MapTable, Scalar};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Datatype {
@@ -76,7 +74,7 @@ impl SimpleVal {
 
 #[derive(PartialEq)]
 pub enum SimpleVal {
-    Table(HashMap<String, SimpleVal>),
+    Table(MapInner<String, SimpleVal>),
     Array(Vec<SimpleVal>),
     String(String),
     Int(i64),
@@ -101,11 +99,11 @@ impl std::fmt::Debug for SimpleVal {
     }
 }
 
-pub fn map_simple(map: MapTable) -> HashMap<String, SimpleVal> {
+pub fn map_simple(map: MapTable) -> MapInner<String, SimpleVal> {
     let iter = map
         .into_iter()
         .map(|(k, e)| (k.to_string(), map_simple_val(e.node)));
-    HashMap::from_iter(iter)
+    MapInner::from_iter(iter)
 }
 
 pub fn map_simple_val(node: MapNode) -> SimpleVal {

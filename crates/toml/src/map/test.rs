@@ -406,18 +406,18 @@ symbol = '$'
 name = 'Pound'
 symbol = '£'
 ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "currencies".into(),
             SimpleVal::Array(vec![
-                SimpleVal::Table(HashMap::from_iter([
+                SimpleVal::Table(MapInner::from_iter([
                     ("name".into(), SimpleVal::String("Euro".into())),
                     ("symbol".into(), SimpleVal::String("€".into())),
                 ])),
-                SimpleVal::Table(HashMap::from_iter([
+                SimpleVal::Table(MapInner::from_iter([
                     ("name".into(), SimpleVal::String("Dollar".into())),
                     ("symbol".into(), SimpleVal::String("$".into())),
                 ])),
-                SimpleVal::Table(HashMap::from_iter([
+                SimpleVal::Table(MapInner::from_iter([
                     ("name".into(), SimpleVal::String("Pound".into())),
                     ("symbol".into(), SimpleVal::String("£".into())),
                 ])),
@@ -498,18 +498,18 @@ fruit.berries.strawberry.num = 3
 [fruit.berries.raspberry]
 num = 8383
     ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "fruit".into(),
-            SimpleVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(MapInner::from_iter([(
                 "berries".into(),
-                SimpleVal::Table(HashMap::from_iter([
+                SimpleVal::Table(MapInner::from_iter([
                     (
                         "strawberry".into(),
-                        SimpleVal::Table(HashMap::from_iter([("num".into(), SimpleVal::Int(3))])),
+                        SimpleVal::Table(MapInner::from_iter([("num".into(), SimpleVal::Int(3))])),
                     ),
                     (
                         "raspberry".into(),
-                        SimpleVal::Table(HashMap::from_iter([(
+                        SimpleVal::Table(MapInner::from_iter([(
                             "num".into(),
                             SimpleVal::Int(8383),
                         )])),
@@ -530,13 +530,13 @@ fn table_extends_other_table() {
 [a.b]
 2 = true
     ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "a".into(),
-            SimpleVal::Table(HashMap::from_iter([
+            SimpleVal::Table(MapInner::from_iter([
                 ("1".into(), SimpleVal::Bool(false)),
                 (
                     "b".into(),
-                    SimpleVal::Table(HashMap::from_iter([("2".into(), SimpleVal::Bool(true))])),
+                    SimpleVal::Table(MapInner::from_iter([("2".into(), SimpleVal::Bool(true))])),
                 ),
             ])),
         )]),
@@ -553,13 +553,13 @@ fn super_table_declared_afterwards() {
 [a]
 1 = false
     ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "a".into(),
-            SimpleVal::Table(HashMap::from_iter([
+            SimpleVal::Table(MapInner::from_iter([
                 ("1".into(), SimpleVal::Bool(false)),
                 (
                     "b".into(),
-                    SimpleVal::Table(HashMap::from_iter([("2".into(), SimpleVal::Bool(true))])),
+                    SimpleVal::Table(MapInner::from_iter([("2".into(), SimpleVal::Bool(true))])),
                 ),
             ])),
         )]),
@@ -582,26 +582,26 @@ fn table_extends_last_array_entry() {
 [a.b.c]
 2 = 'four'
     ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "a".into(),
-            SimpleVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(MapInner::from_iter([(
                 "b".into(),
                 SimpleVal::Array(vec![
-                    SimpleVal::Table(HashMap::from_iter([
+                    SimpleVal::Table(MapInner::from_iter([
                         ("1".into(), SimpleVal::String("one".into())),
                         (
                             "c".into(),
-                            SimpleVal::Table(HashMap::from_iter([(
+                            SimpleVal::Table(MapInner::from_iter([(
                                 "2".into(),
                                 SimpleVal::String("two".into()),
                             )])),
                         ),
                     ])),
-                    SimpleVal::Table(HashMap::from_iter([
+                    SimpleVal::Table(MapInner::from_iter([
                         ("1".into(), SimpleVal::String("three".into())),
                         (
                             "c".into(),
-                            SimpleVal::Table(HashMap::from_iter([(
+                            SimpleVal::Table(MapInner::from_iter([(
                                 "2".into(),
                                 SimpleVal::String("four".into()),
                             )])),
@@ -626,17 +626,17 @@ fn array_of_table_of_arrays() {
 [[a.b.c]]
 2 = false
     ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "a".into(),
-            SimpleVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(MapInner::from_iter([(
                 "b".into(),
                 SimpleVal::Array(vec![
-                    SimpleVal::Table(HashMap::from_iter([("1".into(), SimpleVal::Bool(false))])),
-                    SimpleVal::Table(HashMap::from_iter([
+                    SimpleVal::Table(MapInner::from_iter([("1".into(), SimpleVal::Bool(false))])),
+                    SimpleVal::Table(MapInner::from_iter([
                         ("1".into(), SimpleVal::Bool(true)),
                         (
                             "c".into(),
-                            SimpleVal::Array(vec![SimpleVal::Table(HashMap::from_iter([(
+                            SimpleVal::Array(vec![SimpleVal::Table(MapInner::from_iter([(
                                 "2".into(),
                                 SimpleVal::Bool(false),
                             )]))]),
@@ -652,13 +652,13 @@ fn array_of_table_of_arrays() {
 fn dotted_keys_in_inline_table() {
     check_simple(
         "a = { b.c.d = 1, b.c.e = 2 }",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "a".into(),
-            SimpleVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(MapInner::from_iter([(
                 "b".into(),
-                SimpleVal::Table(HashMap::from_iter([(
+                SimpleVal::Table(MapInner::from_iter([(
                     "c".into(),
-                    SimpleVal::Table(HashMap::from_iter([
+                    SimpleVal::Table(MapInner::from_iter([
                         ("d".into(), SimpleVal::Int(1)),
                         ("e".into(), SimpleVal::Int(2)),
                     ])),
@@ -677,14 +677,14 @@ fn toml_test_repro_open_parent_table() {
 [parent-table]
 not-arr = 1
 ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "parent-table".into(),
-            SimpleVal::Table(HashMap::from_iter([
+            SimpleVal::Table(MapInner::from_iter([
                 (
                     "arr".into(),
                     SimpleVal::Array(vec![
-                        SimpleVal::Table(HashMap::new()),
-                        SimpleVal::Table(HashMap::new()),
+                        SimpleVal::Table(MapInner::new()),
+                        SimpleVal::Table(MapInner::new()),
                     ]),
                 ),
                 ("not-arr".into(), SimpleVal::Int(1)),
@@ -702,11 +702,11 @@ fn toml_test_repro_append_to_array_with_dotted_keys() {
 [a]
 b.y = 2
 ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "a".into(),
-            SimpleVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(MapInner::from_iter([(
                 "b".into(),
-                SimpleVal::Array(vec![SimpleVal::Table(HashMap::new())]),
+                SimpleVal::Array(vec![SimpleVal::Table(MapInner::new())]),
             )])),
         )]),
         Error::CannotExtendArrayWithDottedKey {
@@ -728,13 +728,13 @@ fn toml_test_repro_append_with_dotted_keys_1() {
 [a]
   b.c.t = \"Using dotted keys to add to [a.b.c] after explicitly defining it above is not allowed\"
 ",
-        HashMap::from_iter([(
+        MapInner::from_iter([(
             "a".into(),
-            SimpleVal::Table(HashMap::from_iter([(
+            SimpleVal::Table(MapInner::from_iter([(
                 "b".into(),
-                SimpleVal::Table(HashMap::from_iter([(
+                SimpleVal::Table(MapInner::from_iter([(
                     "c".into(),
-                    SimpleVal::Table(HashMap::from_iter([("z".into(), SimpleVal::Int(9))])),
+                    SimpleVal::Table(MapInner::from_iter([("z".into(), SimpleVal::Int(9))])),
                 )])),
             )])),
         )]),

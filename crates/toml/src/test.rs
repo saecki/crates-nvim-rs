@@ -4,9 +4,8 @@ pub use bumpalo::Bump;
 use common::{Pos, Span};
 pub use pretty_assertions::assert_eq;
 
-pub use std::collections::HashMap;
-
 use crate::lex::TextOffset;
+use crate::map::MapInner;
 pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
 pub use crate::util::{self, SimpleVal};
 pub use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
@@ -15,7 +14,7 @@ use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, Int
 
 mod fuzz;
 
-pub fn expect_float(table: &HashMap<String, SimpleVal>, key: &str) -> f64 {
+pub fn expect_float(table: &MapInner<String, SimpleVal>, key: &str) -> f64 {
     let val = table.get(key).unwrap();
     match val {
         SimpleVal::Float(f) => *f,
@@ -23,7 +22,7 @@ pub fn expect_float(table: &HashMap<String, SimpleVal>, key: &str) -> f64 {
     }
 }
 
-pub fn parse_simple(input: &str) -> (TomlDiagnostics, HashMap<String, SimpleVal>) {
+pub fn parse_simple(input: &str) -> (TomlDiagnostics, MapInner<String, SimpleVal>) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
@@ -34,7 +33,7 @@ pub fn parse_simple(input: &str) -> (TomlDiagnostics, HashMap<String, SimpleVal>
 }
 
 #[track_caller]
-pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
+pub fn check_simple(input: &str, expected: MapInner<String, SimpleVal>) {
     let (ctx, table) = parse_simple(input);
     assert_eq!(
         expected, table,
@@ -46,7 +45,7 @@ pub fn check_simple(input: &str, expected: HashMap<String, SimpleVal>) {
 }
 
 #[track_caller]
-pub fn check_simple_error(input: &str, expected: HashMap<String, SimpleVal>, error: Error) {
+pub fn check_simple_error(input: &str, expected: MapInner<String, SimpleVal>, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);

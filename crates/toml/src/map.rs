@@ -36,9 +36,6 @@
 //! children_1 = { node_1 = 1, node_2 = false }
 //! ```
 
-use std::collections::hash_map::Entry::*;
-use std::collections::HashMap;
-
 use bumpalo::Bump;
 use common::{FmtChar, FmtStr, Span};
 
@@ -57,15 +54,25 @@ mod test;
 // array to index anyway, but this will most likely panic if used wrong.
 const ROOT_PARENT: ParentId = ParentId(u32::MAX);
 
+#[cfg(feature = "indexmap")]
+use indexmap::map::Entry::{Occupied, Vacant};
+#[cfg(feature = "indexmap")]
+pub type MapInner<K, V> = indexmap::IndexMap<K, V>;
+
+#[cfg(not(feature = "indexmap"))]
+use std::collections::hash_map::Entry::{Occupied, Vacant};
+#[cfg(not(feature = "indexmap"))]
+pub type MapInner<K, V> = std::collections::hash_map::HashMap<K, V>;
+
 #[derive(Debug, Default, PartialEq)]
 pub struct MapTable<'a> {
-    inner: HashMap<&'a str, MapTableEntry<'a>>,
+    inner: MapInner<&'a str, MapTableEntry<'a>>,
 }
 
 impl<'a> MapTable<'a> {
     pub fn new() -> Self {
         Self {
-            inner: HashMap::new(),
+            inner: MapInner::new(),
         }
     }
 
@@ -75,7 +82,7 @@ impl<'a> MapTable<'a> {
 
     pub fn from_pairs(pairs: impl IntoIterator<Item = (&'a str, MapTableEntry<'a>)>) -> Self {
         Self {
-            inner: HashMap::from_iter(pairs),
+            inner: MapInner::from_iter(pairs),
         }
     }
 
@@ -86,7 +93,7 @@ impl<'a> MapTable<'a> {
 
 impl<'a> IntoIterator for MapTable<'a> {
     type Item = (&'a str, MapTableEntry<'a>);
-    type IntoIter = std::collections::hash_map::IntoIter<&'a str, MapTableEntry<'a>>;
+    type IntoIter = <MapInner<&'a str, MapTableEntry<'a>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
@@ -738,8 +745,6 @@ fn insert_node<'a, 'b>(
     value: InsertValue<'a>,
     repr: MapTableEntryRepr<'a>,
 ) -> Result<(), Error> {
-    use std::collections::hash_map::Entry::*;
-
     let existing_entry = match map.inner.entry(key.text) {
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
