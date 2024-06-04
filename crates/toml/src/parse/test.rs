@@ -1137,6 +1137,24 @@ fn many_unclosed_inline_tables() {
 }
 
 #[test]
+fn recursion_limit_inline_array() {
+    check_simple_error(
+        "a=[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
+        MapInner::new(),
+        Error::RecursionLimitExceeded(Pos { line: 0, char: 102 }),
+    );
+}
+
+#[test]
+fn recursion_limit_inline_table() {
+    check_simple_error(
+        "a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a=}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}",
+        MapInner::new(),
+        Error::RecursionLimitExceeded(Pos { line: 0, char: 302 }),
+    );
+}
+
+#[test]
 fn offset_date_time_with_subsec() {
     check("abc = 2023-12-05T10:11:12.3324243-04:30", |_, c| {
         [Ast::Assignment(ta(

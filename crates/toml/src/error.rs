@@ -2,7 +2,7 @@ use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
 use common::{FmtChar, FmtStr, Pos, Span};
 
 use crate::datetime::DateTimeField;
-use crate::parse::{IntPrefix, LitPart, Sign};
+use crate::parse::{IntPrefix, LitPart, Sign, RECURSION_LIMIT};
 use crate::Quote;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -20,6 +20,7 @@ pub enum Error {
     MultilineLiteralStringIdent(Span),
     InvalidCommentChar(FmtChar, Span),
 
+    RecursionLimitExceeded(Pos),
     ExpectedEqOrDotFound(FmtStr, Span),
     ExpectedRightCurlyFound(FmtStr, Pos, Span),
     ExpectedRightSquareFound(FmtStr, Pos, Span),
@@ -133,6 +134,7 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(s) => *s,
             InvalidCommentChar(_, s) => *s,
 
+            RecursionLimitExceeded(p) => Span::ascii_char(*p),
             ExpectedEqOrDotFound(_, s) => *s,
             ExpectedRightCurlyFound(_, _, s) => *s,
             ExpectedRightSquareFound(_, _, s) => *s,
@@ -208,6 +210,7 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(_) => write!(f, "Multi-line strings cannot be used as keys"),
             InvalidCommentChar(c, _) => write!(f, "Invalid character `{c}` in comment"),
 
+            RecursionLimitExceeded(_) => write!(f, "Recursion limit of {RECURSION_LIMIT} exceeded"),
             ExpectedEqOrDotFound(token, _) => write!(f, "Expected `=` or `.`, found {token}"),
             ExpectedRightCurlyFound(token, _, _) => write!(f, "Expected `}}`, found {token}"),
             ExpectedRightSquareFound(token, _, _) => write!(f, "Expected `]`, found {token}"),
@@ -311,6 +314,7 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(_) => write!(f, "Not a valid key"),
             InvalidCommentChar(_, _) => write!(f, "Invalid character"),
 
+            RecursionLimitExceeded(_) => write!(f, "Recursion limit of {RECURSION_LIMIT} exceeded"),
             ExpectedEqOrDotFound(..) => write!(f, "Expected `=` or `.`"),
             ExpectedRightCurlyFound(..) => write!(f, "Expected `}}`"),
             ExpectedRightSquareFound(..) => write!(f, "Expected `]`"),
@@ -409,6 +413,7 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(_) => None,
             InvalidCommentChar(_, _) => None,
 
+            RecursionLimitExceeded(_) => None,
             ExpectedEqOrDotFound(_, _) => None,
             ExpectedRightCurlyFound(_, p, _) => Some(Hint::ExpectedRightCurlyFound(*p)),
             ExpectedRightSquareFound(_, p, _) => Some(Hint::ExpectedRightSquareFound(*p)),
@@ -488,6 +493,7 @@ impl Diagnostic for Error {
             MultilineLiteralStringIdent(..) => None,
             InvalidCommentChar(..) => None,
 
+            RecursionLimitExceeded(..) => None,
             ExpectedEqOrDotFound(..) => None,
             ExpectedRightCurlyFound(..) => None,
             ExpectedRightSquareFound(..) => None,

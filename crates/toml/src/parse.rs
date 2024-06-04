@@ -18,6 +18,8 @@ mod num;
 #[cfg(test)]
 mod test;
 
+pub const RECURSION_LIMIT: u16 = 100;
+
 macro_rules! recover_on {
     ($parser:expr, $tokens:pat) => {{
         recover_on!($parser, $tokens => break)
@@ -768,6 +770,10 @@ impl<'a> Parser<'a> {
         Some(self.tokens[idx])
     }
 
+    fn jump_to_end(&mut self) {
+        self.cursor = self.tokens.len();
+    }
+
     fn eat_comment(&mut self) -> Option<Comment<'a>> {
         let t = self.peek();
         match t.ty {
@@ -1432,6 +1438,11 @@ fn parse_value<'a>(
             let l_par = token.start;
             parser.next();
 
+            if level >= RECURSION_LIMIT {
+                parser.jump_to_end();
+                return Err(Error::RecursionLimitExceeded(l_par));
+            }
+
             let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
             let mut values = Vec::new();
 
@@ -1460,6 +1471,7 @@ fn parse_value<'a>(
 
                 let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
                     Ok(v) => v,
+                    e @ Err(Error::RecursionLimitExceeded(_)) => return e,
                     Err(e) => {
                         ctx.error(e);
                         recover_on!(parser,
@@ -1572,6 +1584,11 @@ fn parse_value<'a>(
             let l_par = token.start;
             parser.next();
 
+            if level >= RECURSION_LIMIT {
+                parser.jump_to_end();
+                return Err(Error::RecursionLimitExceeded(l_par));
+            }
+
             let mut assignments = Vec::new();
             let mut comma = None;
             'inline_table: loop {
@@ -1616,6 +1633,7 @@ fn parse_value<'a>(
 
                 let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
                     Ok(v) => v,
+                    e @ Err(Error::RecursionLimitExceeded(_)) => return e,
                     Err(e) => {
                         ctx.error(e);
                         recover_on!(parser,
