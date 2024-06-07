@@ -7,4 +7,4 @@ edition = "2021"
 common = { workspace = true }
 
 [dev-dependencies]
-pretty_assertions = "1.4.0"
+pretty_assertions = { workspace = true }
