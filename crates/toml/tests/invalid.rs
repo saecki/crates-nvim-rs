@@ -3,6 +3,7 @@ use std::io::Write as _;
 
 use bumpalo::Bump;
 use common::diagnostic;
+use common::diagnostic::{ANSII_CLEAR, ANSII_COLOR_BLUE, ANSII_COLOR_YELLOW};
 use crates_toml::map::MapInner;
 use crates_toml::util::SimpleVal;
 use crates_toml::{TomlCtx, TomlDiagnostics};
@@ -38,7 +39,7 @@ fn main() {
         if let Some((m, f)) = var.split_once(':') {
             v = m;
             if f.is_empty() {
-                println!("\x1b[93mWarning\x1b[0m: ignoring empty filter")
+                println!("{ANSII_COLOR_YELLOW}Warning{ANSII_CLEAR}: ignoring empty filter")
             } else {
                 filter = Some(f);
             }
@@ -88,7 +89,7 @@ fn main() {
                         let mut msg = String::new();
                         _ = writeln!(
                             &mut msg,
-                            "Fixture `\x1b[93m{}\x1b[0m` not found:\n  {e}\n",
+                            "Fixture `{ANSII_COLOR_YELLOW}{}{ANSII_CLEAR}` not found:\n  {e}\n",
                             expect_path.display()
                         );
                         _ = writeln!(
@@ -279,7 +280,7 @@ fn dialog<const SIZE: usize>(options: [&str; SIZE]) -> &str {
     for o in options {
         // HACK: only works for ascii
         let (first, remainder) = o.split_at(1);
-        println!("\x1b[94m[{first}]\x1b[0m{remainder}");
+        println!("{ANSII_COLOR_BLUE}[{first}]{ANSII_CLEAR}{remainder}");
     }
 
     loop {
