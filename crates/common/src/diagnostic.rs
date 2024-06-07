@@ -263,7 +263,7 @@ fn display_body<F: std::fmt::Write>(
         } else {
             line.len()
         };
-        let num_spaces = line[0..col_start].width();
+        let num_spaces = calc_width(&line[0..col_start]);
         write!(f, "     {ANSII_COLOR_BLUE}|{ANSII_CLEAR} ")?;
         write!(f, "{:num_spaces$}{color}", "")?;
 
@@ -302,6 +302,24 @@ pub fn display_line(f: &mut impl std::fmt::Write, line_nr: usize, line: &str) ->
     f.write_str(&line[next_start..])?;
     f.write_char('\n')?;
     Ok(())
+}
+
+pub fn calc_width(line: &str) -> usize {
+    let mut width = 0;
+    let mut next_start = 0;
+    for (j, c) in line.char_indices() {
+        match c {
+            '\t' => (),
+            // backspace
+            '\x00'..='\x1f' | '\x7f' => {
+                width += line[next_start..j].width();
+                next_start = j + 1;
+            }
+            _ => (),
+        }
+    }
+    width += line[next_start..].width();
+    width
 }
 
 pub const ANSII_CLEAR: &str = "\x1b[0m";
