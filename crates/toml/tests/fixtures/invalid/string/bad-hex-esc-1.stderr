@@ -1,5 +1,5 @@
-[91merror[0m: Invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+[91merror[0m: invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
     [94m-->[0m 1:18
      [94m|[0m
 [94m   1 |[0m bad-hex-esc-1 = "\x0g"
-     [94m|[0m                   [91m^ Invalid escape character[0m
+     [94m|[0m                   [91m^ invalid escape character[0m

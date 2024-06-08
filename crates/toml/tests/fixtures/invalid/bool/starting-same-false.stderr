@@ -1,5 +1,5 @@
-[91merror[0m: Trailing characters `y` in literal, expected `false`
+[91merror[0m: trailing characters `y` in literal, expected `false`
     [94m-->[0m 1:31
      [94m|[0m
 [94m   1 |[0m starting-same-false     = falsey
-     [94m|[0m                                [91m^ Trailing characters[0m
+     [94m|[0m                                [91m^ trailing characters[0m

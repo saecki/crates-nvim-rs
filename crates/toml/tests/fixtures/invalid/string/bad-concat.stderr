@@ -1,5 +1,5 @@
-[91merror[0m: Expected a line break, found `"second"`
+[91merror[0m: expected a line break, found `"second"`
     [94m-->[0m 1:20
      [94m|[0m
 [94m   1 |[0m no_concat = "first" "second"
-     [94m|[0m                     [91m^^^^^^^^ Expected a line break[0m
+     [94m|[0m                     [91m^^^^^^^^ expected a line break[0m

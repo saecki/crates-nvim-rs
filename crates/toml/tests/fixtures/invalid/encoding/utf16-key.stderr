@@ -1,20 +1,20 @@
-[91merror[0m: Invalid character `\x00` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`
+[91merror[0m: invalid character `\x00` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`
     [94m-->[0m 1:0
      [94m|[0m
 [94m   1 |[0m k = "v"
-     [94m|[0m [91m^ Invalid character in identifier[0m
-[91merror[0m: Expected `=` or `.`, found `\x00`
+     [94m|[0m [91m^ invalid character in identifier[0m
+[91merror[0m: expected `=` or `.`, found `\x00`
     [94m-->[0m 1:4
      [94m|[0m
 [94m   1 |[0m k = "v"
-     [94m|[0m   [91m^ Expected `=` or `.`[0m
-[91merror[0m: Invalid character `\x00`in string
+     [94m|[0m   [91m^ expected `=` or `.`[0m
+[91merror[0m: invalid character `\x00`in string
     [94m-->[0m 1:10
      [94m|[0m
 [94m   1 |[0m k = "v"
-     [94m|[0m      [91m^ Invalid character[0m
-[91merror[0m: Invalid character `\x00`in string
+     [94m|[0m      [91m^ invalid character[0m
+[91merror[0m: invalid character `\x00`in string
     [94m-->[0m 1:12
      [94m|[0m
 [94m   1 |[0m k = "v"
-     [94m|[0m       [91m^ Invalid character[0m
+     [94m|[0m       [91m^ invalid character[0m

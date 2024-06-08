@@ -1,5 +1,5 @@
-[91merror[0m: No space allowed between array header brackets
+[91merror[0m: no space allowed between array header brackets
     [94m-->[0m 1:8
      [94m|[0m
 [94m   1 |[0m [[table] ]
-     [94m|[0m         [91m^ No space allowed[0m
+     [94m|[0m         [91m^ no space allowed[0m

@@ -1,5 +1,5 @@
-[91merror[0m: Missing digit after sign `+`, expected at least one
+[91merror[0m: missing digit after sign `+`, expected at least one
     [94m-->[0m 1:22
      [94m|[0m
 [94m   1 |[0m leading-point-plus = +.12345
-     [94m|[0m                       [91m^ Missing digit after sign[0m
+     [94m|[0m                       [91m^ missing digit after sign[0m

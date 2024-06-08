@@ -1,7 +1,7 @@
-[91merror[0m: Cannot extend inline table `a`
+[91merror[0m: cannot extend inline table `a`
     [94m-->[0m 3:1
      [94m|[0m
 [94m   1 |[0m a={}
-     [94m|[0m [94m---- Original table defined here[0m
+     [94m|[0m [94m---- original table defined here[0m
 [94m   3 |[0m [a.b]
-     [94m|[0m  [91m^ Cannot extend inline table[0m
+     [94m|[0m  [91m^ cannot extend inline table[0m

@@ -1,5 +1,5 @@
-[91merror[0m: Invalid character `\x00`in string
+[91merror[0m: invalid character `\x00`in string
     [94m-->[0m 1:19
      [94m|[0m
 [94m   1 |[0m string-null = "null"
-     [94m|[0m                    [91m^ Invalid character[0m
+     [94m|[0m                    [91m^ invalid character[0m

@@ -1,4 +1,4 @@
-[91merror[0m: Unexpected character `\f` at start of literal
+[91merror[0m: unexpected character `\f` at start of literal
     [94m-->[0m 1:20
      [94m|[0m
 [94m   1 |[0m bare-formfeed     = 

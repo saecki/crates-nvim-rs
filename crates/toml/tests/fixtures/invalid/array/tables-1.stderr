@@ -1,7 +1,7 @@
-[91merror[0m: Cannot extend inline array `fruit`
+[91merror[0m: cannot extend inline array `fruit`
     [94m-->[0m 4:2
      [94m|[0m
 [94m   2 |[0m fruit = []
-     [94m|[0m [94m---------- Original array defined here[0m
+     [94m|[0m [94m---------- original array defined here[0m
 [94m   4 |[0m [[fruit]] # Not allowed
-     [94m|[0m   [91m^^^^^ Cannot extend inline array[0m
+     [94m|[0m   [91m^^^^^ cannot extend inline array[0m

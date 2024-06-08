@@ -1,5 +1,5 @@
-[91merror[0m: Invalid line ending backslash, missing newline
+[91merror[0m: invalid line ending backslash, missing newline
     [94m-->[0m 4:4
      [94m|[0m
 [94m   4 |[0m gee \   """
-     [94m|[0m     [91m^^^^ Invalid line ending backslash[0m
+     [94m|[0m     [91m^^^^ invalid line ending backslash[0m

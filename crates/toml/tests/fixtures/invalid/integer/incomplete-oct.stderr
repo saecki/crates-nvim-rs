@@ -1,5 +1,5 @@
-[91merror[0m: Missing integer digits, expected at least one
+[91merror[0m: missing integer digits, expected at least one
     [94m-->[0m 1:19
      [94m|[0m
 [94m   1 |[0m incomplete-oct = 0o
-     [94m|[0m                    [91m^ Missing integer digits[0m
+     [94m|[0m                    [91m^ missing integer digits[0m

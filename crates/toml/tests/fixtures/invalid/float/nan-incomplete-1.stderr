@@ -1,5 +1,5 @@
-[91merror[0m: Missing characters in literal, expected `nan`
+[91merror[0m: missing characters in literal, expected `nan`
     [94m-->[0m 1:21
      [94m|[0m
 [94m   1 |[0m nan-incomplete-1 = na
-     [94m|[0m                      [91m^ Missing characters[0m
+     [94m|[0m                      [91m^ missing characters[0m

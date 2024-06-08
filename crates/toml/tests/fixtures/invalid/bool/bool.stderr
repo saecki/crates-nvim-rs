@@ -1,80 +1,80 @@
-[91merror[0m: Unexpected character `i` in literal, expected `false`
+[91merror[0m: unexpected character `i` in literal, expected `false`
     [94m-->[0m 1:30
      [94m|[0m
 [94m   1 |[0m almost-false-with-extra = falsify
-     [94m|[0m                               [91m^ Unexpected character[0m
-[91merror[0m: Missing characters in literal, expected `false`
+     [94m|[0m                               [91m^ unexpected character[0m
+[91merror[0m: missing characters in literal, expected `false`
     [94m-->[0m 2:30
      [94m|[0m
 [94m   2 |[0m almost-false            = fals
-     [94m|[0m                               [91m^ Missing characters[0m
-[91merror[0m: Unexpected character `t` in literal, expected `true`
+     [94m|[0m                               [91m^ missing characters[0m
+[91merror[0m: unexpected character `t` in literal, expected `true`
     [94m-->[0m 3:29
      [94m|[0m
 [94m   3 |[0m almost-true-with-extra  = truthy
-     [94m|[0m                              [91m^ Unexpected character[0m
-[91merror[0m: Missing characters in literal, expected `true`
+     [94m|[0m                              [91m^ unexpected character[0m
+[91merror[0m: missing characters in literal, expected `true`
     [94m-->[0m 4:29
      [94m|[0m
 [94m   4 |[0m almost-true             = tru
-     [94m|[0m                              [91m^ Missing characters[0m
-[91merror[0m: Missing characters in literal, expected `false`
+     [94m|[0m                              [91m^ missing characters[0m
+[91merror[0m: missing characters in literal, expected `false`
     [94m-->[0m 5:27
      [94m|[0m
 [94m   5 |[0m just-f                  = f
-     [94m|[0m                            [91m^ Missing characters[0m
-[91merror[0m: Missing characters in literal, expected `true`
+     [94m|[0m                            [91m^ missing characters[0m
+[91merror[0m: missing characters in literal, expected `true`
     [94m-->[0m 6:27
      [94m|[0m
 [94m   6 |[0m just-t                  = t
-     [94m|[0m                            [91m^ Missing characters[0m
-[91merror[0m: Unexpected character `v` at start of literal
+     [94m|[0m                            [91m^ missing characters[0m
+[91merror[0m: unexpected character `v` at start of literal
     [94m-->[0m 7:26
      [94m|[0m
 [94m   7 |[0m mixed-case              = valid   = False
      [94m|[0m                           [91m^ Unexpected character[0m
-[91merror[0m: Expected a line break, found `=`
+[91merror[0m: expected a line break, found `=`
     [94m-->[0m 7:34
      [94m|[0m
 [94m   7 |[0m mixed-case              = valid   = False
-     [94m|[0m                                   [91m^^^^^^^ Expected a line break[0m
-[91merror[0m: Trailing characters `y` in literal, expected `false`
+     [94m|[0m                                   [91m^^^^^^^ expected a line break[0m
+[91merror[0m: trailing characters `y` in literal, expected `false`
     [94m-->[0m 8:31
      [94m|[0m
 [94m   8 |[0m starting-same-false     = falsey
-     [94m|[0m                                [91m^ Trailing characters[0m
-[91merror[0m: Trailing characters `r` in literal, expected `true`
+     [94m|[0m                                [91m^ trailing characters[0m
+[91merror[0m: trailing characters `r` in literal, expected `true`
     [94m-->[0m 9:30
      [94m|[0m
 [94m   9 |[0m starting-same-true      = truer
-     [94m|[0m                               [91m^ Trailing characters[0m
-[91merror[0m: Uppercase character `F` in literal, expected `false`
+     [94m|[0m                               [91m^ trailing characters[0m
+[91merror[0m: uppercase character `F` in literal, expected `false`
     [94m-->[0m 10:26
      [94m|[0m
 [94m  10 |[0m wrong-case-false        = FALSE
-     [94m|[0m                           [91m^ Uppercase character[0m
-[91merror[0m: Uppercase character `T` in literal, expected `true`
+     [94m|[0m                           [91m^ uppercase character[0m
+[91merror[0m: uppercase character `T` in literal, expected `true`
     [94m-->[0m 11:26
      [94m|[0m
 [94m  11 |[0m wrong-case-true         = TRUE
-     [94m|[0m                           [91m^ Uppercase character[0m
-[91merror[0m: Uppercase character `E` in literal, expected `false`
+     [94m|[0m                           [91m^ uppercase character[0m
+[91merror[0m: uppercase character `E` in literal, expected `false`
     [94m-->[0m 12:30
      [94m|[0m
 [94m  12 |[0m mixed-case-false        = falsE
-     [94m|[0m                               [91m^ Uppercase character[0m
-[91merror[0m: Uppercase character `U` in literal, expected `true`
+     [94m|[0m                               [91m^ uppercase character[0m
+[91merror[0m: uppercase character `U` in literal, expected `true`
     [94m-->[0m 13:28
      [94m|[0m
 [94m  13 |[0m mixed-case-true         = trUe
-     [94m|[0m                             [91m^ Uppercase character[0m
-[91merror[0m: Uppercase character `F` in literal, expected `false`
+     [94m|[0m                             [91m^ uppercase character[0m
+[91merror[0m: uppercase character `F` in literal, expected `false`
     [94m-->[0m 14:27
      [94m|[0m
 [94m  14 |[0m capitalized-false        = False
-     [94m|[0m                            [91m^ Uppercase character[0m
-[91merror[0m: Uppercase character `T` in literal, expected `true`
+     [94m|[0m                            [91m^ uppercase character[0m
+[91merror[0m: uppercase character `T` in literal, expected `true`
     [94m-->[0m 15:27
      [94m|[0m
 [94m  15 |[0m capitalized-true         = True
-     [94m|[0m                            [91m^ Uppercase character[0m
+     [94m|[0m                            [91m^ uppercase character[0m

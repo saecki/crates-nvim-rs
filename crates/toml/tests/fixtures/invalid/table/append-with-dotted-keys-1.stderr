@@ -1,10 +1,10 @@
-[91merror[0m: Cannot extend table `a.b` with dotted key
+[91merror[0m: cannot extend table `a.b` with dotted key
     [94m-->[0m 17:2
      [94m|[0m
 [94m  13 |[0m [a.b.c]
      [94m|[0m [94m-------[0m
 [94m  14 |[0m   z = 9
-     [94m|[0m [94m------- Original array defined here[0m
+     [94m|[0m [94m------- original array defined here[0m
 [94m  16 |[0m [a]
 [94m  17 |[0m   b.c.t = "Using dotted keys to add to [a.b.c] after explicitly defining it above is not allowed"
-     [94m|[0m   [91m^ Cannot extend table with dotted key[0m
+     [94m|[0m   [91m^ cannot extend table with dotted key[0m

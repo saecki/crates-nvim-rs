@@ -1,10 +1,10 @@
-[91merror[0m: Unfinished escape sequence
+[91merror[0m: unfinished escape sequence
     [94m-->[0m 1:20
      [94m|[0m
 [94m   1 |[0m bad-uni-esc-2 = "val\Ux"
-     [94m|[0m                     [91m^^^ Unfinished escape sequence[0m
-[91merror[0m: Invalid character `x` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+     [94m|[0m                     [91m^^^ unfinished escape sequence[0m
+[91merror[0m: invalid character `x` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
     [94m-->[0m 1:22
      [94m|[0m
 [94m   1 |[0m bad-uni-esc-2 = "val\Ux"
-     [94m|[0m                       [91m^ Invalid unicode escape character[0m
+     [94m|[0m                       [91m^ invalid unicode escape character[0m

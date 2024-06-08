@@ -1,7 +1,7 @@
-[91merror[0m: Unterminated string literal, missing `"`
+[91merror[0m: unterminated string literal, missing `"`
     [94m-->[0m 1:38
      [94m|[0m
 [94m   1 |[0m bad-ending-quote = "double and single'
-     [94m|[0m                    [94m- Literal started here[0m
+     [94m|[0m                    [94m- literal started here[0m
 [94m   1 |[0m bad-ending-quote = "double and single'
-     [94m|[0m                                       [91m^ Unterminated string literal[0m
+     [94m|[0m                                       [91m^ unterminated string literal[0m

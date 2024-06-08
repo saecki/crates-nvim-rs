@@ -1,12 +1,12 @@
-[91merror[0m: Expected a key, found `=`
+[91merror[0m: expected a key, found `=`
     [94m-->[0m 1:0
      [94m|[0m
 [94m   1 |[0m = "no key name"  # INVALID
-     [94m|[0m [91m^ Expected a key[0m
-[91merror[0m: Duplicate key `''`
+     [94m|[0m [91m^ expected a key[0m
+[91merror[0m: duplicate key `''`
     [94m-->[0m 3:0
      [94m|[0m
 [94m   2 |[0m "" = "blank"     # VALID but discouraged
-     [94m|[0m [94m-- Original key defined here[0m
+     [94m|[0m [94m-- original key defined here[0m
 [94m   3 |[0m '' = 'blank'     # VALID but discouraged
-     [94m|[0m [91m^^ Duplicate key[0m
+     [94m|[0m [91m^^ duplicate key[0m

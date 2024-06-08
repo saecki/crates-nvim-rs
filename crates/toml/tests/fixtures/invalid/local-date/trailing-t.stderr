@@ -1,5 +1,5 @@
-[91merror[0m: Incomplete date-time, missing hour
+[91merror[0m: incomplete date-time, missing hour
     [94m-->[0m 2:15
      [94m|[0m
 [94m   2 |[0m d = 2006-01-30T
-     [94m|[0m                [91m^ Missing hour[0m
+     [94m|[0m                [91m^ missing hour[0m

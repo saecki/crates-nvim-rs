@@ -1,5 +1,5 @@
-[91merror[0m: Invalid character `\` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`
+[91merror[0m: invalid character `\` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`
     [94m-->[0m 1:0
      [94m|[0m
 [94m   1 |[0m \u00c0 = "latin capital letter A with grave"
-     [94m|[0m [91m^ Invalid character in identifier[0m
+     [94m|[0m [91m^ invalid character in identifier[0m

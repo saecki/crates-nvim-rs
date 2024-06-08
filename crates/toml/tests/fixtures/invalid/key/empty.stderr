@@ -1,5 +1,5 @@
-[91merror[0m: Expected a key, found `=`
+[91merror[0m: expected a key, found `=`
     [94m-->[0m 1:1
      [94m|[0m
 [94m   1 |[0m  = 1
-     [94m|[0m  [91m^ Expected a key[0m
+     [94m|[0m  [91m^ expected a key[0m

@@ -1,14 +1,14 @@
-[91merror[0m: Expected `}`, found `\n`
+[91merror[0m: expected `}`, found `\n`
     [94m-->[0m 1:15
      [94m|[0m
 [94m   1 |[0m x = [{ key = 42
-     [94m|[0m      [94m- Left `{` defined here[0m
+     [94m|[0m      [94m- left `{` defined here[0m
 [94m   1 |[0m x = [{ key = 42
-     [94m|[0m                [91m^ Expected `}`[0m
-[91merror[0m: Expected `]`, found `EOF`
+     [94m|[0m                [91m^ expected `}`[0m
+[91merror[0m: expected `]`, found `EOF`
     [94m-->[0m 1:15
      [94m|[0m
 [94m   1 |[0m x = [{ key = 42
-     [94m|[0m     [94m- Left `[` defined here[0m
+     [94m|[0m     [94m- left `[` defined here[0m
 [94m   1 |[0m x = [{ key = 42
-     [94m|[0m                [91m^ Expected `]`[0m
+     [94m|[0m                [91m^ expected `]`[0m

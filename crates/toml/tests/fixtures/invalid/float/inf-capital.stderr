@@ -1,5 +1,5 @@
-[91merror[0m: Uppercase character `I` in literal, expected `inf`
+[91merror[0m: uppercase character `I` in literal, expected `inf`
     [94m-->[0m 1:4
      [94m|[0m
 [94m   1 |[0m v = Inf
-     [94m|[0m     [91m^ Uppercase character[0m
+     [94m|[0m     [91m^ uppercase character[0m

@@ -1,5 +1,5 @@
-[91merror[0m: Missing comma (`,`)
+[91merror[0m: missing comma (`,`)
     [94m-->[0m 1:12
      [94m|[0m
 [94m   1 |[0m arrr = [true false]
-     [94m|[0m             [91m^ Missing comma (`,`)[0m
+     [94m|[0m             [91m^ missing comma (`,`)[0m
