@@ -57,24 +57,24 @@ impl Diagnostic for Error {
         match self {
             Error::TrailingCharacters(s, p, _) => {
                 let name = p.map(ident_field).unwrap_or(num_field(NumField::Major));
-                write!(f, "Unexpected characters `{s}`, after {name}")
+                write!(f, "unexpected characters `{s}`, after {name}")
             }
-            Error::MissingField(p, _) => write!(f, "Missing {p}"),
-            Error::LeadingZeroNum(p, _) => write!(f, "Invalid leading zero in {p}"),
-            Error::InvalidIntChar(c, p, _) => write!(f, "Invalid character `{c}` zero in {p}"),
-            Error::IntOverflow(p, _, _) => write!(f, "Integer overflow in {p}"),
-            Error::ExpectedDot(c, p, _) => write!(f, "Expected dot after {p}, found `{c}`"),
-            Error::MissingDot(p, _) => write!(f, "Missing dot after {p}"),
-            Error::EmptyIdentifier(p, _) => write!(f, "Emtpy {p}"),
-            Error::EmptyIdentifierSegment(p, _) => write!(f, "Emtpy identifier segment in {p}"),
-            Error::LeadingZeroSegment(p, _) => write!(f, "Invalid leading zero in {p} segment "),
-            Error::InvalidOp(c, _) => write!(f, "Invalid operator `{c}`, expected one of: `=`, `>`, `>=`, `<`, `<=`, `~`, `^` or a blank version requirement"),
-            Error::MissingComma(_) => write!(f, "Missing comma"),
-            Error::TrailingComma(_) => write!(f, "Invalid trailing comma"),
-            Error::WildcardNotTheSoleComparator(wl, _) => write!(f, "Wildcard `{wl}` must be the only comparator"),
-            Error::ExcessiveComparators(_, _) => write!(f, "Excessive number of comparators, the maximum allowed number is {}", parse::MAX_COMPARATORS),
-            Error::EmptyVersionReq(_) => write!(f, "Empty version requirement"),
-            Error::UnexpectedAfterWildcard(c, p, _) => write!(f, "Unexpected character `{c}` after wildcard {p}"),
+            Error::MissingField(p, _) => write!(f, "missing {p}"),
+            Error::LeadingZeroNum(p, _) => write!(f, "invalid leading zero in {p}"),
+            Error::InvalidIntChar(c, p, _) => write!(f, "invalid character `{c}` zero in {p}"),
+            Error::IntOverflow(p, _, _) => write!(f, "integer overflow in {p}"),
+            Error::ExpectedDot(c, p, _) => write!(f, "expected dot after {p}, found `{c}`"),
+            Error::MissingDot(p, _) => write!(f, "missing dot after {p}"),
+            Error::EmptyIdentifier(p, _) => write!(f, "emtpy {p}"),
+            Error::EmptyIdentifierSegment(p, _) => write!(f, "emtpy identifier segment in {p}"),
+            Error::LeadingZeroSegment(p, _) => write!(f, "invalid leading zero in {p} segment "),
+            Error::InvalidOp(c, _) => write!(f, "invalid operator `{c}`, expected one of: `=`, `>`, `>=`, `<`, `<=`, `~`, `^` or a blank version requirement"),
+            Error::MissingComma(_) => write!(f, "missing comma"),
+            Error::TrailingComma(_) => write!(f, "invalid trailing comma"),
+            Error::WildcardNotTheSoleComparator(wl, _) => write!(f, "wildcard `{wl}` must be the only comparator"),
+            Error::ExcessiveComparators(_, _) => write!(f, "excessive number of comparators, the maximum allowed number is {}", parse::MAX_COMPARATORS),
+            Error::EmptyVersionReq(_) => write!(f, "empty version requirement"),
+            Error::UnexpectedAfterWildcard(c, p, _) => write!(f, "unexpected character `{c}` after wildcard {p}"),
         }
     }
 
@@ -82,26 +82,26 @@ impl Diagnostic for Error {
         match self {
             Error::TrailingCharacters(s, p, _) => {
                 let name = p.map(ident_field).unwrap_or(num_field(NumField::Major));
-                write!(f, "Unexpected characters `{s}`, after {name}")
+                write!(f, "unexpected characters `{s}`, after {name}")
             }
-            Error::MissingField(p, _) => write!(f, "Missing {p}"),
-            Error::LeadingZeroNum(_, _) => write!(f, "Invalid leading zero"),
-            Error::InvalidIntChar(_, _, _) => write!(f, "Invalid character"),
-            Error::IntOverflow(_, _, _) => write!(f, "Integer overflow"),
-            Error::ExpectedDot(_, _, _) => write!(f, "Expected dot"),
-            Error::MissingDot(_, _) => write!(f, "Missing dot"),
-            Error::EmptyIdentifier(p, _) => write!(f, "Emtpy {p}"),
-            Error::EmptyIdentifierSegment(_, _) => write!(f, "Emtpy identifier segment"),
-            Error::LeadingZeroSegment(_, _) => write!(f, "Invalid leading zero"),
-            Error::InvalidOp(_, _) => write!(f, "Invalid operator"),
-            Error::MissingComma(_) => write!(f, "Missing comma"),
-            Error::TrailingComma(_) => write!(f, "Invalid trailing comma"),
+            Error::MissingField(p, _) => write!(f, "missing {p}"),
+            Error::LeadingZeroNum(_, _) => write!(f, "invalid leading zero"),
+            Error::InvalidIntChar(_, _, _) => write!(f, "invalid character"),
+            Error::IntOverflow(_, _, _) => write!(f, "integer overflow"),
+            Error::ExpectedDot(_, _, _) => write!(f, "expected dot"),
+            Error::MissingDot(_, _) => write!(f, "missing dot"),
+            Error::EmptyIdentifier(p, _) => write!(f, "emtpy {p}"),
+            Error::EmptyIdentifierSegment(_, _) => write!(f, "emtpy identifier segment"),
+            Error::LeadingZeroSegment(_, _) => write!(f, "invalid leading zero"),
+            Error::InvalidOp(_, _) => write!(f, "invalid operator"),
+            Error::MissingComma(_) => write!(f, "missing comma"),
+            Error::TrailingComma(_) => write!(f, "invalid trailing comma"),
             Error::WildcardNotTheSoleComparator(_, _) => {
-                write!(f, "Wildcard must be the only comparator")
+                write!(f, "wildcard must be the only comparator")
             }
-            Error::ExcessiveComparators(_, _) => write!(f, "Excessive number of comparators"),
-            Error::EmptyVersionReq(_) => write!(f, "Empty version requirement"),
-            Error::UnexpectedAfterWildcard(_, _, _) => write!(f, "Unexpected character"),
+            Error::ExcessiveComparators(_, _) => write!(f, "excessive number of comparators"),
+            Error::EmptyVersionReq(_) => write!(f, "empty version requirement"),
+            Error::UnexpectedAfterWildcard(_, _, _) => write!(f, "unexpected character"),
         }
     }
 }

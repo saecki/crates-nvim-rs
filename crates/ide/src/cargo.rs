@@ -74,20 +74,20 @@ impl Diagnostic for Error {
         use ErrorKind::*;
         let Self { path, kind, .. } = self;
         match kind {
-            WrongDatatype { expected, found } => write!(f, "Expected `{path}` to be of type {expected}, found {found}"),
+            WrongDatatype { expected, found } => write!(f, "expected `{path}` to be of type {expected}, found {found}"),
             UnsupportedUnderscore { old, new } => {
                 if !path.is_empty() {
                     write!(f, "`{path}`: ")?;
                 }
                 write!(f, "`{old}` has been replaced with `{new}` and is unsupported in the 2024 edition")
             }
-            DepWrongDatatype(found) => write!(f, "Expected `{path}` to be of type string or table, found {found}"),
-            DepWorkspaceIsFalse => write!(f, "Invalid dependency specification `{path}`; `workspace` cannot be false"),
-            AmbigousDepSpecGitPath => write!(f, "Dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed"),
-            AmbigousDepSpecGitRegistry => write!(f, "Dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed"),
-            AmbigousGitSpec => write!(f, "Dependency specification `{path}` is ambigous, only one of `branch`, `tag` or `rev` is allowed"),
-            MissingDepSpec => write!(f, "Dependency `{path}` is missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition"),
-            DepIgnoredGitKey(key) => write!(f, "Invalid dependency specification `{path}`; `{key}` without `git` is not allowed"),
+            DepWrongDatatype(found) => write!(f, "expected `{path}` to be of type string or table, found {found}"),
+            DepWorkspaceIsFalse => write!(f, "invalid dependency specification `{path}`; `workspace` cannot be false"),
+            AmbigousDepSpecGitPath => write!(f, "dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed"),
+            AmbigousDepSpecGitRegistry => write!(f, "dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed"),
+            AmbigousGitSpec => write!(f, "dependency specification `{path}` is ambigous, only one of `branch`, `tag` or `rev` is allowed"),
+            MissingDepSpec => write!(f, "dependency `{path}` is missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition"),
+            DepIgnoredGitKey(key) => write!(f, "invalid dependency specification `{path}`; `{key}` without `git` is not allowed"),
         }
     }
 
@@ -95,15 +95,15 @@ impl Diagnostic for Error {
         use ErrorKind::*;
         let Self { kind, .. } = self;
         match kind {
-            WrongDatatype { expected, .. } => write!(f, "Expected {expected}"),
-            UnsupportedUnderscore { new, .. } => write!(f, "Unsupported; instead use `{new}`"),
-            DepWrongDatatype(..) => write!(f, "Expected string or table"),
+            WrongDatatype { expected, .. } => write!(f, "expected {expected}"),
+            UnsupportedUnderscore { new, .. } => write!(f, "unsupported; instead use `{new}`"),
+            DepWrongDatatype(..) => write!(f, "expected string or table"),
             DepWorkspaceIsFalse => write!(f, "`workspace` cannot be false"),
-            AmbigousDepSpecGitPath => write!(f, "Only one of `git` or `path` is allowed"),
-            AmbigousDepSpecGitRegistry => write!(f, "Only one of `git` or `registry` is allowed"),
-            AmbigousGitSpec => write!(f, "Only one of `branch`, `tag` or `rev` is allowed"),
-            MissingDepSpec => write!(f, "Missing one of `workspace`, `path`, `git` or `version`"),
-            DepIgnoredGitKey(_) => write!(f, "Not allowed without `git`"),
+            AmbigousDepSpecGitPath => write!(f, "only one of `git` or `path` is allowed"),
+            AmbigousDepSpecGitRegistry => write!(f, "only one of `git` or `registry` is allowed"),
+            AmbigousGitSpec => write!(f, "only one of `branch`, `tag` or `rev` is allowed"),
+            MissingDepSpec => write!(f, "missing one of `workspace`, `path`, `git` or `version`"),
+            DepIgnoredGitKey(_) => write!(f, "not allowed without `git`"),
         }
     }
 
@@ -176,9 +176,9 @@ impl Diagnostic for Warning {
                 }
                 write!(f, "`{old}` is redundant with `{new}` and will be unsupported in the 2024 edition")
             }
-            MissingDepSpec => write!(f, "Missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"),
-            WorkspaceDepIgnoredKey { .. } => write!(f, "Key `{path}` is ignored, because `workspace` is set"),
-            IgnoredUnknownKey => write!(f, "Unknown key `{path}` is ignored"),
+            MissingDepSpec => write!(f, "missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"),
+            WorkspaceDepIgnoredKey { .. } => write!(f, "key `{path}` is ignored, because `workspace` is set"),
+            IgnoredUnknownKey => write!(f, "unknown key `{path}` is ignored"),
         }
     }
 
@@ -186,11 +186,11 @@ impl Diagnostic for Warning {
         use WarningKind::*;
         let Self { kind, .. } = self;
         match kind {
-            DeprecatedUnderscore { new, .. } => write!(f, "Deprecated in favor of `{new}`"),
-            RedundantDeprecatedUnderscore { .. } => write!(f, "Ignored"),
-            MissingDepSpec => write!(f, "Missing one of `workspace`, `path`, `git` or `version`"),
-            WorkspaceDepIgnoredKey { .. } => write!(f, "Key is ignored"),
-            IgnoredUnknownKey => write!(f, "Unknown key is ignored"),
+            DeprecatedUnderscore { new, .. } => write!(f, "deprecated in favor of `{new}`"),
+            RedundantDeprecatedUnderscore { .. } => write!(f, "ignored"),
+            MissingDepSpec => write!(f, "missing one of `workspace`, `path`, `git` or `version`"),
+            WorkspaceDepIgnoredKey { .. } => write!(f, "key is ignored"),
+            IgnoredUnknownKey => write!(f, "unknown key is ignored"),
         }
     }
 
@@ -252,8 +252,8 @@ impl DiagnosticHint for Hint {
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         match self {
-            Hint::RedundantDeprecatedUnderscore(_) => write!(f, "Used instead"),
-            Hint::WorkspaceDepIgnoredKey(_) => write!(f, "Set here"),
+            Hint::RedundantDeprecatedUnderscore(_) => write!(f, "used instead"),
+            Hint::WorkspaceDepIgnoredKey(_) => write!(f, "defined here"),
         }
     }
 }

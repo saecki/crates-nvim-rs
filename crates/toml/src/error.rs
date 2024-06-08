@@ -197,35 +197,35 @@ impl Diagnostic for Error {
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
         match self {
-            MissingQuote(quote, _, _) => write!(f, "Unterminated string literal, missing `{quote}`"),
-            ExcessiveQuotes(quote, _) => write!(f, "Excess quotes, only up to two consecutive quotes (`{}`) are allowed inside a multi-line string", quote.singleline()),
-            InvalidStringChar(char, _) => write!(f, "Invalid character `{char}`in string"),
-            InvalidEscapeChar(char, _) => write!(f, "Invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`"),
-            InvalidUnicodeEscapeChar(char, _) => write!(f, "Invalid character `{char}` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`"),
-            InvalidUnicodeCodepoint(num_chars, cp, _) => write!(f, "Invalid unicode scalar `0x{cp:0width$x}` (`{cp}`)", width = *num_chars as usize),
-            InvalidLineEndingEscape(_) => write!(f, "Invalid line ending backslash, missing newline"),
-            UnfinishedEscapeSequence(_) => write!(f, "Unfinished escape sequence"),
-            InvalidCharInIdentifier(char, _) => write!(f, "Invalid character `{char}` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`"),
-            MultilineBasicStringIdent(_) => write!(f, "Multi-line strings cannot be used as keys"),
-            MultilineLiteralStringIdent(_) => write!(f, "Multi-line strings cannot be used as keys"),
-            InvalidCommentChar(c, _) => write!(f, "Invalid character `{c}` in comment"),
+            MissingQuote(quote, _, _) => write!(f, "unterminated string literal, missing `{quote}`"),
+            ExcessiveQuotes(quote, _) => write!(f, "excess quotes, only up to two consecutive quotes (`{}`) are allowed inside a multi-line string", quote.singleline()),
+            InvalidStringChar(char, _) => write!(f, "invalid character `{char}`in string"),
+            InvalidEscapeChar(char, _) => write!(f, "invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`"),
+            InvalidUnicodeEscapeChar(char, _) => write!(f, "invalid character `{char}` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`"),
+            InvalidUnicodeCodepoint(num_chars, cp, _) => write!(f, "invalid unicode scalar `0x{cp:0width$x}` (`{cp}`)", width = *num_chars as usize),
+            InvalidLineEndingEscape(_) => write!(f, "invalid line ending backslash, missing newline"),
+            UnfinishedEscapeSequence(_) => write!(f, "unfinished escape sequence"),
+            InvalidCharInIdentifier(char, _) => write!(f, "invalid character `{char}` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`"),
+            MultilineBasicStringIdent(_) => write!(f, "multi-line strings cannot be used as keys"),
+            MultilineLiteralStringIdent(_) => write!(f, "multi-line strings cannot be used as keys"),
+            InvalidCommentChar(c, _) => write!(f, "invalid character `{c}` in comment"),
 
-            RecursionLimitExceeded(_) => write!(f, "Recursion limit of {RECURSION_LIMIT} exceeded"),
-            ExpectedEqOrDotFound(token, _) => write!(f, "Expected `=` or `.`, found {token}"),
-            ExpectedRightCurlyFound(token, _, _) => write!(f, "Expected `}}`, found {token}"),
-            ExpectedRightSquareFound(token, _, _) => write!(f, "Expected `]`, found {token}"),
-            ExpectedDotOrRightSquareFound(token, _, _) => write!(f, "Expected `.` or `]`, found {token}"),
-            ExpectedKeyFound(token, _) => write!(f, "Expected a key, found {token}"),
-            ExpectedValueFound(token, _) => write!(f, "Expected a value, found {token}"),
-            MissingComma(_) => write!(f, "Missing comma (`,`)"),
-            ExpectedNewlineFound(token, _) => write!(f, "Expected a line break, found {token}"),
-            MissingNewline(_) => write!(f, "Missing line break"),
-            InlineTableTrailingComma(_) => write!(f, "Trailing commas aren't permitted in inline tables"),
-            SpaceBetweenArrayPars(_) => write!(f, "No space allowed between array header brackets"),
+            RecursionLimitExceeded(_) => write!(f, "recursion limit of {RECURSION_LIMIT} exceeded"),
+            ExpectedEqOrDotFound(token, _) => write!(f, "expected `=` or `.`, found {token}"),
+            ExpectedRightCurlyFound(token, _, _) => write!(f, "expected `}}`, found {token}"),
+            ExpectedRightSquareFound(token, _, _) => write!(f, "expected `]`, found {token}"),
+            ExpectedDotOrRightSquareFound(token, _, _) => write!(f, "expected `.` or `]`, found {token}"),
+            ExpectedKeyFound(token, _) => write!(f, "expected a key, found {token}"),
+            ExpectedValueFound(token, _) => write!(f, "expected a value, found {token}"),
+            MissingComma(_) => write!(f, "missing comma (`,`)"),
+            ExpectedNewlineFound(token, _) => write!(f, "expected a line break, found {token}"),
+            MissingNewline(_) => write!(f, "missing line break"),
+            InlineTableTrailingComma(_) => write!(f, "trailing commas aren't permitted in inline tables"),
+            SpaceBetweenArrayPars(_) => write!(f, "no space allowed between array header brackets"),
 
-            UnexpectedLiteralStart(char, _) => write!(f, "Unexpected character `{char}` at start of literal"),
+            UnexpectedLiteralStart(char, _) => write!(f, "unexpected character `{char}` at start of literal"),
             UnexpectedLiteralChar(part, char, _) => {
-                write!(f, "Unexpected character `{char}` in {part}")?;
+                write!(f, "unexpected character `{char}` in {part}")?;
                 if *part == LitPart::IntOrFloat {
                     if let 'a'..='f' | 'A'..='F' = char.0 {
                         write!(f, ", hexadecimal integers need to be prefixed by `0x`")?;
@@ -233,167 +233,144 @@ impl Diagnostic for Error {
                 }
                 Ok(())
             }
-            LitStartsWithUnderscore(p, _) => {
-                write_capitalized(f, p.to_str())?;
-                write!(f, " cannot start with `_`")
-            }
-            LitEndsWithUnderscore(p, _) => {
-                write_capitalized(f, p.to_str())?;
-                write!(f, " cannot end with `_`")
-            }
+            LitStartsWithUnderscore(p, _) => write!(f, "{p} cannot start with `_`"),
+            LitEndsWithUnderscore(p, _) => write!(f, "{p} cannot end with `_`"),
             ConsecutiveUnderscoresInLiteral(_) => {
-                write!(f, "Consecutive underscores (`_`) are not allowed in number literals")
+                write!(f, "consecutive underscores (`_`) are not allowed in number literals")
             }
-            MissingNumDigitsAfterSign(sign, _) => write!(f, "Missing digit after sign `{sign}`, expected at least one"),
-            InvalidLeadingZero(_) => write!(f, "Invalid leading `0` in number"),
-            ExpectedRadixOrDateTime(c, _) => write!(f, "Unexpected character `{c}`, expected integer radix `b`, `o`, `x` or date-time"),
-            UnexpectedCharSignedLeadingZeroNum(c, _) => write!(f, "Unexpected character `{c}`"),
+            MissingNumDigitsAfterSign(sign, _) => write!(f, "missing digit after sign `{sign}`, expected at least one"),
+            InvalidLeadingZero(_) => write!(f, "invalid leading `0` in number"),
+            ExpectedRadixOrDateTime(c, _) => write!(f, "unexpected character `{c}`, expected integer radix `b`, `o`, `x` or date-time"),
+            UnexpectedCharSignedLeadingZeroNum(c, _) => write!(f, "unexpected character `{c}`"),
 
-            UppercaseBareLitChar(c, expected, _) => write!(f, "Uppercase character `{c}` in literal, expected `{expected}`"),
-            UnexpectedBareLitChar(c, expected, _) => write!(f, "Unexpected character `{c}` in literal, expected `{expected}`"),
-            BareLitTrailingChars(s, expected, _) => write!(f, "Trailing characters `{s}` in literal, expected `{expected}`"),
-            BareLitMissingChars(expected, _) => write!(f, "Missing characters in literal, expected `{expected}`"),
+            UppercaseBareLitChar(c, expected, _) => write!(f, "uppercase character `{c}` in literal, expected `{expected}`"),
+            UnexpectedBareLitChar(c, expected, _) => write!(f, "unexpected character `{c}` in literal, expected `{expected}`"),
+            BareLitTrailingChars(s, expected, _) => write!(f, "trailing characters `{s}` in literal, expected `{expected}`"),
+            BareLitMissingChars(expected, _) => write!(f, "missing characters in literal, expected `{expected}`"),
 
-            MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal, expected at least one digit"),
-            FloatLiteralOverflow(_) => write!(f, "Float literal overflow, number doesn't fit into a 64-bit IEEE float"),
+            MissingFloatFractionalPart(_) => write!(f, "missing fractional part of float literal, expected at least one digit"),
+            FloatLiteralOverflow(_) => write!(f, "float literal overflow, number doesn't fit into a 64-bit IEEE float"),
 
-            EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits, expected at least one"),
-            PrefixedIntSignNotAllowed(_) => write!(f, "Signs are not permitted for binary, octal, and hexadecimal integers"),
+            EmptyPrefixedIntValue(_) => write!(f, "missing integer digits, expected at least one"),
+            PrefixedIntSignNotAllowed(_) => write!(f, "signs are not permitted for binary, octal, and hexadecimal integers"),
             UppercaseIntRadix(prefix, _) => {
                 match prefix {
-                    IntPrefix::Binary => write!(f, "Found uppercase binary int prefix `B`, only lowercase `b` is permitted"),
-                    IntPrefix::Octal => write!(f, "Found uppercase octal int prefix `O`, only lowercase `o` is permitted"),
-                    IntPrefix::Hexadecimal => write!(f, "Found uppercase hexadecimal int prefix `X`, only lowercase `x` is permitted"),
+                    IntPrefix::Binary => write!(f, "found uppercase binary int prefix `B`, only lowercase `b` is permitted"),
+                    IntPrefix::Octal => write!(f, "found uppercase octal int prefix `O`, only lowercase `o` is permitted"),
+                    IntPrefix::Hexadecimal => write!(f, "found uppercase hexadecimal int prefix `X`, only lowercase `x` is permitted"),
                 }
             }
-            PrefixedIntValueStartsWithUnderscore(_) => write!(f, "Integer literal cannot start with `_`"),
-            PrefixedIntValueEndsWithUnderscore(_) => write!(f, "Integer literal cannot end with `_`"),
+            PrefixedIntValueStartsWithUnderscore(_) => write!(f, "integer literal cannot start with `_`"),
+            PrefixedIntValueEndsWithUnderscore(_) => write!(f, "integer literal cannot end with `_`"),
             IntDigitTooBig(prefix, char, _) => {
                 match prefix {
-                    IntPrefix::Binary => write!(f, "Binary digit `{char}` out of range, valid digits are `0` and `1`"),
-                    IntPrefix::Octal => write!(f, "Octal digit `{char}` out of range, valid digits are `0-7`"),
-                    IntPrefix::Hexadecimal => write!(f, "Hexadecimal digit `{char}` out of range, valid digits are `0-9`, `a-f`, and `A-F`"),
+                    IntPrefix::Binary => write!(f, "binary digit `{char}` out of range, valid digits are `0` and `1`"),
+                    IntPrefix::Octal => write!(f, "octal digit `{char}` out of range, valid digits are `0-7`"),
+                    IntPrefix::Hexadecimal => write!(f, "hexadecimal digit `{char}` out of range, valid digits are `0-9`, `a-f`, and `A-F`"),
                 }
             }
-            IntLiteralOverflow(_) => write!(f, "Integer literal overflow, number doesn't fit into a 64-bit signed integer"),
+            IntLiteralOverflow(_) => write!(f, "integer literal overflow, number doesn't fit into a 64-bit signed integer"),
 
-            UnexpectedCharInDateTime(char, _) => write!(f, "Unexpected character `{char}` in date-time"),
-            DateTimeExpectedCharFound { after, found, expected, .. } => write!(f, "Unexpected character `{found}` in date-time after {after}, expected `{expected}`"),
-            DateTimeMissingChar(field, expected, _) => write!(f, "Incomplete date-time, missing character `{expected}` after {field}"),
-            DateTimeIncomplete(field, _) => write!(f, "Incomplete date-time, {field} is missing digits"),
-            DateTimeMissing(field, _) => write!(f, "Incomplete date-time, missing {field}"),
+            UnexpectedCharInDateTime(char, _) => write!(f, "unexpected character `{char}` in date-time"),
+            DateTimeExpectedCharFound { after, found, expected, .. } => write!(f, "unexpected character `{found}` in date-time after {after}, expected `{expected}`"),
+            DateTimeMissingChar(field, expected, _) => write!(f, "incomplete date-time, missing character `{expected}` after {field}"),
+            DateTimeIncomplete(field, _) => write!(f, "incomplete date-time, {field} is missing digits"),
+            DateTimeMissing(field, _) => write!(f, "incomplete date-time, missing {field}"),
             DateTimeOutOfBounds(field, val, (min, max), _) => {
-                write!(f, "Date-time {field} `{val}` out of range, the valid range is `{min}..={max}`")
+                write!(f, "date-time {field} `{val}` out of range, the valid range is `{min}..={max}`")
             }
-            DateTimeMissingSubsec(_) => write!(f, "Missing date-time fractional second, expected at least one digit"),
-            LocalDateTimeOffset(_) => write!(f, "Local-time doesn't permit an offset, see: https://toml.io/en/v1.0.0#local-time"),
-            DateAndTimeTooFarApart(_) => write!(f, "Date and time too far apart, they may only be separated by exactly one space"),
+            DateTimeMissingSubsec(_) => write!(f, "missing date-time fractional second, expected at least one digit"),
+            LocalDateTimeOffset(_) => write!(f, "local-time doesn't permit an offset, see: https://toml.io/en/v1.0.0#local-time"),
+            DateAndTimeTooFarApart(_) => write!(f, "date and time too far apart, they may only be separated by exactly one space"),
 
-            DuplicateKey { path, .. } => write!(f, "Duplicate key `{path}`"),
-            CannotExtendInlineTable { path, .. } => write!(f, "Cannot extend inline table `{path}`"),
-            CannotExtendInlineArray { path, .. } => write!(f, "Cannot extend inline array `{path}`"),
-            CannotExtendInlineArrayAsTable { path, .. } => write!(f, "Cannot extend inline array `{path}`, not a table"),
-            CannotExtendTableWithDottedKey { path, .. } => write!(f, "Cannot extend table `{path}` with dotted key"),
-            CannotExtendArrayWithDottedKey { path, .. } => write!(f, "Cannot extend array `{path}` with dotted key"),
+            DuplicateKey { path, .. } => write!(f, "duplicate key `{path}`"),
+            CannotExtendInlineTable { path, .. } => write!(f, "cannot extend inline table `{path}`"),
+            CannotExtendInlineArray { path, .. } => write!(f, "cannot extend inline array `{path}`"),
+            CannotExtendInlineArrayAsTable { path, .. } => write!(f, "cannot extend inline array `{path}`, not a table"),
+            CannotExtendTableWithDottedKey { path, .. } => write!(f, "cannot extend table `{path}` with dotted key"),
+            CannotExtendArrayWithDottedKey { path, .. } => write!(f, "cannot extend array `{path}` with dotted key"),
         }
     }
 
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
         match self {
-            MissingQuote(..) => write!(f, "Unterminated string literal"),
-            ExcessiveQuotes(..) => write!(f, "Excess quotes"),
-            InvalidStringChar(..) => write!(f, "Invalid character"),
-            InvalidEscapeChar(..) => write!(f, "Invalid escape character"),
-            InvalidUnicodeEscapeChar(..) => write!(f, "Invalid unicode escape character"),
-            InvalidUnicodeCodepoint(..) => write!(f, "Invalid unicode scalar"),
-            InvalidLineEndingEscape(_) => write!(f, "Invalid line ending backslash"),
-            UnfinishedEscapeSequence(_) => write!(f, "Unfinished escape sequence"),
-            InvalidCharInIdentifier(..) => write!(f, "Invalid character in identifier"),
-            MultilineBasicStringIdent(_) => write!(f, "Not a valid key"),
-            MultilineLiteralStringIdent(_) => write!(f, "Not a valid key"),
-            InvalidCommentChar(_, _) => write!(f, "Invalid character"),
+            MissingQuote(..) => write!(f, "unterminated string literal"),
+            ExcessiveQuotes(..) => write!(f, "excess quotes"),
+            InvalidStringChar(..) => write!(f, "invalid character"),
+            InvalidEscapeChar(..) => write!(f, "invalid escape character"),
+            InvalidUnicodeEscapeChar(..) => write!(f, "invalid unicode escape character"),
+            InvalidUnicodeCodepoint(..) => write!(f, "invalid unicode scalar"),
+            InvalidLineEndingEscape(_) => write!(f, "invalid line ending backslash"),
+            UnfinishedEscapeSequence(_) => write!(f, "unfinished escape sequence"),
+            InvalidCharInIdentifier(..) => write!(f, "invalid character in identifier"),
+            MultilineBasicStringIdent(_) => write!(f, "not a valid key"),
+            MultilineLiteralStringIdent(_) => write!(f, "not a valid key"),
+            InvalidCommentChar(_, _) => write!(f, "invalid character"),
 
-            RecursionLimitExceeded(_) => write!(f, "Recursion limit of {RECURSION_LIMIT} exceeded"),
-            ExpectedEqOrDotFound(..) => write!(f, "Expected `=` or `.`"),
-            ExpectedRightCurlyFound(..) => write!(f, "Expected `}}`"),
-            ExpectedRightSquareFound(..) => write!(f, "Expected `]`"),
+            RecursionLimitExceeded(_) => write!(f, "recursion limit of {RECURSION_LIMIT} exceeded"),
+            ExpectedEqOrDotFound(..) => write!(f, "expected `=` or `.`"),
+            ExpectedRightCurlyFound(..) => write!(f, "expected `}}`"),
+            ExpectedRightSquareFound(..) => write!(f, "expected `]`"),
             ExpectedDotOrRightSquareFound(..) => write!(f, "Expected `.` or `]`"),
-            ExpectedKeyFound(..) => write!(f, "Expected a key"),
-            ExpectedValueFound(..) => write!(f, "Expected a value"),
-            MissingComma(_) => write!(f, "Missing comma (`,`)"),
-            ExpectedNewlineFound(_, _) => write!(f, "Expected a line break"),
-            MissingNewline(_) => write!(f, "Missing line break"),
-            InlineTableTrailingComma(_) => write!(f, "Trailing comma"),
-            SpaceBetweenArrayPars(_) => write!(f, "No space allowed"),
+            ExpectedKeyFound(..) => write!(f, "expected a key"),
+            ExpectedValueFound(..) => write!(f, "expected a value"),
+            MissingComma(_) => write!(f, "missing comma (`,`)"),
+            ExpectedNewlineFound(_, _) => write!(f, "expected a line break"),
+            MissingNewline(_) => write!(f, "missing line break"),
+            InlineTableTrailingComma(_) => write!(f, "trailing comma"),
+            SpaceBetweenArrayPars(_) => write!(f, "no space allowed"),
 
             UnexpectedLiteralStart(..) => write!(f, "Unexpected character"),
             UnexpectedLiteralChar(p, _, _) => write!(f, "Unexpected character in {p}"),
-            LitStartsWithUnderscore(p, _) => {
-                write_capitalized(f, p.to_str())?;
-                write!(f, " cannot start with `_`")
-            }
-            LitEndsWithUnderscore(p, _) => {
-                write_capitalized(f, p.to_str())?;
-                write!(f, " cannot end with `_`")
-            }
-            ConsecutiveUnderscoresInLiteral(_) => {
-                write!(f, "Consecutive underscores (`_`) not allowed")
-            }
-            MissingNumDigitsAfterSign(..) => write!(f, "Missing digit after sign"),
-            InvalidLeadingZero(_) => write!(f, "Invalid leading `0`"),
-            ExpectedRadixOrDateTime { .. } => write!(f, "Unexpected character"),
-            UnexpectedCharSignedLeadingZeroNum { .. } => write!(f, "Unexpected character"),
+            LitStartsWithUnderscore(p, _) => write!(f, "{p} cannot start with `_`"),
+            LitEndsWithUnderscore(p, _) => write!(f, "{p} cannot end with `_`"),
+            ConsecutiveUnderscoresInLiteral(_) => write!(f, "consecutive underscores (`_`) not allowed"),
+            MissingNumDigitsAfterSign(..) => write!(f, "missing digit after sign"),
+            InvalidLeadingZero(_) => write!(f, "invalid leading `0`"),
+            ExpectedRadixOrDateTime { .. } => write!(f, "unexpected character"),
+            UnexpectedCharSignedLeadingZeroNum { .. } => write!(f, "unexpected character"),
 
-            UppercaseBareLitChar(..) => write!(f, "Uppercase character"),
-            UnexpectedBareLitChar(..) => write!(f, "Unexpected character"),
-            BareLitTrailingChars(..) => write!(f, "Trailing characters"),
-            BareLitMissingChars(..) => write!(f, "Missing characters"),
+            UppercaseBareLitChar(..) => write!(f, "uppercase character"),
+            UnexpectedBareLitChar(..) => write!(f, "unexpected character"),
+            BareLitTrailingChars(..) => write!(f, "trailing characters"),
+            BareLitMissingChars(..) => write!(f, "missing characters"),
 
-            MissingFloatFractionalPart(_) => write!(f, "Missing fractional part of float literal"),
-            FloatLiteralOverflow(_) => write!(f, "Float literal overflow"),
+            MissingFloatFractionalPart(_) => write!(f, "missing fractional part of float literal"),
+            FloatLiteralOverflow(_) => write!(f, "float literal overflow"),
 
-            EmptyPrefixedIntValue(_) => write!(f, "Missing integer digits"),
-            PrefixedIntSignNotAllowed(_) => write!(f, "Sign not allowed"),
-            UppercaseIntRadix(_, _) => write!(f, "Uppercase radix"),
+            EmptyPrefixedIntValue(_) => write!(f, "missing integer digits"),
+            PrefixedIntSignNotAllowed(_) => write!(f, "sign not allowed"),
+            UppercaseIntRadix(_, _) => write!(f, "uppercase radix"),
             PrefixedIntValueStartsWithUnderscore(_) => {
-                write!(f, "Integer literal cannot start with `_`")
+                write!(f, "integer literal cannot start with `_`")
             }
             PrefixedIntValueEndsWithUnderscore(_) => {
-                write!(f, "Integer literal cannot end with `_`")
+                write!(f, "integer literal cannot end with `_`")
             }
             IntDigitTooBig(prefix, _, _) => match prefix {
-                IntPrefix::Binary => write!(f, "Binary digit out of range"),
-                IntPrefix::Octal => write!(f, "Octal digit out of range"),
-                IntPrefix::Hexadecimal => write!(f, "Hexadecimal digit  out of range"),
+                IntPrefix::Binary => write!(f, "binary digit out of range"),
+                IntPrefix::Octal => write!(f, "octal digit out of range"),
+                IntPrefix::Hexadecimal => write!(f, "hexadecimal digit  out of range"),
             },
-            IntLiteralOverflow(_) => write!(f, "Integer literal overflow"),
+            IntLiteralOverflow(_) => write!(f, "integer literal overflow"),
 
-            UnexpectedCharInDateTime(..) => write!(f, "Unexpected character"),
-            DateTimeExpectedCharFound { .. } => write!(f, "Unexpected character"),
-            DateTimeMissingChar(..) => write!(f, "Missing character"),
-            DateTimeIncomplete(..) => write!(f, "Missing digits"),
-            DateTimeMissing(field, _) => write!(f, "Missing {field}"),
-            DateTimeOutOfBounds(field, _, _, _) => {
-                write_capitalized(f, field.to_str())?;
-                write!(f, " out of range")
-            }
-            DateTimeMissingSubsec(_) => write!(f, "Missing date-time fractional second"),
-            LocalDateTimeOffset(_) => write!(f, "Local-time doesn't permit an offset"),
-            DateAndTimeTooFarApart(_) => write!(f, "Date and time too far apart"),
+            UnexpectedCharInDateTime(..) => write!(f, "unexpected character"),
+            DateTimeExpectedCharFound { .. } => write!(f, "unexpected character"),
+            DateTimeMissingChar(..) => write!(f, "missing character"),
+            DateTimeIncomplete(..) => write!(f, "missing digits"),
+            DateTimeMissing(field, _) => write!(f, "missing {field}"),
+            DateTimeOutOfBounds(field, _, _, _) => write!(f, "{field} out of range"),
+            DateTimeMissingSubsec(_) => write!(f, "missing date-time fractional second"),
+            LocalDateTimeOffset(_) => write!(f, "local-time doesn't permit an offset"),
+            DateAndTimeTooFarApart(_) => write!(f, "date and time too far apart"),
 
-            DuplicateKey { .. } => write!(f, "Duplicate key"),
-            CannotExtendInlineTable { .. } => write!(f, "Cannot extend inline table"),
-            CannotExtendInlineArray { .. } => write!(f, "Cannot extend inline array"),
-            CannotExtendInlineArrayAsTable { .. } => {
-                write!(f, "Cannot extend inline array, not a table")
-            }
-            CannotExtendTableWithDottedKey { .. } => {
-                write!(f, "Cannot extend table with dotted key")
-            }
-            CannotExtendArrayWithDottedKey { .. } => {
-                write!(f, "Cannot extend array with dotted key")
-            }
+            DuplicateKey { .. } => write!(f, "duplicate key"),
+            CannotExtendInlineTable { .. } => write!(f, "cannot extend inline table"),
+            CannotExtendInlineArray { .. } => write!(f, "cannot extend inline array"),
+            CannotExtendInlineArrayAsTable { .. } => write!(f, "cannot extend inline array, not a table"),
+            CannotExtendTableWithDottedKey { .. } => write!(f, "cannot extend table with dotted key"),
+            CannotExtendArrayWithDottedKey { .. } => write!(f, "cannot extend array with dotted key"),
         }
     }
 
@@ -626,23 +603,15 @@ impl DiagnosticHint for Hint {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Hint::*;
         match self {
-            MissingQuote(_, _) => write!(f, "Literal started here"),
-            ExpectedRightCurlyFound(_) => write!(f, "Left `{{` defined here"),
-            ExpectedRightSquareFound(_) => write!(f, "Left `[` defined here"),
-            DuplicateKey(_) => write!(f, "Original key defined here"),
-            CannotExtendInlineTable(_) => write!(f, "Original table defined here"),
-            CannotExtendInlineArray(_) => write!(f, "Original array defined here"),
-            CannotExtendInlineArrayAsTable(_) => write!(f, "Original array defined here"),
-            CannotExtendTableWithDottedKey(_) => write!(f, "Original array defined here"),
-            CannotExtendArrayWithDottedKey(_) => write!(f, "Original array defined here"),
+            MissingQuote(_, _) => write!(f, "literal started here"),
+            ExpectedRightCurlyFound(_) => write!(f, "left `{{` defined here"),
+            ExpectedRightSquareFound(_) => write!(f, "left `[` defined here"),
+            DuplicateKey(_) => write!(f, "original key defined here"),
+            CannotExtendInlineTable(_) => write!(f, "original table defined here"),
+            CannotExtendInlineArray(_) => write!(f, "original array defined here"),
+            CannotExtendInlineArrayAsTable(_) => write!(f, "original array defined here"),
+            CannotExtendTableWithDottedKey(_) => write!(f, "original array defined here"),
+            CannotExtendArrayWithDottedKey(_) => write!(f, "original array defined here"),
         }
     }
-}
-
-fn write_capitalized(f: &mut impl std::fmt::Write, text: &str) -> std::fmt::Result {
-    let Some(first) = text.chars().next() else {
-        return Ok(());
-    };
-    write!(f, "{}", first.to_uppercase())?;
-    f.write_str(&text[first.len_utf8()..])
 }
