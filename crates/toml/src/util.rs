@@ -1,5 +1,5 @@
 use crate::datetime::DateTime;
-use crate::map::{MapInner, MapArray, MapNode, MapTable, Scalar};
+use crate::map::{MapArray, MapInner, MapNode, MapTable, Scalar};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Datatype {

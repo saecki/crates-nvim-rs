@@ -325,7 +325,9 @@ impl Diagnostic for Error {
             UnexpectedLiteralChar(p, _, _) => write!(f, "Unexpected character in {p}"),
             LitStartsWithUnderscore(p, _) => write!(f, "{p} cannot start with `_`"),
             LitEndsWithUnderscore(p, _) => write!(f, "{p} cannot end with `_`"),
-            ConsecutiveUnderscoresInLiteral(_) => write!(f, "consecutive underscores (`_`) not allowed"),
+            ConsecutiveUnderscoresInLiteral(_) => {
+                write!(f, "consecutive underscores (`_`) not allowed")
+            }
             MissingNumDigitsAfterSign(..) => write!(f, "missing digit after sign"),
             InvalidLeadingZero(_) => write!(f, "invalid leading `0`"),
             ExpectedRadixOrDateTime { .. } => write!(f, "unexpected character"),
@@ -368,9 +370,15 @@ impl Diagnostic for Error {
             DuplicateKey { .. } => write!(f, "duplicate key"),
             CannotExtendInlineTable { .. } => write!(f, "cannot extend inline table"),
             CannotExtendInlineArray { .. } => write!(f, "cannot extend inline array"),
-            CannotExtendInlineArrayAsTable { .. } => write!(f, "cannot extend inline array, not a table"),
-            CannotExtendTableWithDottedKey { .. } => write!(f, "cannot extend table with dotted key"),
-            CannotExtendArrayWithDottedKey { .. } => write!(f, "cannot extend array with dotted key"),
+            CannotExtendInlineArrayAsTable { .. } => {
+                write!(f, "cannot extend inline array, not a table")
+            }
+            CannotExtendTableWithDottedKey { .. } => {
+                write!(f, "cannot extend table with dotted key")
+            }
+            CannotExtendArrayWithDottedKey { .. } => {
+                write!(f, "cannot extend array with dotted key")
+            }
         }
     }
 
