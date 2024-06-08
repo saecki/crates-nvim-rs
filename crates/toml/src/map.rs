@@ -405,7 +405,7 @@ impl<'a, 'b> Path<'a, 'b> {
     }
 
     pub fn fmt_path(&self) -> FmtStr {
-        let path = fmt_path(&self);
+        let path = fmt_path(self);
         FmtStr::from_string(path)
     }
 

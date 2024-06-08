@@ -97,7 +97,7 @@ pub fn display(
                 continue;
             }
             if l < range.end {
-                display_line(f, l as usize, &lines[l as usize])?;
+                display_line(f, l as usize, lines[l as usize])?;
             } else {
                 break;
             }
@@ -105,7 +105,7 @@ pub fn display(
         Ok(())
     }
 
-    writeln!(f, "{}", diagnostic.header(&lines))?;
+    writeln!(f, "{}", diagnostic.header(lines))?;
     writeln!(f, "     {ANSII_COLOR_BLUE}|{ANSII_CLEAR}")?;
 
     let context_lines = diagnostic.context_lines().unwrap_or(&[]);
@@ -117,20 +117,20 @@ pub fn display(
         let hint_span = hint.span();
         if hint_span.start < main_span.start {
             display_context_lines(f, lines, context_lines, current_line..hint_span.start.line)?;
-            write!(f, "{}", hint.body(&lines))?;
+            write!(f, "{}", hint.body(lines))?;
             current_line = hint_span.end.line + 1;
         }
     }
 
     display_context_lines(f, lines, context_lines, current_line..main_span.start.line)?;
-    write!(f, "{}", diagnostic.body(&lines))?;
+    write!(f, "{}", diagnostic.body(lines))?;
     current_line = main_span.end.line + 1;
 
     if let Some(hint) = &hint {
         let hint_span = hint.span();
         if hint_span.start >= main_span.start {
             display_context_lines(f, lines, context_lines, current_line..hint_span.start.line)?;
-            write!(f, "{}", hint.body(&lines))?;
+            write!(f, "{}", hint.body(lines))?;
         }
     }
 

@@ -14,7 +14,6 @@ pub struct Toml<'a> {
 /// Self contained, movable container for a parsed [`Toml`] structure.
 pub struct Container {
     toml: ManuallyDrop<Toml<'static>>,
-    #[allow(unused)]
     bump: &'static Bump,
 }
 
@@ -55,7 +54,7 @@ impl<'a> Container {
 
         // force lifetime of input to be 'static
         // SAFETY: input was allocated using bump
-        let input = unsafe { std::mem::transmute(input) };
+        let input: &str = unsafe { std::mem::transmute(input) };
 
         // SAFETY: bump is constructed using Box::leak and input is allocated in bump
         unsafe { build_container(ctx, bump, input) }

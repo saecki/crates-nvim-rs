@@ -57,7 +57,7 @@ pub fn parse_requirement(input: &str, pos: Pos) -> Result<VersionReq, Error> {
     // commas this might allocate space for one extra item, but will never have to reallocate.
     let capacity = num_commas + (num_commas != 0) as usize;
     let capacity = capacity.max(MAX_COMPARATORS);
-    let mut comparators = Vec::with_capacity(capacity as usize);
+    let mut comparators = Vec::with_capacity(capacity);
     let mut last_comma = None;
 
     loop {

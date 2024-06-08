@@ -224,7 +224,7 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
                     parse_target(ctx, &mut state, &path, table);
                 }
             }
-            _ => warn_unused(ctx, &path, &entry),
+            _ => warn_unused(ctx, &path, entry),
         }
     }
     state
@@ -325,6 +325,7 @@ pub fn parse_target_dependencies<'a>(
 
 #[derive(Default)]
 struct DependencyBuilder<'a> {
+    features: DependencyFeatures<'a>,
     package: Option<StringAssignment<'a>>,
     workspace: Option<BoolAssignment<'a>>,
     version: Option<StringAssignment<'a>>,
@@ -344,12 +345,12 @@ impl<'a> DependencyBuilder<'a> {
         path: &map::Path,
         entry: &'a MapTableEntry<'a>,
         name: &'a str,
-        features: DependencyFeatures<'a>,
         kind: DependencyKind,
         target: Option<&'a str>,
     ) -> Dependency<'a> {
         let spec = 'spec: {
             if let Some(workspace) = self.workspace {
+                #[allow(clippy::bool_comparison)]
                 if workspace.val.val == false {
                     ctx.error(cargo::Error::new(
                         path.context_lines([workspace.repr.parent]),
@@ -436,15 +437,13 @@ impl<'a> DependencyBuilder<'a> {
                         + self.tag.is_some() as u8
                         + self.rev.is_some() as u8;
                     let spec = if num > 1 {
-                        for key in [&self.branch, &self.tag, &self.rev] {
-                            if let Some(key) = key {
-                                ctx.error(cargo::Error::new(
-                                    path.context_lines([key.repr.parent]),
-                                    path.fmt_path(),
-                                    key.span(),
-                                    cargo::ErrorKind::AmbigousGitSpec,
-                                ));
-                            }
+                        for key in [&self.branch, &self.tag, &self.rev].into_iter().flatten() {
+                            ctx.error(cargo::Error::new(
+                                path.context_lines([key.repr.parent]),
+                                path.fmt_path(),
+                                key.span(),
+                                cargo::ErrorKind::AmbigousGitSpec,
+                            ));
                         }
                         DependencyGitSpec::Conflicting
                     } else if let Some(branch) = self.branch {
@@ -499,7 +498,7 @@ impl<'a> DependencyBuilder<'a> {
             kind,
             target,
             spec,
-            features,
+            features: self.features,
             optional: self.optional,
             entry,
         }
@@ -516,7 +515,6 @@ fn parse_dependencies<'a>(
 ) {
     for (&name, entry) in table.iter() {
         let path = path.append_key(&entry.reprs);
-        let mut features = DependencyFeatures::default();
 
         let dep = match &entry.node {
             MapNode::Scalar(Scalar::String(val)) => {
@@ -527,6 +525,7 @@ fn parse_dependencies<'a>(
                     version,
                     registry: None,
                 };
+                let features = DependencyFeatures::default();
                 Dependency {
                     name,
                     package: None,
@@ -551,8 +550,8 @@ fn parse_dependencies<'a>(
             }
             MapNode::Table(table) => {
                 let mut builder = DependencyBuilder::default();
-                parse_dependency(ctx, &mut builder, &mut features, &path, table);
-                builder.try_build(ctx, &path, entry, name, features, kind, target)
+                parse_dependency(ctx, &mut builder, &path, table);
+                builder.try_build(ctx, &path, entry, name, kind, target)
             }
             MapNode::Array(_) => {
                 for repr in entry.reprs.iter() {
@@ -574,7 +573,6 @@ fn parse_dependencies<'a>(
 fn parse_dependency<'a>(
     ctx: &mut impl IdeCtx,
     builder: &mut DependencyBuilder<'a>,
-    features: &mut DependencyFeatures<'a>,
     path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
 ) {
@@ -591,16 +589,18 @@ fn parse_dependency<'a>(
             "rev" => builder.rev = expect_string_in_table(ctx, &path, entry),
             "package" => builder.package = expect_string_in_table(ctx, &path, entry),
             "optional" => builder.optional = expect_bool_in_table(ctx, &path, entry),
-            "default-features" => features.default = expect_bool_in_table(ctx, &path, entry),
+            "default-features" => {
+                builder.features.default = expect_bool_in_table(ctx, &path, entry)
+            }
             "default_features" => {
                 const OLD: &str = "default_features";
                 const NEW: &str = "default-features";
                 let ignored = deprecated_underscore(ctx, path.prev, table, OLD, NEW, entry);
                 if !ignored {
-                    features.default = expect_bool_in_table(ctx, &path, entry);
+                    builder.features.default = expect_bool_in_table(ctx, &path, entry);
                 }
             }
-            "features" => parse_dependency_features(ctx, &mut features.list, &path, entry),
+            "features" => parse_dependency_features(ctx, &mut builder.features.list, &path, entry),
             _ => warn_unused(ctx, &path, entry),
         };
     }
