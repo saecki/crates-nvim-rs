@@ -1,5 +1,5 @@
-[91merror[0m: Date-time month `13` out of range, the valid range is `1..=12`
+[91merror[0m: date-time month `13` out of range, the valid range is `1..=12`
     [94m-->[0m 2:9
      [94m|[0m
 [94m   2 |[0m d = 2006-13-01
-     [94m|[0m          [91m^^ Month out of range[0m
+     [94m|[0m          [91m^^ month out of range[0m

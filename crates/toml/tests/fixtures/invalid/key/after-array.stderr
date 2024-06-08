@@ -1,5 +1,5 @@
-[91merror[0m: Missing line break
+[91merror[0m: missing line break
     [94m-->[0m 1:13
      [94m|[0m
 [94m   1 |[0m [[agencies]] owner = "S Cjelli"
-     [94m|[0m              [91m^ Missing line break[0m
+     [94m|[0m              [91m^ missing line break[0m

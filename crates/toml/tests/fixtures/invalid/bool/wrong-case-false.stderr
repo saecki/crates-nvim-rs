@@ -1,5 +1,5 @@
-[91merror[0m: Uppercase character `F` in literal, expected `false`
+[91merror[0m: uppercase character `F` in literal, expected `false`
     [94m-->[0m 1:26
      [94m|[0m
 [94m   1 |[0m wrong-case-false        = FALSE
-     [94m|[0m                           [91m^ Uppercase character[0m
+     [94m|[0m                           [91m^ uppercase character[0m

@@ -1,5 +1,5 @@
-[91merror[0m: Trailing characters `r` in literal, expected `true`
+[91merror[0m: trailing characters `r` in literal, expected `true`
     [94m-->[0m 1:30
      [94m|[0m
 [94m   1 |[0m starting-same-true      = truer
-     [94m|[0m                               [91m^ Trailing characters[0m
+     [94m|[0m                               [91m^ trailing characters[0m

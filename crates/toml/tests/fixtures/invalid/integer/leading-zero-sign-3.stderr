@@ -1,5 +1,5 @@
-[91merror[0m: Invalid leading `0` in number
+[91merror[0m: invalid leading `0` in number
     [94m-->[0m 1:23
      [94m|[0m
 [94m   1 |[0m leading-zero-sign-3 = +0_1
-     [94m|[0m                        [91m^ Invalid leading `0`[0m
+     [94m|[0m                        [91m^ invalid leading `0`[0m

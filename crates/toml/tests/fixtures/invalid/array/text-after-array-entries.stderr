@@ -1,10 +1,10 @@
-[91merror[0m: Uppercase character `N` in literal, expected `nan`
+[91merror[0m: uppercase character `N` in literal, expected `nan`
     [94m-->[0m 2:45
      [94m|[0m
 [94m   2 |[0m   "Is there life after an array separator?", No
-     [94m|[0m                                              [91m^ Uppercase character[0m
-[91merror[0m: Missing comma (`,`)
+     [94m|[0m                                              [91m^ uppercase character[0m
+[91merror[0m: missing comma (`,`)
     [94m-->[0m 2:47
      [94m|[0m
 [94m   2 |[0m   "Is there life after an array separator?", No
-     [94m|[0m                                                [91m^ Missing comma (`,`)[0m
+     [94m|[0m                                                [91m^ missing comma (`,`)[0m

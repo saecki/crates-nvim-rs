@@ -1,5 +1,5 @@
-[91merror[0m: Missing characters in literal, expected `inf`
+[91merror[0m: missing characters in literal, expected `inf`
     [94m-->[0m 1:21
      [94m|[0m
 [94m   1 |[0m inf-incomplete-1 = in
-     [94m|[0m                      [91m^ Missing characters[0m
+     [94m|[0m                      [91m^ missing characters[0m

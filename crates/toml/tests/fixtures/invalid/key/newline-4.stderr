@@ -1,7 +1,7 @@
-[91merror[0m: Multi-line strings cannot be used as keys
+[91merror[0m: multi-line strings cannot be used as keys
     [94m-->[0m 1:0
      [94m|[0m
 [94m   1 |[0m """long
      [94m|[0m [91m^^^^^^^[0m
 [94m   2 |[0m key""" = 1
-     [94m|[0m [91m^^^^^^ Not a valid key[0m
+     [94m|[0m [91m^^^^^^ not a valid key[0m

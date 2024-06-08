@@ -1,5 +1,5 @@
-[91merror[0m: Trailing commas aren't permitted in inline tables
+[91merror[0m: trailing commas aren't permitted in inline tables
     [94m-->[0m 3:17
      [94m|[0m
 [94m   3 |[0m abc = { abc = 123, }
-     [94m|[0m                  [91m^ Trailing comma[0m
+     [94m|[0m                  [91m^ trailing comma[0m

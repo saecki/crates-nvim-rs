@@ -1,5 +1,5 @@
-[91merror[0m: Signs are not permitted for binary, octal, and hexadecimal integers
+[91merror[0m: signs are not permitted for binary, octal, and hexadecimal integers
     [94m-->[0m 1:15
      [94m|[0m
 [94m   1 |[0m negative-hex = -0xff
-     [94m|[0m                [91m^ Sign not allowed[0m
+     [94m|[0m                [91m^ sign not allowed[0m

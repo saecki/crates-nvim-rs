@@ -1,5 +1,5 @@
-[91merror[0m: Unfinished escape sequence
+[91merror[0m: unfinished escape sequence
     [94m-->[0m 1:20
      [94m|[0m
 [94m   1 |[0m bad-uni-esc-4 = "val\U0000"
-     [94m|[0m                     [91m^^^^^^ Unfinished escape sequence[0m
+     [94m|[0m                     [91m^^^^^^ unfinished escape sequence[0m

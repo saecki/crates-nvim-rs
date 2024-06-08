@@ -1,5 +1,5 @@
-[91merror[0m: Invalid unicode scalar `0x00d80000` (`14155776`)
+[91merror[0m: invalid unicode scalar `0x00d80000` (`14155776`)
     [94m-->[0m 1:7
      [94m|[0m
 [94m   1 |[0m a = """\U00D80000"""
-     [94m|[0m        [91m^^^^^^^^^^ Invalid unicode scalar[0m
+     [94m|[0m        [91m^^^^^^^^^^ invalid unicode scalar[0m

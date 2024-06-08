@@ -1,5 +1,5 @@
-[91merror[0m: Float fractional part cannot end with `_`
+[91merror[0m: float fractional part cannot end with `_`
     [94m-->[0m 1:17
      [94m|[0m
 [94m   1 |[0m trailing-us = 1.2_
-     [94m|[0m                  [91m^ Float fractional part cannot end with `_`[0m
+     [94m|[0m                  [91m^ float fractional part cannot end with `_`[0m

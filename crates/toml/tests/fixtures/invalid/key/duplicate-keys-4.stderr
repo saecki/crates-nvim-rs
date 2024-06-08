@@ -1,7 +1,7 @@
-[91merror[0m: Duplicate key `spelling`
+[91merror[0m: duplicate key `spelling`
     [94m-->[0m 2:0
      [94m|[0m
 [94m   1 |[0m spelling   = "favorite"
-     [94m|[0m [94m-------- Original key defined here[0m
+     [94m|[0m [94m-------- original key defined here[0m
 [94m   2 |[0m 'spelling' = "favourite"
-     [94m|[0m [91m^^^^^^^^^^ Duplicate key[0m
+     [94m|[0m [91m^^^^^^^^^^ duplicate key[0m

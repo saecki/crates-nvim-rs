@@ -1,7 +1,7 @@
-[91merror[0m: Duplicate key `tbl`
+[91merror[0m: duplicate key `tbl`
     [94m-->[0m 2:1
      [94m|[0m
 [94m   1 |[0m [[tbl]]
-     [94m|[0m   [94m--- Original key defined here[0m
+     [94m|[0m   [94m--- original key defined here[0m
 [94m   2 |[0m [tbl]
-     [94m|[0m  [91m^^^ Duplicate key[0m
+     [94m|[0m  [91m^^^ duplicate key[0m

@@ -1,4 +1,4 @@
-[91merror[0m: Unexpected character `+` in integer or float
+[91merror[0m: unexpected character `+` in integer or float
     [94m-->[0m 1:20
      [94m|[0m
 [94m   1 |[0m double-sign-plus = ++99

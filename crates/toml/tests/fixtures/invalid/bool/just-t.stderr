@@ -1,5 +1,5 @@
-[91merror[0m: Missing characters in literal, expected `true`
+[91merror[0m: missing characters in literal, expected `true`
     [94m-->[0m 1:27
      [94m|[0m
 [94m   1 |[0m just-t                  = t
-     [94m|[0m                            [91m^ Missing characters[0m
+     [94m|[0m                            [91m^ missing characters[0m

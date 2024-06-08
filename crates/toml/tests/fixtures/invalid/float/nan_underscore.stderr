@@ -1,5 +1,5 @@
-[91merror[0m: Unexpected character `_` in literal, expected `nan`
+[91merror[0m: unexpected character `_` in literal, expected `nan`
     [94m-->[0m 1:19
      [94m|[0m
 [94m   1 |[0m nan_underscore = na_n
-     [94m|[0m                    [91m^ Unexpected character[0m
+     [94m|[0m                    [91m^ unexpected character[0m

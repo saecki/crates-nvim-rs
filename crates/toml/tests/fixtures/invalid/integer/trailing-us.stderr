@@ -1,5 +1,5 @@
-[91merror[0m: Integer cannot end with `_`
+[91merror[0m: integer cannot end with `_`
     [94m-->[0m 1:17
      [94m|[0m
 [94m   1 |[0m trailing-us = 123_
-     [94m|[0m                  [91m^ Integer cannot end with `_`[0m
+     [94m|[0m                  [91m^ integer cannot end with `_`[0m

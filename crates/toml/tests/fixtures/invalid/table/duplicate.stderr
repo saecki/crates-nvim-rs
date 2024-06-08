@@ -1,7 +1,7 @@
-[91merror[0m: Duplicate key `a`
+[91merror[0m: duplicate key `a`
     [94m-->[0m 4:1
      [94m|[0m
 [94m   1 |[0m [a]
-     [94m|[0m  [94m- Original key defined here[0m
+     [94m|[0m  [94m- original key defined here[0m
 [94m   4 |[0m [a]
-     [94m|[0m  [91m^ Duplicate key[0m
+     [94m|[0m  [91m^ duplicate key[0m

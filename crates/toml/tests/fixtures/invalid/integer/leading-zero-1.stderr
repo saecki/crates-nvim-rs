@@ -1,5 +1,5 @@
-[91merror[0m: Incomplete date-time, year is missing digits
+[91merror[0m: incomplete date-time, year is missing digits
     [94m-->[0m 1:19
      [94m|[0m
 [94m   1 |[0m leading-zero-1 = 01
-     [94m|[0m                    [91m^ Missing digits[0m
+     [94m|[0m                    [91m^ missing digits[0m

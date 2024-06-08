@@ -1,5 +1,5 @@
-[91merror[0m: Invalid unicode scalar `0xd801` (`55297`)
+[91merror[0m: invalid unicode scalar `0xd801` (`55297`)
     [94m-->[0m 1:69
      [94m|[0m
 [94m   1 |[0m bad-uni-esc-6 = "This string contains a non scalar unicode codepoint \uD801"
-     [94m|[0m                                                                      [91m^^^^^^ Invalid unicode scalar[0m
+     [94m|[0m                                                                      [91m^^^^^^ invalid unicode scalar[0m

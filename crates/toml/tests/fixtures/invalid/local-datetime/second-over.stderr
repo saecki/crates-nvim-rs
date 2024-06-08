@@ -1,5 +1,5 @@
-[91merror[0m: Date-time second `61` out of range, the valid range is `0..=59`
+[91merror[0m: date-time second `61` out of range, the valid range is `0..=59`
     [94m-->[0m 3:21
      [94m|[0m
 [94m   3 |[0m d = 2006-01-01T00:00:61
-     [94m|[0m                      [91m^^ Second out of range[0m
+     [94m|[0m                      [91m^^ second out of range[0m

@@ -1,8 +1,8 @@
-[91merror[0m: Duplicate key `fruit.apple`
+[91merror[0m: duplicate key `fruit.apple`
     [94m-->[0m 4:7
      [94m|[0m
 [94m   1 |[0m [fruit]
 [94m   2 |[0m apple.color = "red"
-     [94m|[0m [94m----- Original key defined here[0m
+     [94m|[0m [94m----- original key defined here[0m
 [94m   4 |[0m [fruit.apple] # INVALID
-     [94m|[0m        [91m^^^^^ Duplicate key[0m
+     [94m|[0m        [91m^^^^^ duplicate key[0m
