@@ -14,11 +14,12 @@ use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, Int
 
 mod fuzz;
 
+#[track_caller]
 pub fn expect_float(table: &MapInner<String, SimpleVal>, key: &str) -> f64 {
     let val = table.get(key).unwrap();
     match val {
         SimpleVal::Float(f) => *f,
-        _ => unreachable!("{val:?}"),
+        _ => unreachable!("expeted float found `{val:?}`"),
     }
 }
 
@@ -46,15 +47,9 @@ pub fn check_simple(input: &str, expected: MapInner<String, SimpleVal>) {
 
 #[track_caller]
 pub fn check_simple_error(input: &str, expected: MapInner<String, SimpleVal>, error: Error) {
-    let mut ctx = TomlDiagnostics::default();
-    let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
-    let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&asts);
-
-    let test_table = util::map_simple(map);
+    let (ctx, table) = parse_simple(input);
     assert_eq!(
-        expected, test_table,
+        expected, table,
         "\nerrors: {:#?}\nwarnings: {:#?}",
         ctx.errors, ctx.warnings
     );
