@@ -871,8 +871,9 @@ impl<'a> Parser<'a> {
     }
 }
 
-/// All errors are stored inside the [`Ctx`]. If a fatal error occurs, a unit error
-/// is returned, otherwise the possibly partially invalid ast is returned.
+/// All errors are stored inside the [`Ctx`]. If an error is encounterd this won't stop parsing
+/// and will try to recover. If the [`Ctx`] contains no errors, the returned [`Asts`] are
+/// completely valid, otherwise they might be incomplete or partially/completely invalid.
 pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
     let mut parser = Parser::new(tokens);
     let mut asts = Vec::new();
