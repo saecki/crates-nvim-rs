@@ -5,7 +5,7 @@ local ns = vim.api.nvim_create_namespace("crates_nvim.diagnostics")
 ---@class VimDiagnostics
 ---@field errors VimDiagnostic[]
 ---@field warnings VimDiagnostic[]
----@field hints VimDiagnostic[]
+---@field infos VimDiagnostic[]
 
 ---@class VimDiagnostic
 ---@field lnum integer
@@ -36,7 +36,7 @@ function M.check_toml()
         local d = to_vim_diagnostic(w, vim.diagnostic.severity.ERROR)
         table.insert(vim_diagnostics, d)
     end
-    for _, h in ipairs(diagnostics.hints) do
+    for _, h in ipairs(diagnostics.infos) do
         local d = to_vim_diagnostic(h, vim.diagnostic.severity.ERROR)
         table.insert(vim_diagnostics, d)
     end

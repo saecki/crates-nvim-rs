@@ -36,14 +36,18 @@ impl ToObject for VimDiagnostic {
     }
 }
 
-#[nvim_oxi::module]
+#[nvim_oxi::plugin]
 pub fn crates_nvim_lib() -> nvim_oxi::Result<Dictionary> {
-    let update = Function::from_fn::<_, nvim_oxi::Error>(move |()| update());
+    let check_toml: Function<(), Result<Object, nvim_oxi::Error>> = Function::from_fn(move |()| {
+        let diagnostics = check_toml()?;
+        let object = diagnostics.to_object()?;
+        Ok(object)
+    });
 
-    Ok(Dictionary::from_iter([("update", update)]))
+    Ok(Dictionary::from_iter([("check_toml", check_toml)]))
 }
 
-fn update() -> Result<(), nvim_oxi::Error> {
+fn check_toml() -> Result<VimDiagnostics, nvim_oxi::api::Error> {
     let buf = nvim_oxi::api::get_current_buf();
     let num_lines = buf.line_count()?;
     let raw_lines = buf.get_lines(0..num_lines, true)?;
@@ -64,9 +68,7 @@ fn update() -> Result<(), nvim_oxi::Error> {
     let tokens = ctx.lex(&bump, &text);
     let asts = ctx.parse(&bump, &tokens);
     let map = ctx.map(&asts);
-    let state = ctx.check(&map);
-
-    dbg!(state);
+    let _state = ctx.check(&map);
 
     let errors = ctx.errors.iter().map(map_vim_diagnostic).collect();
     let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
@@ -78,9 +80,7 @@ fn update() -> Result<(), nvim_oxi::Error> {
         infos,
     };
 
-    dbg!(diagnostics);
-
-    Ok(())
+    Ok(diagnostics)
 }
 
 fn map_vim_diagnostic(d: &impl Diagnostic) -> VimDiagnostic {
