@@ -2,7 +2,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use bumpalo::Bump;
-use common::diagnostic::{self, ANSII_CLEAR, ANSII_UNDERLINED};
+use common::diagnostic::{self, ANSII_CLEAR, ANSII_COLOR_RED, ANSII_UNDERLINED};
 use ide::{IdeCtx, IdeDiagnostics};
 use toml::TomlCtx;
 
@@ -14,46 +14,54 @@ enum Mode {
     Check,
 }
 
+macro_rules! error {
+    ($pat:expr) => {{
+        eprint!("{ANSII_COLOR_RED}error: ");
+        eprint!($pat);
+        eprintln!("{ANSII_CLEAR}");
+        return ExitCode::FAILURE;
+    }};
+}
+
+macro_rules! input_error {
+    ($pat:expr) => {{
+        eprint!("{ANSII_COLOR_RED}argument error: ");
+        eprint!($pat);
+        eprintln!("{ANSII_CLEAR}");
+        eprintln!();
+        help_message();
+        return ExitCode::FAILURE;
+    }};
+}
+
 fn main() -> ExitCode {
     let mut args = std::env::args();
     args.next();
 
     let Some(mode_str) = args.next() else {
-        eprintln!("Missing mode:");
-        eprintln!("  {ANSII_UNDERLINED}validate{ANSII_CLEAR}  to validate arbitrary toml files");
-        eprintln!("  {ANSII_UNDERLINED}check{ANSII_CLEAR}     to check a `Cargo.toml` manifest");
-        return ExitCode::FAILURE;
+        input_error!("missing mode");
     };
     let mode = match mode_str.as_str() {
         "validate" => Mode::Validate,
         "check" => Mode::Check,
-        _ => {
-            eprintln!("Invalid mode `{mode_str}`");
-            return ExitCode::FAILURE;
-        }
+        _ => input_error!("invalid mode `{mode_str}`"),
     };
 
     let Some(path) = args.next() else {
-        eprintln!("Missing argument after `{mode_str}`: <file>");
-        return ExitCode::FAILURE;
+        input_error!("missing argument <file>");
     };
     let path: &Path = path.as_ref();
     if let Some(filename) = path.file_name() {
         if mode == Mode::Check && filename != "Cargo.toml" {
-            eprintln!("File isn't named `Cargo.toml`");
-            return ExitCode::FAILURE;
+            input_error!("file isn't named `Cargo.toml`, use mode `validate` for arbitrary toml files");
         }
     } else {
-        eprintln!("Path is empty");
-        return ExitCode::FAILURE;
+        input_error!("<file> path is empty");
     }
 
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
-        Err(e) => {
-            eprintln!("Error reading from file: {e}");
-            return ExitCode::FAILURE;
-        }
+        Err(e) => error!("error reading from file: {e}"),
     };
     let lines = diagnostic::lines(&text);
 
@@ -99,15 +107,24 @@ fn main() -> ExitCode {
     let us_simple = end.duration_since(checking).unwrap().as_micros();
     let us_total = end.duration_since(start).unwrap().as_micros();
 
-    println!("lexing   {:4}us", us_lexing);
-    println!("parsing  {:4}us", us_parsing);
-    println!("mapping  {:4}us", us_mapping);
+    println!();
+    println!("lexing   {:6}us", us_lexing);
+    println!("parsing  {:6}us", us_parsing);
+    println!("mapping  {:6}us", us_mapping);
     if mode == Mode::Check {
         println!("checking {:4}us", us_checking);
     }
-    println!("simple   {:4}us", us_simple);
-    println!("---------------");
-    println!("total    {:4}us", us_total);
+    println!("simple   {:6}us", us_simple);
+    println!("-----------------");
+    println!("total    {:6}us", us_total);
 
     ExitCode::SUCCESS
+}
+
+fn help_message() {
+    eprintln!("ctoml <mode> <file>");
+    eprintln!();
+    eprintln!("modes:");
+    eprintln!("  {ANSII_UNDERLINED}validate{ANSII_CLEAR}  to validate arbitrary toml files");
+    eprintln!("  {ANSII_UNDERLINED}check{ANSII_CLEAR}     to check a `Cargo.toml` manifest");
 }
