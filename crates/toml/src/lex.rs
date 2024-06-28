@@ -193,6 +193,15 @@ impl Quote {
             Quote::Literal | Quote::LiteralMultiline => Self::LiteralMultiline,
         }
     }
+
+    pub fn kind_str(&self) -> &'static str {
+        match self {
+            Quote::Basic => "basic",
+            Quote::BasicMultiline => "multi-line basic",
+            Quote::Literal => "literal",
+            Quote::LiteralMultiline => "multi-line literal",
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -441,7 +450,8 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
                     pos.line -= 1;
                     pos.char = line_len as u32;
                 }
-                ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, pos));
+                let span = Span::new(lexer.lit_start, pos);
+                ctx.error(Error::MissingQuote(str.quote, span));
 
                 let end = lexer.byte_pos;
                 end_string(lexer, str, end, end);
@@ -481,11 +491,8 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
                 let line_end_pos = lexer.pos_in_line(line_end);
 
                 // Recover state
-                ctx.error(Error::MissingQuote(
-                    str.quote,
-                    lexer.lit_start,
-                    line_end_pos,
-                ));
+                let span = Span::new(lexer.lit_start, line_end_pos);
+                ctx.error(Error::MissingQuote(str.quote, span));
 
                 if let Some(text) = &mut str.text {
                     text.pop();
@@ -566,7 +573,8 @@ fn string_escape<'a>(
 
                 return if has_newline {
                     // Recover state
-                    ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
+                    let span = Span::new(lexer.lit_start, lexer.pos());
+                    ctx.error(Error::MissingQuote(str.quote, span));
                     end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
                     newline_token(lexer);
                     lexer.newline();
@@ -652,7 +660,8 @@ fn string_escape_unicode<'a>(
 
                 if !str.quote.is_multiline() {
                     // Recover state
-                    ctx.error(Error::MissingQuote(str.quote, lexer.lit_start, lexer.pos()));
+                    let span = Span::new(lexer.lit_start, lexer.pos());
+                    ctx.error(Error::MissingQuote(str.quote, span));
                     end_string(lexer, str, lexer.byte_pos, lexer.byte_pos);
                     newline_token(lexer);
                     lexer.newline();

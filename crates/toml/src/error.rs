@@ -7,7 +7,7 @@ use crate::Quote;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
-    MissingQuote(Quote, Pos, Pos),
+    MissingQuote(Quote, Span),
     ExcessiveQuotes(Quote, Span),
     InvalidStringChar(FmtChar, Span),
     InvalidEscapeChar(FmtChar, Pos),
@@ -121,7 +121,7 @@ impl Diagnostic for Error {
     fn span(&self) -> Span {
         use Error::*;
         match self {
-            MissingQuote(_, _, p) => Span::pos(*p),
+            MissingQuote(_, s) => *s,
             ExcessiveQuotes(_, s) => *s,
             InvalidStringChar(_, s) => *s,
             InvalidEscapeChar(_, p) => Span::pos(*p),
@@ -197,7 +197,10 @@ impl Diagnostic for Error {
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
         match self {
-            MissingQuote(quote, _, _) => write!(f, "unterminated string literal, missing `{quote}`"),
+            MissingQuote(quote, _) => {
+                let kind = quote.kind_str();
+                write!(f, "unterminated {kind} string, missing `{quote}`")
+            }
             ExcessiveQuotes(quote, _) => write!(f, "excess quotes, only up to two consecutive quotes (`{}`) are allowed inside a multi-line string", quote.singleline()),
             InvalidStringChar(char, _) => write!(f, "invalid character `{char}`in string"),
             InvalidEscapeChar(char, _) => write!(f, "invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`"),
@@ -295,7 +298,7 @@ impl Diagnostic for Error {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
         match self {
-            MissingQuote(..) => write!(f, "unterminated string literal"),
+            MissingQuote(..) => write!(f, "unterminated string"),
             ExcessiveQuotes(..) => write!(f, "excess quotes"),
             InvalidStringChar(..) => write!(f, "invalid character"),
             InvalidEscapeChar(..) => write!(f, "invalid escape character"),
@@ -385,7 +388,7 @@ impl Diagnostic for Error {
     fn hint(&self) -> Option<Self::Hint> {
         use Error::*;
         match self {
-            MissingQuote(q, p, _) => Some(Hint::MissingQuote(*q, *p)),
+            MissingQuote(..) => None,
             ExcessiveQuotes(..) => None,
             InvalidStringChar(_, _) => None,
             InvalidEscapeChar(_, _) => None,
@@ -581,7 +584,6 @@ impl Diagnostic for Info {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Hint {
-    MissingQuote(Quote, Pos),
     ExpectedRightCurlyFound(Pos),
     ExpectedRightSquareFound(Pos),
     DuplicateKey(Span),
@@ -596,7 +598,6 @@ impl DiagnosticHint for Hint {
     fn span(&self) -> Span {
         use Hint::*;
         match self {
-            MissingQuote(q, p) => Span::from_pos_len(*p, q.len()),
             ExpectedRightCurlyFound(p) => Span::ascii_char(*p),
             ExpectedRightSquareFound(p) => Span::ascii_char(*p),
             DuplicateKey(s) => *s,
@@ -611,7 +612,6 @@ impl DiagnosticHint for Hint {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Hint::*;
         match self {
-            MissingQuote(_, _) => write!(f, "literal started here"),
             ExpectedRightCurlyFound(_) => write!(f, "left `{{` defined here"),
             ExpectedRightSquareFound(_) => write!(f, "left `[` defined here"),
             DuplicateKey(_) => write!(f, "original key defined here"),

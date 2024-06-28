@@ -430,8 +430,7 @@ fn unclosed_basic_single_line_string() {
         },
         Error::MissingQuote(
             Quote::Basic,
-            Pos { line: 0, char: 0 },
-            Pos { line: 0, char: 21 },
+            Span::from_pos_len(Pos { line: 0, char: 0 }, 21),
         ),
     );
 }
@@ -460,8 +459,7 @@ fn unclosed_basic_multi_line_string() {
         },
         Error::MissingQuote(
             Quote::BasicMultiline,
-            Pos { line: 0, char: 0 },
-            Pos { line: 1, char: 18 },
+            Span::new(Pos { line: 0, char: 0 }, Pos { line: 1, char: 18 }),
         ),
     );
 }
@@ -490,8 +488,7 @@ fn not_fully_closed_basic_multi_line_string_1() {
         },
         Error::MissingQuote(
             Quote::BasicMultiline,
-            Pos { line: 0, char: 0 },
-            Pos { line: 0, char: 24 },
+            Span::from_pos_len(Pos { line: 0, char: 0 }, 24),
         ),
     );
 }
@@ -520,8 +517,7 @@ fn not_fully_closed_basic_multi_line_string_2() {
         },
         Error::MissingQuote(
             Quote::BasicMultiline,
-            Pos { line: 0, char: 0 },
-            Pos { line: 0, char: 25 },
+            Span::from_pos_len(Pos { line: 0, char: 0 }, 25),
         ),
     );
 }
@@ -556,8 +552,7 @@ fn unclosed_literal_single_line_string() {
         },
         Error::MissingQuote(
             Quote::Literal,
-            Pos { line: 0, char: 0 },
-            Pos { line: 0, char: 21 },
+            Span::from_pos_len(Pos { line: 0, char: 0 }, 21),
         ),
     );
 }
@@ -586,8 +581,7 @@ fn unclosed_literal_multi_line_string() {
         },
         Error::MissingQuote(
             Quote::LiteralMultiline,
-            Pos { line: 0, char: 0 },
-            Pos { line: 1, char: 18 },
+            Span::new(Pos { line: 0, char: 0 }, Pos { line: 1, char: 18 }),
         ),
     );
 }
@@ -616,8 +610,7 @@ fn not_fully_closed_literal_multi_line_string_1() {
         },
         Error::MissingQuote(
             Quote::LiteralMultiline,
-            Pos { line: 0, char: 0 },
-            Pos { line: 0, char: 24 },
+            Span::from_pos_len(Pos { line: 0, char: 0 }, 24),
         ),
     );
 }
@@ -646,8 +639,7 @@ fn not_fully_closed_literal_multi_line_string_2() {
         },
         Error::MissingQuote(
             Quote::LiteralMultiline,
-            Pos { line: 0, char: 0 },
-            Pos { line: 0, char: 25 },
+            Span::from_pos_len(Pos { line: 0, char: 0 }, 25),
         ),
     );
 }
@@ -679,7 +671,7 @@ fn unclosed_multi_line_string_error_on_last_line() {
                     start: Pos { line: 1, char: 0 },
                 },
             },
-            Error::MissingQuote(quote, Pos { line: 0, char: 0 }, Pos { line: 0, char: 23 }),
+            Error::MissingQuote(quote, Span::from_pos_len(Pos { line: 0, char: 0 }, 23)),
         );
     }
 }
