@@ -75,6 +75,6 @@ fn map_table(table: MapTable) -> Decoded {
 fn main() {
     let mut harness = toml_test_harness::DecoderHarness::new(TestDecoder);
     harness.version("1.0.0");
-    harness.ignore([]).unwrap();
+    harness.ignore(["invalid/**/*"]).unwrap();
     harness.test();
 }
