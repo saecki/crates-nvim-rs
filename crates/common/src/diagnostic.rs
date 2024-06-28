@@ -290,8 +290,9 @@ pub fn display_line(f: &mut impl std::fmt::Write, line_nr: usize, line: &str) ->
     let mut next_start = 0;
     for (j, c) in line.char_indices() {
         match c {
+            // print tab ('\x09')
             '\t' => (),
-            // backspace
+            // ignore all other control characters
             '\x00'..='\x1f' | '\x7f' => {
                 f.write_str(&line[next_start..j])?;
                 next_start = j + 1;
