@@ -1,7 +1,5 @@
-[91merror[0m: unterminated string literal, missing `"`
-    [94m-->[0m 1:8
+[91merror[0m: unterminated basic string, missing `"`
+    [94m-->[0m 1:0
      [94m|[0m
 [94m   1 |[0m "key = x
-     [94m|[0m [94m- literal started here[0m
-[94m   1 |[0m "key = x
-     [94m|[0m         [91m^ unterminated string literal[0m
+     [94m|[0m [91m^^^^^^^^ unterminated string[0m

@@ -1,12 +1,10 @@
+[91merror[0m: unterminated basic string, missing `"`
+    [94m-->[0m 1:0
+     [94m|[0m
+[94m   1 |[0m "backslash is the last char\
+     [94m|[0m [91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unterminated string[0m
 [91merror[0m: unfinished escape sequence
     [94m-->[0m 1:27
      [94m|[0m
 [94m   1 |[0m "backslash is the last char\
      [94m|[0m                            [91m^ unfinished escape sequence[0m
-[91merror[0m: unterminated string literal, missing `"`
-    [94m-->[0m 1:28
-     [94m|[0m
-[94m   1 |[0m "backslash is the last char\
-     [94m|[0m [94m- literal started here[0m
-[94m   1 |[0m "backslash is the last char\
-     [94m|[0m                             [91m^ unterminated string literal[0m
