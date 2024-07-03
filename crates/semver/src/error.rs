@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
 use common::{FmtChar, FmtStr, Pos, Span};
 
@@ -161,7 +159,7 @@ impl DiagnosticHint for Hint {
     }
 }
 
-impl Display for NumField {
+impl std::fmt::Display for NumField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(num_field(*self))
     }
@@ -175,7 +173,7 @@ fn num_field(f: NumField) -> &'static str {
     }
 }
 
-impl Display for IdentField {
+impl std::fmt::Display for IdentField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(ident_field(*self))
     }

@@ -12,5 +12,5 @@ toml = { workspace = true }
 common = { workspace = true }
 bumpalo = { workspace = true }
 nvim-oxi = { version = "0.5.0", features = ["neovim-0-10"] }
-serde = { version = "1.0", features = ["serde_derive"] }
+serde = { workspace = true, features = ["serde_derive"] }
 serde_derive = "1.0"

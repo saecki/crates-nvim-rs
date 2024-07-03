@@ -3,8 +3,12 @@ name = "crates-semver"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+serde = ["dep:serde"]
+
 [dependencies]
 common = { workspace = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

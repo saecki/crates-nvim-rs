@@ -13,10 +13,16 @@ members = [
 [workspace.dependencies]
 ide = { package = "crates-ide", path = "crates/ide" }
 toml = { package = "crates-toml", path = "crates/toml" }
-semver = { package = "crates-semver", path = "crates/semver" }
+semver = { package = "crates-semver", path = "crates/semver", features = ["serde"] }
 common = { package = "crates-common", path = "crates/common" }
+
 bumpalo = { version = "3.15.4", features = ["collections"] }
 pretty_assertions = "1.4.0"
+indexmap = "2.2.6"
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+
 
 [profile.release]
 strip = true

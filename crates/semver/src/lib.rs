@@ -11,8 +11,10 @@ mod error;
 mod eval;
 mod inlinestr;
 mod parse;
+#[cfg(feature = "serde")]
+mod serde;
 #[cfg(test)]
-mod test;
+pub mod test;
 
 pub trait SemverCtx:
     Ctx<Error = Self::SemverError, Warning = Self::SemverWarning, Info = Self::SemverInfo>

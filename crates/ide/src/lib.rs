@@ -2,15 +2,14 @@ use common::{Ctx, Diagnostics};
 use semver::SemverCtx;
 
 pub use cargo::CargoCtx;
-pub use check::{
-    check, Dependency, DependencyFeatures, DependencyGitSpec, DependencyKind, DependencySpec, State,
-};
+pub use check::{check, State};
 pub use error::{Error, Hint, Info, Warning};
 use toml::MapTable;
 
 pub mod cargo;
 pub mod check;
 pub mod error;
+pub mod index;
 
 #[rustfmt::skip]
 pub trait IdeCtx:
