@@ -113,15 +113,15 @@ impl Diagnostic for Warning {
     const SEVERITY: Severity = Severity::Warning;
 
     fn span(&self) -> Span {
-        todo!()
+        unreachable!()
     }
 
     fn description(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        todo!()
+        unreachable!()
     }
 
     fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        todo!()
+        unreachable!()
     }
 }
 
@@ -134,15 +134,15 @@ impl Diagnostic for Info {
     const SEVERITY: Severity = Severity::Info;
 
     fn span(&self) -> Span {
-        todo!()
+        unreachable!()
     }
 
     fn description(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        todo!()
+        unreachable!()
     }
 
     fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        todo!()
+        unreachable!()
     }
 }
 
@@ -151,11 +151,11 @@ pub enum Hint {}
 
 impl DiagnosticHint for Hint {
     fn span(&self) -> Span {
-        todo!()
+        unreachable!()
     }
 
     fn annotation(&self, _f: &mut impl std::fmt::Write) -> std::fmt::Result {
-        todo!()
+        unreachable!()
     }
 }
 
