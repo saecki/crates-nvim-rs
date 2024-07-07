@@ -27,13 +27,25 @@ fn dep_feats<const SIZE: usize>(features: [&str; SIZE]) -> Vec<Box<str>> {
 }
 
 #[test]
-fn parse_diesel_index() {
-    let str = include_str!("../../tests/diesel_index.json");
-    let krate = fetch::parse_crate(str).unwrap();
+fn diesel_index() {
+    #[cfg(feature = "offline_tests")]
+    let krate = {
+        let str = include_str!("../../tests/diesel_index.json");
+        fetch::parse_crate(str).unwrap()
+    };
+    #[cfg(not(feature = "offline_tests"))]
+    let krate = {
+        use crate::index::fetch::{DependencyRegistry, DependencySource};
+        let source = DependencySource {
+            registry: DependencyRegistry::CratesIo,
+            name: "diesel".into(),
+        };
+        fetch::fetch_crate(source).unwrap()
+    };
 
     assert_eq!(&*krate.name, "diesel");
 
-    let version = &krate.versions[4];
+    let version = &krate.versions[68];
 
     assert_eq!(
         &Version {
@@ -41,79 +53,27 @@ fn parse_diesel_index() {
             yanked: false,
             rust_version: Some(semver_version("1.65.0")),
             default_features: Some(feat_members(["32-column-tables", "with-deprecated"])),
+            #[rustfmt::skip]
             features: IndexMap::from_iter([
-                feat(
-                    "128-column-tables",
-                    ["64-column-tables", "diesel_derives/128-column-tables"]
-                ),
+                feat("128-column-tables", ["64-column-tables", "diesel_derives/128-column-tables"]),
                 feat("32-column-tables", ["diesel_derives/32-column-tables"]),
-                feat(
-                    "64-column-tables",
-                    ["32-column-tables", "diesel_derives/64-column-tables"]
-                ),
+                feat("64-column-tables", ["32-column-tables", "diesel_derives/64-column-tables"]),
                 feat("chrono", ["diesel_derives/chrono", "dep:chrono"]),
-                feat(
-                    "extras",
-                    [
-                        "chrono",
-                        "network-address",
-                        "numeric",
-                        "r2d2",
-                        "time",
-                        "dep:serde_json",
-                        "dep:uuid",
-                    ]
-                ),
+                feat("extras", ["chrono", "network-address", "numeric", "r2d2", "time", "dep:serde_json", "dep:uuid"]),
                 feat("huge-tables", ["64-column-tables"]),
-                feat(
-                    "i-implement-a-third-party-backend-and-opt-into-breaking-changes",
-                    []
-                ),
+                feat("i-implement-a-third-party-backend-and-opt-into-breaking-changes", []),
                 feat("ipnet-address", ["dep:ipnet", "dep:libc"]),
                 feat("large-tables", ["32-column-tables"]),
-                feat(
-                    "mysql",
-                    [
-                        "mysql_backend",
-                        "dep:bitflags",
-                        "dep:mysqlclient-sys",
-                        "dep:percent-encoding",
-                        "dep:url",
-                    ]
-                ),
+                feat("mysql", ["mysql_backend", "dep:bitflags", "dep:mysqlclient-sys", "dep:percent-encoding", "dep:url"]),
                 feat("mysql_backend", ["diesel_derives/mysql", "dep:byteorder"]),
                 feat("network-address", ["dep:ipnetwork", "dep:libc"]),
                 feat("nightly-error-messages", []),
-                feat(
-                    "numeric",
-                    [
-                        "dep:bigdecimal",
-                        "dep:num-bigint",
-                        "dep:num-integer",
-                        "dep:num-traits",
-                    ]
-                ),
+                feat("numeric", ["dep:bigdecimal", "dep:num-bigint", "dep:num-integer", "dep:num-traits"]),
                 feat("postgres", ["postgres_backend", "dep:pq-sys"]),
-                feat(
-                    "postgres_backend",
-                    [
-                        "diesel_derives/postgres",
-                        "dep:bitflags",
-                        "dep:byteorder",
-                        "dep:itoa",
-                    ]
-                ),
+                feat("postgres_backend", ["diesel_derives/postgres", "dep:bitflags", "dep:byteorder", "dep:itoa"]),
                 feat("r2d2", ["diesel_derives/r2d2", "dep:r2d2"]),
                 feat("returning_clauses_for_sqlite_3_35", []),
-                feat(
-                    "sqlite",
-                    [
-                        "diesel_derives/sqlite",
-                        "time?/formatting",
-                        "time?/parsing",
-                        "dep:libsqlite3-sys",
-                    ]
-                ),
+                feat("sqlite", ["diesel_derives/sqlite", "time?/formatting", "time?/parsing", "dep:libsqlite3-sys"]),
                 feat("time", ["diesel_derives/time", "dep:time"]),
                 feat("unstable", ["diesel_derives/nightly"]),
                 feat("with-deprecated", ["diesel_derives/with-deprecated"]),

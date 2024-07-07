@@ -3,6 +3,9 @@ name = "crates-ide"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+offline_tests = []
+
 [dependencies]
 toml = { workspace = true }
 semver = { workspace = true }

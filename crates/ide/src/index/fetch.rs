@@ -169,7 +169,7 @@ pub(crate) fn parse_crate(str: &str) -> Result<Crate, ErrorKind> {
         versions.push(version);
     }
 
-    versions.sort_by(|a, b| b.vers.cmp(&a.vers));
+    versions.sort_by(|a, b| a.vers.cmp(&b.vers));
 
     let Some(name) = name else {
         return Err(ErrorKind::Parse(ParseError::NoVersion));
