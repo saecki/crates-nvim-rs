@@ -53,7 +53,9 @@ fn main() -> ExitCode {
     let path: &Path = path.as_ref();
     if let Some(filename) = path.file_name() {
         if mode == Mode::Check && filename != "Cargo.toml" {
-            input_error!("file isn't named `Cargo.toml`, use mode `validate` for arbitrary toml files");
+            input_error!(
+                "file isn't named `Cargo.toml`, use mode `validate` for arbitrary toml files"
+            );
         }
     } else {
         input_error!("<file> path is empty");
