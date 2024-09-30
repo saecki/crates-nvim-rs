@@ -202,7 +202,7 @@ impl Diagnostic for Error {
                 write!(f, "unterminated {kind} string, missing `{quote}`")
             }
             ExcessiveQuotes(quote, _) => write!(f, "excess quotes, only up to two consecutive quotes (`{}`) are allowed inside a multi-line string", quote.singleline()),
-            InvalidStringChar(char, _) => write!(f, "invalid character `{char}`in string"),
+            InvalidStringChar(char, _) => write!(f, "invalid character `{char}` in string"),
             InvalidEscapeChar(char, _) => write!(f, "invalid escape character `{char}`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `\"`, `\\`"),
             InvalidUnicodeEscapeChar(char, _) => write!(f, "invalid character `{char}` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`"),
             InvalidUnicodeCodepoint(num_chars, cp, _) => write!(f, "invalid unicode scalar `0x{cp:0width$x}` (`{cp}`)", width = *num_chars as usize),
@@ -324,8 +324,8 @@ impl Diagnostic for Error {
             InlineTableTrailingComma(_) => write!(f, "trailing comma"),
             SpaceBetweenArrayPars(_) => write!(f, "no space allowed"),
 
-            UnexpectedLiteralStart(..) => write!(f, "Unexpected character"),
-            UnexpectedLiteralChar(p, _, _) => write!(f, "Unexpected character in {p}"),
+            UnexpectedLiteralStart(..) => write!(f, "unexpected character"),
+            UnexpectedLiteralChar(p, _, _) => write!(f, "unexpected character in {p}"),
             LitStartsWithUnderscore(p, _) => write!(f, "{p} cannot start with `_`"),
             LitEndsWithUnderscore(p, _) => write!(f, "{p} cannot end with `_`"),
             ConsecutiveUnderscoresInLiteral(_) => {
