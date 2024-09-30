@@ -1,4 +1,4 @@
-[91merror[0m: invalid character `\x1f`in string
+[91merror[0m: invalid character `\x1f` in string
     [94m-->[0m 1:19
      [94m|[0m
 [94m   1 |[0m string-us   = "null"

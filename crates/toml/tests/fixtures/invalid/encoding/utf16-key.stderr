@@ -8,12 +8,12 @@
      [94m|[0m
 [94m   1 |[0m k = "v"
      [94m|[0m   [91m^ expected `=` or `.`[0m
-[91merror[0m: invalid character `\x00`in string
+[91merror[0m: invalid character `\x00` in string
     [94m-->[0m 1:10
      [94m|[0m
 [94m   1 |[0m k = "v"
      [94m|[0m      [91m^ invalid character[0m
-[91merror[0m: invalid character `\x00`in string
+[91merror[0m: invalid character `\x00` in string
     [94m-->[0m 1:12
      [94m|[0m
 [94m   1 |[0m k = "v"

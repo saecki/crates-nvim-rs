@@ -1,4 +1,4 @@
-[91merror[0m: invalid character `\x7f`in string
+[91merror[0m: invalid character `\x7f` in string
     [94m-->[0m 1:20
      [94m|[0m
 [94m   1 |[0m multi-del  = """null"""

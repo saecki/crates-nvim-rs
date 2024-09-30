@@ -17,7 +17,7 @@
     [94m-->[0m 5:16
      [94m|[0m
 [94m   5 |[0m leading-point = .12345
-     [94m|[0m                 [91m^ Unexpected character[0m
+     [94m|[0m                 [91m^ unexpected character[0m
 [91merror[0m: missing digit after sign `-`, expected at least one
     [94m-->[0m 6:21
      [94m|[0m
@@ -67,17 +67,17 @@
     [94m-->[0m 18:19
      [94m|[0m
 [94m  18 |[0m double-point-1 = 0..1
-     [94m|[0m                    [91m^ Unexpected character in float fractional part[0m
+     [94m|[0m                    [91m^ unexpected character in float fractional part[0m
 [91merror[0m: unexpected character `.` in float fractional part
     [94m-->[0m 19:20
      [94m|[0m
 [94m  19 |[0m double-point-2 = 0.1.2
-     [94m|[0m                     [91m^ Unexpected character in float fractional part[0m
+     [94m|[0m                     [91m^ unexpected character in float fractional part[0m
 [91merror[0m: unexpected character `.` in float exponent
     [94m-->[0m 21:17
      [94m|[0m
 [94m  21 |[0m exp-point-1 = 1e2.3
-     [94m|[0m                  [91m^ Unexpected character in float exponent[0m
+     [94m|[0m                  [91m^ unexpected character in float exponent[0m
 [91merror[0m: missing fractional part of float literal, expected at least one digit
     [94m-->[0m 22:16
      [94m|[0m
@@ -92,12 +92,12 @@
     [94m-->[0m 25:19
      [94m|[0m
 [94m  25 |[0m exp-double-e-1 = 1ee2
-     [94m|[0m                    [91m^ Unexpected character in float exponent[0m
+     [94m|[0m                    [91m^ unexpected character in float exponent[0m
 [91merror[0m: unexpected character `e` in float exponent
     [94m-->[0m 26:20
      [94m|[0m
 [94m  26 |[0m exp-double-e-2 = 1e2e3
-     [94m|[0m                     [91m^ Unexpected character in float exponent[0m
+     [94m|[0m                     [91m^ unexpected character in float exponent[0m
 [91merror[0m: float exponent cannot start with `_`
     [94m-->[0m 28:19
      [94m|[0m

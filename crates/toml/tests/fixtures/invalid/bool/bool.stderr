@@ -32,7 +32,7 @@
     [94m-->[0m 7:26
      [94m|[0m
 [94m   7 |[0m mixed-case              = valid   = False
-     [94m|[0m                           [91m^ Unexpected character[0m
+     [94m|[0m                           [91m^ unexpected character[0m
 [91merror[0m: expected a line break, found `=`
     [94m-->[0m 7:34
      [94m|[0m

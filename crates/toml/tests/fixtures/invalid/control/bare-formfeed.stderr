@@ -2,4 +2,4 @@
     [94m-->[0m 1:20
      [94m|[0m
 [94m   1 |[0m bare-formfeed     = 
-     [94m|[0m                     [91m^ Unexpected character[0m
+     [94m|[0m                     [91m^ unexpected character[0m

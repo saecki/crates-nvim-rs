@@ -14,4 +14,4 @@
     [94m-->[0m 2:7
      [94m|[0m
 [94m   2 |[0m name = value
-     [94m|[0m        [91m^ Unexpected character[0m
+     [94m|[0m        [91m^ unexpected character[0m
