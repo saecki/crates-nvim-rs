@@ -1410,7 +1410,7 @@ fn parse_value<'a>(
             }
         }
         TokenType::Dot => {
-            parser.next();
+            let token = parser.next();
 
             ctx.error(Error::UnexpectedLiteralStart(FmtChar('.'), token.start));
 
@@ -1436,263 +1436,12 @@ fn parse_value<'a>(
             Value::Invalid(lit, span)
         }
         TokenType::SquareLeft => {
-            let l_par = token.start;
-            parser.next();
-
-            if level >= RECURSION_LIMIT {
-                parser.jump_to_end();
-                return Err(Error::RecursionLimitExceeded(l_par));
-            }
-
-            let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
-            let mut values = Vec::new();
-
-            if let Some(comment) = parser.eat_comment() {
-                add_comment(
-                    comment_storage,
-                    &mut array_comments,
-                    comment,
-                    AssocPos::LineEnd,
-                );
-            }
-
-            'inline_array: loop {
-                while let Some(comment) = parser.eat_comment_and_newlines() {
-                    add_comment(
-                        comment_storage,
-                        &mut array_comments,
-                        comment,
-                        AssocPos::Contained,
-                    );
-                }
-
-                if one_of!(parser.peek().ty, SquareRight | EOF) {
-                    break;
-                }
-
-                let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
-                    Ok(v) => v,
-                    e @ Err(Error::RecursionLimitExceeded(_)) => return e,
-                    Err(e) => {
-                        ctx.error(e);
-                        recover_on!(parser,
-                            Comma | Newline | Comment(_) => {
-                                parser.next();
-                                continue 'inline_array;
-                            },
-                            SquareRight | EOF => break 'inline_array,
-                        );
-                    }
-                };
-
-                let val_line = val.start().line;
-                let mut val_comments = mark_comments_above(comment_storage, val_line, level + 1);
-                if let Some(comment) = parser.eat_comment() {
-                    add_comment(
-                        comment_storage,
-                        &mut val_comments,
-                        comment,
-                        AssocPos::LineEnd,
-                    );
-                }
-
-                while let Some(comment) = parser.eat_comment_and_newlines() {
-                    add_comment(
-                        comment_storage,
-                        &mut array_comments,
-                        comment,
-                        AssocPos::Contained,
-                    );
-                }
-                let comma = match parser.peek() {
-                    t if t.ty == TokenType::Comma => {
-                        val_comments.extend_to(next_comment_id(comment_storage));
-                        mark_contained_comments(comment_storage, &val_comments, level + 1);
-
-                        let comma = parser.next().start;
-                        if let Some(comment) = parser.eat_comment() {
-                            add_comment(
-                                comment_storage,
-                                &mut val_comments,
-                                comment,
-                                AssocPos::LineEnd,
-                            );
-                        }
-
-                        Some(comma)
-                    }
-                    t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
-                        values.push(InlineArrayValue {
-                            comments: val_comments,
-                            val,
-                            comma: None,
-                        });
-
-                        break;
-                    }
-                    _ => {
-                        ctx.error(Error::MissingComma(val.end()));
-                        // try to continue
-                        None
-                    }
-                };
-
-                values.push(InlineArrayValue {
-                    comments: val_comments,
-                    val,
-                    comma,
-                });
-            }
-
-            let r_par = match parser.peek() {
-                t if t.ty == TokenType::SquareRight => Some(parser.next().start),
-                t => {
-                    let (string, mut span) = parser.token_fmt_str_and_span(t);
-                    if t.ty == TokenType::EOF {
-                        // show error on previous line if last line is empty
-                        if let Some(t) = parser.peek_prev() {
-                            if t.ty == TokenType::Newline {
-                                span = Span::pos(t.start);
-                            }
-                        }
-                    }
-                    ctx.error(Error::ExpectedRightSquareFound(string, l_par, span));
-                    None
-                }
-            };
-
-            array_comments.extend_to(next_comment_id(comment_storage));
-            mark_contained_comments(comment_storage, &array_comments, level);
-
-            let end = match r_par {
-                Some(p) => End::Par(p),
-                None => {
-                    let end = values
-                        .last()
-                        .map(|v| v.end())
-                        .unwrap_or_else(|| l_par.plus(1));
-                    End::None(end)
-                }
-            };
-            Value::InlineArray(InlineArray {
-                comments: array_comments,
-                l_par,
-                values: bump.alloc_slice_fill_iter(values),
-                end,
-            })
+            let array = inline_array(ctx, bump, parser, comment_storage, level)?;
+            Value::InlineArray(array)
         }
         TokenType::CurlyLeft => {
-            let l_par = token.start;
-            parser.next();
-
-            if level >= RECURSION_LIMIT {
-                parser.jump_to_end();
-                return Err(Error::RecursionLimitExceeded(l_par));
-            }
-
-            let mut assignments = Vec::new();
-            let mut comma = None;
-            'inline_table: loop {
-                if one_of!(parser.peek().ty, CurlyRight | Newline | Comment(_) | EOF) {
-                    if let Some(pos) = comma {
-                        ctx.error(Error::InlineTableTrailingComma(pos));
-                    }
-                    break;
-                }
-                let key = match parse_key(ctx, bump, parser) {
-                    KeyResult::Ok(k) => k,
-                    KeyResult::UnterminatedStr(_) => {
-                        // no token other than newline can come after an unterminated string literal
-                        break 'inline_table;
-                    }
-                    KeyResult::Err(e) => {
-                        ctx.error(e);
-                        recover_on!(parser,
-                            Comma => {
-                                parser.next();
-                                continue 'inline_table;
-                            },
-                            CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
-                        )
-                    }
-                };
-
-                let eq = match parser.peek() {
-                    t if t.ty == TokenType::Equal => parser.next().start,
-                    t => {
-                        let (string, span) = parser.token_fmt_str_and_span(t);
-                        ctx.error(Error::ExpectedEqOrDotFound(string, span));
-                        recover_on!(parser,
-                            Comma => {
-                                parser.next();
-                                continue 'inline_table;
-                            },
-                            CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
-                        )
-                    }
-                };
-
-                let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
-                    Ok(v) => v,
-                    e @ Err(Error::RecursionLimitExceeded(_)) => return e,
-                    Err(e) => {
-                        ctx.error(e);
-                        recover_on!(parser,
-                            Comma => {
-                                parser.next();
-                                continue 'inline_table;
-                            },
-                            CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
-                        )
-                    }
-                };
-
-                let assignment = Assignment { key, eq, val };
-                comma = match parser.peek() {
-                    t if t.ty == TokenType::Comma => Some(parser.next().start),
-                    t if one_of!(t.ty, CurlyRight | Newline | Comment(_) | EOF) => {
-                        assignments.push(InlineTableAssignment {
-                            assignment,
-                            comma: None,
-                        });
-                        break;
-                    }
-                    _ => {
-                        let pos = assignment.val.end();
-                        ctx.error(Error::MissingComma(pos));
-                        // try to continue
-                        None
-                    }
-                };
-
-                assignments.push(InlineTableAssignment { assignment, comma });
-            }
-
-            let r_par = match parser.peek() {
-                t if t.ty == TokenType::CurlyRight => Some(parser.next().start),
-                t => {
-                    let (string, span) = parser.token_fmt_str_and_span(t);
-                    ctx.error(Error::ExpectedRightCurlyFound(string, l_par, span));
-                    None
-                }
-            };
-
-            let end = match r_par {
-                Some(p) => End::Par(p),
-                None => {
-                    let end = assignments
-                        .last()
-                        .map(|a| a.end())
-                        .unwrap_or_else(|| l_par.plus(1));
-                    End::None(end)
-                }
-            };
-
-            Value::InlineTable(InlineTable {
-                l_par,
-                assignments: bump.alloc_slice_fill_iter(assignments),
-                end,
-            })
+            let table = inline_table(ctx, bump, parser, comment_storage, level)?;
+            Value::InlineTable(table)
         }
         TokenType::Comment(_)
         | TokenType::SquareRight
@@ -1707,6 +1456,279 @@ fn parse_value<'a>(
     };
 
     Ok(value)
+}
+
+fn inline_array<'a>(
+    ctx: &mut impl TomlCtx,
+    bump: &'a Bump,
+    parser: &mut Parser<'a>,
+    comment_storage: &mut Vec<AssocComment<'a>>,
+    level: u16,
+) -> Result<InlineArray<'a>, Error> {
+    let token = parser.next();
+    let l_par = token.start;
+
+    if level >= RECURSION_LIMIT {
+        parser.jump_to_end();
+        return Err(Error::RecursionLimitExceeded(l_par));
+    }
+
+    let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
+    let mut values = Vec::new();
+
+    if let Some(comment) = parser.eat_comment() {
+        add_comment(
+            comment_storage,
+            &mut array_comments,
+            comment,
+            AssocPos::LineEnd,
+        );
+    }
+
+    'inline_array: loop {
+        while let Some(comment) = parser.eat_comment_and_newlines() {
+            add_comment(
+                comment_storage,
+                &mut array_comments,
+                comment,
+                AssocPos::Contained,
+            );
+        }
+
+        if one_of!(parser.peek().ty, SquareRight | EOF) {
+            break;
+        }
+
+        let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
+            Ok(v) => v,
+            Err(e @ Error::RecursionLimitExceeded(_)) => return Err(e),
+            Err(e) => {
+                ctx.error(e);
+                recover_on!(parser,
+                    Comma | Newline | Comment(_) => {
+                        parser.next();
+                        continue 'inline_array;
+                    },
+                    SquareRight | EOF => break 'inline_array,
+                );
+            }
+        };
+
+        let val_line = val.start().line;
+        let mut val_comments = mark_comments_above(comment_storage, val_line, level + 1);
+        if let Some(comment) = parser.eat_comment() {
+            add_comment(
+                comment_storage,
+                &mut val_comments,
+                comment,
+                AssocPos::LineEnd,
+            );
+        }
+
+        while let Some(comment) = parser.eat_comment_and_newlines() {
+            add_comment(
+                comment_storage,
+                &mut array_comments,
+                comment,
+                AssocPos::Contained,
+            );
+        }
+        let comma = match parser.peek() {
+            t if t.ty == TokenType::Comma => {
+                val_comments.extend_to(next_comment_id(comment_storage));
+                mark_contained_comments(comment_storage, &val_comments, level + 1);
+
+                let comma = parser.next().start;
+                if let Some(comment) = parser.eat_comment() {
+                    add_comment(
+                        comment_storage,
+                        &mut val_comments,
+                        comment,
+                        AssocPos::LineEnd,
+                    );
+                }
+
+                Some(comma)
+            }
+            t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
+                values.push(InlineArrayValue {
+                    comments: val_comments,
+                    val,
+                    comma: None,
+                });
+
+                break;
+            }
+            _ => {
+                ctx.error(Error::MissingComma(val.end()));
+                // try to continue
+                None
+            }
+        };
+
+        values.push(InlineArrayValue {
+            comments: val_comments,
+            val,
+            comma,
+        });
+    }
+
+    let r_par = match parser.peek() {
+        t if t.ty == TokenType::SquareRight => Some(parser.next().start),
+        t => {
+            let (string, mut span) = parser.token_fmt_str_and_span(t);
+            if t.ty == TokenType::EOF {
+                // show error on previous line if last line is empty
+                if let Some(t) = parser.peek_prev() {
+                    if t.ty == TokenType::Newline {
+                        span = Span::pos(t.start);
+                    }
+                }
+            }
+            ctx.error(Error::ExpectedRightSquareFound(string, l_par, span));
+            None
+        }
+    };
+
+    array_comments.extend_to(next_comment_id(comment_storage));
+    mark_contained_comments(comment_storage, &array_comments, level);
+
+    let end = match r_par {
+        Some(p) => End::Par(p),
+        None => {
+            let end = values
+                .last()
+                .map(|v| v.end())
+                .unwrap_or_else(|| l_par.plus(1));
+            End::None(end)
+        }
+    };
+    Ok(InlineArray {
+        comments: array_comments,
+        l_par,
+        values: bump.alloc_slice_fill_iter(values),
+        end,
+    })
+}
+
+fn inline_table<'a>(
+    ctx: &mut impl TomlCtx,
+    bump: &'a Bump,
+    parser: &mut Parser<'a>,
+    comment_storage: &mut Vec<AssocComment<'a>>,
+    level: u16,
+) -> Result<InlineTable<'a>, Error> {
+    let token = parser.next();
+    let l_par = token.start;
+
+    if level >= RECURSION_LIMIT {
+        parser.jump_to_end();
+        return Err(Error::RecursionLimitExceeded(l_par));
+    }
+
+    let mut assignments = Vec::new();
+    let mut comma = None;
+    'inline_table: loop {
+        if one_of!(parser.peek().ty, CurlyRight | Newline | Comment(_) | EOF) {
+            if let Some(pos) = comma {
+                ctx.error(Error::InlineTableTrailingComma(pos));
+            }
+            break 'inline_table;
+        }
+        let key = match parse_key(ctx, bump, parser) {
+            KeyResult::Ok(k) => k,
+            KeyResult::UnterminatedStr(_) => {
+                // no token other than newline can come after an unterminated string literal
+                break 'inline_table;
+            }
+            KeyResult::Err(e) => {
+                ctx.error(e);
+                recover_on!(parser,
+                    Comma => {
+                        parser.next();
+                        continue 'inline_table;
+                    },
+                    CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
+                )
+            }
+        };
+
+        let eq = match parser.peek() {
+            t if t.ty == TokenType::Equal => parser.next().start,
+            t => {
+                let (string, span) = parser.token_fmt_str_and_span(t);
+                ctx.error(Error::ExpectedEqOrDotFound(string, span));
+                recover_on!(parser,
+                    Comma => {
+                        parser.next();
+                        continue 'inline_table;
+                    },
+                    CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
+                )
+            }
+        };
+
+        let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
+            Ok(v) => v,
+            Err(e @ Error::RecursionLimitExceeded(_)) => return Err(e),
+            Err(e) => {
+                ctx.error(e);
+                recover_on!(parser,
+                    Comma => {
+                        parser.next();
+                        continue 'inline_table;
+                    },
+                    CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
+                )
+            }
+        };
+
+        let assignment = Assignment { key, eq, val };
+        comma = match parser.peek() {
+            t if t.ty == TokenType::Comma => Some(parser.next().start),
+            t if one_of!(t.ty, CurlyRight | Newline | Comment(_) | EOF) => {
+                assignments.push(InlineTableAssignment {
+                    assignment,
+                    comma: None,
+                });
+                break 'inline_table;
+            }
+            _ => {
+                let pos = assignment.val.end();
+                ctx.error(Error::MissingComma(pos));
+                // try to continue
+                None
+            }
+        };
+
+        assignments.push(InlineTableAssignment { assignment, comma });
+    }
+
+    let r_par = match parser.peek() {
+        t if t.ty == TokenType::CurlyRight => Some(parser.next().start),
+        t => {
+            let (string, span) = parser.token_fmt_str_and_span(t);
+            ctx.error(Error::ExpectedRightCurlyFound(string, l_par, span));
+            None
+        }
+    };
+
+    let end = match r_par {
+        Some(p) => End::Par(p),
+        None => {
+            let end = assignments
+                .last()
+                .map(|a| a.end())
+                .unwrap_or_else(|| l_par.plus(1));
+            End::None(end)
+        }
+    };
+
+    Ok(InlineTable {
+        l_par,
+        assignments: bump.alloc_slice_fill_iter(assignments),
+        end,
+    })
 }
 
 /// toml permits using spaces instead of `T` to separate date and time in and rfc3339
