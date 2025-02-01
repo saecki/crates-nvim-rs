@@ -38,16 +38,24 @@ impl ToObject for VimDiagnostic {
 
 #[nvim_oxi::plugin]
 pub fn crates_nvim_lib() -> nvim_oxi::Result<Dictionary> {
-    let check_toml: Function<(), Result<Object, nvim_oxi::Error>> = Function::from_fn(move |()| {
-        let diagnostics = check_toml()?;
+    let check: Function<(), Result<Object, nvim_oxi::Error>> = Function::from_fn(move |()| {
+        let diagnostics = check_toml(false)?;
+        let object = diagnostics.to_object()?;
+        Ok(object)
+    });
+    let validate: Function<(), Result<Object, nvim_oxi::Error>> = Function::from_fn(move |()| {
+        let diagnostics = check_toml(false)?;
         let object = diagnostics.to_object()?;
         Ok(object)
     });
 
-    Ok(Dictionary::from_iter([("check_toml", check_toml)]))
+    Ok(Dictionary::from_iter([
+        ("check_toml", check),
+        ("validate_toml", validate),
+    ]))
 }
 
-fn check_toml() -> Result<VimDiagnostics, nvim_oxi::api::Error> {
+fn check_toml(check: bool) -> Result<VimDiagnostics, nvim_oxi::api::Error> {
     let buf = nvim_oxi::api::get_current_buf();
     let num_lines = buf.line_count()?;
     let raw_lines = buf.get_lines(0..num_lines, true)?;
@@ -68,7 +76,9 @@ fn check_toml() -> Result<VimDiagnostics, nvim_oxi::api::Error> {
     let tokens = ctx.lex(&bump, &text);
     let asts = ctx.parse(&bump, &tokens);
     let map = ctx.map(&asts);
-    let _state = ctx.check(&map);
+    if check {
+        let _state = ctx.check(&map);
+    }
 
     let errors = ctx.errors.iter().map(map_vim_diagnostic).collect();
     let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
