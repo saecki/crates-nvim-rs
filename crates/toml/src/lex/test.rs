@@ -741,7 +741,7 @@ fn crlf() {
         Tokens {
             tokens: &[
                 Token {
-                    ty: TokenType::SquareLeft,
+                    ty: TokenType::SquareLeft(Some(NonZeroU32::new(2).unwrap())),
                     start: Pos { line: 0, char: 0 },
                 },
                 Token {
@@ -806,11 +806,11 @@ fn crlf() {
                 },
                 //
                 Token {
-                    ty: TokenType::SquareLeft,
+                    ty: TokenType::SquareLeft(Some(NonZeroU32::new(19).unwrap())),
                     start: Pos { line: 5, char: 0 },
                 },
                 Token {
-                    ty: TokenType::SquareLeft,
+                    ty: TokenType::SquareLeft(Some(NonZeroU32::new(18).unwrap())),
                     start: Pos { line: 5, char: 1 },
                 },
                 Token {

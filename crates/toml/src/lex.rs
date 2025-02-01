@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 use std::ops::ControlFlow;
 use std::str::Chars;
 
@@ -32,9 +33,11 @@ pub enum TokenType {
     LiteralOrIdent(LiteralId),
     /// Contains all the text following a `#` excluding the next newline.
     Comment(LiteralId),
-    SquareLeft,
+    /// Contains the token index of the close delimiter.
+    SquareLeft(Option<NonZeroU32>),
     SquareRight,
-    CurlyLeft,
+    /// Contains the token index of the close delimiter.
+    CurlyLeft(Option<NonZeroU32>),
     CurlyRight,
     Equal,
     Comma,
@@ -55,7 +58,8 @@ pub struct StringToken<'a> {
     /// The literal exactly as it is written in the toml file.
     pub lit: &'a str,
     pub lit_end: Pos,
-    /// The text with escape sequences evaluated
+    /// The text with escape sequences evaluated. If there are no escape sequences this references
+    /// the input string directly, otherwise it is bump allocated.
     pub text: &'a str,
     pub text_offset: TextOffset,
 }
@@ -221,6 +225,9 @@ struct Lexer<'a> {
     tokens: Vec<Token>,
     strings: Vec<StringToken<'a>>,
     literals: Vec<&'a str>,
+
+    // Delimiter stack to determine unclosed/unopened delimiters inside the lexer.
+    delimiters: Vec<Delim>,
 }
 
 impl<'a> Lexer<'a> {
@@ -241,6 +248,8 @@ impl<'a> Lexer<'a> {
             tokens: Vec::new(),
             strings: Vec::new(),
             literals: Vec::new(),
+
+            delimiters: Vec::new(),
         }
     }
 
@@ -327,6 +336,18 @@ impl<'a> StrState<'a> {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Delim {
+    token_idx: u32,
+    kind: DelimKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DelimKind {
+    Square,
+    Curly,
+}
+
 pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
     let mut lexer = Lexer::new(bump, input);
     while let Some(c) = lexer.next() {
@@ -403,10 +424,10 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
                 };
                 string(ctx, &mut lexer, &mut str_state);
             }
-            '[' => char_token(&mut lexer, TokenType::SquareLeft),
-            ']' => char_token(&mut lexer, TokenType::SquareRight),
-            '{' => char_token(&mut lexer, TokenType::CurlyLeft),
-            '}' => char_token(&mut lexer, TokenType::CurlyRight),
+            '[' => push_delimiter(&mut lexer, DelimKind::Square),
+            ']' => pop_delimiter(&mut lexer, DelimKind::Square),
+            '{' => push_delimiter(&mut lexer, DelimKind::Curly),
+            '}' => pop_delimiter(&mut lexer, DelimKind::Curly),
             '=' => char_token(&mut lexer, TokenType::Equal),
             '.' => char_token(&mut lexer, TokenType::Dot),
             ',' => char_token(&mut lexer, TokenType::Comma),
@@ -428,6 +449,49 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
         literals: bump.alloc_slice_fill_iter(lexer.literals),
         eof,
     }
+}
+
+fn push_delimiter(lexer: &mut Lexer, kind: DelimKind) {
+    let idx = lexer.tokens.len() as u32 + lexer.in_lit as u32;
+    let ty = match kind {
+        DelimKind::Square => TokenType::SquareLeft(None),
+        DelimKind::Curly => TokenType::CurlyLeft(None),
+    };
+    char_token(lexer, ty);
+    lexer.delimiters.push(Delim {
+        token_idx: idx,
+        kind,
+    });
+}
+
+fn pop_delimiter(lexer: &mut Lexer, kind: DelimKind) {
+    const MAX_UNCLOSED_DEPTH: usize = 3;
+    let matching = (lexer.delimiters.iter())
+        .enumerate()
+        .rev()
+        .take(MAX_UNCLOSED_DEPTH + 1)
+        .find_map(|(i, d)| (d.kind == kind).then_some(i));
+
+    if let Some(delim_idx) = matching {
+        // mark delimiter as closed
+        let close_token_idx = lexer.tokens.len() as u32 + lexer.in_lit as u32;
+        // SAFETY: The index can't be 0, since there must be an open delimiter on the stack.
+        let close_token_idx = unsafe { NonZeroU32::new_unchecked(close_token_idx) };
+        let delim = &mut lexer.delimiters[delim_idx];
+        match &mut lexer.tokens[delim.token_idx as usize].ty {
+            TokenType::SquareLeft(close) => *close = Some(close_token_idx),
+            TokenType::CurlyLeft(close) => *close = Some(close_token_idx),
+            _ => unreachable!(),
+            // _ => unsafe { std::hint::unreachable_unchecked() },
+        }
+        lexer.delimiters.drain(delim_idx..);
+    }
+
+    let ty = match kind {
+        DelimKind::Square => TokenType::SquareRight,
+        DelimKind::Curly => TokenType::CurlyRight,
+    };
+    char_token(lexer, ty);
 }
 
 fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<'a>) {

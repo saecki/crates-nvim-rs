@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
-use common::{FmtChar, FmtStr, Pos, Span};
+use common::{DiagnosticMark, FmtChar, FmtStr, Pos, Span};
 
 use crate::datetime::{Date, DateTime};
 use crate::lex::{LiteralId, StringId, StringToken, TextOffset, Token, TokenType, Tokens};
@@ -19,6 +19,7 @@ mod num;
 mod test;
 
 pub const RECURSION_LIMIT: u16 = 100;
+pub const START_FUEL: u8 = 8;
 
 macro_rules! recover_on {
     ($parser:expr, $tokens:pat) => {{
@@ -32,6 +33,7 @@ macro_rules! recover_on {
                     #[allow(redundant_semicolons)]
                     $recover;
                 })+
+                #[allow(unreachable_patterns)]
                 _ => {
                     $parser.next();
                 }
@@ -514,6 +516,10 @@ impl Value<'_> {
             Value::Invalid(_, s) => s.end,
         }
     }
+
+    pub fn is_valid(&self) -> bool {
+        !matches!(self, Value::Invalid(..))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -734,6 +740,7 @@ struct Parser<'a> {
     tokens: &'a [Token],
     cursor: usize,
     eof: Token,
+    newline_required: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -744,6 +751,7 @@ impl<'a> Parser<'a> {
             tokens: tokens.tokens,
             cursor: 0,
             eof: tokens.eof,
+            newline_required: false,
         }
     }
 
@@ -796,11 +804,22 @@ impl<'a> Parser<'a> {
                     return Some(c);
                 }
                 TokenType::Newline => {
+                    self.newline_required = false;
                     self.next();
                 }
                 _ => return None,
             }
         }
+    }
+
+    fn mark(&self) -> ParserMark {
+        ParserMark {
+            cursor: self.cursor,
+        }
+    }
+
+    fn reset(&mut self, mark: ParserMark) {
+        self.cursor = mark.cursor;
     }
 
     fn string(&self, id: StringId) -> &'a StringToken<'a> {
@@ -828,9 +847,9 @@ impl<'a> Parser<'a> {
                 FmtStr::from_string(format!("`{}`", FmtStr::from_str(lit)))
             }
             TokenType::Comment(_) => FmtStr::from_str("comment"),
-            TokenType::SquareLeft => FmtStr::from_str("`[`"),
+            TokenType::SquareLeft(_) => FmtStr::from_str("`[`"),
             TokenType::SquareRight => FmtStr::from_str("`]`"),
-            TokenType::CurlyLeft => FmtStr::from_str("`{`"),
+            TokenType::CurlyLeft(_) => FmtStr::from_str("`{`"),
             TokenType::CurlyRight => FmtStr::from_str("`{`"),
             TokenType::Equal => FmtStr::from_str("`=`"),
             TokenType::Comma => FmtStr::from_str("`,`"),
@@ -854,9 +873,9 @@ impl<'a> Parser<'a> {
                 let lit = self.literals[id.0 as usize];
                 Span::from_pos_len(token.start, 1 + lit.len() as u32)
             }
-            TokenType::SquareLeft => Span::ascii_char(token.start),
+            TokenType::SquareLeft(_) => Span::ascii_char(token.start),
             TokenType::SquareRight => Span::ascii_char(token.start),
-            TokenType::CurlyLeft => Span::ascii_char(token.start),
+            TokenType::CurlyLeft(_) => Span::ascii_char(token.start),
             TokenType::CurlyRight => Span::ascii_char(token.start),
             TokenType::Equal => Span::ascii_char(token.start),
             TokenType::Comma => Span::ascii_char(token.start),
@@ -871,7 +890,45 @@ impl<'a> Parser<'a> {
     }
 }
 
-/// All errors are stored inside the [`Ctx`]. If an error is encounterd this won't stop parsing
+struct ParserMark {
+    cursor: usize,
+}
+
+struct Mark {
+    ctx: DiagnosticMark,
+    parser: ParserMark,
+    comments: usize,
+    values: usize,
+}
+
+fn mark<T>(
+    ctx: &impl TomlCtx,
+    parser: &Parser,
+    comment_storage: &[AssocComment],
+    values: &[T],
+) -> Mark {
+    Mark {
+        ctx: ctx.mark(),
+        parser: parser.mark(),
+        comments: comment_storage.len(),
+        values: values.len(),
+    }
+}
+
+fn reset<T>(
+    ctx: &mut impl TomlCtx,
+    parser: &mut Parser,
+    comment_storage: &mut Vec<AssocComment>,
+    values: &mut Vec<T>,
+    mark: Mark,
+) {
+    ctx.reset(mark.ctx);
+    parser.reset(mark.parser);
+    comment_storage.truncate(mark.comments);
+    values.truncate(mark.values);
+}
+
+/// All errors are stored inside the [`Ctx`]. If an error is encountered this won't stop parsing
 /// and will try to recover. If the [`Ctx`] contains no errors, the returned [`Asts`] are
 /// completely valid, otherwise they might be incomplete or partially/completely invalid.
 pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
@@ -879,17 +936,16 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
     let mut asts = Vec::new();
     let mut comment_storage = Vec::new();
     let mut prev_comments = Vec::new();
-    let mut newline_required = false;
 
     'root: loop {
         let token = parser.peek();
         match token.ty {
-            TokenType::SquareLeft => {
+            TokenType::SquareLeft(_) => {
                 let mark = ctx.mark();
                 let l_table_square = parser.next().start;
 
                 let l_array_square = match parser.peek() {
-                    t if t.ty == TokenType::SquareLeft => {
+                    t if matches!(t.ty, TokenType::SquareLeft(_)) => {
                         parser.next();
 
                         if l_table_square.char + 1 != t.start.char {
@@ -955,7 +1011,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     };
                 }
 
-                if newline_required {
+                if parser.newline_required {
                     if ctx.mark() == mark {
                         // continue if there is just a missing newline
                         ctx.error(Error::MissingNewline(token.start));
@@ -1004,13 +1060,13 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     }
                 }
 
-                newline_required = true;
+                parser.newline_required = true;
                 continue;
             }
             TokenType::Comment(id) => {
                 parser.next();
                 let comment = parser.comment(id, token.start);
-                if newline_required {
+                if parser.newline_required {
                     let comment = AssocComment::line_end(0, comment);
                     let comment_id = store_comment(&mut comment_storage, comment);
                     match asts.last_mut() {
@@ -1028,7 +1084,6 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             }
             TokenType::Newline => {
                 parser.next();
-                newline_required = false;
                 continue;
             }
             TokenType::EOF => break 'root,
@@ -1036,11 +1091,10 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
         }
 
         let mark = ctx.mark();
-
         let key = match parse_key(ctx, bump, &mut parser) {
             KeyResult::Ok(k) => k,
             KeyResult::UnterminatedStr(_) => {
-                if newline_required {
+                if parser.newline_required {
                     // avoid excessive error messages
                     ctx.reset(mark);
                     let string = parser.token_fmt_str(token);
@@ -1052,7 +1106,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             }
             KeyResult::Err(e) => {
                 recover_on!(parser, Newline | Comment(_) | EOF);
-                if newline_required {
+                if parser.newline_required {
                     // avoid excessive error messages
                     ctx.reset(mark);
                     let string = parser.token_fmt_str(token);
@@ -1073,7 +1127,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             }
             t => {
                 recover_on!(parser, Newline | Comment(_) | EOF);
-                if newline_required {
+                if parser.newline_required {
                     // avoid excessive error messages
                     ctx.reset(mark);
                     let string = parser.token_fmt_str(token);
@@ -1088,7 +1142,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             }
         };
 
-        if newline_required {
+        if parser.newline_required {
             if ctx.mark() == mark {
                 // continue if there is just a missing newline
                 ctx.error(Error::MissingNewline(token.start));
@@ -1141,6 +1195,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             level,
         );
 
+        parser.newline_required = true;
         let val = match parse_value(ctx, bump, &mut parser, &mut comment_storage, level) {
             Ok(v) => v,
             Err(e) => {
@@ -1164,8 +1219,6 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 asts.push(Ast::Assignment(assignment))
             }
         }
-
-        newline_required = true;
     }
 
     asts.extend(prev_comments.into_iter().map(Ast::Comment));
@@ -1326,9 +1379,9 @@ fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>
                 Ident::from_plain_lit(lit, span)
             }
             TokenType::Comment(_)
-            | TokenType::SquareLeft
+            | TokenType::SquareLeft(_)
             | TokenType::SquareRight
-            | TokenType::CurlyLeft
+            | TokenType::CurlyLeft(_)
             | TokenType::CurlyRight
             | TokenType::Equal
             | TokenType::Comma
@@ -1435,12 +1488,16 @@ fn parse_value<'a>(
 
             Value::Invalid(lit, span)
         }
-        TokenType::SquareLeft => {
-            let array = inline_array(ctx, bump, parser, comment_storage, level)?;
+        // TODO: Determine a good position for an unclosed inline array/table to end and
+        // top-level parsing to continue.
+        // Possibly pass down information when parsing stopped to avoid the same error recovery and
+        // rewind process in nested inline arrays/tables.
+        TokenType::SquareLeft(close) => {
+            let array = parse_inline_array(ctx, bump, parser, comment_storage, level, close)?;
             Value::InlineArray(array)
         }
-        TokenType::CurlyLeft => {
-            let table = inline_table(ctx, bump, parser, comment_storage, level)?;
+        TokenType::CurlyLeft(close) => {
+            let table = parse_inline_table(ctx, bump, parser, comment_storage, level)?;
             Value::InlineTable(table)
         }
         TokenType::Comment(_)
@@ -1458,12 +1515,13 @@ fn parse_value<'a>(
     Ok(value)
 }
 
-fn inline_array<'a>(
+fn parse_inline_array<'a>(
     ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
     comment_storage: &mut Vec<AssocComment<'a>>,
     level: u16,
+    close: Option<NonZeroU32>,
 ) -> Result<InlineArray<'a>, Error> {
     let token = parser.next();
     let l_par = token.start;
@@ -1485,18 +1543,17 @@ fn inline_array<'a>(
         );
     }
 
+    let mut fuel = START_FUEL;
+    let mut valid_mark = mark(ctx, parser, comment_storage, &values);
     'inline_array: loop {
         while let Some(comment) = parser.eat_comment_and_newlines() {
-            add_comment(
-                comment_storage,
-                &mut array_comments,
-                comment,
-                AssocPos::Contained,
-            );
+            // Avoid extending the comment range so it doesn't have to be reset when the array is
+            // unclosed and too many errors are encountered.
+            _ = store_comment(comment_storage, AssocComment::contained(level, comment));
         }
 
         if one_of!(parser.peek().ty, SquareRight | EOF) {
-            break;
+            break 'inline_array;
         }
 
         let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
@@ -1504,12 +1561,27 @@ fn inline_array<'a>(
             Err(e @ Error::RecursionLimitExceeded(_)) => return Err(e),
             Err(e) => {
                 ctx.error(e);
+                fuel = fuel.saturating_sub(1);
+
                 recover_on!(parser,
                     Comma | Newline | Comment(_) => {
                         parser.next();
                         continue 'inline_array;
                     },
                     SquareRight | EOF => break 'inline_array,
+                    t => {
+                        fuel = match t {
+                            TokenType::Equal => fuel.saturating_sub(8),
+                            _ => fuel.saturating_sub(1),
+                        };
+                        if fuel == 0 {
+                            if close.is_none() {
+                                reset(ctx, parser, comment_storage, &mut values, valid_mark);
+                                break 'inline_array;
+                            }
+                        }
+                        parser.next();
+                    }
                 );
             }
         };
@@ -1526,19 +1598,16 @@ fn inline_array<'a>(
         }
 
         while let Some(comment) = parser.eat_comment_and_newlines() {
-            add_comment(
-                comment_storage,
-                &mut array_comments,
-                comment,
-                AssocPos::Contained,
-            );
+            _ = store_comment(comment_storage, AssocComment::contained(level, comment));
         }
-        let comma = match parser.peek() {
-            t if t.ty == TokenType::Comma => {
+
+        let token = parser.peek();
+        let comma = match token.ty {
+            TokenType::Comma => {
+                parser.next();
                 val_comments.extend_to(next_comment_id(comment_storage));
                 mark_contained_comments(comment_storage, &val_comments, level + 1);
 
-                let comma = parser.next().start;
                 if let Some(comment) = parser.eat_comment() {
                     add_comment(
                         comment_storage,
@@ -1548,29 +1617,35 @@ fn inline_array<'a>(
                     );
                 }
 
-                Some(comma)
+                Some(token.start)
             }
-            t if t.ty == TokenType::SquareRight || t.ty == TokenType::EOF => {
+            TokenType::SquareRight | TokenType::EOF => {
                 values.push(InlineArrayValue {
                     comments: val_comments,
                     val,
                     comma: None,
                 });
-
-                break;
+                break 'inline_array;
             }
             _ => {
                 ctx.error(Error::MissingComma(val.end()));
+                fuel = fuel.saturating_sub(1);
                 // try to continue
                 None
             }
         };
 
+        let is_valid = val.is_valid();
         values.push(InlineArrayValue {
             comments: val_comments,
             val,
             comma,
         });
+
+        if is_valid {
+            fuel = u8::max(fuel + 1, START_FUEL);
+            valid_mark = mark(ctx, parser, comment_storage, &values);
+        }
     }
 
     let r_par = match parser.peek() {
@@ -1611,7 +1686,7 @@ fn inline_array<'a>(
     })
 }
 
-fn inline_table<'a>(
+fn parse_inline_table<'a>(
     ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
