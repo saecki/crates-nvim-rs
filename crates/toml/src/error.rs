@@ -31,6 +31,7 @@ pub enum Error {
     ExpectedNewlineFound(FmtStr, Span),
     MissingNewline(Pos),
     InlineTableTrailingComma(Pos),
+    InlineTableNewline(Pos),
     SpaceBetweenArrayPars(Span),
 
     UnexpectedLiteralStart(FmtChar, Pos),
@@ -145,6 +146,7 @@ impl Diagnostic for Error {
             ExpectedNewlineFound(_, s) => *s,
             MissingNewline(p) => Span::pos(*p),
             InlineTableTrailingComma(p) => Span::ascii_char(*p),
+            InlineTableNewline(p) => Span::ascii_char(*p),
             SpaceBetweenArrayPars(s) => *s,
 
             UnexpectedLiteralStart(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
@@ -224,6 +226,7 @@ impl Diagnostic for Error {
             ExpectedNewlineFound(token, _) => write!(f, "expected a line break, found {token}"),
             MissingNewline(_) => write!(f, "missing line break"),
             InlineTableTrailingComma(_) => write!(f, "trailing commas aren't permitted in inline tables"),
+            InlineTableNewline(_) => write!(f, "inline tables cannot span multiple lines"),
             SpaceBetweenArrayPars(_) => write!(f, "no space allowed between array header brackets"),
 
             UnexpectedLiteralStart(char, _) => write!(f, "unexpected character `{char}` at start of literal"),
@@ -322,6 +325,7 @@ impl Diagnostic for Error {
             ExpectedNewlineFound(_, _) => write!(f, "expected a line break"),
             MissingNewline(_) => write!(f, "missing line break"),
             InlineTableTrailingComma(_) => write!(f, "trailing comma"),
+            InlineTableNewline(_) => write!(f, "line break not allowed"),
             SpaceBetweenArrayPars(_) => write!(f, "no space allowed"),
 
             UnexpectedLiteralStart(..) => write!(f, "unexpected character"),
@@ -412,6 +416,7 @@ impl Diagnostic for Error {
             ExpectedNewlineFound(_, _) => None,
             MissingNewline(_) => None,
             InlineTableTrailingComma(_) => None,
+            InlineTableNewline(_) => None,
             SpaceBetweenArrayPars(_) => None,
 
             UnexpectedLiteralStart(..) => None,
@@ -492,6 +497,7 @@ impl Diagnostic for Error {
             ExpectedNewlineFound(..) => None,
             MissingNewline(..) => None,
             InlineTableTrailingComma(..) => None,
+            InlineTableNewline(..) => None,
             SpaceBetweenArrayPars(..) => None,
 
             UnexpectedLiteralStart(..) => None,

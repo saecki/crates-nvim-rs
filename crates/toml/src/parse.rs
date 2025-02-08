@@ -26,9 +26,13 @@ macro_rules! recover_on {
         recover_on!($parser, $tokens => break)
     }};
     ($parser:expr, $($tokens:pat => $recover:stmt),+ $(,)?) => {{
+        recover_on!($parser, __token, $($tokens => $recover),+);
+    }};
+    ($parser:expr, $token:ident, $($tokens:pat => $recover:stmt),+ $(,)?) => {{
         loop {
             use TokenType::*;
-            match $parser.peek().ty {
+            let $token = $parser.peek();
+            match $token.ty {
                 $($tokens => {
                     #[allow(redundant_semicolons)]
                     $recover;
@@ -1488,16 +1492,14 @@ fn parse_value<'a>(
 
             Value::Invalid(lit, span)
         }
-        // TODO: Determine a good position for an unclosed inline array/table to end and
-        // top-level parsing to continue.
-        // Possibly pass down information when parsing stopped to avoid the same error recovery and
-        // rewind process in nested inline arrays/tables.
+        // TODO: Possibly pass down information when parsing stopped to avoid the same error recovery
+        // and rewind process in nested inline arrays/tables.
         TokenType::SquareLeft(close) => {
             let array = parse_inline_array(ctx, bump, parser, comment_storage, level, close)?;
             Value::InlineArray(array)
         }
         TokenType::CurlyLeft(close) => {
-            let table = parse_inline_table(ctx, bump, parser, comment_storage, level)?;
+            let table = parse_inline_table(ctx, bump, parser, comment_storage, level, close)?;
             Value::InlineTable(table)
         }
         TokenType::Comment(_)
@@ -1531,18 +1533,8 @@ fn parse_inline_array<'a>(
         return Err(Error::RecursionLimitExceeded(l_par));
     }
 
-    let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
     let mut values = Vec::new();
-
-    if let Some(comment) = parser.eat_comment() {
-        add_comment(
-            comment_storage,
-            &mut array_comments,
-            comment,
-            AssocPos::LineEnd,
-        );
-    }
-
+    let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
     let mut fuel = START_FUEL;
     let mut valid_mark = mark(ctx, parser, comment_storage, &values);
     'inline_array: loop {
@@ -1692,6 +1684,7 @@ fn parse_inline_table<'a>(
     parser: &mut Parser<'a>,
     comment_storage: &mut Vec<AssocComment<'a>>,
     level: u16,
+    close: Option<NonZeroU32>,
 ) -> Result<InlineTable<'a>, Error> {
     let token = parser.next();
     let l_par = token.start;
@@ -1702,14 +1695,24 @@ fn parse_inline_table<'a>(
     }
 
     let mut assignments = Vec::new();
+    let mut table_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
     let mut comma = None;
+    let mut fuel = START_FUEL;
+    let mut valid_mark = mark(ctx, parser, comment_storage, &assignments);
     'inline_table: loop {
-        if one_of!(parser.peek().ty, CurlyRight | Newline | Comment(_) | EOF) {
+        while let Some(comment) = parser.eat_comment_and_newlines() {
+            // Avoid extending the comment range so it doesn't have to be reset when the array is
+            // unclosed and too many errors are encountered.
+            _ = store_comment(comment_storage, AssocComment::contained(level, comment));
+        }
+
+        if one_of!(parser.peek().ty, CurlyRight | EOF) {
             if let Some(pos) = comma {
                 ctx.error(Error::InlineTableTrailingComma(pos));
             }
             break 'inline_table;
         }
+
         let key = match parse_key(ctx, bump, parser) {
             KeyResult::Ok(k) => k,
             KeyResult::UnterminatedStr(_) => {
@@ -1718,12 +1721,23 @@ fn parse_inline_table<'a>(
             }
             KeyResult::Err(e) => {
                 ctx.error(e);
-                recover_on!(parser,
+                recover_on!(parser, token,
                     Comma => {
                         parser.next();
                         continue 'inline_table;
                     },
-                    CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
+                    CurlyRight | EOF => break 'inline_table,
+                    t => {
+                        fuel = match t {
+                            TokenType::Newline => {
+                                ctx.error(Error::InlineTableNewline(token.start));
+                                fuel.saturating_sub(1)
+                            }
+                            _ => fuel.saturating_sub(1),
+                        };
+                        parser.next();
+                        continue 'inline_table;
+                    }
                 )
             }
         };
