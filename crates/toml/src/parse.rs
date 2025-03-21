@@ -1698,7 +1698,6 @@ fn parse_inline_table<'a>(
 
     let mut assignments = Vec::new();
     let mut table_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
-    let mut comma = None;
     let mut fuel = START_FUEL;
     let mut valid_mark = mark(ctx, parser, comment_storage, &assignments);
     'inline_table: loop {
@@ -1709,8 +1708,11 @@ fn parse_inline_table<'a>(
         }
 
         if one_of!(parser.peek().ty, CurlyRight | EOF) {
-            if let Some(pos) = comma {
-                ctx.error(Error::InlineTableTrailingComma(pos));
+            let prev = parser
+                .peek_prev()
+                .expect("there must be at least the opening brace");
+            if prev.ty == TokenType::Comma {
+                ctx.error(Error::InlineTableTrailingComma(prev.start));
             }
             break 'inline_table;
         }
@@ -1775,7 +1777,7 @@ fn parse_inline_table<'a>(
         };
 
         let assignment = Assignment { key, eq, val };
-        comma = match parser.peek() {
+        let comma = match parser.peek() {
             t if t.ty == TokenType::Comma => Some(parser.next().start),
             t if one_of!(t.ty, CurlyRight | Newline | Comment(_) | EOF) => {
                 assignments.push(InlineTableAssignment {
