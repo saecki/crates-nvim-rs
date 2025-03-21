@@ -1088,6 +1088,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             }
             TokenType::Newline => {
                 parser.next();
+                parser.newline_required = false;
                 continue;
             }
             TokenType::EOF => break 'root,
@@ -1204,6 +1205,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             Ok(v) => v,
             Err(e) => {
                 ctx.error(e);
+                parser.newline_required = false;
                 recover_on!(parser, Newline | Comment(_) | EOF => continue 'root);
             }
         };
