@@ -1,4 +1,5 @@
 use std::num::NonZeroU32;
+use std::ops::ControlFlow;
 
 use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
@@ -9,9 +10,9 @@ use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
 use crate::parse::lit::PartialValue;
 use crate::{Error, Quote, TomlCtx};
 
+pub use ast::*;
 pub use lit::LitPart;
 pub use num::{IntPrefix, Sign};
-pub use ast::*;
 
 mod ast;
 mod datetime;
@@ -63,8 +64,6 @@ macro_rules! unexpected_char {
 }
 use unexpected_char;
 
-// TODO: cursor to peek multiple tokens ahead and revert
-// -> use for heuristics to detect unclosed inline arrays
 #[derive(Debug)]
 struct Parser<'a> {
     strings: &'a [StringToken<'a>],
@@ -146,12 +145,12 @@ impl<'a> Parser<'a> {
 
     fn mark(&self) -> ParserMark {
         ParserMark {
-            cursor: self.cursor,
+            cursor: self.cursor as u32,
         }
     }
 
     fn reset(&mut self, mark: ParserMark) {
-        self.cursor = mark.cursor;
+        self.cursor = mark.cursor as usize;
     }
 
     fn string(&self, id: StringId) -> &'a StringToken<'a> {
@@ -222,15 +221,17 @@ impl<'a> Parser<'a> {
     }
 }
 
+#[derive(Clone, Copy)]
 struct ParserMark {
-    cursor: usize,
+    cursor: u32,
 }
 
+#[derive(Clone, Copy)]
 struct Mark {
     ctx: DiagnosticMark,
     parser: ParserMark,
-    comments: usize,
-    values: usize,
+    comments: u32,
+    values: u32,
 }
 
 fn mark<T>(
@@ -242,8 +243,8 @@ fn mark<T>(
     Mark {
         ctx: ctx.mark(),
         parser: parser.mark(),
-        comments: comment_storage.len(),
-        values: values.len(),
+        comments: comment_storage.len() as u32,
+        values: values.len() as u32,
     }
 }
 
@@ -256,8 +257,8 @@ fn reset<T>(
 ) {
     ctx.reset(mark.ctx);
     parser.reset(mark.parser);
-    comment_storage.truncate(mark.comments);
-    values.truncate(mark.values);
+    comment_storage.truncate(mark.comments as usize);
+    values.truncate(mark.values as usize);
 }
 
 /// All errors are stored inside the [`Ctx`]. If an error is encountered this won't stop parsing
@@ -604,6 +605,7 @@ fn parse_assignment<'a>(
         }
     };
 
+    // Only generate missing newline error when a suffciently complete assignment has been parsed.
     if parser.newline_required {
         if ctx.mark() == mark {
             // continue if there is just a missing newline
@@ -620,7 +622,7 @@ fn parse_assignment<'a>(
         }
     }
 
-    // store associated comments here so associated comments of the value are added in the correct order
+    // Store associated comments here so associated comments of the value are added in the correct order.
     let pos = find_associated_comments(&prev_comments, eq.line);
     let non_associated_comments = prev_comments.drain(..pos);
     let level = match asts.last_mut() {
@@ -662,7 +664,7 @@ fn parse_assignment<'a>(
         }
     };
 
-    // include all associated comments of inner values
+    // Include all associated comments of inner values.
     comments.extend_to(next_comment_id(&comment_storage));
 
     let assignment = Assignment { key, eq, val };
@@ -874,7 +876,7 @@ fn parse_inline_array<'a>(
         return Err(Error::RecursionLimitExceeded(l_par));
     }
 
-    let mut values = Vec::new();
+    let mut values: Vec<InlineArrayValue<'_>> = Vec::new();
     let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
     let mut fuel = START_FUEL;
     let mut valid_mark = mark(ctx, parser, comment_storage, &values);
@@ -907,17 +909,23 @@ fn parse_inline_array<'a>(
                             TokenType::Equal => fuel.saturating_sub(8),
                             _ => fuel.saturating_sub(1),
                         };
-                        if fuel == 0 {
-                            if close.is_none() {
-                                reset(ctx, parser, comment_storage, &mut values, valid_mark);
-                                break 'inline_array;
-                            }
+                        if fuel == 0 && close.is_none() {
+                            reset(ctx, parser, comment_storage, &mut values, valid_mark);
+                            break 'inline_array;
                         }
                         parser.next();
                     }
                 );
             }
         };
+
+        // Only generate missing comma error once another value is found. This avoids missing
+        // comma errors for unclosed inline-arrays
+        if let Some(prev) = values.last() {
+            if prev.comma.is_none() {
+                ctx.error(Error::MissingComma(prev.end()));
+            }
+        }
 
         let val_line = val.start().line;
         let mut val_comments = mark_comments_above(comment_storage, val_line, level + 1);
@@ -961,9 +969,8 @@ fn parse_inline_array<'a>(
                 break 'inline_array;
             }
             _ => {
-                ctx.error(Error::MissingComma(val.end()));
+                // Missing a comma, continue for now...
                 fuel = fuel.saturating_sub(1);
-                // try to continue
                 None
             }
         };
@@ -984,15 +991,7 @@ fn parse_inline_array<'a>(
     let r_par = match parser.peek() {
         t if t.ty == TokenType::SquareRight => Some(parser.next().start),
         t => {
-            let (string, mut span) = parser.token_fmt_str_and_span(t);
-            if t.ty == TokenType::EOF {
-                // show error on previous line if last line is empty
-                if let Some(t) = parser.peek_prev() {
-                    if t.ty == TokenType::Newline {
-                        span = Span::pos(t.start);
-                    }
-                }
-            }
+            let (string, span) = parser.token_fmt_str_and_span(t);
             ctx.error(Error::ExpectedRightSquareFound(string, l_par, span));
             None
         }
@@ -1059,44 +1058,55 @@ fn parse_inline_table<'a>(
         let key = match parse_key(ctx, bump, parser) {
             KeyResult::Ok(k) => k,
             KeyResult::UnterminatedStr(_) => {
-                // no token other than newline can come after an unterminated string literal
+                // TODO:
+                // No token other than newline can come after an unterminated string literal
                 break 'inline_table;
             }
+            KeyResult::Err(e @ Error::RecursionLimitExceeded(_)) => return Err(e),
             KeyResult::Err(e) => {
                 ctx.error(e);
-                recover_on!(parser, token,
-                    Comma => {
-                        parser.next();
-                        continue 'inline_table;
-                    },
-                    CurlyRight | EOF => break 'inline_table,
-                    t => {
-                        fuel = match t {
-                            TokenType::Newline => {
-                                ctx.error(Error::InlineTableNewline(token.start));
-                                fuel.saturating_sub(1)
-                            }
-                            _ => fuel.saturating_sub(1),
-                        };
-                        parser.next();
-                        continue 'inline_table;
-                    }
-                )
+                let cf = recover_inline_table(
+                    ctx,
+                    parser,
+                    comment_storage,
+                    &mut assignments,
+                    valid_mark,
+                    close,
+                    &mut fuel,
+                );
+                match cf {
+                    ControlFlow::Continue(_) => continue 'inline_table,
+                    ControlFlow::Break(_) => break 'inline_table,
+                }
             }
         };
+
+        // Only generate missing comma error once another assignment is found. This avoids missing
+        // comma errors for unclosed inline-tables.
+        if let Some(prev) = assignments.last() {
+            if prev.comma.is_none() {
+                ctx.error(Error::MissingComma(prev.end()));
+            }
+        }
 
         let eq = match parser.peek() {
             t if t.ty == TokenType::Equal => parser.next().start,
             t => {
                 let (string, span) = parser.token_fmt_str_and_span(t);
                 ctx.error(Error::ExpectedEqOrDotFound(string, span));
-                recover_on!(parser,
-                    Comma => {
-                        parser.next();
-                        continue 'inline_table;
-                    },
-                    CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
-                )
+                let cf = recover_inline_table(
+                    ctx,
+                    parser,
+                    comment_storage,
+                    &mut assignments,
+                    valid_mark,
+                    close,
+                    &mut fuel,
+                );
+                match cf {
+                    ControlFlow::Continue(_) => continue 'inline_table,
+                    ControlFlow::Break(_) => break 'inline_table,
+                }
             }
         };
 
@@ -1105,20 +1115,26 @@ fn parse_inline_table<'a>(
             Err(e @ Error::RecursionLimitExceeded(_)) => return Err(e),
             Err(e) => {
                 ctx.error(e);
-                recover_on!(parser,
-                    Comma => {
-                        parser.next();
-                        continue 'inline_table;
-                    },
-                    CurlyRight | Newline | Comment(_) | EOF => break 'inline_table,
-                )
+                let cf = recover_inline_table(
+                    ctx,
+                    parser,
+                    comment_storage,
+                    &mut assignments,
+                    valid_mark,
+                    close,
+                    &mut fuel,
+                );
+                match cf {
+                    ControlFlow::Continue(_) => continue 'inline_table,
+                    ControlFlow::Break(_) => break 'inline_table,
+                }
             }
         };
 
         let assignment = Assignment { key, eq, val };
         let comma = match parser.peek() {
             t if t.ty == TokenType::Comma => Some(parser.next().start),
-            t if one_of!(t.ty, CurlyRight | Newline | Comment(_) | EOF) => {
+            t if one_of!(t.ty, CurlyRight | EOF) => {
                 assignments.push(InlineTableAssignment {
                     assignment,
                     comma: None,
@@ -1126,14 +1142,19 @@ fn parse_inline_table<'a>(
                 break 'inline_table;
             }
             _ => {
-                let pos = assignment.val.end();
-                ctx.error(Error::MissingComma(pos));
-                // try to continue
+                // Missing a comma, continue, for now..
+                fuel = fuel.saturating_sub(1);
                 None
             }
         };
 
+        let is_valid = assignment.val.is_valid();
         assignments.push(InlineTableAssignment { assignment, comma });
+
+        if is_valid {
+            fuel = u8::max(fuel + 1, START_FUEL);
+            valid_mark = mark(ctx, parser, comment_storage, &assignments);
+        }
     }
 
     let r_par = match parser.peek() {
@@ -1144,6 +1165,9 @@ fn parse_inline_table<'a>(
             None
         }
     };
+
+    table_comments.extend_to(next_comment_id(comment_storage));
+    mark_contained_comments(comment_storage, &table_comments, level);
 
     let end = match r_par {
         Some(p) => End::Par(p),
@@ -1161,6 +1185,40 @@ fn parse_inline_table<'a>(
         assignments: bump.alloc_slice_fill_iter(assignments),
         end,
     })
+}
+
+fn recover_inline_table(
+    ctx: &mut impl TomlCtx,
+    parser: &mut Parser<'_>,
+    comment_storage: &mut Vec<AssocComment<'_>>,
+    assignments: &mut Vec<InlineTableAssignment<'_>>,
+    valid_mark: Mark,
+    close: Option<NonZeroU32>,
+    fuel: &mut u8,
+) -> ControlFlow<()> {
+    recover_on!(parser, token,
+        Comma => {
+            parser.next();
+            return ControlFlow::Continue(());
+        },
+        CurlyRight | EOF => {
+            return ControlFlow::Break(());
+        },
+        t => {
+            *fuel = match t {
+                TokenType::Newline => {
+                    ctx.error(Error::InlineTableNewline(token.start));
+                    fuel.saturating_sub(1)
+                }
+                _ => fuel.saturating_sub(1),
+            };
+            if *fuel == 0 && close.is_none() {
+                reset(ctx, parser, comment_storage, assignments, valid_mark);
+                return ControlFlow::Break(());
+            }
+            parser.next();
+        },
+    );
 }
 
 /// toml permits using spaces instead of `T` to separate date and time in an rfc3339

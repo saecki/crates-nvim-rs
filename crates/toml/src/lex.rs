@@ -439,9 +439,16 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
     // Set the position to the end of the last char
     end_literal(&mut lexer);
 
+    // If last line is empty (trailing newline), set the EOF position to the previous line end.
+    let mut eof_pos = lexer.pos();
+    if let Some(token) = lexer.tokens.last() {
+        if token.ty == TokenType::Newline {
+            eof_pos = token.start;
+        }
+    }
     let eof = Token {
         ty: TokenType::EOF,
-        start: lexer.pos(),
+        start: eof_pos,
     };
     Tokens {
         tokens: bump.alloc_slice_fill_iter(lexer.tokens),

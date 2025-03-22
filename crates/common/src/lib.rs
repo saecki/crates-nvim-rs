@@ -21,9 +21,9 @@ pub trait Ctx: Sized {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DiagnosticMark {
-    error: usize,
-    warning: usize,
-    info: usize,
+    error: u32,
+    warning: u32,
+    info: u32,
 }
 
 pub struct Diagnostics<E, W, I> {
@@ -61,16 +61,16 @@ impl<E, W, I> Ctx for Diagnostics<E, W, I> {
 
     fn mark(&self) -> DiagnosticMark {
         DiagnosticMark {
-            error: self.errors.len(),
-            warning: self.warnings.len(),
-            info: self.infos.len(),
+            error: self.errors.len() as u32,
+            warning: self.warnings.len() as u32,
+            info: self.infos.len() as u32,
         }
     }
 
     fn reset(&mut self, mark: DiagnosticMark) {
-        self.errors.truncate(mark.error);
-        self.warnings.truncate(mark.warning);
-        self.infos.truncate(mark.info);
+        self.errors.truncate(mark.error as usize);
+        self.warnings.truncate(mark.warning as usize);
+        self.infos.truncate(mark.info as usize);
     }
 }
 
