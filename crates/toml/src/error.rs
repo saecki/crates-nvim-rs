@@ -146,7 +146,7 @@ impl Diagnostic for Error {
             ExpectedNewlineFound(_, s) => *s,
             MissingNewline(p) => Span::pos(*p),
             InlineTableTrailingComma(p) => Span::ascii_char(*p),
-            InlineTableNewline(p) => Span::ascii_char(*p),
+            InlineTableNewline(p) => Span::pos(*p),
             SpaceBetweenArrayPars(s) => *s,
 
             UnexpectedLiteralStart(c, p) => Span::from_pos_len(*p, c.len_utf8() as u32),
