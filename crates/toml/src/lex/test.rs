@@ -20,7 +20,7 @@ fn check_error(input: &str, expected: Tokens<'_>, error: Error) {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     assert_eq!(
-        tokens, expected,
+        expected, tokens,
         "\nerrors: {:#?}\nwarnings: {:#?}",
         ctx.errors, ctx.warnings,
     );
@@ -34,8 +34,8 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     assert_eq!(
-        tokens.tokens.len(),
         1,
+        tokens.tokens.len(),
         "\ntokens: {:#?}\nerrors: {:#?}\nwarnings: {:#?}",
         tokens,
         ctx.errors,
@@ -61,8 +61,8 @@ fn check_str_error(input: &str, expected_lit: &str, expected_text: &str, error: 
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
     assert_eq!(
-        tokens.tokens.len(),
         1,
+        tokens.tokens.len(),
         "\ntokens: {:#?}\nerrors: {:#?}\nwarnings: {:#?}",
         tokens,
         ctx.errors,
@@ -425,7 +425,7 @@ fn unclosed_basic_single_line_string() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                start: Pos { line: 1, char: 0 },
+                start: Pos { line: 0, char: 21 },
             },
         },
         Error::MissingQuote(
@@ -547,7 +547,7 @@ fn unclosed_literal_single_line_string() {
             literals: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                start: Pos { line: 1, char: 0 },
+                start: Pos { line: 0, char: 21 },
             },
         },
         Error::MissingQuote(
@@ -714,7 +714,7 @@ fn comment_with_newline() {
             strings: &[],
             eof: Token {
                 ty: TokenType::EOF,
-                start: Pos { line: 1, char: 0 },
+                start: Pos { line: 0, char: 13 },
             },
         },
     )
