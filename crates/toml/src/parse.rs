@@ -1065,7 +1065,6 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 }
 
                 parser.newline_required = true;
-                continue;
             }
             TokenType::Comment(id) => {
                 parser.next();
@@ -1084,145 +1083,21 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 } else {
                     prev_comments.push(comment);
                 }
-                continue;
             }
             TokenType::Newline => {
                 parser.next();
                 parser.newline_required = false;
-                continue;
             }
             TokenType::EOF => break 'root,
-            _ => (),
-        }
-
-        let mark = ctx.mark();
-        let key = match parse_key(ctx, bump, &mut parser) {
-            KeyResult::Ok(k) => k,
-            KeyResult::UnterminatedStr(_) => {
-                if parser.newline_required {
-                    // avoid excessive error messages
-                    ctx.reset(mark);
-                    let string = parser.token_fmt_str(token);
-                    let end = parser.peek().start;
-                    let span = Span::new(token.start, end);
-                    ctx.error(Error::ExpectedNewlineFound(string, span));
-                }
-                continue 'root;
-            }
-            KeyResult::Err(e) => {
-                recover_on!(parser, Newline | Comment(_) | EOF);
-                if parser.newline_required {
-                    // avoid excessive error messages
-                    ctx.reset(mark);
-                    let string = parser.token_fmt_str(token);
-                    let end = parser.peek().start;
-                    let span = Span::new(token.start, end);
-                    ctx.error(Error::ExpectedNewlineFound(string, span));
-                } else {
-                    ctx.error(e);
-                }
-                continue 'root;
-            }
-        };
-
-        let eq = match parser.peek() {
-            t if t.ty == TokenType::Equal => {
-                parser.next();
-                t.start
-            }
-            t => {
-                recover_on!(parser, Newline | Comment(_) | EOF);
-                if parser.newline_required {
-                    // avoid excessive error messages
-                    ctx.reset(mark);
-                    let string = parser.token_fmt_str(token);
-                    let end = parser.peek().start;
-                    let span = Span::new(token.start, end);
-                    ctx.error(Error::ExpectedNewlineFound(string, span));
-                } else {
-                    let (string, span) = parser.token_fmt_str_and_span(t);
-                    ctx.error(Error::ExpectedEqOrDotFound(string, span));
-                }
-                continue 'root;
-            }
-        };
-
-        if parser.newline_required {
-            if ctx.mark() == mark {
-                // continue if there is just a missing newline
-                ctx.error(Error::MissingNewline(token.start));
-            } else {
-                // avoid excessive error messages
-                ctx.reset(mark);
-                recover_on!(parser, Newline | Comment(_) | EOF);
-                let string = parser.token_fmt_str(token);
-                let end = parser.peek().start;
-                let span = Span::new(token.start, end);
-                ctx.error(Error::ExpectedNewlineFound(string, span));
-                continue 'root;
-            }
-        }
-
-        // store associated comments here so associated comments of the value are added in the correct order
-        let pos = find_associated_comments(&prev_comments, eq.line);
-        let non_associated_comments = prev_comments.drain(..pos);
-        let level = match asts.last_mut() {
-            Some(Ast::Table(t)) => {
-                add_comments(
+            _ => {
+                parse_assignment(
+                    ctx,
+                    bump,
+                    &mut parser,
+                    &mut asts,
                     &mut comment_storage,
-                    &mut t.comments,
-                    non_associated_comments,
-                    AssocPos::Contained,
+                    &mut prev_comments,
                 );
-                1
-            }
-            Some(Ast::Array(a)) => {
-                add_comments(
-                    &mut comment_storage,
-                    &mut a.comments,
-                    non_associated_comments,
-                    AssocPos::Contained,
-                );
-                1
-            }
-            Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
-                let freestanding_comments = non_associated_comments.map(Ast::Comment);
-                asts.extend(freestanding_comments);
-                0
-            }
-        };
-
-        let associated_comments = prev_comments.drain(..);
-        let mut comments = store_comments(
-            &mut comment_storage,
-            associated_comments,
-            AssocPos::Above,
-            level,
-        );
-
-        parser.newline_required = true;
-        let val = match parse_value(ctx, bump, &mut parser, &mut comment_storage, level) {
-            Ok(v) => v,
-            Err(e) => {
-                ctx.error(e);
-                parser.newline_required = false;
-                recover_on!(parser, Newline | Comment(_) | EOF => continue 'root);
-            }
-        };
-
-        // include all associated comments of inner values
-        comments.extend_to(next_comment_id(&comment_storage));
-
-        let assignment = Assignment { key, eq, val };
-        let assignment = ToplevelAssignment {
-            comments,
-            assignment,
-        };
-        match asts.last_mut() {
-            Some(Ast::Table(t)) => t.assignments.push(assignment),
-            Some(Ast::Array(a)) => a.assignments.push(assignment),
-            Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
-                asts.push(Ast::Assignment(assignment))
             }
         }
     }
@@ -1337,6 +1212,142 @@ enum KeyResult<'a> {
     Ok(Key<'a>),
     UnterminatedStr(Key<'a>),
     Err(Error),
+}
+
+fn parse_assignment<'a>(
+    ctx: &mut impl TomlCtx,
+    bump: &'a Bump,
+    parser: &mut Parser<'a>,
+    asts: &mut Vec<Ast<'a>>,
+    comment_storage: &mut Vec<AssocComment<'a>>,
+    prev_comments: &mut Vec<Comment<'a>>,
+) {
+    let token = parser.peek();
+    let mark = ctx.mark();
+
+    let key = match parse_key(ctx, bump, parser) {
+        KeyResult::Ok(k) => k,
+        KeyResult::UnterminatedStr(_) => {
+            if parser.newline_required {
+                // avoid excessive error messages
+                ctx.reset(mark);
+                let string = parser.token_fmt_str(token);
+                let end = parser.peek().start;
+                let span = Span::new(token.start, end);
+                ctx.error(Error::ExpectedNewlineFound(string, span));
+            }
+            return;
+        }
+        KeyResult::Err(e) => {
+            recover_on!(parser, Newline | Comment(_) | EOF);
+            if parser.newline_required {
+                // avoid excessive error messages
+                ctx.reset(mark);
+                let string = parser.token_fmt_str(token);
+                let end = parser.peek().start;
+                let span = Span::new(token.start, end);
+                ctx.error(Error::ExpectedNewlineFound(string, span));
+            } else {
+                ctx.error(e);
+            }
+            return;
+        }
+    };
+
+    let eq = match parser.peek() {
+        t if t.ty == TokenType::Equal => {
+            parser.next();
+            t.start
+        }
+        t => {
+            recover_on!(parser, Newline | Comment(_) | EOF);
+            if parser.newline_required {
+                // avoid excessive error messages
+                ctx.reset(mark);
+                let string = parser.token_fmt_str(token);
+                let end = parser.peek().start;
+                let span = Span::new(token.start, end);
+                ctx.error(Error::ExpectedNewlineFound(string, span));
+            } else {
+                let (string, span) = parser.token_fmt_str_and_span(t);
+                ctx.error(Error::ExpectedEqOrDotFound(string, span));
+            }
+            return;
+        }
+    };
+
+    if parser.newline_required {
+        if ctx.mark() == mark {
+            // continue if there is just a missing newline
+            ctx.error(Error::MissingNewline(token.start));
+        } else {
+            // avoid excessive error messages
+            ctx.reset(mark);
+            recover_on!(parser, Newline | Comment(_) | EOF);
+            let string = parser.token_fmt_str(token);
+            let end = parser.peek().start;
+            let span = Span::new(token.start, end);
+            ctx.error(Error::ExpectedNewlineFound(string, span));
+            return;
+        }
+    }
+
+    // store associated comments here so associated comments of the value are added in the correct order
+    let pos = find_associated_comments(&prev_comments, eq.line);
+    let non_associated_comments = prev_comments.drain(..pos);
+    let level = match asts.last_mut() {
+        Some(Ast::Table(t)) => {
+            add_comments(
+                comment_storage,
+                &mut t.comments,
+                non_associated_comments,
+                AssocPos::Contained,
+            );
+            1
+        }
+        Some(Ast::Array(a)) => {
+            add_comments(
+                comment_storage,
+                &mut a.comments,
+                non_associated_comments,
+                AssocPos::Contained,
+            );
+            1
+        }
+        Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
+            let freestanding_comments = non_associated_comments.map(Ast::Comment);
+            asts.extend(freestanding_comments);
+            0
+        }
+    };
+
+    let associated_comments = prev_comments.drain(..);
+    let mut comments = store_comments(comment_storage, associated_comments, AssocPos::Above, level);
+
+    parser.newline_required = true;
+    let val = match parse_value(ctx, bump, parser, comment_storage, level) {
+        Ok(v) => v,
+        Err(e) => {
+            ctx.error(e);
+            parser.newline_required = false;
+            recover_on!(parser, Newline | Comment(_) | EOF => return);
+        }
+    };
+
+    // include all associated comments of inner values
+    comments.extend_to(next_comment_id(&comment_storage));
+
+    let assignment = Assignment { key, eq, val };
+    let assignment = ToplevelAssignment {
+        comments,
+        assignment,
+    };
+
+    match asts.last_mut() {
+        Some(Ast::Table(t)) => t.assignments.push(assignment),
+        Some(Ast::Array(a)) => a.assignments.push(assignment),
+        Some(Ast::Assignment(_) | Ast::Comment(_)) | None => asts.push(Ast::Assignment(assignment)),
+    }
 }
 
 fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>) -> KeyResult<'a> {
