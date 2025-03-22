@@ -64,7 +64,7 @@ fn dotted_key() {
     };
     let assignment = twrap(
         &[],
-        0,
+        1,
         Assignment {
             key: Key::Dotted(&key),
             eq: Pos::new(0, 6),
@@ -128,7 +128,7 @@ a.b.d = 2
     };
     let assignment1 = twrap(
         &[],
-        0,
+        1,
         Assignment {
             key: Key::Dotted(&key1),
             eq: Pos::new(0, 6),
@@ -157,7 +157,7 @@ a.b.d = 2
     };
     let assignment2 = twrap(
         &[],
-        0,
+        1,
         Assignment {
             key: Key::Dotted(&key2),
             eq: Pos::new(1, 6),
@@ -234,7 +234,7 @@ def = 23.0
     };
     let assignment1 = twrap(
         &[],
-        1,
+        2,
         Assignment {
             key: Key::One(key1.clone()),
             eq: Pos::new(1, 4),
@@ -250,7 +250,7 @@ def = 23.0
     };
     let assignment2 = twrap(
         &[],
-        1,
+        2,
         Assignment {
             key: Key::One(key2.clone()),
             eq: Pos::new(2, 4),
@@ -259,7 +259,7 @@ def = 23.0
     );
 
     let table = Table {
-        comments: empty_comments(&[], 0),
+        comments: empty_comments(&[], 1),
         header: TableHeader::new(
             Pos::new(0, 0),
             Some(Key::One(table_key.clone())),
@@ -315,7 +315,7 @@ fn inline_array() {
         val: 4,
     };
     let inline_array_value1 = InlineArrayValue {
-        comments: empty_comments(&[], 1),
+        comments: empty_comments(&[], 3),
         val: Value::Int(value1.clone()),
         comma: Some(Pos::new(0, 10)),
     };
@@ -326,7 +326,7 @@ fn inline_array() {
         val: 8,
     };
     let inline_array_value2 = InlineArrayValue {
-        comments: empty_comments(&[], 1),
+        comments: empty_comments(&[], 3),
         val: Value::Int(value2.clone()),
         comma: Some(Pos::new(0, 13)),
     };
@@ -337,14 +337,14 @@ fn inline_array() {
         val: 16,
     };
     let inline_array_value3 = InlineArrayValue {
-        comments: empty_comments(&[], 1),
+        comments: empty_comments(&[], 3),
         val: Value::Int(value3.clone()),
         comma: None,
     };
 
     let array_key = Ident::from_plain_lit("array", Span::from_pos_len(Pos::new(0, 0), 5));
     let array = InlineArray {
-        comments: empty_comments(&[], 0),
+        comments: empty_comments(&[], 2),
         l_par: Pos::new(0, 8),
         values: &[
             inline_array_value1.clone(),
@@ -355,7 +355,7 @@ fn inline_array() {
     };
     let assignment = twrap(
         &[],
-        0,
+        1,
         Assignment {
             key: Key::One(array_key.clone()),
             eq: Pos::new(0, 6),
@@ -450,7 +450,7 @@ fruit.apple = 3
     };
     let assignment = twrap(
         &[],
-        0,
+        1,
         Assignment {
             key: Key::Dotted(&key),
             eq: Pos::new(0, 12),

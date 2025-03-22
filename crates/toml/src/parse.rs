@@ -71,6 +71,8 @@ struct Parser<'a> {
     tokens: &'a [Token],
     cursor: usize,
     eof: Token,
+    comment_storage: Vec<AssocComment<'a>>,
+    level: u16,
     newline_required: bool,
 }
 
@@ -82,6 +84,8 @@ impl<'a> Parser<'a> {
             tokens: tokens.tokens,
             cursor: 0,
             eof: tokens.eof,
+            comment_storage: Vec::new(),
+            level: 0,
             newline_required: false,
         }
     }
@@ -146,11 +150,13 @@ impl<'a> Parser<'a> {
     fn mark(&self) -> ParserMark {
         ParserMark {
             cursor: self.cursor as u32,
+            comments: self.comment_storage.len() as u32,
         }
     }
 
     fn reset(&mut self, mark: ParserMark) {
         self.cursor = mark.cursor as usize;
+        self.comment_storage.truncate(mark.comments as usize);
     }
 
     fn string(&self, id: StringId) -> &'a StringToken<'a> {
@@ -219,45 +225,36 @@ impl<'a> Parser<'a> {
     fn token_fmt_str_and_span(&self, token: Token) -> (FmtStr, Span) {
         (self.token_fmt_str(token), self.token_span(token))
     }
+
+    fn next_comment_id(&self) -> CommentId {
+        CommentId(self.comment_storage.len() as u32)
+    }
 }
 
 #[derive(Clone, Copy)]
 struct ParserMark {
     cursor: u32,
+    comments: u32,
 }
 
 #[derive(Clone, Copy)]
 struct Mark {
     ctx: DiagnosticMark,
     parser: ParserMark,
-    comments: u32,
     values: u32,
 }
 
-fn mark<T>(
-    ctx: &impl TomlCtx,
-    parser: &Parser,
-    comment_storage: &[AssocComment],
-    values: &[T],
-) -> Mark {
+fn mark<T>(ctx: &impl TomlCtx, parser: &Parser, values: &[T]) -> Mark {
     Mark {
         ctx: ctx.mark(),
         parser: parser.mark(),
-        comments: comment_storage.len() as u32,
         values: values.len() as u32,
     }
 }
 
-fn reset<T>(
-    ctx: &mut impl TomlCtx,
-    parser: &mut Parser,
-    comment_storage: &mut Vec<AssocComment>,
-    values: &mut Vec<T>,
-    mark: Mark,
-) {
+fn reset<T>(ctx: &mut impl TomlCtx, parser: &mut Parser, values: &mut Vec<T>, mark: Mark) {
     ctx.reset(mark.ctx);
     parser.reset(mark.parser);
-    comment_storage.truncate(mark.comments as usize);
     values.truncate(mark.values as usize);
 }
 
@@ -267,8 +264,6 @@ fn reset<T>(
 pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
     let mut parser = Parser::new(tokens);
     let mut asts = Vec::new();
-    let mut comment_storage = Vec::new();
-    let mut prev_comments = Vec::new();
 
     'root: loop {
         let token = parser.peek();
@@ -360,16 +355,10 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     }
                 }
 
-                let pos = find_associated_comments(&prev_comments, l_table_square.line);
-                asts.extend(prev_comments.drain(..pos).map(Ast::Comment));
+                parser.level = 1;
+                let level = parser.level;
+                let comments = mark_comments_above(&mut parser, l_table_square.line, level);
 
-                let associated_comments = prev_comments.drain(..);
-                let comments = store_comments(
-                    &mut comment_storage,
-                    associated_comments,
-                    AssocPos::Above,
-                    0,
-                );
                 match l_array_square {
                     Some(l_array_square) => {
                         let header = ArrayHeader::new(
@@ -399,18 +388,16 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                 parser.next();
                 let comment = parser.comment(id, token.start);
                 if parser.newline_required {
-                    let comment = AssocComment::line_end(0, comment);
-                    let comment_id = store_comment(&mut comment_storage, comment);
-                    match asts.last_mut() {
-                        Some(Ast::Table(t)) => t.append_comment(comment_id),
-                        Some(Ast::Array(a)) => a.append_comment(comment_id),
-                        Some(Ast::Assignment(a)) => a.comments.append(comment_id),
-                        Some(Ast::Comment(_)) | None => unreachable!(
-                            "a comment has to be the last item in a line -> there can't be two comments in a line"
-                        ),
-                    }
+                    let comments = match asts.last_mut() {
+                        Some(Ast::Table(t)) => t.append_comment_range(),
+                        Some(Ast::Array(a)) => a.append_comment_range(),
+                        Some(Ast::Assignment(a)) => &mut a.comments,
+                        None => unreachable!(),
+                    };
+                    add_comment(&mut parser, comments, comment, AssocPos::LineEnd);
                 } else {
-                    prev_comments.push(comment);
+                    let comment = AssocComment::contained(parser.level, comment);
+                    _ = store_comment(&mut parser, comment);
                 }
             }
             TokenType::Newline => {
@@ -419,83 +406,55 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             }
             TokenType::EOF => break 'root,
             _ => {
-                parse_assignment(
-                    ctx,
-                    bump,
-                    &mut parser,
-                    &mut asts,
-                    &mut comment_storage,
-                    &mut prev_comments,
-                );
+                parser.level += 1;
+                parse_assignment(ctx, bump, &mut parser, &mut asts);
+                parser.level -= 1;
             }
         }
     }
 
-    asts.extend(prev_comments.into_iter().map(Ast::Comment));
+    match asts.last_mut() {
+        Some(Ast::Table(t)) => t.comments.extend_to(parser.next_comment_id()),
+        Some(Ast::Array(a)) => a.comments.extend_to(parser.next_comment_id()),
+        Some(Ast::Assignment(_)) => (),
+        None => (),
+    };
 
     Asts {
         asts: bump.alloc_slice_fill_iter(asts),
-        comments: bump.alloc_slice_fill_iter(comment_storage),
+        comments: bump.alloc_slice_fill_iter(parser.comment_storage),
     }
 }
 
-fn find_associated_comments(comments: &[Comment<'_>], mut line: u32) -> usize {
-    let len = comments.iter().rev().position(|c| {
-        let contigous = c.span.start.line + 1 == line;
-        line -= 1;
-        !contigous
-    });
-    len.map_or(0, |l| comments.len() - l)
-}
-
-fn mark_comments_above(
-    storage: &mut [AssocComment<'_>],
-    mut line: u32,
-    level: u16,
-) -> CommentRange {
-    let len = storage.iter_mut().rev().position(|c| {
+fn mark_comments_above(parser: &mut Parser<'_>, mut line: u32, level: u16) -> CommentRange {
+    let mut len = 0;
+    for c in parser.comment_storage.iter_mut().rev() {
         let contigous = c.comment.span.start.line + 1 == line && c.pos == AssocPos::Contained;
-        if contigous {
-            line -= 1;
-            c.pos = AssocPos::Above;
-            c.level = level;
+        if !contigous {
+            break;
         }
-        !contigous
-    });
-    let len = len.map_or(0, |l| l as u32);
-    let start = CommentId(storage.len() as u32 - len);
+        line -= 1;
+        c.pos = AssocPos::Above;
+        c.level = level;
+        len += 1;
+    }
+
+    let start = CommentId(parser.comment_storage.len() as u32 - len);
     CommentRange { start, len, level }
 }
 
-fn mark_contained_comments(storage: &mut [AssocComment<'_>], range: &CommentRange, level: u16) {
+fn mark_contained_comments(parser: &mut Parser<'_>, range: &CommentRange, level: u16) {
     let start = range.start.0 as usize;
     let end = start + range.len as usize;
-    for c in storage[start..end].iter_mut() {
+    for c in parser.comment_storage[start..end].iter_mut() {
         if c.level < level {
             c.level = level;
         }
     }
 }
 
-fn add_comments<'a>(
-    storage: &mut Vec<AssocComment<'a>>,
-    range: &mut CommentRange,
-    comments: impl Iterator<Item = Comment<'a>>,
-    pos: AssocPos,
-) {
-    for c in comments {
-        let comment = AssocComment {
-            comment: c,
-            pos,
-            level: range.level,
-        };
-        let id = store_comment(storage, comment);
-        range.append(id);
-    }
-}
-
 fn add_comment<'a>(
-    storage: &mut Vec<AssocComment<'a>>,
+    parser: &mut Parser<'a>,
     range: &mut CommentRange,
     comment: Comment<'a>,
     pos: AssocPos,
@@ -505,36 +464,15 @@ fn add_comment<'a>(
         level: range.level,
         comment,
     };
-    let id = store_comment(storage, comment);
+    let id = store_comment(parser, comment);
     range.append(id);
 }
 
 #[must_use]
-fn store_comments<'a>(
-    storage: &mut Vec<AssocComment<'a>>,
-    comments: impl Iterator<Item = Comment<'a>>,
-    pos: AssocPos,
-    level: u16,
-) -> CommentRange {
-    let mut range = CommentRange {
-        start: next_comment_id(storage),
-        len: 0,
-        level,
-    };
-    add_comments(storage, &mut range, comments, pos);
-    range
-}
-
-#[must_use]
-fn store_comment<'a>(storage: &mut Vec<AssocComment<'a>>, comment: AssocComment<'a>) -> CommentId {
-    let id = next_comment_id(storage);
-    storage.push(comment);
+fn store_comment<'a>(parser: &mut Parser<'a>, comment: AssocComment<'a>) -> CommentId {
+    let id = parser.next_comment_id();
+    parser.comment_storage.push(comment);
     id
-}
-
-#[inline(always)]
-fn next_comment_id(storage: &[AssocComment<'_>]) -> CommentId {
-    CommentId(storage.len() as u32)
 }
 
 enum KeyResult<'a> {
@@ -548,8 +486,6 @@ fn parse_assignment<'a>(
     bump: &'a Bump,
     parser: &mut Parser<'a>,
     asts: &mut Vec<Ast<'a>>,
-    comment_storage: &mut Vec<AssocComment<'a>>,
-    prev_comments: &mut Vec<Comment<'a>>,
 ) {
     let token = parser.peek();
     let mark = ctx.mark();
@@ -622,40 +558,10 @@ fn parse_assignment<'a>(
         }
     }
 
-    // Store associated comments here so associated comments of the value are added in the correct order.
-    let pos = find_associated_comments(&prev_comments, eq.line);
-    let non_associated_comments = prev_comments.drain(..pos);
-    let level = match asts.last_mut() {
-        Some(Ast::Table(t)) => {
-            add_comments(
-                comment_storage,
-                &mut t.comments,
-                non_associated_comments,
-                AssocPos::Contained,
-            );
-            1
-        }
-        Some(Ast::Array(a)) => {
-            add_comments(
-                comment_storage,
-                &mut a.comments,
-                non_associated_comments,
-                AssocPos::Contained,
-            );
-            1
-        }
-        Some(Ast::Assignment(_) | Ast::Comment(_)) | None => {
-            let freestanding_comments = non_associated_comments.map(Ast::Comment);
-            asts.extend(freestanding_comments);
-            0
-        }
-    };
-
-    let associated_comments = prev_comments.drain(..);
-    let mut comments = store_comments(comment_storage, associated_comments, AssocPos::Above, level);
+    let mut comments = mark_comments_above(parser, key.start().line, parser.level);
 
     parser.newline_required = true;
-    let val = match parse_value(ctx, bump, parser, comment_storage, level) {
+    let val = match parse_value(ctx, bump, parser) {
         Ok(v) => v,
         Err(e) => {
             ctx.error(e);
@@ -665,7 +571,7 @@ fn parse_assignment<'a>(
     };
 
     // Include all associated comments of inner values.
-    comments.extend_to(next_comment_id(&comment_storage));
+    comments.extend_to(parser.next_comment_id());
 
     let assignment = Assignment { key, eq, val };
     let assignment = ToplevelAssignment {
@@ -676,7 +582,7 @@ fn parse_assignment<'a>(
     match asts.last_mut() {
         Some(Ast::Table(t)) => t.assignments.push(assignment),
         Some(Ast::Array(a)) => a.assignments.push(assignment),
-        Some(Ast::Assignment(_) | Ast::Comment(_)) | None => asts.push(Ast::Assignment(assignment)),
+        Some(Ast::Assignment(_)) | None => asts.push(Ast::Assignment(assignment)),
     }
 }
 
@@ -763,8 +669,18 @@ fn parse_value<'a>(
     ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
-    comment_storage: &mut Vec<AssocComment<'a>>,
-    level: u16,
+) -> Result<Value<'a>, Error> {
+    parser.level += 1;
+    let res = parse_value_inner(ctx, bump, parser);
+    parser.level -= 1;
+    res
+}
+
+#[inline(always)]
+fn parse_value_inner<'a>(
+    ctx: &mut impl TomlCtx,
+    bump: &'a Bump,
+    parser: &mut Parser<'a>,
 ) -> Result<Value<'a>, Error> {
     let token = parser.peek();
     let value = match token.ty {
@@ -838,11 +754,11 @@ fn parse_value<'a>(
         // TODO: Possibly pass down information when parsing stopped to avoid the same error recovery
         // and rewind process in nested inline arrays/tables.
         TokenType::SquareLeft(close) => {
-            let array = parse_inline_array(ctx, bump, parser, comment_storage, level, close)?;
+            let array = parse_inline_array(ctx, bump, parser, close)?;
             Value::InlineArray(array)
         }
         TokenType::CurlyLeft(close) => {
-            let table = parse_inline_table(ctx, bump, parser, comment_storage, level, close)?;
+            let table = parse_inline_table(ctx, bump, parser, close)?;
             Value::InlineTable(table)
         }
         TokenType::Comment(_)
@@ -864,34 +780,32 @@ fn parse_inline_array<'a>(
     ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
-    comment_storage: &mut Vec<AssocComment<'a>>,
-    level: u16,
     close: Option<NonZeroU32>,
 ) -> Result<InlineArray<'a>, Error> {
     let token = parser.next();
     let l_par = token.start;
 
-    if level >= RECURSION_LIMIT {
+    if parser.level >= RECURSION_LIMIT {
         parser.jump_to_end();
         return Err(Error::RecursionLimitExceeded(l_par));
     }
 
     let mut values: Vec<InlineArrayValue<'_>> = Vec::new();
-    let mut array_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
+    let mut array_comments = CommentRange::new(parser.next_comment_id(), 0, parser.level);
     let mut fuel = START_FUEL;
-    let mut valid_mark = mark(ctx, parser, comment_storage, &values);
+    let mut valid_mark = mark(ctx, parser, &values);
     'inline_array: loop {
         while let Some(comment) = parser.eat_comment_and_newlines() {
             // Avoid extending the comment range so it doesn't have to be reset when the array is
             // unclosed and too many errors are encountered.
-            _ = store_comment(comment_storage, AssocComment::contained(level, comment));
+            _ = store_comment(parser, AssocComment::contained(parser.level, comment));
         }
 
         if one_of!(parser.peek().ty, SquareRight | EOF) {
             break 'inline_array;
         }
 
-        let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
+        let val = match parse_value(ctx, bump, parser) {
             Ok(v) => v,
             Err(e @ Error::RecursionLimitExceeded(_)) => return Err(e),
             Err(e) => {
@@ -910,7 +824,7 @@ fn parse_inline_array<'a>(
                             _ => fuel.saturating_sub(1),
                         };
                         if fuel == 0 && close.is_none() {
-                            reset(ctx, parser, comment_storage, &mut values, valid_mark);
+                            reset(ctx, parser, &mut values, valid_mark);
                             break 'inline_array;
                         }
                         parser.next();
@@ -928,34 +842,24 @@ fn parse_inline_array<'a>(
         }
 
         let val_line = val.start().line;
-        let mut val_comments = mark_comments_above(comment_storage, val_line, level + 1);
+        let mut val_comments = mark_comments_above(parser, val_line, parser.level + 1);
         if let Some(comment) = parser.eat_comment() {
-            add_comment(
-                comment_storage,
-                &mut val_comments,
-                comment,
-                AssocPos::LineEnd,
-            );
+            add_comment(parser, &mut val_comments, comment, AssocPos::LineEnd);
         }
 
         while let Some(comment) = parser.eat_comment_and_newlines() {
-            _ = store_comment(comment_storage, AssocComment::contained(level, comment));
+            _ = store_comment(parser, AssocComment::contained(parser.level, comment));
         }
 
         let token = parser.peek();
         let comma = match token.ty {
             TokenType::Comma => {
                 parser.next();
-                val_comments.extend_to(next_comment_id(comment_storage));
-                mark_contained_comments(comment_storage, &val_comments, level + 1);
+                val_comments.extend_to(parser.next_comment_id());
+                mark_contained_comments(parser, &val_comments, parser.level + 1);
 
                 if let Some(comment) = parser.eat_comment() {
-                    add_comment(
-                        comment_storage,
-                        &mut val_comments,
-                        comment,
-                        AssocPos::LineEnd,
-                    );
+                    add_comment(parser, &mut val_comments, comment, AssocPos::LineEnd);
                 }
 
                 Some(token.start)
@@ -984,7 +888,7 @@ fn parse_inline_array<'a>(
 
         if is_valid {
             fuel = u8::max(fuel + 1, START_FUEL);
-            valid_mark = mark(ctx, parser, comment_storage, &values);
+            valid_mark = mark(ctx, parser, &values);
         }
     }
 
@@ -997,8 +901,8 @@ fn parse_inline_array<'a>(
         }
     };
 
-    array_comments.extend_to(next_comment_id(comment_storage));
-    mark_contained_comments(comment_storage, &array_comments, level);
+    array_comments.extend_to(parser.next_comment_id());
+    mark_contained_comments(parser, &array_comments, parser.level);
 
     let end = match r_par {
         Some(p) => End::Par(p),
@@ -1022,27 +926,24 @@ fn parse_inline_table<'a>(
     ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
-    comment_storage: &mut Vec<AssocComment<'a>>,
-    level: u16,
     close: Option<NonZeroU32>,
 ) -> Result<InlineTable<'a>, Error> {
     let token = parser.next();
     let l_par = token.start;
 
-    if level >= RECURSION_LIMIT {
+    if parser.level >= RECURSION_LIMIT {
         parser.jump_to_end();
         return Err(Error::RecursionLimitExceeded(l_par));
     }
 
     let mut assignments = Vec::new();
-    let mut table_comments = CommentRange::new(next_comment_id(comment_storage), 0, level);
+    let mut table_comments = CommentRange::new(parser.next_comment_id(), 0, parser.level);
     let mut fuel = START_FUEL;
-    let mut valid_mark = mark(ctx, parser, comment_storage, &assignments);
+    let mut valid_mark = mark(ctx, parser, &assignments);
     'inline_table: loop {
-        while let Some(comment) = parser.eat_comment_and_newlines() {
-            // Avoid extending the comment range so it doesn't have to be reset when the array is
-            // unclosed and too many errors are encountered.
-            _ = store_comment(comment_storage, AssocComment::contained(level, comment));
+        // Eat comments for better error messages.
+        while let Some(comment) = parser.eat_comment() {
+            _ = store_comment(parser, AssocComment::contained(parser.level, comment));
         }
 
         if one_of!(parser.peek().ty, CurlyRight | EOF) {
@@ -1068,7 +969,6 @@ fn parse_inline_table<'a>(
                 let cf = recover_inline_table(
                     ctx,
                     parser,
-                    comment_storage,
                     &mut assignments,
                     valid_mark,
                     close,
@@ -1097,7 +997,6 @@ fn parse_inline_table<'a>(
                 let cf = recover_inline_table(
                     ctx,
                     parser,
-                    comment_storage,
                     &mut assignments,
                     valid_mark,
                     close,
@@ -1110,7 +1009,7 @@ fn parse_inline_table<'a>(
             }
         };
 
-        let val = match parse_value(ctx, bump, parser, comment_storage, level + 1) {
+        let val = match parse_value(ctx, bump, parser) {
             Ok(v) => v,
             Err(e @ Error::RecursionLimitExceeded(_)) => return Err(e),
             Err(e) => {
@@ -1118,7 +1017,6 @@ fn parse_inline_table<'a>(
                 let cf = recover_inline_table(
                     ctx,
                     parser,
-                    comment_storage,
                     &mut assignments,
                     valid_mark,
                     close,
@@ -1130,6 +1028,11 @@ fn parse_inline_table<'a>(
                 }
             }
         };
+
+        // Eat comments for better error messages.
+        while let Some(comment) = parser.eat_comment() {
+            _ = store_comment(parser, AssocComment::contained(parser.level, comment));
+        }
 
         let assignment = Assignment { key, eq, val };
         let comma = match parser.peek() {
@@ -1153,7 +1056,7 @@ fn parse_inline_table<'a>(
 
         if is_valid {
             fuel = u8::max(fuel + 1, START_FUEL);
-            valid_mark = mark(ctx, parser, comment_storage, &assignments);
+            valid_mark = mark(ctx, parser, &assignments);
         }
     }
 
@@ -1166,8 +1069,8 @@ fn parse_inline_table<'a>(
         }
     };
 
-    table_comments.extend_to(next_comment_id(comment_storage));
-    mark_contained_comments(comment_storage, &table_comments, level);
+    table_comments.extend_to(parser.next_comment_id());
+    mark_contained_comments(parser, &table_comments, parser.level);
 
     let end = match r_par {
         Some(p) => End::Par(p),
@@ -1187,11 +1090,10 @@ fn parse_inline_table<'a>(
     })
 }
 
-fn recover_inline_table(
+fn recover_inline_table<'a>(
     ctx: &mut impl TomlCtx,
-    parser: &mut Parser<'_>,
-    comment_storage: &mut Vec<AssocComment<'_>>,
-    assignments: &mut Vec<InlineTableAssignment<'_>>,
+    parser: &mut Parser<'a>,
+    assignments: &mut Vec<InlineTableAssignment<'a>>,
     valid_mark: Mark,
     close: Option<NonZeroU32>,
     fuel: &mut u8,
@@ -1201,19 +1103,23 @@ fn recover_inline_table(
             parser.next();
             return ControlFlow::Continue(());
         },
-        CurlyRight | EOF => {
+        CurlyRight => {
             return ControlFlow::Break(());
         },
         t => {
-            *fuel = match t {
-                TokenType::Newline => {
+            match t {
+                Newline => {
                     ctx.error(Error::InlineTableNewline(token.start));
-                    fuel.saturating_sub(1)
                 }
-                _ => fuel.saturating_sub(1),
-            };
+                Comment(id) => {
+                    let comment = parser.comment(id, token.start);
+                    _ = store_comment(parser, AssocComment::contained(parser.level, comment));
+                },
+                _ => (),
+            }
+            *fuel = fuel.saturating_sub(1);
             if *fuel == 0 && close.is_none() {
-                reset(ctx, parser, comment_storage, assignments, valid_mark);
+                reset(ctx, parser, assignments, valid_mark);
                 return ControlFlow::Break(());
             }
             parser.next();

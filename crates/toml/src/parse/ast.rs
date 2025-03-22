@@ -18,7 +18,6 @@ pub enum Ast<'a> {
     Assignment(ToplevelAssignment<'a>),
     Table(Table<'a>),
     Array(ArrayEntry<'a>),
-    Comment(Comment<'a>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,7 +92,7 @@ pub enum AssocPos {
     Above,
     /// At the end of the same line as the associated item.
     LineEnd,
-    /// Contained inside the item.
+    /// Contained inside the item, or at file root, if level is 0.
     Contained,
 }
 
@@ -122,10 +121,10 @@ impl<'a> Table<'a> {
             .unwrap_or_else(|| self.header.end())
     }
 
-    pub fn append_comment(&mut self, id: CommentId) {
+    pub fn append_comment_range(&mut self) -> &mut CommentRange {
         match self.assignments.last_mut() {
-            Some(a) => a.comments.append(id),
-            None => self.comments.append(id),
+            Some(a) => &mut a.comments,
+            None => &mut self.comments,
         }
     }
 }
@@ -197,10 +196,10 @@ impl<'a> ArrayEntry<'a> {
     }
 
     /// Comment on the same line as the last item of this table
-    pub fn append_comment(&mut self, id: CommentId) {
+    pub fn append_comment_range(&mut self) -> &mut CommentRange {
         match self.assignments.last_mut() {
-            Some(a) => a.comments.append(id),
-            None => self.comments.append(id),
+            Some(a) => &mut a.comments,
+            None => &mut self.comments,
         }
     }
 }

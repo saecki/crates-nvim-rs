@@ -582,7 +582,6 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, asts: &'_ Asts<'a>) -> MapTable<'a> {
                 };
                 insert_array_entry_at_path(ctx, &bump, &mut root, key, array_entry);
             }
-            Ast::Comment(_) => (),
         }
         bump.reset();
     }
