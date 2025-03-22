@@ -1,0 +1,5 @@
+[91merror[0m: date-time offset-hour `25` out of range, the valid range is `0..=23`
+    [94m-->[0m 2:24
+     [94m|[0m
+[94m   2 |[0m d = 1985-06-18 17:04:07+25:00
+     [94m|[0m                         [91m^^ offset-hour out of range[0m
