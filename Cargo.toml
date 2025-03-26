@@ -16,10 +16,9 @@ toml = { package = "crates-toml", path = "crates/toml" }
 semver = { package = "crates-semver", path = "crates/semver", features = ["serde"] }
 common = { package = "crates-common", path = "crates/common" }
 
-bumpalo = { version = "3.15.4", features = ["collections"] }
-lasso2 = "0.8.2"
-pretty_assertions = "1.4.0"
-indexmap = "2.2.6"
+bumpalo = { version = "3.17.0", features = ["collections"] }
+indexmap = "2.8.0"
+pretty_assertions = "1.4.1"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"

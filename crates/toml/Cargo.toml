@@ -14,8 +14,8 @@ indexmap = { workspace = true, optional = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
-toml-test-harness = "0.4.9"
-toml-test-data = "1.12.0"
+toml-test-harness = "0.4.12"
+toml-test-data = "1.13.1"
 libtest-mimic = "0.8.1"
 
 [[test]]
