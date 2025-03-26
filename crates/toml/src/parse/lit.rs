@@ -165,30 +165,3 @@ fn parse_bare_literal(
 
     Ok(())
 }
-
-/// # SAFETY
-/// The literals have to reference the same string
-pub unsafe fn concat_strs<'a>(left: &'a str, right: &'a str) -> &'a str {
-    let ptr = left.as_ptr();
-    let len = (right.as_ptr() as usize - left.as_ptr() as usize) + right.len();
-    let slice = std::slice::from_raw_parts(ptr, len);
-    std::str::from_utf8_unchecked(slice)
-}
-
-/// # SAFETY
-/// At least `additional` bytes are required inside the source string after the `lit` slice.
-pub unsafe fn extend_str_back(lit: &str, additional: usize) -> &str {
-    let ptr = lit.as_ptr();
-    let len = lit.len() + additional;
-    let slice = std::slice::from_raw_parts(ptr, len);
-    std::str::from_utf8_unchecked(slice)
-}
-
-/// # SAFETY
-/// At least `additional` bytes are required inside the source string before the `lit` slice.
-pub unsafe fn extend_str_front(lit: &str, additional: usize) -> &str {
-    let ptr = lit.as_ptr().sub(additional);
-    let len = lit.len() + additional;
-    let slice = std::slice::from_raw_parts(ptr, len);
-    std::str::from_utf8_unchecked(slice)
-}

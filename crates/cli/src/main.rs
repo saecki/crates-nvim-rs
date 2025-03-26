@@ -72,15 +72,15 @@ fn main() -> ExitCode {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, &text);
     let lexing = std::time::SystemTime::now();
-    let asts = ctx.parse(&bump, &tokens);
+    let ast = ctx.parse(&bump, tokens);
     let parsing = std::time::SystemTime::now();
-    let map = ctx.map(&asts);
+    let map = ctx.map(&ast);
     let mapping = std::time::SystemTime::now();
     if mode == Mode::Check {
         let _state = ctx.check(&map);
     }
     let checking = std::time::SystemTime::now();
-    let simple = toml::util::map_simple(map);
+    let simple = toml::util::map_simple(&ast, map);
     let end = std::time::SystemTime::now();
 
     println!("{:#?}", simple);

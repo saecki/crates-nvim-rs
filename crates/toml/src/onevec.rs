@@ -111,7 +111,6 @@ impl<T: PartialEq> PartialEq for OneVec<T> {
 
 impl<T: Eq> Eq for OneVec<T> {}
 
-#[macro_export]
 macro_rules! onevec {
     ($($x:expr),+ $(,)?) => {
         // SAFETY: macro rules enforce at least one element
@@ -122,3 +121,4 @@ macro_rules! onevec {
         }
     };
 }
+pub(crate) use onevec;

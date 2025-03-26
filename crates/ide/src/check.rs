@@ -664,7 +664,7 @@ fn expect_table_in_table<'a>(
 ) -> Option<&'a MapTable<'a>> {
     match &entry.node {
         MapNode::Table(a) => Some(a),
-        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
+        MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
                 ctx.error(wrong_datatype(path, n, repr, Datatype::Table));
@@ -681,7 +681,7 @@ fn expect_array_in_table<'a>(
 ) -> Option<&'a MapArray<'a>> {
     match &entry.node {
         MapNode::Array(a) => Some(a),
-        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
+        MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
                 ctx.error(wrong_datatype(path, n, repr, Datatype::Array));
@@ -701,7 +701,7 @@ fn expect_string_in_table<'a>(
             let repr = entry.reprs.first();
             Some(StringAssignment { repr, val })
         }
-        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
+        MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
                 ctx.error(wrong_datatype(path, n, repr, Datatype::String));
@@ -719,7 +719,7 @@ fn expect_string_in_array<'a>(
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
-        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
+        MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             ctx.error(cargo::Error::new(
                 map::context_lines(path.prev, [parent]),
@@ -745,7 +745,7 @@ fn expect_bool_in_table<'a>(
             let repr = entry.reprs.first();
             Some(BoolAssignment { repr, val })
         }
-        MapNode::Scalar(Scalar::Invalid(_, _)) => None,
+        MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
                 ctx.error(wrong_datatype(path, n, repr, Datatype::Bool));

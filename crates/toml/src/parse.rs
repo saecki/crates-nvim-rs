@@ -3,10 +3,10 @@ use std::ops::ControlFlow;
 
 use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
-use common::{DiagnosticMark, FmtChar, FmtStr, Pos, Span};
+use common::{DiagnosticMark, FmtChar, FmtStr, Span};
 
 use crate::datetime::{Date, DateTime};
-use crate::lex::{LiteralId, StringId, StringToken, Token, TokenType, Tokens};
+use crate::lex::{Source, StringId, StringToken, Token, TokenType, Tokens};
 use crate::parse::lit::PartialValue;
 use crate::{Error, Quote, TomlCtx};
 
@@ -66,21 +66,21 @@ use unexpected_char;
 
 #[derive(Debug)]
 struct Parser<'a> {
-    strings: &'a [StringToken<'a>],
-    literals: &'a [&'a str],
-    tokens: &'a [Token],
+    source: Source<'a>,
+    strings: Vec<StringToken<'a>>,
+    tokens: Vec<Token>,
     cursor: usize,
     eof: Token,
-    comment_storage: Vec<AssocComment<'a>>,
+    comment_storage: Vec<AssocComment>,
     level: u16,
     newline_required: bool,
 }
 
 impl<'a> Parser<'a> {
-    fn new(tokens: &Tokens<'a>) -> Self {
+    fn new(tokens: Tokens<'a>) -> Self {
         Self {
+            source: tokens.source,
             strings: tokens.strings,
-            literals: tokens.literals,
             tokens: tokens.tokens,
             cursor: 0,
             eof: tokens.eof,
@@ -117,25 +117,25 @@ impl<'a> Parser<'a> {
         self.cursor = self.tokens.len();
     }
 
-    fn eat_comment(&mut self) -> Option<Comment<'a>> {
+    fn eat_comment(&mut self) -> Option<Comment> {
         let t = self.peek();
         match t.ty {
-            TokenType::Comment(id) => {
+            TokenType::Comment { len } => {
                 self.next();
-                let c = self.comment(id, t.start);
+                let c = Comment::from_pos_len(t.start, len);
                 Some(c)
             }
             _ => None,
         }
     }
 
-    fn eat_comment_and_newlines(&mut self) -> Option<Comment<'a>> {
+    fn eat_comment_and_newlines(&mut self) -> Option<Comment> {
         loop {
             let t = self.peek();
             match t.ty {
-                TokenType::Comment(id) => {
+                TokenType::Comment { len } => {
                     self.next();
-                    let c = self.comment(id, t.start);
+                    let c = Comment::from_pos_len(t.start, len);
                     return Some(c);
                 }
                 TokenType::Newline => {
@@ -159,31 +159,24 @@ impl<'a> Parser<'a> {
         self.comment_storage.truncate(mark.comments as usize);
     }
 
-    fn string(&self, id: StringId) -> &'a StringToken<'a> {
+    fn string(&self, id: StringId) -> &StringToken<'a> {
         &self.strings[id.0 as usize]
-    }
-
-    fn literal(&self, id: LiteralId) -> &'a str {
-        self.literals[id.0 as usize]
-    }
-
-    fn comment(&self, id: LiteralId, start: Pos) -> Comment<'a> {
-        let text = self.literal(id);
-        let span = Span::from_pos_len(start, 1 + text.len() as u32);
-        Comment { span, text }
     }
 
     fn token_fmt_str(&self, token: Token) -> FmtStr {
         match token.ty {
             TokenType::String(id) => {
                 let string = &self.strings[id.0 as usize];
-                FmtStr::from_string(format!("`{}`", FmtStr::from_str(string.lit)))
-            }
-            TokenType::LiteralOrIdent(id) => {
-                let lit = self.literals[id.0 as usize];
+                let lit_span = Span::new(token.start, string.lit_end);
+                let lit = self.source.spanned_str(lit_span);
                 FmtStr::from_string(format!("`{}`", FmtStr::from_str(lit)))
             }
-            TokenType::Comment(_) => FmtStr::from_str("comment"),
+            TokenType::LiteralOrIdent { len } => {
+                let span = Span::from_pos_len(token.start, len);
+                let lit = self.source.spanned_str(span);
+                FmtStr::from_string(format!("`{}`", FmtStr::from_str(lit)))
+            }
+            TokenType::Comment { .. } => FmtStr::from_str("comment"),
             TokenType::SquareLeft(_) => FmtStr::from_str("`[`"),
             TokenType::SquareRight => FmtStr::from_str("`]`"),
             TokenType::CurlyLeft(_) => FmtStr::from_str("`{`"),
@@ -202,14 +195,8 @@ impl<'a> Parser<'a> {
                 let string = &self.strings[id.0 as usize];
                 Span::new(token.start, string.lit_end)
             }
-            TokenType::LiteralOrIdent(id) => {
-                let lit = self.literals[id.0 as usize];
-                Span::from_pos_len(token.start, lit.len() as u32)
-            }
-            TokenType::Comment(id) => {
-                let lit = self.literals[id.0 as usize];
-                Span::from_pos_len(token.start, 1 + lit.len() as u32)
-            }
+            TokenType::LiteralOrIdent { len } => Span::from_pos_len(token.start, len),
+            TokenType::Comment { len } => Span::from_pos_len(token.start, len),
             TokenType::SquareLeft(_) => Span::ascii_char(token.start),
             TokenType::SquareRight => Span::ascii_char(token.start),
             TokenType::CurlyLeft(_) => Span::ascii_char(token.start),
@@ -258,12 +245,12 @@ fn reset<T>(ctx: &mut impl TomlCtx, parser: &mut Parser, values: &mut Vec<T>, ma
     values.truncate(mark.values as usize);
 }
 
-/// All errors are stored inside the [`Ctx`]. If an error is encountered this won't stop parsing
-/// and will try to recover. If the [`Ctx`] contains no errors, the returned [`Asts`] are
+/// All errors are stored inside the [`TomlCtx`]. If an error is encountered this won't stop parsing
+/// and will try to recover. If the [`TomlCtx`] contains no errors, the returned [`Ast`] is
 /// completely valid, otherwise they might be incomplete or partially/completely invalid.
-pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>) -> Asts<'a> {
+pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> Ast<'a> {
     let mut parser = Parser::new(tokens);
-    let mut asts = Vec::new();
+    let mut toplevel = Vec::new();
 
     'root: loop {
         let token = parser.peek();
@@ -295,7 +282,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     }
                     KeyResult::Err(e) => {
                         ctx.error(e);
-                        recover_on!(parser, SquareRight | Newline | Comment(_) | EOF);
+                        recover_on!(parser, SquareRight | Newline | Comment { .. } | EOF);
                         None
                     }
                 };
@@ -346,7 +333,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                     } else {
                         // avoid excessive error messages
                         ctx.reset(mark);
-                        recover_on!(parser, Newline | Comment(_) | EOF);
+                        recover_on!(parser, Newline | Comment { .. } | EOF);
                         let string = parser.token_fmt_str(token);
                         let end = parser.peek().start;
                         let span = Span::new(token.start, end);
@@ -366,32 +353,32 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
                             key,
                             (r_array_square, r_table_square),
                         );
-                        asts.push(Ast::Array(ArrayEntry {
+                        toplevel.push(Toplevel::Array(ArrayEntry {
                             comments,
                             header,
-                            assignments: BVec::new_in(bump),
+                            assignments: Vec::new(),
                         }));
                     }
                     None => {
                         let header = TableHeader::new(l_table_square, key, r_table_square);
-                        asts.push(Ast::Table(Table {
+                        toplevel.push(Toplevel::Table(Table {
                             comments,
                             header,
-                            assignments: BVec::new_in(bump),
+                            assignments: Vec::new(),
                         }));
                     }
                 }
 
                 parser.newline_required = true;
             }
-            TokenType::Comment(id) => {
+            TokenType::Comment { len } => {
                 parser.next();
-                let comment = parser.comment(id, token.start);
+                let comment = Comment::from_pos_len(token.start, len);
                 if parser.newline_required {
-                    let comments = match asts.last_mut() {
-                        Some(Ast::Table(t)) => t.append_comment_range(),
-                        Some(Ast::Array(a)) => a.append_comment_range(),
-                        Some(Ast::Assignment(a)) => &mut a.comments,
+                    let comments = match toplevel.last_mut() {
+                        Some(Toplevel::Table(t)) => t.append_comment_range(),
+                        Some(Toplevel::Array(a)) => a.append_comment_range(),
+                        Some(Toplevel::Assignment(a)) => &mut a.comments,
                         None => unreachable!(),
                     };
                     add_comment(&mut parser, comments, comment, AssocPos::LineEnd);
@@ -407,26 +394,27 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: &'_ Tokens<'a>)
             TokenType::EOF => break 'root,
             _ => {
                 parser.level += 1;
-                parse_assignment(ctx, bump, &mut parser, &mut asts);
+                parse_assignment(ctx, bump, &mut parser, &mut toplevel);
                 parser.level -= 1;
             }
         }
     }
 
-    match asts.last_mut() {
-        Some(Ast::Table(t)) => t.comments.extend_to(parser.next_comment_id()),
-        Some(Ast::Array(a)) => a.comments.extend_to(parser.next_comment_id()),
-        Some(Ast::Assignment(_)) => (),
+    match toplevel.last_mut() {
+        Some(Toplevel::Table(t)) => t.comments.extend_to(parser.next_comment_id()),
+        Some(Toplevel::Array(a)) => a.comments.extend_to(parser.next_comment_id()),
+        Some(Toplevel::Assignment(_)) => (),
         None => (),
     };
 
-    Asts {
-        asts: bump.alloc_slice_fill_iter(asts),
+    Ast {
+        source: parser.source,
+        toplevel: bump.alloc_slice_fill_iter(toplevel),
         comments: bump.alloc_slice_fill_iter(parser.comment_storage),
     }
 }
 
-fn mark_comments_above(parser: &mut Parser<'_>, mut line: u32, level: u16) -> CommentRange {
+fn mark_comments_above(parser: &mut Parser, mut line: u32, level: u16) -> CommentRange {
     let mut len = 0;
     for c in parser.comment_storage.iter_mut().rev() {
         let contigous = c.comment.span.start.line + 1 == line && c.pos == AssocPos::Contained;
@@ -443,7 +431,7 @@ fn mark_comments_above(parser: &mut Parser<'_>, mut line: u32, level: u16) -> Co
     CommentRange { start, len, level }
 }
 
-fn mark_contained_comments(parser: &mut Parser<'_>, range: &CommentRange, level: u16) {
+fn mark_contained_comments(parser: &mut Parser, range: &CommentRange, level: u16) {
     let start = range.start.0 as usize;
     let end = start + range.len as usize;
     for c in parser.comment_storage[start..end].iter_mut() {
@@ -453,12 +441,7 @@ fn mark_contained_comments(parser: &mut Parser<'_>, range: &CommentRange, level:
     }
 }
 
-fn add_comment<'a>(
-    parser: &mut Parser<'a>,
-    range: &mut CommentRange,
-    comment: Comment<'a>,
-    pos: AssocPos,
-) {
+fn add_comment(parser: &mut Parser, range: &mut CommentRange, comment: Comment, pos: AssocPos) {
     let comment = AssocComment {
         pos,
         level: range.level,
@@ -469,7 +452,7 @@ fn add_comment<'a>(
 }
 
 #[must_use]
-fn store_comment<'a>(parser: &mut Parser<'a>, comment: AssocComment<'a>) -> CommentId {
+fn store_comment(parser: &mut Parser, comment: AssocComment) -> CommentId {
     let id = parser.next_comment_id();
     parser.comment_storage.push(comment);
     id
@@ -485,7 +468,7 @@ fn parse_assignment<'a>(
     ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
-    asts: &mut Vec<Ast<'a>>,
+    toplevel: &mut Vec<Toplevel<'a>>,
 ) {
     let token = parser.peek();
     let mark = ctx.mark();
@@ -504,7 +487,7 @@ fn parse_assignment<'a>(
             return;
         }
         KeyResult::Err(e) => {
-            recover_on!(parser, Newline | Comment(_) | EOF);
+            recover_on!(parser, Newline | Comment { .. } | EOF);
             if parser.newline_required {
                 // avoid excessive error messages
                 ctx.reset(mark);
@@ -525,7 +508,7 @@ fn parse_assignment<'a>(
             t.start
         }
         t => {
-            recover_on!(parser, Newline | Comment(_) | EOF);
+            recover_on!(parser, Newline | Comment { .. } | EOF);
             if parser.newline_required {
                 // avoid excessive error messages
                 ctx.reset(mark);
@@ -549,7 +532,7 @@ fn parse_assignment<'a>(
         } else {
             // avoid excessive error messages
             ctx.reset(mark);
-            recover_on!(parser, Newline | Comment(_) | EOF);
+            recover_on!(parser, Newline | Comment { .. } | EOF);
             let string = parser.token_fmt_str(token);
             let end = parser.peek().start;
             let span = Span::new(token.start, end);
@@ -566,7 +549,7 @@ fn parse_assignment<'a>(
         Err(e) => {
             ctx.error(e);
             parser.newline_required = false;
-            recover_on!(parser, Newline | Comment(_) | EOF => return);
+            recover_on!(parser, Newline | Comment { .. } | EOF => return);
         }
     };
 
@@ -579,10 +562,10 @@ fn parse_assignment<'a>(
         assignment,
     };
 
-    match asts.last_mut() {
-        Some(Ast::Table(t)) => t.assignments.push(assignment),
-        Some(Ast::Array(a)) => a.assignments.push(assignment),
-        Some(Ast::Assignment(_)) | None => asts.push(Ast::Assignment(assignment)),
+    match toplevel.last_mut() {
+        Some(Toplevel::Table(t)) => t.assignments.push(assignment),
+        Some(Toplevel::Array(a)) => a.assignments.push(assignment),
+        Some(Toplevel::Assignment(_)) | None => toplevel.push(Toplevel::Assignment(assignment)),
     }
 }
 
@@ -604,15 +587,16 @@ fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>
                         return KeyResult::Err(Error::MultilineLiteralStringIdent(lit_span));
                     }
                 };
-                let ident = Ident::from_string(str.lit, lit_span, str.text, str.text_offset, kind);
+                let ident = Ident::from_string(lit_span, str.text, str.text_offset, kind);
                 if str.text_offset.end_line == 0 && str.text_offset.end_char == 0 {
                     parser.next();
                     return KeyResult::UnterminatedStr(Key::One(ident));
                 }
                 ident
             }
-            TokenType::LiteralOrIdent(id) => {
-                let lit = parser.literal(id);
+            TokenType::LiteralOrIdent { len } => {
+                let span = Span::from_pos_len(token.start, len);
+                let lit = parser.source.spanned_str(span);
                 let invalid_char = lit
                     .char_indices()
                     .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
@@ -628,10 +612,9 @@ fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>
                     ctx.error(error);
                 }
 
-                let span = Span::from_pos_len(token.start, lit.len() as u32);
                 Ident::from_plain_lit(lit, span)
             }
-            TokenType::Comment(_)
+            TokenType::Comment { .. }
             | TokenType::SquareLeft(_)
             | TokenType::SquareRight
             | TokenType::CurlyLeft(_)
@@ -690,38 +673,37 @@ fn parse_value_inner<'a>(
             let lit_span = Span::new(token.start, str.lit_end);
 
             Value::String(StringVal {
-                lit: str.lit,
                 lit_span,
                 text: str.text,
                 text_offset: str.text_offset,
                 quote: str.quote,
             })
         }
-        TokenType::LiteralOrIdent(id) => {
+        TokenType::LiteralOrIdent { len } => {
             let token = parser.next();
-            let lit = parser.literal(id);
-            let span = Span::from_pos_len(token.start, lit.len() as u32);
-            let (lit, span) = combine_adjacent_dot_and_lit(parser, lit, span);
+            let span = Span::from_pos_len(token.start, len);
+            let span = combine_adjacent_dot_and_lit(parser, span);
+            let lit = parser.source.spanned_str(span);
 
             match lit::parse_literal(lit, span) {
-                Ok(PartialValue::Float(f)) => Value::Float(FloatVal::new(lit, span, f)),
-                Ok(PartialValue::Int(i)) => Value::Int(IntVal::new(lit, span, i)),
+                Ok(PartialValue::Float(f)) => Value::Float(FloatVal::new(span, f)),
+                Ok(PartialValue::Int(i)) => Value::Int(IntVal::new(span, i)),
                 Ok(PartialValue::Bool(b)) => Value::Bool(BoolVal::new(span, b)),
-                Ok(PartialValue::DateTime(d)) => Value::DateTime(DateTimeVal::new(lit, span, d)),
+                Ok(PartialValue::DateTime(d)) => Value::DateTime(DateTimeVal::new(span, d)),
                 Ok(PartialValue::PartialDate(date)) => {
-                    try_to_parse_time_part(ctx, parser, lit, span, date)
+                    try_to_parse_time_part(ctx, parser, span, date)
                 }
                 Ok(PartialValue::InvalidDateTime(e)) => {
                     ctx.error(e);
                     if !lit.contains(['T', 't', ':']) {
-                        try_combine_time_part(parser, lit, span)
+                        try_combine_time_part(parser, span)
                     } else {
-                        Value::Invalid(lit, span)
+                        Value::Invalid(span)
                     }
                 }
                 Err(e) => {
                     ctx.error(e);
-                    Value::Invalid(lit, span)
+                    Value::Invalid(span)
                 }
             }
         }
@@ -730,26 +712,9 @@ fn parse_value_inner<'a>(
 
             ctx.error(Error::UnexpectedLiteralStart(FmtChar('.'), token.start));
 
-            let lit;
-            let span;
-            let t = parser.peek();
-            let dot_end = token.start.plus(1);
-            match t.ty {
-                TokenType::LiteralOrIdent(id) if t.start == dot_end => {
-                    parser.next();
-                    let l = parser.literal(id);
-                    span = Span::from_pos_len(token.start, l.len() as u32 + 1);
-                    // SAFETY: we know there is a dot directly before the literal
-                    lit = unsafe { lit::extend_str_front(l, 1) };
-                }
-                _ => {
-                    let (string, span) = parser.token_fmt_str_and_span(token);
-                    return Err(Error::ExpectedValueFound(string, span));
-                }
-            }
-            let (lit, span) = combine_adjacent_dot_and_lit(parser, lit, span);
-
-            Value::Invalid(lit, span)
+            let span = Span::from_pos_len(token.start, 1);
+            let span = combine_adjacent_dot_and_lit(parser, span);
+            Value::Invalid(span)
         }
         // TODO: Possibly pass down information when parsing stopped to avoid the same error recovery
         // and rewind process in nested inline arrays/tables.
@@ -761,7 +726,7 @@ fn parse_value_inner<'a>(
             let table = parse_inline_table(ctx, bump, parser, close)?;
             Value::InlineTable(table)
         }
-        TokenType::Comment(_)
+        TokenType::Comment { .. }
         | TokenType::SquareRight
         | TokenType::CurlyRight
         | TokenType::Equal
@@ -790,7 +755,7 @@ fn parse_inline_array<'a>(
         return Err(Error::RecursionLimitExceeded(l_par));
     }
 
-    let mut values: Vec<InlineArrayValue<'_>> = Vec::new();
+    let mut values: Vec<InlineArrayValue> = Vec::new();
     let mut array_comments = CommentRange::new(parser.next_comment_id(), 0, parser.level);
     let mut fuel = START_FUEL;
     let mut valid_mark = mark(ctx, parser, &values);
@@ -813,7 +778,7 @@ fn parse_inline_array<'a>(
                 fuel = fuel.saturating_sub(1);
 
                 recover_on!(parser,
-                    Comma | Newline | Comment(_) => {
+                    Comma | Newline | Comment { .. } => {
                         parser.next();
                         continue 'inline_array;
                     },
@@ -917,7 +882,7 @@ fn parse_inline_array<'a>(
     Ok(InlineArray {
         comments: array_comments,
         l_par,
-        values: bump.alloc_slice_fill_iter(values),
+        values,
         end,
     })
 }
@@ -1085,15 +1050,15 @@ fn parse_inline_table<'a>(
 
     Ok(InlineTable {
         l_par,
-        assignments: bump.alloc_slice_fill_iter(assignments),
+        assignments,
         end,
     })
 }
 
-fn recover_inline_table<'a>(
+fn recover_inline_table(
     ctx: &mut impl TomlCtx,
-    parser: &mut Parser<'a>,
-    assignments: &mut Vec<InlineTableAssignment<'a>>,
+    parser: &mut Parser,
+    assignments: &mut Vec<InlineTableAssignment>,
     valid_mark: Mark,
     close: Option<NonZeroU32>,
     fuel: &mut u8,
@@ -1111,8 +1076,8 @@ fn recover_inline_table<'a>(
                 Newline => {
                     ctx.error(Error::InlineTableNewline(token.start));
                 }
-                Comment(id) => {
-                    let comment = parser.comment(id, token.start);
+                Comment { len } => {
+                    let comment = ast::Comment::from_pos_len(token.start, len);
                     _ = store_comment(parser, AssocComment::contained(parser.level, comment));
                 },
                 _ => (),
@@ -1133,25 +1098,22 @@ fn recover_inline_table<'a>(
 fn try_to_parse_time_part<'a>(
     ctx: &mut impl TomlCtx,
     parser: &mut Parser<'a>,
-    date_lit: &'a str,
     date_span: Span,
     date: Date,
 ) -> Value<'a> {
-    let time_lit;
-    let time_span;
-    match parser.peek().ty {
-        TokenType::LiteralOrIdent(id) => {
+    let time_span = match parser.peek().ty {
+        TokenType::LiteralOrIdent { len } => {
             let token = parser.next();
-            let lit = parser.literal(id);
-            let span = Span::from_pos_len(token.start, lit.len() as u32);
-            (time_lit, time_span) = combine_adjacent_dot_and_lit(parser, lit, span)
+            let span = Span::from_pos_len(token.start, len);
+            combine_adjacent_dot_and_lit(parser, span)
         }
         _ => {
             let val = DateTime::LocalDate(date);
-            let date_time = DateTimeVal::new(date_lit, date_span, val);
+            let date_time = DateTimeVal::new(date_span, val);
             return Value::DateTime(date_time);
         }
     };
+    let time_lit = parser.source.spanned_str(time_span);
 
     // only need to compare columns, since we known there is no newline token in between
     if time_span.start.char > date_span.end.char + 1 {
@@ -1159,9 +1121,6 @@ fn try_to_parse_time_part<'a>(
         ctx.error(Error::DateAndTimeTooFarApart(span));
     }
 
-    // SAFETY: the first and second literal reference the same string, are on the same line and
-    // are only separated by whitespace. See above.
-    let lit = unsafe { lit::concat_strs(date_lit, time_lit) };
     let span = Span::across(date_span, time_span);
 
     let mut chars = time_lit.char_indices().peekable();
@@ -1169,70 +1128,49 @@ fn try_to_parse_time_part<'a>(
         Ok(v) => v,
         Err(e) => {
             ctx.error(e);
-            return Value::Invalid(lit, span);
+            return Value::Invalid(span);
         }
     };
 
     let val = DateTime::from_optional_offset(date, time, offset);
-    let date_time = DateTimeVal::new(lit, span, val);
+    let date_time = DateTimeVal::new(span, val);
     Value::DateTime(date_time)
 }
 
-fn try_combine_time_part<'a>(
-    parser: &mut Parser<'a>,
-    date_lit: &'a str,
-    date_span: Span,
-) -> Value<'a> {
-    let time_lit;
-    let time_span;
+fn try_combine_time_part<'a>(parser: &mut Parser<'a>, date_span: Span) -> Value<'a> {
     let time = parser.peek();
-    match time.ty {
-        TokenType::LiteralOrIdent(id) => {
-            time_lit = parser.literal(id);
-            time_span = Span::from_pos_len(time.start, time_lit.len() as u32);
-        }
-        _ => return Value::Invalid(date_lit, date_span),
-    }
+    let time_span = match time.ty {
+        TokenType::LiteralOrIdent { len } => Span::from_pos_len(time.start, len),
+        _ => return Value::Invalid(date_span),
+    };
 
-    // only assum these literals belong together if they are reasonably close together
+    // only assume these literals belong together if they are reasonably close together
     if time_span.start.char > date_span.end.char + 5 {
-        return Value::Invalid(date_lit, date_span);
+        return Value::Invalid(date_span);
     }
     parser.next();
 
-    // SAFETY: the first and second literal reference the same string, are on the same line and
-    // are only separated by whitespace. See above.
-    let lit = unsafe { lit::concat_strs(date_lit, time_lit) };
     let span = Span::across(date_span, time_span);
-    let (lit, span) = combine_adjacent_dot_and_lit(parser, lit, span);
+    let span = combine_adjacent_dot_and_lit(parser, span);
 
-    Value::Invalid(lit, span)
+    Value::Invalid(span)
 }
 
-fn combine_adjacent_dot_and_lit<'a>(
-    parser: &mut Parser<'a>,
-    mut prev_lit: &'a str,
-    mut prev_span: Span,
-) -> (&'a str, Span) {
+fn combine_adjacent_dot_and_lit(parser: &mut Parser, mut prev_span: Span) -> Span {
     loop {
         let t = parser.peek();
         if t.start != prev_span.end {
-            return (prev_lit, prev_span);
+            return prev_span;
         }
 
         match t.ty {
             TokenType::Dot => {
-                // SAFETY: we know there is a dot directly after prev_lit
-                prev_lit = unsafe { lit::extend_str_back(prev_lit, 1) };
                 prev_span.end.char += 1;
             }
-            TokenType::LiteralOrIdent(id) => {
-                let next_lit = parser.literal(id);
-                // SAFETY: the first and second literal are directly adjacent
-                prev_lit = unsafe { lit::concat_strs(prev_lit, next_lit) };
-                prev_span.end.char += next_lit.len() as u32;
+            TokenType::LiteralOrIdent { len } => {
+                prev_span.end.char += len;
             }
-            _ => return (prev_lit, prev_span),
+            _ => return prev_span,
         }
         parser.next();
     }

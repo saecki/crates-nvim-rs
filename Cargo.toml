@@ -17,6 +17,7 @@ semver = { package = "crates-semver", path = "crates/semver", features = ["serde
 common = { package = "crates-common", path = "crates/common" }
 
 bumpalo = { version = "3.15.4", features = ["collections"] }
+lasso2 = "0.8.2"
 pretty_assertions = "1.4.0"
 indexmap = "2.2.6"
 serde = "1.0"

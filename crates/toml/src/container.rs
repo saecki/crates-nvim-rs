@@ -2,12 +2,11 @@ use std::mem::ManuallyDrop;
 
 use bumpalo::Bump;
 
-use crate::{Asts, MapTable, Tokens, TomlCtx};
+use crate::{Ast, MapTable, TomlCtx};
 
 pub struct Toml<'a> {
     pub input: &'a str,
-    pub tokens: Tokens<'a>,
-    pub asts: Asts<'a>,
+    pub ast: Ast<'a>,
     pub map: MapTable<'a>,
 }
 
@@ -74,15 +73,10 @@ unsafe fn build_container(
     input: &'static str,
 ) -> Container {
     let tokens = ctx.lex(bump, input);
-    let asts = ctx.parse(bump, &tokens);
-    let map = ctx.map(&asts);
+    let ast = ctx.parse(bump, tokens);
+    let map = ctx.map(&ast);
 
-    let toml = Toml {
-        input,
-        tokens,
-        asts,
-        map,
-    };
+    let toml = Toml { input, ast, map };
     let toml = ManuallyDrop::new(toml);
 
     Container { toml, bump }

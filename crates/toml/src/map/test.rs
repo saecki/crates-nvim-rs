@@ -1,7 +1,7 @@
 use common::Pos;
 use pretty_assertions::assert_eq;
 
-use crate::onevec;
+use crate::onevec::onevec;
 use crate::parse::{End, TableHeader};
 use crate::test::*;
 
@@ -12,8 +12,8 @@ fn check(input: &str, expected: MapTable) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
-    let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&asts);
+    let ast = ctx.parse(&bump, tokens);
+    let map = ctx.map(&ast);
     assert_eq!(
         expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",
@@ -28,8 +28,8 @@ fn check_error(input: &str, expected: MapTable, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
-    let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&asts);
+    let ast = ctx.parse(&bump, tokens);
+    let map = ctx.map(&ast);
     assert_eq!(
         expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",
@@ -42,8 +42,10 @@ fn check_error(input: &str, expected: MapTable, error: Error) {
 #[test]
 fn dotted_key() {
     let input = "a.b.c = 1";
+    let bump = Bump::new();
+    let builder = AstBuilder::new(&bump);
 
-    let key = [
+    let key = vec![
         DottedIdent {
             ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos::new(0, 0), 1)),
             dot: Some(Pos::new(0, 1)),
@@ -58,13 +60,11 @@ fn dotted_key() {
         },
     ];
     let value = IntVal {
-        lit: "1",
         lit_span: Span::from_pos_len(Pos::new(0, 8), 1),
         val: 1,
     };
     let assignment = twrap(
-        &[],
-        1,
+        builder.empty_comments(1),
         Assignment {
             key: Key::Dotted(&key),
             eq: Pos::new(0, 6),
@@ -106,6 +106,8 @@ fn dotted_keys_extend() {
 a.b.c = 1
 a.b.d = 2
 ";
+    let bump = Bump::new();
+    let builder = AstBuilder::new(&bump);
 
     let key1 = [
         DottedIdent {
@@ -122,13 +124,11 @@ a.b.d = 2
         },
     ];
     let value1 = IntVal {
-        lit: "1",
         lit_span: Span::from_pos_len(Pos::new(0, 8), 1),
         val: 1,
     };
     let assignment1 = twrap(
-        &[],
-        1,
+        builder.empty_comments(1),
         Assignment {
             key: Key::Dotted(&key1),
             eq: Pos::new(0, 6),
@@ -151,13 +151,11 @@ a.b.d = 2
         },
     ];
     let value2 = IntVal {
-        lit: "2",
         lit_span: Span::from_pos_len(Pos::new(1, 8), 1),
         val: 2,
     };
     let assignment2 = twrap(
-        &[],
-        1,
+        builder.empty_comments(1),
         Assignment {
             key: Key::Dotted(&key2),
             eq: Pos::new(1, 6),
@@ -226,6 +224,7 @@ def = 23.0
 
     let table_key = Ident::from_plain_lit("mytable", Span::from_pos_len(Pos::new(0, 1), 7));
     let bump = Bump::new();
+    let builder = AstBuilder::new(&bump);
 
     let key1 = Ident::from_plain_lit("abc", Span::from_pos_len(Pos::new(1, 0), 3));
     let value1 = BoolVal {
@@ -233,8 +232,7 @@ def = 23.0
         val: true,
     };
     let assignment1 = twrap(
-        &[],
-        2,
+        builder.empty_comments(2),
         Assignment {
             key: Key::One(key1.clone()),
             eq: Pos::new(1, 4),
@@ -244,13 +242,11 @@ def = 23.0
 
     let key2 = Ident::from_plain_lit("def", Span::from_pos_len(Pos::new(2, 0), 3));
     let value2 = FloatVal {
-        lit: "23.0",
         lit_span: Span::from_pos_len(Pos::new(2, 6), 4),
         val: 23.0,
     };
     let assignment2 = twrap(
-        &[],
-        2,
+        builder.empty_comments(2),
         Assignment {
             key: Key::One(key2.clone()),
             eq: Pos::new(2, 4),
@@ -259,13 +255,13 @@ def = 23.0
     );
 
     let table = Table {
-        comments: empty_comments(&[], 1),
+        comments: builder.empty_comments(1),
         header: TableHeader::new(
             Pos::new(0, 0),
             Some(Key::One(table_key.clone())),
             Some(Pos::new(0, 8)),
         ),
-        assignments: bvec![in &bump; assignment1.clone(), assignment2.clone()],
+        assignments: vec![assignment1.clone(), assignment2.clone()],
     };
 
     #[rustfmt::skip]
@@ -308,45 +304,44 @@ def = 23.0
 #[test]
 fn inline_array() {
     let input = "array = [4, 8, 16]";
+    let bump = Bump::new();
+    let builder = AstBuilder::new(&bump);
 
     let value1 = IntVal {
-        lit: "4",
         lit_span: Span::from_pos_len(Pos::new(0, 9), 1),
         val: 4,
     };
     let inline_array_value1 = InlineArrayValue {
-        comments: empty_comments(&[], 3),
+        comments: builder.empty_comments(3),
         val: Value::Int(value1.clone()),
         comma: Some(Pos::new(0, 10)),
     };
 
     let value2 = IntVal {
-        lit: "8",
         lit_span: Span::from_pos_len(Pos::new(0, 12), 1),
         val: 8,
     };
     let inline_array_value2 = InlineArrayValue {
-        comments: empty_comments(&[], 3),
+        comments: builder.empty_comments(3),
         val: Value::Int(value2.clone()),
         comma: Some(Pos::new(0, 13)),
     };
 
     let value3 = IntVal {
-        lit: "16",
         lit_span: Span::from_pos_len(Pos::new(0, 15), 2),
         val: 16,
     };
     let inline_array_value3 = InlineArrayValue {
-        comments: empty_comments(&[], 3),
+        comments: builder.empty_comments(3),
         val: Value::Int(value3.clone()),
         comma: None,
     };
 
     let array_key = Ident::from_plain_lit("array", Span::from_pos_len(Pos::new(0, 0), 5));
     let array = InlineArray {
-        comments: empty_comments(&[], 2),
+        comments: builder.empty_comments(2),
         l_par: Pos::new(0, 8),
-        values: &[
+        values: vec![
             inline_array_value1.clone(),
             inline_array_value2.clone(),
             inline_array_value3.clone(),
@@ -354,8 +349,7 @@ fn inline_array() {
         end: End::Par(Pos::new(0, 17)),
     };
     let assignment = twrap(
-        &[],
-        1,
+        builder.empty_comments(1),
         Assignment {
             key: Key::One(array_key.clone()),
             eq: Pos::new(0, 6),
@@ -432,6 +426,8 @@ fn table_cannot_extend_dotted_key_of_assignment() {
 fruit.apple = 3
 [fruit]
 ";
+    let bump = Bump::new();
+    let builder = AstBuilder::new(&bump);
 
     let key = [
         DottedIdent {
@@ -444,13 +440,11 @@ fruit.apple = 3
         },
     ];
     let value = IntVal {
-        lit: "3",
         lit_span: Span::from_pos_len(Pos::new(0, 14), 1),
         val: 3,
     };
     let assignment = twrap(
-        &[],
-        1,
+        builder.empty_comments(1),
         Assignment {
             key: Key::Dotted(&key),
             eq: Pos::new(0, 12),

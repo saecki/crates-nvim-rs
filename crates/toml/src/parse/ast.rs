@@ -1,20 +1,20 @@
 use std::num::NonZeroU32;
 
-use bumpalo::collections::Vec as BVec;
 use common::{Pos, Span};
 
 use crate::datetime::DateTime;
-use crate::lex::TextOffset;
+use crate::lex::{Source, TextOffset};
 use crate::Quote;
 
 #[derive(Debug, PartialEq)]
-pub struct Asts<'a> {
-    pub asts: &'a [Ast<'a>],
-    pub comments: &'a [AssocComment<'a>],
+pub struct Ast<'a> {
+    pub source: Source<'a>,
+    pub toplevel: &'a [Toplevel<'a>],
+    pub comments: &'a [AssocComment],
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Ast<'a> {
+pub enum Toplevel<'a> {
     Assignment(ToplevelAssignment<'a>),
     Table(Table<'a>),
     Array(ArrayEntry<'a>),
@@ -52,16 +52,16 @@ impl CommentRange {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AssocComment<'a> {
+pub struct AssocComment {
     pub pos: AssocPos,
     /// level 0 are comments that are associated with items declared directly in root, such as
     /// assignments (that aren't declared inside a table), tables and arrays of tables
     pub level: u16,
-    pub comment: Comment<'a>,
+    pub comment: Comment,
 }
 
-impl<'a> AssocComment<'a> {
-    pub fn above(level: u16, comment: Comment<'a>) -> AssocComment<'a> {
+impl AssocComment {
+    pub fn above(level: u16, comment: Comment) -> AssocComment {
         AssocComment {
             pos: AssocPos::Above,
             level,
@@ -69,7 +69,7 @@ impl<'a> AssocComment<'a> {
         }
     }
 
-    pub fn line_end(level: u16, comment: Comment<'a>) -> AssocComment<'a> {
+    pub fn line_end(level: u16, comment: Comment) -> AssocComment {
         AssocComment {
             pos: AssocPos::LineEnd,
             level,
@@ -77,7 +77,7 @@ impl<'a> AssocComment<'a> {
         }
     }
 
-    pub fn contained(level: u16, comment: Comment<'a>) -> AssocComment<'a> {
+    pub fn contained(level: u16, comment: Comment) -> AssocComment {
         AssocComment {
             pos: AssocPos::Contained,
             level,
@@ -100,10 +100,10 @@ pub enum AssocPos {
 pub struct Table<'a> {
     pub comments: CommentRange,
     pub header: TableHeader<'a>,
-    pub assignments: BVec<'a, ToplevelAssignment<'a>>,
+    pub assignments: Vec<ToplevelAssignment<'a>>,
 }
 
-impl<'a> Table<'a> {
+impl Table<'_> {
     #[inline]
     pub fn span(&self) -> Span {
         Span::new(self.start(), self.end())
@@ -174,10 +174,10 @@ impl<'a> TableHeader<'a> {
 pub struct ArrayEntry<'a> {
     pub comments: CommentRange,
     pub header: ArrayHeader<'a>,
-    pub assignments: BVec<'a, ToplevelAssignment<'a>>,
+    pub assignments: Vec<ToplevelAssignment<'a>>,
 }
 
-impl<'a> ArrayEntry<'a> {
+impl ArrayEntry<'_> {
     #[inline]
     pub fn span(&self) -> Span {
         Span::new(self.start(), self.end())
@@ -346,10 +346,11 @@ impl Key<'_> {
     }
 }
 
+/// Identifiers cannot contain line breaks.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Ident<'a> {
-    pub lit: &'a str,
     pub lit_start: Pos,
+    pub lit_len: u32,
     pub text: &'a str,
     pub text_start_offset: u8,
     pub text_end_offset: u8,
@@ -359,8 +360,8 @@ pub struct Ident<'a> {
 impl<'a> Ident<'a> {
     pub fn from_plain_lit(lit: &'a str, span: Span) -> Self {
         Ident {
-            lit,
             lit_start: span.start,
+            lit_len: lit.len() as u32,
             text: lit,
             text_start_offset: 0,
             text_end_offset: 0,
@@ -369,15 +370,15 @@ impl<'a> Ident<'a> {
     }
 
     pub fn from_string(
-        lit: &'a str,
         lit_span: Span,
         text: &'a str,
         text_offset: TextOffset,
         kind: IdentKind,
     ) -> Self {
+        let lit_len = lit_span.end.char - lit_span.start.char;
         Ident {
-            lit,
             lit_start: lit_span.start,
+            lit_len,
             text,
             // multiline strings aren't allowed as identifiers, hence line offsets are zero
             text_start_offset: text_offset.start_char,
@@ -388,18 +389,18 @@ impl<'a> Ident<'a> {
 
     #[inline(always)]
     pub fn lit_span(&self) -> Span {
-        Span::from_pos_len(self.lit_start, self.lit.len() as u32)
+        Span::from_pos_len(self.lit_start, self.lit_len)
     }
 
     #[inline(always)]
     pub fn lit_end(&self) -> Pos {
-        self.lit_start.plus(self.lit.len() as u32)
+        self.lit_start.plus(self.lit_len)
     }
 
     #[inline(always)]
     pub fn text_span(&self) -> Span {
         let start = self.lit_start.plus(self.text_start_offset as u32);
-        let len = self.lit.len() as u32 - (self.text_start_offset + self.text_end_offset) as u32;
+        let len = self.lit_len - (self.text_start_offset + self.text_end_offset) as u32;
         Span::from_pos_len(start, len)
     }
 }
@@ -414,13 +415,13 @@ pub enum IdentKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value<'a> {
     String(StringVal<'a>),
-    Int(IntVal<'a>),
-    Float(FloatVal<'a>),
+    Int(IntVal),
+    Float(FloatVal),
     Bool(BoolVal),
-    DateTime(DateTimeVal<'a>),
+    DateTime(DateTimeVal),
     InlineTable(InlineTable<'a>),
     InlineArray(InlineArray<'a>),
-    Invalid(&'a str, Span),
+    Invalid(Span),
 }
 
 impl Value<'_> {
@@ -434,7 +435,7 @@ impl Value<'_> {
             Value::DateTime(d) => d.lit_span,
             Value::InlineTable(t) => t.span(),
             Value::InlineArray(a) => a.span(),
-            Value::Invalid(_, r) => *r,
+            Value::Invalid(span) => *span,
         }
     }
 
@@ -448,7 +449,7 @@ impl Value<'_> {
             Value::DateTime(d) => d.lit_span.start,
             Value::InlineTable(t) => t.start(),
             Value::InlineArray(a) => a.start(),
-            Value::Invalid(_, s) => s.end,
+            Value::Invalid(span) => span.start,
         }
     }
 
@@ -462,7 +463,7 @@ impl Value<'_> {
             Value::DateTime(d) => d.lit_span.end,
             Value::InlineTable(t) => t.end(),
             Value::InlineArray(a) => a.end(),
-            Value::Invalid(_, s) => s.end,
+            Value::Invalid(span) => span.end,
         }
     }
 
@@ -473,42 +474,39 @@ impl Value<'_> {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StringVal<'a> {
-    pub lit: &'a str,
     pub lit_span: Span,
     pub text: &'a str,
     pub text_offset: TextOffset,
     pub quote: Quote,
 }
 
-impl<'a> StringVal<'a> {
+impl StringVal<'_> {
     pub fn text_span(&self) -> Span {
         self.text_offset.apply_to(self.lit_span)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IntVal<'a> {
-    pub lit: &'a str,
+pub struct IntVal {
     pub lit_span: Span,
     pub val: i64,
 }
 
-impl<'a> IntVal<'a> {
-    pub fn new(lit: &'a str, lit_span: Span, val: i64) -> Self {
-        Self { lit, lit_span, val }
+impl IntVal {
+    pub fn new(lit_span: Span, val: i64) -> Self {
+        Self { lit_span, val }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct FloatVal<'a> {
-    pub lit: &'a str,
+pub struct FloatVal {
     pub lit_span: Span,
     pub val: f64,
 }
 
-impl<'a> FloatVal<'a> {
-    pub fn new(lit: &'a str, lit_span: Span, val: f64) -> Self {
-        Self { lit, lit_span, val }
+impl FloatVal {
+    pub fn new(lit_span: Span, val: f64) -> Self {
+        Self { lit_span, val }
     }
 }
 
@@ -525,22 +523,21 @@ impl BoolVal {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DateTimeVal<'a> {
-    pub lit: &'a str,
+pub struct DateTimeVal {
     pub lit_span: Span,
     pub val: DateTime,
 }
 
-impl<'a> DateTimeVal<'a> {
-    pub fn new(lit: &'a str, lit_span: Span, val: DateTime) -> Self {
-        Self { lit, lit_span, val }
+impl DateTimeVal {
+    pub fn new(lit_span: Span, val: DateTime) -> Self {
+        Self { lit_span, val }
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineTable<'a> {
     pub l_par: Pos,
-    pub assignments: &'a [InlineTableAssignment<'a>],
+    pub assignments: Vec<InlineTableAssignment<'a>>,
     pub end: End,
 }
 
@@ -598,7 +595,7 @@ impl InlineTableAssignment<'_> {
 pub struct InlineArray<'a> {
     pub comments: CommentRange,
     pub l_par: Pos,
-    pub values: &'a [InlineArrayValue<'a>],
+    pub values: Vec<InlineArrayValue<'a>>,
     pub end: End,
 }
 
@@ -675,7 +672,13 @@ impl InlineArrayValue<'_> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Comment<'a> {
+pub struct Comment {
     pub span: Span,
-    pub text: &'a str,
+}
+
+impl Comment {
+    pub fn from_pos_len(pos: Pos, len: u32) -> Self {
+        let span = Span::from_pos_len(pos, len);
+        Comment { span }
+    }
 }

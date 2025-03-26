@@ -1,5 +1,6 @@
 use crate::datetime::DateTime;
 use crate::map::{MapArray, MapInner, MapNode, MapTable, Scalar};
+use crate::Ast;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Datatype {
@@ -52,7 +53,7 @@ impl Scalar<'_> {
             Scalar::Float(_) => Datatype::Float,
             Scalar::Bool(_) => Datatype::Bool,
             Scalar::DateTime(_) => Datatype::DateTime,
-            Scalar::Invalid(_, _) => Datatype::Invalid,
+            Scalar::Invalid(_) => Datatype::Invalid,
         }
     }
 }
@@ -99,23 +100,23 @@ impl std::fmt::Debug for SimpleVal {
     }
 }
 
-pub fn map_simple(map: MapTable) -> MapInner<String, SimpleVal> {
+pub fn map_simple(ast: &Ast, map: MapTable) -> MapInner<String, SimpleVal> {
     let iter = map
         .into_iter()
-        .map(|(k, e)| (k.to_string(), map_simple_val(e.node)));
+        .map(|(k, e)| (k.to_string(), map_simple_val(ast, e.node)));
     MapInner::from_iter(iter)
 }
 
-pub fn map_simple_val(node: MapNode) -> SimpleVal {
+pub fn map_simple_val(ast: &Ast, node: MapNode) -> SimpleVal {
     match node {
-        MapNode::Table(t) => SimpleVal::Table(map_simple(t)),
+        MapNode::Table(t) => SimpleVal::Table(map_simple(ast, t)),
         MapNode::Array(MapArray::Toplevel(a)) => SimpleVal::Array(
             a.into_iter()
-                .map(|e| SimpleVal::Table(map_simple(e.node)))
+                .map(|e| SimpleVal::Table(map_simple(ast, e.node)))
                 .collect(),
         ),
         MapNode::Array(MapArray::Inline(a)) => {
-            SimpleVal::Array(a.into_iter().map(|e| map_simple_val(e.node)).collect())
+            SimpleVal::Array(a.into_iter().map(|e| map_simple_val(ast, e.node)).collect())
         }
         MapNode::Scalar(s) => match s {
             Scalar::String(s) => SimpleVal::String(s.text.to_string()),
@@ -123,7 +124,7 @@ pub fn map_simple_val(node: MapNode) -> SimpleVal {
             Scalar::Float(f) => SimpleVal::Float(f.val),
             Scalar::Bool(b) => SimpleVal::Bool(b.val),
             Scalar::DateTime(d) => SimpleVal::DateTime(d.val),
-            Scalar::Invalid(i, _) => SimpleVal::Invalid(i.to_string()),
+            Scalar::Invalid(span) => SimpleVal::Invalid(ast.source.spanned_str(*span).to_string()),
         },
     }
 }

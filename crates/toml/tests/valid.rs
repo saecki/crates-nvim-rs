@@ -4,7 +4,7 @@ use toml_test_harness::{Decoded, DecodedValue};
 
 use crates_toml::datetime::DateTime;
 use crates_toml::map::{MapArray, MapNode, Scalar};
-use crates_toml::{MapTable, TomlCtx, TomlDiagnostics};
+use crates_toml::{Ast, MapTable, TomlCtx, TomlDiagnostics};
 
 #[derive(Clone, Copy)]
 struct TestDecoder;
@@ -16,8 +16,8 @@ impl toml_test_harness::Decoder for TestDecoder {
         let mut ctx = TomlDiagnostics::default();
         let bump = Bump::new();
         let tokens = ctx.lex(&bump, input);
-        let asts = ctx.parse(&bump, &tokens);
-        let map = ctx.map(&asts);
+        let ast = ctx.parse(&bump, tokens);
+        let map = ctx.map(&ast);
 
         if let Some(error) = ctx.errors.first() {
             let lines = diagnostic::lines(input);
@@ -26,7 +26,7 @@ impl toml_test_harness::Decoder for TestDecoder {
             return Err(toml_test_harness::Error::new(msg));
         }
 
-        Ok(map_table(map))
+        Ok(map_table(&ast, map))
     }
 
     fn name(&self) -> &str {
@@ -34,14 +34,14 @@ impl toml_test_harness::Decoder for TestDecoder {
     }
 }
 
-fn map_decoded(node: MapNode) -> Decoded {
+fn map_decoded(ast: &Ast, node: MapNode) -> Decoded {
     match node {
-        MapNode::Table(t) => map_table(t),
+        MapNode::Table(t) => map_table(ast, t),
         MapNode::Array(MapArray::Toplevel(a)) => {
-            Decoded::Array(a.into_iter().map(|e| map_table(e.node)).collect())
+            Decoded::Array(a.into_iter().map(|e| map_table(ast, e.node)).collect())
         }
         MapNode::Array(MapArray::Inline(a)) => {
-            Decoded::Array(a.into_iter().map(|e| map_decoded(e.node)).collect())
+            Decoded::Array(a.into_iter().map(|e| map_decoded(ast, e.node)).collect())
         }
         MapNode::Scalar(s) => Decoded::Value(match s {
             Scalar::String(s) => DecodedValue::String(s.text.to_string()),
@@ -52,22 +52,28 @@ fn map_decoded(node: MapNode) -> Decoded {
                 str
             }),
             Scalar::Bool(b) => DecodedValue::Bool(b.val.to_string()),
-            Scalar::DateTime(d) => match d.val {
-                DateTime::OffsetDateTime(_, _, _) => DecodedValue::Datetime(d.lit.to_string()),
-                DateTime::LocalDateTime(_, _) => DecodedValue::DatetimeLocal(d.lit.to_string()),
-                DateTime::LocalDate(_) => DecodedValue::DateLocal(d.lit.to_string()),
-                DateTime::LocalTime(_) => DecodedValue::TimeLocal(d.lit.to_string()),
-            },
-            Scalar::Invalid(i, s) => unreachable!("{i} at {s:?}"),
+            Scalar::DateTime(d) => {
+                let str = ast.source.spanned_str(d.lit_span).to_string();
+                match d.val {
+                    DateTime::OffsetDateTime(_, _, _) => DecodedValue::Datetime(str),
+                    DateTime::LocalDateTime(_, _) => DecodedValue::DatetimeLocal(str),
+                    DateTime::LocalDate(_) => DecodedValue::DateLocal(str),
+                    DateTime::LocalTime(_) => DecodedValue::TimeLocal(str),
+                }
+            }
+            Scalar::Invalid(span) => {
+                let str = ast.source.spanned_str(*span);
+                unreachable!("`{str}` at {s:?}")
+            }
         }),
     }
 }
 
-fn map_table(table: MapTable) -> Decoded {
+fn map_table(ast: &Ast, table: MapTable) -> Decoded {
     Decoded::Table(
         table
             .into_iter()
-            .map(|(k, e)| (k.to_string(), map_decoded(e.node)))
+            .map(|(k, e)| (k.to_string(), map_decoded(ast, e.node)))
             .collect(),
     )
 }

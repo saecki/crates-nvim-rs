@@ -4,7 +4,7 @@ use common::{Ctx, Diagnostics};
 pub use error::{Error, Hint, Info, Warning};
 pub use lex::{lex, Quote, Token, TokenType, Tokens};
 pub use map::{map, MapTable};
-pub use parse::{parse, Ast, Asts};
+pub use parse::{parse, Toplevel, Ast};
 
 pub mod datetime;
 pub mod error;
@@ -29,12 +29,12 @@ pub trait TomlCtx:
         lex(self, bump, input)
     }
 
-    fn parse<'a>(&mut self, bump: &'a Bump, tokens: &Tokens<'a>) -> Asts<'a> {
+    fn parse<'a>(&mut self, bump: &'a Bump, tokens: Tokens<'a>) -> Ast<'a> {
         parse(self, bump, tokens)
     }
 
-    fn map<'a>(&mut self, asts: &Asts<'a>) -> MapTable<'a> {
-        map(self, asts)
+    fn map<'a>(&mut self, ast: &Ast<'a>) -> MapTable<'a> {
+        map(self, ast)
     }
 }
 

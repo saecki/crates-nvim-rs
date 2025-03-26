@@ -74,8 +74,8 @@ fn check_toml(check: bool) -> Result<VimDiagnostics, nvim_oxi::api::Error> {
     let mut ctx = IdeDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, &text);
-    let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&asts);
+    let ast = ctx.parse(&bump, tokens);
+    let map = ctx.map(&ast);
     if check {
         let _state = ctx.check(&map);
     }

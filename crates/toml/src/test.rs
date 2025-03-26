@@ -1,5 +1,3 @@
-pub use bumpalo::collections::Vec as BVec;
-pub use bumpalo::vec as bvec;
 pub use bumpalo::Bump;
 use common::{Pos, Span};
 pub use pretty_assertions::assert_eq;
@@ -14,6 +12,42 @@ use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, Int
 
 mod fuzz;
 
+pub struct AstBuilder<'a> {
+    pub bump: &'a Bump,
+    pub comments: Vec<AssocComment>,
+}
+
+impl<'a> AstBuilder<'a> {
+    pub fn new(bump: &'a Bump) -> Self {
+        Self {
+            bump,
+            comments: Vec::new(),
+        }
+    }
+
+    pub fn ec(&self, level: u16) -> CommentRange {
+        self.empty_comments(level)
+    }
+
+    pub fn empty_comments(&self, level: u16) -> CommentRange {
+        CommentRange::new(CommentId(self.comments.len() as u32), 0, level)
+    }
+
+    pub fn comments<const SIZE: usize>(
+        &mut self,
+        level: u16,
+        comments: [AssocComment; SIZE],
+    ) -> CommentRange {
+        let range = CommentRange::new(
+            CommentId(self.comments.len() as u32),
+            comments.len() as u32,
+            level,
+        );
+        self.comments.extend(comments);
+        range
+    }
+}
+
 #[track_caller]
 pub fn expect_float(table: &MapInner<String, SimpleVal>, key: &str) -> f64 {
     let val = table.get(key).unwrap();
@@ -27,9 +61,9 @@ pub fn parse_simple(input: &str) -> (TomlDiagnostics, MapInner<String, SimpleVal
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
-    let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&asts);
-    let table = util::map_simple(map);
+    let ast = ctx.parse(&bump, tokens);
+    let map = ctx.map(&ast);
+    let table = util::map_simple(&ast, map);
     (ctx, table)
 }
 
@@ -57,11 +91,10 @@ pub fn check_simple_error(input: &str, expected: MapInner<String, SimpleVal>, er
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
-pub fn int(line: u32, char: u32, lit: &str) -> Value<'_> {
+pub fn int(line: u32, char: u32, lit: &str) -> Value {
     let val_span = Span::from_pos_len(Pos { line, char }, lit.len() as u32);
     let num = lit.replace('_', "").parse::<i64>().unwrap();
     Value::Int(IntVal {
-        lit,
         lit_span: val_span,
         val: num,
     })
@@ -92,7 +125,7 @@ pub fn ainvalid<'a>(line: u32, char: u32, ident: &'a str, val: &'a str) -> Assig
         },
         val.len() as u32,
     );
-    let val = Value::Invalid(val, val_span);
+    let val = Value::Invalid(val_span);
     a(line, char, ident, val)
 }
 
@@ -111,14 +144,13 @@ pub fn afloat<'a>(line: u32, char: u32, ident: &'a str, val: &'a str) -> Assignm
     );
     let num = val.replace('_', "").parse::<f64>().unwrap();
     let val = Value::Float(FloatVal {
-        lit: val,
         lit_span: val_span,
         val: num,
     });
     a(line, char, ident, val)
 }
 
-pub fn abool(line: u32, char: u32, ident: &str, val: bool) -> Assignment<'_> {
+pub fn abool(line: u32, char: u32, ident: &str, val: bool) -> Assignment {
     let val = bool(line, char + ident.len() as u32 + 3, val);
     a(line, char, ident, val)
 }
@@ -145,7 +177,6 @@ pub fn astring<'a>(
     let text_offset = TextOffset::chars(start_offset, end_offset);
     let val = Value::String(StringVal {
         lit_span,
-        lit,
         text,
         text_offset,
         quote,
@@ -153,92 +184,64 @@ pub fn astring<'a>(
     a(line, char, ident, val)
 }
 
-pub fn twrap<'a>(
-    comments: &[AssocComment],
-    level: u16,
-    assignment: Assignment<'a>,
-) -> ToplevelAssignment<'a> {
+pub fn twrap<'a>(comments: CommentRange, assignment: Assignment<'a>) -> ToplevelAssignment<'a> {
     ToplevelAssignment {
-        comments: empty_comments(comments, level),
+        comments,
         assignment,
     }
 }
 
 pub fn ta<'a, 'b>(
-    comments: &'b [AssocComment<'b>],
-    level: u16,
+    comments: CommentRange,
     line: u32,
     ident: &'a str,
     val: Value<'a>,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, level, a(line, 0, ident, val))
+    twrap(comments, a(line, 0, ident, val))
 }
 
 pub fn tainvalid<'a>(
-    comments: &[AssocComment],
-    level: u16,
+    comments: CommentRange,
     line: u32,
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, level, ainvalid(line, 0, ident, val))
+    twrap(comments, ainvalid(line, 0, ident, val))
 }
 
 pub fn taint<'a>(
-    comments: &[AssocComment],
-    level: u16,
+    comments: CommentRange,
     line: u32,
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, level, aint(line, 0, ident, val))
+    twrap(comments, aint(line, 0, ident, val))
 }
 
 pub fn tafloat<'a>(
-    comments: &[AssocComment],
-    level: u16,
+    comments: CommentRange,
     line: u32,
     ident: &'a str,
     val: &'a str,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, level, afloat(line, 0, ident, val))
+    twrap(comments, afloat(line, 0, ident, val))
 }
 
 pub fn tabool<'a>(
-    comments: &[AssocComment],
-    level: u16,
+    comments: CommentRange,
     line: u32,
     ident: &'a str,
     val: bool,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, level, abool(line, 0, ident, val))
+    twrap(comments, abool(line, 0, ident, val))
 }
 
 pub fn tastring<'a>(
-    comments: &[AssocComment],
-    level: u16,
+    comments: CommentRange,
     line: u32,
     ident: &'a str,
     lit: &'a str,
     quote: Quote,
 ) -> ToplevelAssignment<'a> {
-    twrap(comments, level, astring(line, 0, ident, lit, quote))
-}
-
-pub fn empty_comments(comments: &[AssocComment], level: u16) -> CommentRange {
-    CommentRange::new(CommentId(comments.len() as u32), 0, level)
-}
-
-pub fn build_comments<'a, const SIZE: usize>(
-    storage: &mut BVec<'a, AssocComment<'a>>,
-    level: u16,
-    comments: [AssocComment<'a>; SIZE],
-) -> CommentRange {
-    let range = CommentRange::new(
-        CommentId(storage.len() as u32),
-        comments.len() as u32,
-        level,
-    );
-    storage.extend(comments);
-    range
+    twrap(comments, astring(line, 0, ident, lit, quote))
 }

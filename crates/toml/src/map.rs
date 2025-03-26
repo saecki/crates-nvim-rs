@@ -41,11 +41,11 @@ use common::{FmtChar, FmtStr, Span};
 
 use crate::onevec::OneVec;
 use crate::parse::{
-    ArrayEntry, Ast, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
+    ArrayEntry, Toplevel, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
     InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, ToplevelAssignment,
     Value,
 };
-use crate::{Asts, Error, TomlCtx};
+use crate::{Ast, Error, TomlCtx};
 
 #[cfg(test)]
 mod test;
@@ -350,11 +350,11 @@ pub enum MapNode<'a> {
 #[derive(Debug, PartialEq)]
 pub enum Scalar<'a> {
     String(&'a StringVal<'a>),
-    Int(&'a IntVal<'a>),
-    Float(&'a FloatVal<'a>),
+    Int(&'a IntVal),
+    Float(&'a FloatVal),
     Bool(&'a BoolVal),
-    DateTime(&'a DateTimeVal<'a>),
-    Invalid(&'a str, Span),
+    DateTime(&'a DateTimeVal),
+    Invalid(&'a Span),
 }
 
 impl Scalar<'_> {
@@ -366,7 +366,7 @@ impl Scalar<'_> {
             Scalar::Float(f) => f.lit_span,
             Scalar::Bool(b) => b.lit_span,
             Scalar::DateTime(d) => d.lit_span,
-            Scalar::Invalid(_, span) => *span,
+            Scalar::Invalid(span) => **span,
         }
     }
 }
@@ -541,12 +541,12 @@ enum InsertValue<'a> {
     TableAssignments(&'a [ToplevelAssignment<'a>]),
 }
 
-pub fn map<'a>(ctx: &mut impl TomlCtx, asts: &'_ Asts<'a>) -> MapTable<'a> {
+pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
     let mut root = MapTable::new();
     let mut bump = Bump::new();
-    for a in asts.asts.iter() {
+    for a in ast.toplevel.iter() {
         match a {
-            Ast::Assignment(assignment) => {
+            Toplevel::Assignment(assignment) => {
                 let repr_kind = MapTableEntryReprKind::ToplevelAssignment(assignment);
                 insert_node_at_path(
                     ctx,
@@ -559,7 +559,7 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, asts: &'_ Asts<'a>) -> MapTable<'a> {
                     repr_kind,
                 );
             }
-            Ast::Table(table) => {
+            Toplevel::Table(table) => {
                 let Some(key) = &table.header.key else {
                     continue;
                 };
@@ -576,7 +576,7 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, asts: &'_ Asts<'a>) -> MapTable<'a> {
                     repr_kind,
                 );
             }
-            Ast::Array(array_entry) => {
+            Toplevel::Array(array_entry) => {
                 let Some(key) = &array_entry.header.key else {
                     continue;
                 };
@@ -644,7 +644,7 @@ fn map_value<'a, 'b>(
             let array = MapArrayInline::from_iter(parent, inline_array, entries);
             MapNode::Array(MapArray::Inline(array))
         }
-        Value::Invalid(s, r) => MapNode::Scalar(Scalar::Invalid(s, *r)),
+        Value::Invalid(s) => MapNode::Scalar(Scalar::Invalid(s)),
     }
 }
 

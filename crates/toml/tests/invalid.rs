@@ -260,8 +260,8 @@ fn run_case(input: &str) -> Result<MapInner<String, SimpleVal>, String> {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
-    let asts = ctx.parse(&bump, &tokens);
-    let map = ctx.map(&asts);
+    let ast = ctx.parse(&bump, tokens);
+    let map = ctx.map(&ast);
 
     if !ctx.errors.is_empty() {
         ctx.sort_diagnostics();
@@ -273,7 +273,7 @@ fn run_case(input: &str) -> Result<MapInner<String, SimpleVal>, String> {
         return Err(msg);
     }
 
-    Ok(crates_toml::util::map_simple(map))
+    Ok(crates_toml::util::map_simple(&ast, map))
 }
 
 fn dialog<const SIZE: usize>(options: [&str; SIZE]) -> &str {

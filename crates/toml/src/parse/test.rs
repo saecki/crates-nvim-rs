@@ -1,3 +1,4 @@
+use common::Pos;
 use pretty_assertions::assert_eq;
 
 use super::*;
@@ -6,66 +7,58 @@ use crate::map::MapInner;
 use crate::test::*;
 
 #[track_caller]
-fn check_comments<'a, const SIZE: usize>(
+fn check<'a, const SIZE: usize>(
     input: &str,
-    expected_builder: impl FnOnce(&'a Bump, &'_ mut BVec<'a, AssocComment<'a>>) -> [Ast<'a>; SIZE],
+    expected_builder: impl FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
-    let asts = ctx.parse(&bump, &tokens);
+    let ast = ctx.parse(&bump, tokens);
 
     // HACK
     let expected_bump = Box::leak(Box::new(Bump::new()));
-    let mut expected_comments = BVec::new_in(expected_bump);
-    let expected_asts = expected_builder(expected_bump, &mut expected_comments);
+    let mut builder = AstBuilder::new(expected_bump);
+    let expected_toplevel = expected_builder(&mut builder);
     assert_eq!(
-        Asts {
-            asts: &expected_asts,
-            comments: &expected_comments,
-        },
-        asts,
+        expected_toplevel, ast.toplevel,
         "\nerrors: {:#?}\nwarnings: {:#?}",
-        ctx.errors,
-        ctx.warnings
+        ctx.errors, ctx.warnings
+    );
+    assert_eq!(
+        builder.comments, ast.comments,
+        "\nerrors: {:#?}\nwarnings: {:#?}",
+        ctx.errors, ctx.warnings
     );
     assert_eq!(Vec::<Error>::new(), ctx.errors);
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
 #[track_caller]
-fn check<'a, const SIZE: usize>(
-    input: &str,
-    expected_builder: impl FnOnce(&'a Bump, &[AssocComment<'a>]) -> [Ast<'a>; SIZE],
-) {
-    check_comments(input, |bump, comments| expected_builder(bump, comments))
-}
-
-#[track_caller]
 fn check_error<'a, const SIZE: usize>(
     input: &str,
-    expected_builder: impl FnOnce(&'a Bump, &[AssocComment<'a>]) -> [Ast<'a>; SIZE],
+    expected_builder: impl FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
     error: Error,
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
-    let asts = ctx.parse(&bump, &tokens);
+    let ast = ctx.parse(&bump, tokens);
 
     // HACK
     let expected_bump = Box::leak(Box::new(Bump::new()));
-    let expected_comments = [];
-    let expected_asts = expected_builder(expected_bump, &expected_comments);
+    let mut builder = AstBuilder::new(expected_bump);
+    let expected_toplevel = expected_builder(&mut builder);
 
     assert_eq!(
-        Asts {
-            asts: &expected_asts,
-            comments: &expected_comments,
-        },
-        asts,
+        expected_toplevel, ast.toplevel,
         "\nerrors: {:#?}\nwarnings: {:#?}",
-        ctx.errors,
-        ctx.warnings
+        ctx.errors, ctx.warnings
+    );
+    assert_eq!(
+        builder.comments, ast.comments,
+        "\nerrors: {:#?}\nwarnings: {:#?}",
+        ctx.errors, ctx.warnings
     );
     assert_eq!(vec![error], ctx.errors);
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
@@ -160,12 +153,26 @@ fn assign_sgined_zero_floats() {
 fn sign_prefixed_binary_int() {
     check_error(
         "num = -0b10100",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "num", "-0b10100"))],
+        |b| {
+            [Toplevel::Assignment(tainvalid(
+                b.ec(1),
+                0,
+                "num",
+                "-0b10100",
+            ))]
+        },
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
     check_error(
         "num = +0b10100",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "num", "+0b10100"))],
+        |b| {
+            [Toplevel::Assignment(tainvalid(
+                b.ec(1),
+                0,
+                "num",
+                "+0b10100",
+            ))]
+        },
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
@@ -174,12 +181,12 @@ fn sign_prefixed_binary_int() {
 fn sign_prefixed_octal_int() {
     check_error(
         "num = -0o361",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "num", "-0o361"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "-0o361"))],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
     check_error(
         "num = +0o361",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "num", "+0o361"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "+0o361"))],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
@@ -188,12 +195,12 @@ fn sign_prefixed_octal_int() {
 fn signed_prefixed_hexadecimal_int() {
     check_error(
         "num = -0xc20",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "num", "-0xc20"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "-0xc20"))],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
     check_error(
         "num = +0xc20",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "num", "+0xc20"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "+0xc20"))],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
@@ -227,29 +234,34 @@ fn uppercase_hexadecimal_radix_not_allowed() {
 
 #[test]
 fn assign_bool() {
-    check("abc = false", |_, c| {
-        [Ast::Assignment(tabool(c, 1, 0, "abc", false))]
+    check("abc = false", |b| {
+        [Toplevel::Assignment(tabool(b.ec(1), 0, "abc", false))]
     });
 }
 
 #[test]
 fn assign_float() {
-    check("abc = 23.5", |_, c| {
-        [Ast::Assignment(tafloat(c, 1, 0, "abc", "23.5"))]
+    check("abc = 23.5", |b| {
+        [Toplevel::Assignment(tafloat(b.ec(1), 0, "abc", "23.5"))]
     });
 }
 
 #[test]
 fn assign_float_with_exp1() {
-    check("abc = 23.5e+9", |_, c| {
-        [Ast::Assignment(tafloat(c, 1, 0, "abc", "23.5e+9"))]
+    check("abc = 23.5e+9", |b| {
+        [Toplevel::Assignment(tafloat(b.ec(1), 0, "abc", "23.5e+9"))]
     });
 }
 
 #[test]
 fn assign_float_with_exp2() {
-    check("abc = 23.5e-1_2", |_, c| {
-        [Ast::Assignment(tafloat(c, 1, 0, "abc", "23.5e-1_2"))]
+    check("abc = 23.5e-1_2", |b| {
+        [Toplevel::Assignment(tafloat(
+            b.ec(1),
+            0,
+            "abc",
+            "23.5e-1_2",
+        ))]
     });
 }
 
@@ -257,15 +269,22 @@ fn assign_float_with_exp2() {
 fn float_fractional_part_ends_with_underscore() {
     check_error(
         "abc = 23.5_e9",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "abc", "23.5_e9"))],
+        |b| {
+            [Toplevel::Assignment(tainvalid(
+                b.ec(1),
+                0,
+                "abc",
+                "23.5_e9",
+            ))]
+        },
         Error::LitEndsWithUnderscore(LitPart::FloatFract, Pos { line: 0, char: 10 }),
     );
 }
 
 #[test]
 fn int_with_underscore() {
-    check("abc = 1_000", |_, c| {
-        [Ast::Assignment(taint(c, 1, 0, "abc", "1_000"))]
+    check("abc = 1_000", |b| {
+        [Toplevel::Assignment(taint(b.ec(1), 0, "abc", "1_000"))]
     });
 }
 
@@ -273,7 +292,7 @@ fn int_with_underscore() {
 fn invalid_prefixed_int_radix() {
     check_error(
         "abc = 0c324",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "abc", "0c324"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0c324"))],
         Error::ExpectedRadixOrDateTime(FmtChar('c'), Pos { line: 0, char: 7 }),
     );
 }
@@ -282,7 +301,7 @@ fn invalid_prefixed_int_radix() {
 fn prefixed_int_digit_too_big() {
     check_error(
         "abc = 0o384",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "abc", "0o384"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0o384"))],
         Error::IntDigitTooBig(IntPrefix::Octal, FmtChar('8'), Pos { line: 0, char: 9 }),
     );
 }
@@ -291,7 +310,7 @@ fn prefixed_int_digit_too_big() {
 fn prefixed_int_starts_with_underscore() {
     check_error(
         "abc = 0o_43",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "abc", "0o_43"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0o_43"))],
         Error::PrefixedIntValueStartsWithUnderscore(Pos { line: 0, char: 8 }),
     );
 }
@@ -300,19 +319,18 @@ fn prefixed_int_starts_with_underscore() {
 fn prefixed_int_ends_with_underscore() {
     check_error(
         "abc = 0o43_",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "abc", "0o43_"))],
+        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0o43_"))],
         Error::PrefixedIntValueEndsWithUnderscore(Pos { line: 0, char: 10 }),
     );
 }
 
 #[test]
 fn dotted_key() {
-    check("a.b.c = false", |bump, comments| {
-        [Ast::Assignment(twrap(
-            comments,
-            1,
+    check("a.b.c = false", |builder| {
+        [Toplevel::Assignment(twrap(
+            builder.empty_comments(1),
             Assignment {
-                key: Key::Dotted(bump.alloc([
+                key: Key::Dotted(builder.bump.alloc([
                     DottedIdent {
                         ident: Ident::from_plain_lit(
                             "a",
@@ -344,8 +362,8 @@ fn dotted_key() {
 
 #[test]
 fn int_identifier() {
-    check("123 = false", |_, c| {
-        [Ast::Assignment(tabool(c, 1, 0, "123", false))]
+    check("123 = false", |b| {
+        [Toplevel::Assignment(tabool(b.ec(1), 0, "123", false))]
     });
 }
 
@@ -353,7 +371,7 @@ fn int_identifier() {
 fn invalid_int_identifier() {
     check_error(
         "+99 = false",
-        |_, c| [Ast::Assignment(tabool(c, 1, 0, "+99", false))],
+        |b| [Toplevel::Assignment(tabool(b.ec(1), 0, "+99", false))],
         Error::InvalidCharInIdentifier(FmtChar('+'), Pos { line: 0, char: 0 }),
     );
 }
@@ -389,10 +407,9 @@ fn space_between_array_header_brackets() {
 fn invalid_float_literal_as_identifier() {
     check_error(
         "23e+3 = 'hello'",
-        |_, c| {
-            [Ast::Assignment(tastring(
-                c,
-                1,
+        |b| {
+            [Toplevel::Assignment(tastring(
+                b.ec(1),
                 0,
                 "23e+3",
                 "'hello'",
@@ -407,7 +424,7 @@ fn invalid_float_literal_as_identifier() {
 fn multi_line_literal_string_identifier() {
     check_error(
         "'''abc''' = false",
-        |_, _| [],
+        |_| [],
         Error::MultilineLiteralStringIdent(Span::from_pos_len(Pos::new(0, 0), 9)),
     );
 }
@@ -416,39 +433,38 @@ fn multi_line_literal_string_identifier() {
 fn multi_line_basic_string_identifier() {
     check_error(
         r#""""abc""" = false"#,
-        |_, _| [],
+        |_| [],
         Error::MultilineBasicStringIdent(Span::from_pos_len(Pos::new(0, 0), 9)),
     );
 }
 
 #[test]
 fn inline_array() {
-    check("array = [0, 1, 2]", |bump, comments| {
-        [Ast::Assignment(ta(
-            comments,
-            1,
+    check("array = [0, 1, 2]", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "array",
             Value::InlineArray(InlineArray {
-                comments: empty_comments(comments, 2),
+                comments: builder.empty_comments(2),
                 l_par: Pos { line: 0, char: 8 },
-                values: bump.alloc([
+                values: vec![
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: int(0, 9, "0"),
                         comma: Some(Pos { line: 0, char: 10 }),
                     },
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: int(0, 12, "1"),
                         comma: Some(Pos { line: 0, char: 13 }),
                     },
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: int(0, 15, "2"),
                         comma: None,
                     },
-                ]),
+                ],
                 end: End::Par(Pos { line: 0, char: 16 }),
             }),
         ))]
@@ -457,32 +473,31 @@ fn inline_array() {
 
 #[test]
 fn multi_line_inline_array() {
-    check("array = [\n  0,\n  1,\n  2,\n]", |bump, comments| {
-        [Ast::Assignment(ta(
-            comments,
-            1,
+    check("array = [\n  0,\n  1,\n  2,\n]", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "array",
             Value::InlineArray(InlineArray {
-                comments: empty_comments(comments, 2),
+                comments: builder.empty_comments(2),
                 l_par: Pos { line: 0, char: 8 },
-                values: bump.alloc([
+                values: vec![
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: int(1, 2, "0"),
                         comma: Some(Pos { line: 1, char: 3 }),
                     },
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: int(2, 2, "1"),
                         comma: Some(Pos { line: 2, char: 3 }),
                     },
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: int(3, 2, "2"),
                         comma: Some(Pos { line: 3, char: 3 }),
                     },
-                ]),
+                ],
                 end: End::Par(Pos { line: 4, char: 0 }),
             }),
         ))]
@@ -493,32 +508,31 @@ fn multi_line_inline_array() {
 fn inline_array_recover_comma() {
     check_error(
         "array = [0, 1  2]",
-        |bump, comments| {
-            [Ast::Assignment(ta(
-                comments,
-                1,
+        |builder| {
+            [Toplevel::Assignment(ta(
+                builder.empty_comments(1),
                 0,
                 "array",
                 Value::InlineArray(InlineArray {
-                    comments: empty_comments(comments, 2),
+                    comments: builder.empty_comments(2),
                     l_par: Pos { line: 0, char: 8 },
-                    values: bump.alloc([
+                    values: vec![
                         InlineArrayValue {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             val: int(0, 9, "0"),
                             comma: Some(Pos { line: 0, char: 10 }),
                         },
                         InlineArrayValue {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             val: int(0, 12, "1"),
                             comma: None,
                         },
                         InlineArrayValue {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             val: int(0, 15, "2"),
                             comma: None,
                         },
-                    ]),
+                    ],
                     end: End::Par(Pos { line: 0, char: 16 }),
                 }),
             ))]
@@ -531,32 +545,31 @@ fn inline_array_recover_comma() {
 fn inline_array_recover_invalid() {
     check_error(
         "array = [0, 1, 2, =]",
-        |bump, comments| {
-            [Ast::Assignment(ta(
-                comments,
-                1,
+        |builder| {
+            [Toplevel::Assignment(ta(
+                builder.empty_comments(1),
                 0,
                 "array",
                 Value::InlineArray(InlineArray {
-                    comments: empty_comments(comments, 2),
+                    comments: builder.empty_comments(2),
                     l_par: Pos { line: 0, char: 8 },
-                    values: bump.alloc([
+                    values: vec![
                         InlineArrayValue {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             val: int(0, 9, "0"),
                             comma: Some(Pos { line: 0, char: 10 }),
                         },
                         InlineArrayValue {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             val: int(0, 12, "1"),
                             comma: Some(Pos { line: 0, char: 13 }),
                         },
                         InlineArrayValue {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             val: int(0, 15, "2"),
                             comma: Some(Pos { line: 0, char: 16 }),
                         },
-                    ]),
+                    ],
                     end: End::Par(Pos { line: 0, char: 19 }),
                 }),
             ))]
@@ -570,45 +583,44 @@ fn inline_array_recover_invalid() {
 
 #[test]
 fn nested_inline_array() {
-    check("array = [[0], [1]]", |bump, comments| {
-        [Ast::Assignment(ta(
-            comments,
-            1,
+    check("array = [[0], [1]]", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "array",
             Value::InlineArray(InlineArray {
-                comments: empty_comments(comments, 2),
+                comments: builder.empty_comments(2),
                 l_par: Pos { line: 0, char: 8 },
-                values: bump.alloc([
+                values: vec![
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: Value::InlineArray(InlineArray {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             l_par: Pos { line: 0, char: 9 },
-                            values: bump.alloc([InlineArrayValue {
-                                comments: empty_comments(comments, 4),
+                            values: vec![InlineArrayValue {
+                                comments: builder.empty_comments(4),
                                 val: int(0, 10, "0"),
                                 comma: None,
-                            }]),
+                            }],
                             end: End::Par(Pos { line: 0, char: 11 }),
                         }),
                         comma: Some(Pos { line: 0, char: 12 }),
                     },
                     InlineArrayValue {
-                        comments: empty_comments(comments, 3),
+                        comments: builder.empty_comments(3),
                         val: Value::InlineArray(InlineArray {
-                            comments: empty_comments(comments, 3),
+                            comments: builder.empty_comments(3),
                             l_par: Pos { line: 0, char: 14 },
-                            values: bump.alloc([InlineArrayValue {
-                                comments: empty_comments(comments, 4),
+                            values: vec![InlineArrayValue {
+                                comments: builder.empty_comments(4),
                                 val: int(0, 15, "1"),
                                 comma: None,
-                            }]),
+                            }],
                             end: End::Par(Pos { line: 0, char: 16 }),
                         }),
                         comma: None,
                     },
-                ]),
+                ],
                 end: End::Par(Pos { line: 0, char: 17 }),
             }),
         ))]
@@ -624,27 +636,26 @@ fn unclosed_inline_array_error_on_last_line() {
     for input in inputs {
         check_error(
             input,
-            |bump, comments| {
-                [Ast::Assignment(ta(
-                    comments,
-                    1,
+            |builder| {
+                [Toplevel::Assignment(ta(
+                    builder.empty_comments(1),
                     0,
                     "array",
                     Value::InlineArray(InlineArray {
-                        comments: empty_comments(comments, 2),
+                        comments: builder.empty_comments(2),
                         l_par: Pos { line: 0, char: 8 },
-                        values: bump.alloc([
+                        values: vec![
                             InlineArrayValue {
-                                comments: empty_comments(comments, 3),
+                                comments: builder.empty_comments(3),
                                 val: int(1, 2, "0"),
                                 comma: Some(Pos { line: 1, char: 3 }),
                             },
                             InlineArrayValue {
-                                comments: empty_comments(comments, 3),
+                                comments: builder.empty_comments(3),
                                 val: int(2, 2, "1"),
                                 comma: None,
                             },
-                        ]),
+                        ],
                         end: End::None(Pos { line: 2, char: 3 }),
                     }),
                 ))]
@@ -660,15 +671,14 @@ fn unclosed_inline_array_error_on_last_line() {
 
 #[test]
 fn inline_table() {
-    check("table = { a = 3, b = true }", |bump, comments| {
-        [Ast::Assignment(ta(
-            comments,
-            1,
+    check("table = { a = 3, b = true }", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "table",
             Value::InlineTable(InlineTable {
                 l_par: Pos { line: 0, char: 8 },
-                assignments: bump.alloc([
+                assignments: vec![
                     InlineTableAssignment {
                         assignment: aint(0, 10, "a", "3"),
                         comma: Some(Pos { line: 0, char: 15 }),
@@ -677,7 +687,7 @@ fn inline_table() {
                         assignment: abool(0, 17, "b", true),
                         comma: None,
                     },
-                ]),
+                ],
                 end: End::Par(Pos { line: 0, char: 26 }),
             }),
         ))]
@@ -688,15 +698,14 @@ fn inline_table() {
 fn inline_table_recover_missing_comma() {
     check_error(
         "table = { a = 3  b = true }",
-        |bump, comments| {
-            [Ast::Assignment(ta(
-                comments,
-                1,
+        |builder| {
+            [Toplevel::Assignment(ta(
+                builder.empty_comments(1),
                 0,
                 "table",
                 Value::InlineTable(InlineTable {
                     l_par: Pos { line: 0, char: 8 },
-                    assignments: bump.alloc([
+                    assignments: vec![
                         InlineTableAssignment {
                             assignment: aint(0, 10, "a", "3"),
                             comma: None,
@@ -705,7 +714,7 @@ fn inline_table_recover_missing_comma() {
                             assignment: abool(0, 17, "b", true),
                             comma: None,
                         },
-                    ]),
+                    ],
                     end: End::Par(Pos { line: 0, char: 26 }),
                 }),
             ))]
@@ -718,15 +727,14 @@ fn inline_table_recover_missing_comma() {
 fn inline_table_recover_invalid() {
     check_error(
         "table = { a = 3, b = true, = }",
-        |bump, comments| {
-            [Ast::Assignment(ta(
-                comments,
-                1,
+        |builder| {
+            [Toplevel::Assignment(ta(
+                builder.empty_comments(1),
                 0,
                 "table",
                 Value::InlineTable(InlineTable {
                     l_par: Pos { line: 0, char: 8 },
-                    assignments: bump.alloc([
+                    assignments: vec![
                         InlineTableAssignment {
                             assignment: aint(0, 10, "a", "3"),
                             comma: Some(Pos { line: 0, char: 15 }),
@@ -735,7 +743,7 @@ fn inline_table_recover_invalid() {
                             assignment: abool(0, 17, "b", true),
                             comma: Some(Pos { line: 0, char: 25 }),
                         },
-                    ]),
+                    ],
                     end: End::Par(Pos { line: 0, char: 29 }),
                 }),
             ))]
@@ -752,9 +760,9 @@ fn inline_table_recover_invalid() {
 
 #[test]
 fn table_header() {
-    check("[my_table]\nentry = false\n", |bump, comments| {
-        [Ast::Table(Table {
-            comments: empty_comments(comments, 1),
+    check("[my_table]\nentry = false\n", |builder| {
+        [Toplevel::Table(Table {
+            comments: builder.empty_comments(1),
             header: TableHeader::new(
                 Pos { line: 0, char: 0 },
                 Some(Key::One(Ident::from_plain_lit(
@@ -763,16 +771,16 @@ fn table_header() {
                 ))),
                 Some(Pos { line: 0, char: 9 }),
             ),
-            assignments: bvec![in bump; tabool(comments, 2, 1, "entry", false)],
+            assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
         })]
     })
 }
 
 #[test]
 fn array_header() {
-    check("[[my_array]]\nentry = false\n", |bump, comments| {
-        [Ast::Array(ArrayEntry {
-            comments: empty_comments(comments, 1),
+    check("[[my_array]]\nentry = false\n", |builder| {
+        [Toplevel::Array(ArrayEntry {
+            comments: builder.empty_comments(1),
             header: ArrayHeader::new(
                 (Pos { line: 0, char: 0 }, Pos { line: 0, char: 1 }),
                 Some(Key::One(Ident::from_plain_lit(
@@ -784,7 +792,7 @@ fn array_header() {
                     Some(Pos { line: 0, char: 11 }),
                 ),
             ),
-            assignments: bvec![in bump; tabool(comments, 2, 1, "entry", false)],
+            assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
         })]
     })
 }
@@ -793,9 +801,9 @@ fn array_header() {
 fn newline_is_required_after_table_header() {
     check_error(
         "[my_table]entry = false\n",
-        |bump, comments| {
-            [Ast::Table(Table {
-                comments: empty_comments(comments, 1),
+        |builder| {
+            [Toplevel::Table(Table {
+                comments: builder.empty_comments(1),
                 header: TableHeader::new(
                     Pos { line: 0, char: 0 },
                     Some(Key::One(Ident::from_plain_lit(
@@ -804,7 +812,7 @@ fn newline_is_required_after_table_header() {
                     ))),
                     Some(Pos { line: 0, char: 9 }),
                 ),
-                assignments: bvec![in bump; twrap(comments, 2, abool(0, 10, "entry", false))],
+                assignments: vec![twrap(builder.ec(2), abool(0, 10, "entry", false))],
             })]
         },
         Error::MissingNewline(Pos { line: 0, char: 10 }),
@@ -815,10 +823,10 @@ fn newline_is_required_after_table_header() {
 fn newline_is_required_after_assignment() {
     check_error(
         "a = false b = 87",
-        |_, comments| {
+        |builder| {
             [
-                Ast::Assignment(twrap(comments, 1, abool(0, 0, "a", false))),
-                Ast::Assignment(twrap(comments, 1, aint(0, 10, "b", "87"))),
+                Toplevel::Assignment(twrap(builder.ec(1), abool(0, 0, "a", false))),
+                Toplevel::Assignment(twrap(builder.ec(1), aint(0, 10, "b", "87"))),
             ]
         },
         Error::MissingNewline(Pos { line: 0, char: 10 }),
@@ -827,17 +835,15 @@ fn newline_is_required_after_assignment() {
 
 #[test]
 fn table_header_with_associated_comment_above() {
-    check_comments("# associated\n[my_table]\n", |bump, comments| {
-        [Ast::Table(Table {
-            comments: build_comments(
-                comments,
+    check("# associated\n[my_table]\n", |builder| {
+        [Toplevel::Table(Table {
+            comments: builder.comments(
                 1,
                 [AssocComment {
                     pos: AssocPos::Above,
                     level: 1,
                     comment: Comment {
                         span: Span::from_pos_len(Pos { line: 0, char: 0 }, 12),
-                        text: " associated",
                     },
                 }],
             ),
@@ -849,29 +855,27 @@ fn table_header_with_associated_comment_above() {
                 ))),
                 Some(Pos { line: 1, char: 9 }),
             ),
-            assignments: BVec::new_in(bump),
+            assignments: Vec::new(),
         })]
     })
 }
 
 #[test]
 fn non_associated_comment() {
-    check_comments("# free standing\n\n[my_table]\n", |bump, comments| {
-        build_comments(
-            comments,
+    check("# free standing\n\n[my_table]\n", |builder| {
+        builder.comments(
             0,
             [AssocComment {
                 pos: AssocPos::Contained,
                 level: 0,
                 comment: Comment {
                     span: Span::from_pos_len(Pos { line: 0, char: 0 }, 15),
-                    text: " free standing",
                 },
             }],
         );
 
-        [Ast::Table(Table {
-            comments: empty_comments(comments, 1),
+        [Toplevel::Table(Table {
+            comments: builder.empty_comments(1),
             header: TableHeader::new(
                 Pos { line: 2, char: 0 },
                 Some(Key::One(Ident::from_plain_lit(
@@ -880,24 +884,22 @@ fn non_associated_comment() {
                 ))),
                 Some(Pos { line: 2, char: 9 }),
             ),
-            assignments: BVec::new_in(bump),
+            assignments: Vec::new(),
         })]
     })
 }
 
 #[test]
 fn comment_after_table_header() {
-    check_comments("[my_table] # comment\nentry = false\n", |bump, comments| {
-        [Ast::Table(Table {
-            comments: build_comments(
-                comments,
+    check("[my_table] # comment\nentry = false\n", |builder| {
+        [Toplevel::Table(Table {
+            comments: builder.comments(
                 1,
                 [AssocComment {
                     pos: AssocPos::LineEnd,
                     level: 1,
                     comment: Comment {
                         span: Span::from_pos_len(Pos { line: 0, char: 11 }, 9),
-                        text: " comment",
                     },
                 }],
             ),
@@ -909,17 +911,16 @@ fn comment_after_table_header() {
                 ))),
                 Some(Pos { line: 0, char: 9 }),
             ),
-            assignments: bvec![in bump; tabool(comments, 2, 1, "entry", false)],
+            assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
         })]
     })
 }
 
 #[test]
 fn associated_comments_above_assignment() {
-    check_comments("# comment 1\n# comment 2\nabc = false", |_, comments| {
-        [Ast::Assignment(ToplevelAssignment {
-            comments: build_comments(
-                comments,
+    check("# comment 1\n# comment 2\nabc = false", |builder| {
+        [Toplevel::Assignment(ToplevelAssignment {
+            comments: builder.comments(
                 1,
                 [
                     AssocComment {
@@ -927,7 +928,6 @@ fn associated_comments_above_assignment() {
                         level: 1,
                         comment: Comment {
                             span: Span::from_pos_len(Pos { line: 0, char: 0 }, 11),
-                            text: " comment 1",
                         },
                     },
                     AssocComment {
@@ -935,7 +935,6 @@ fn associated_comments_above_assignment() {
                         level: 1,
                         comment: Comment {
                             span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
-                            text: " comment 2",
                         },
                     },
                 ],
@@ -947,17 +946,15 @@ fn associated_comments_above_assignment() {
 
 #[test]
 fn comment_after_assignment() {
-    check_comments("abc = false # comment\n", |_, comments| {
-        [Ast::Assignment(ToplevelAssignment {
-            comments: build_comments(
-                comments,
+    check("abc = false # comment\n", |builder| {
+        [Toplevel::Assignment(ToplevelAssignment {
+            comments: builder.comments(
                 1,
                 [AssocComment {
                     pos: AssocPos::LineEnd,
                     level: 1,
                     comment: Comment {
                         span: Span::from_pos_len(Pos { line: 0, char: 12 }, 9),
-                        text: " comment",
                     },
                 }],
             ),
@@ -968,77 +965,66 @@ fn comment_after_assignment() {
 
 #[test]
 fn comment_separated_by_blank_line_is_not_associated() {
-    check_comments(
-        "# free standing\n\n# associated\nabc = false",
-        |_, comments| {
-            build_comments(
-                comments,
+    check("# free standing\n\n# associated\nabc = false", |builder| {
+        builder.comments(
+            1,
+            [AssocComment {
+                pos: AssocPos::Contained,
+                level: 0,
+                comment: Comment {
+                    span: Span::from_pos_len(Pos { line: 0, char: 0 }, 15),
+                },
+            }],
+        );
+
+        [Toplevel::Assignment(ToplevelAssignment {
+            comments: builder.comments(
                 1,
                 [AssocComment {
-                    pos: AssocPos::Contained,
-                    level: 0,
+                    pos: AssocPos::Above,
+                    level: 1,
                     comment: Comment {
-                        span: Span::from_pos_len(Pos { line: 0, char: 0 }, 15),
-                        text: " free standing",
+                        span: Span::from_pos_len(Pos { line: 2, char: 0 }, 12),
                     },
                 }],
-            );
-
-            [Ast::Assignment(ToplevelAssignment {
-                comments: build_comments(
-                    comments,
-                    1,
-                    [AssocComment {
-                        pos: AssocPos::Above,
-                        level: 1,
-                        comment: Comment {
-                            span: Span::from_pos_len(Pos { line: 2, char: 0 }, 12),
-                            text: " associated",
-                        },
-                    }],
-                ),
-                assignment: abool(3, 0, "abc", false),
-            })]
-        },
-    )
+            ),
+            assignment: abool(3, 0, "abc", false),
+        })]
+    })
 }
 
 #[test]
 fn comment_is_last_token() {
-    check_comments("abc = false\n# free standing", |_, comments| {
-        let asts = [Ast::Assignment(tabool(comments, 1, 0, "abc", false))];
-        build_comments(
-            comments,
+    check("abc = false\n# free standing", |builder| {
+        let toplevel = [Toplevel::Assignment(tabool(builder.ec(1), 0, "abc", false))];
+        builder.comments(
             0,
             [AssocComment {
                 pos: AssocPos::Contained,
                 level: 0,
                 comment: Comment {
                     span: Span::from_pos_len(Pos { line: 1, char: 0 }, 15),
-                    text: " free standing",
                 },
             }],
         );
 
-        asts
+        toplevel
     })
 }
 
 #[test]
 fn comment_contained_by_table() {
-    check_comments(
+    check(
         "[my_table]\n\n# contained comment\n\nabc = false",
-        |bump, comments| {
-            [Ast::Table(Table {
-                comments: build_comments(
-                    comments,
+        |builder| {
+            [Toplevel::Table(Table {
+                comments: builder.comments(
                     1,
                     [AssocComment {
                         pos: AssocPos::Contained,
                         level: 1,
                         comment: Comment {
                             span: Span::from_pos_len(Pos { line: 2, char: 0 }, 19),
-                            text: " contained comment",
                         },
                     }],
                 ),
@@ -1050,7 +1036,7 @@ fn comment_contained_by_table() {
                     ))),
                     Some(Pos { line: 0, char: 9 }),
                 ),
-                assignments: bvec![in bump; tabool(comments, 2, 4, "abc", false)],
+                assignments: vec![tabool(builder.ec(2), 4, "abc", false)],
             })]
         },
     )
@@ -1058,7 +1044,7 @@ fn comment_contained_by_table() {
 
 #[test]
 fn associated_comments_in_inline_array() {
-    check_comments(
+    check(
         "\
 array = [
     # comment 1
@@ -1070,8 +1056,8 @@ array = [
     , # after comma
     # comment 3
 ]",
-        |bump, comments| {
-            let asts = [Ast::Assignment(ToplevelAssignment {
+        |builder| {
+            let toplevel = [Toplevel::Assignment(ToplevelAssignment {
                 comments: CommentRange::new(CommentId(0), 7, 1),
                 assignment: a(
                     0,
@@ -1079,8 +1065,7 @@ array = [
                     "array",
                     Value::InlineArray(InlineArray {
                         comments: {
-                            build_comments(
-                                comments,
+                            builder.comments(
                                 2,
                                 [
                                     AssocComment {
@@ -1088,7 +1073,6 @@ array = [
                                         level: 2,
                                         comment: Comment {
                                             span: Span::from_pos_len(Pos { line: 1, char: 4 }, 11),
-                                            text: " comment 1",
                                         },
                                     },
                                     AssocComment {
@@ -1096,7 +1080,6 @@ array = [
                                         level: 2,
                                         comment: Comment {
                                             span: Span::from_pos_len(Pos { line: 2, char: 4 }, 11),
-                                            text: " comment 2",
                                         },
                                     },
                                 ],
@@ -1106,9 +1089,8 @@ array = [
                             CommentRange::new(CommentId(0), 7, 2)
                         },
                         l_par: Pos { line: 0, char: 8 },
-                        values: bump.alloc([InlineArrayValue {
-                            comments: build_comments(
-                                comments,
+                        values: vec![InlineArrayValue {
+                            comments: builder.comments(
                                 3,
                                 [
                                     AssocComment {
@@ -1116,7 +1098,6 @@ array = [
                                         level: 3,
                                         comment: Comment {
                                             span: Span::from_pos_len(Pos { line: 4, char: 4 }, 13),
-                                            text: " above value",
                                         },
                                     },
                                     AssocComment {
@@ -1124,7 +1105,6 @@ array = [
                                         level: 3,
                                         comment: Comment {
                                             span: Span::from_pos_len(Pos { line: 5, char: 6 }, 13),
-                                            text: " after value",
                                         },
                                     },
                                     AssocComment {
@@ -1132,7 +1112,6 @@ array = [
                                         level: 3,
                                         comment: Comment {
                                             span: Span::from_pos_len(Pos { line: 6, char: 4 }, 19),
-                                            text: " contained comment",
                                         },
                                     },
                                     AssocComment {
@@ -1140,34 +1119,31 @@ array = [
                                         level: 3,
                                         comment: Comment {
                                             span: Span::from_pos_len(Pos { line: 7, char: 6 }, 13),
-                                            text: " after comma",
                                         },
                                     },
                                 ],
                             ),
                             val: int(5, 4, "1"),
                             comma: Some(Pos { line: 7, char: 4 }),
-                        }]),
+                        }],
                         end: End::Par(Pos { line: 9, char: 0 }),
                     }),
                 ),
             })];
 
             // add last comment
-            build_comments(
-                comments,
+            builder.comments(
                 2,
                 [AssocComment {
                     pos: AssocPos::Contained,
                     level: 2,
                     comment: Comment {
                         span: Span::from_pos_len(Pos { line: 8, char: 4 }, 11),
-                        text: " comment 3",
                     },
                 }],
             );
 
-            asts
+            toplevel
         },
     );
 }
@@ -1202,14 +1178,12 @@ fn recursion_limit_inline_table() {
 
 #[test]
 fn offset_date_time_with_subsec() {
-    check("abc = 2023-12-05T10:11:12.3324243-04:30", |_, c| {
-        [Ast::Assignment(ta(
-            c,
-            1,
+    check("abc = 2023-12-05T10:11:12.3324243-04:30", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "abc",
             Value::DateTime(DateTimeVal {
-                lit: "2023-12-05T10:11:12.3324243-04:30",
                 lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 33),
                 val: DateTime::OffsetDateTime(
                     Date::new(2023, 12, 5),
@@ -1223,14 +1197,12 @@ fn offset_date_time_with_subsec() {
 
 #[test]
 fn offset_date_time_without_subsec() {
-    check("abc = 2023-12-05T10:11:12+04:30", |_, c| {
-        [Ast::Assignment(ta(
-            c,
-            1,
+    check("abc = 2023-12-05T10:11:12+04:30", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "abc",
             Value::DateTime(DateTimeVal {
-                lit: "2023-12-05T10:11:12+04:30",
                 lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 25),
                 val: DateTime::OffsetDateTime(
                     Date::new(2023, 12, 5),
@@ -1244,14 +1216,12 @@ fn offset_date_time_without_subsec() {
 
 #[test]
 fn offset_date_time_with_z_suffix() {
-    check("abc = 2023-12-05T10:11:12Z", |_, c| {
-        [Ast::Assignment(ta(
-            c,
-            1,
+    check("abc = 2023-12-05T10:11:12Z", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "abc",
             Value::DateTime(DateTimeVal {
-                lit: "2023-12-05T10:11:12Z",
                 lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 20),
                 val: DateTime::OffsetDateTime(
                     Date::new(2023, 12, 5),
@@ -1265,14 +1235,12 @@ fn offset_date_time_with_z_suffix() {
 
 #[test]
 fn space_separated_time() {
-    check("abc = 2023-12-05 10:11:12", |_, c| {
-        [Ast::Assignment(ta(
-            c,
-            1,
+    check("abc = 2023-12-05 10:11:12", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "abc",
             Value::DateTime(DateTimeVal {
-                lit: "2023-12-05 10:11:12",
                 lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 19),
                 val: DateTime::LocalDateTime(Date::new(2023, 12, 5), Time::new(10, 11, 12, 0)),
             }),
@@ -1282,14 +1250,12 @@ fn space_separated_time() {
 
 #[test]
 fn local_date() {
-    check("abc = 2023-12-05", |_, c| {
-        [Ast::Assignment(ta(
-            c,
-            1,
+    check("abc = 2023-12-05", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "abc",
             Value::DateTime(DateTimeVal {
-                lit: "2023-12-05",
                 lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 10),
                 val: DateTime::LocalDate(Date::new(2023, 12, 5)),
             }),
@@ -1299,14 +1265,12 @@ fn local_date() {
 
 #[test]
 fn local_time() {
-    check("abc = 10:11:12", |_, c| {
-        [Ast::Assignment(ta(
-            c,
-            1,
+    check("abc = 10:11:12", |builder| {
+        [Toplevel::Assignment(ta(
+            builder.empty_comments(1),
             0,
             "abc",
             Value::DateTime(DateTimeVal {
-                lit: "10:11:12",
                 lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 8),
                 val: DateTime::LocalTime(Time::new(10, 11, 12, 0)),
             }),
@@ -1318,7 +1282,14 @@ fn local_time() {
 fn local_time_hour_out_of_range() {
     check_error(
         "abc = 25:00:00",
-        |_, c| [Ast::Assignment(tainvalid(c, 1, 0, "abc", "25:00:00"))],
+        |b| {
+            [Toplevel::Assignment(tainvalid(
+                b.ec(1),
+                0,
+                "abc",
+                "25:00:00",
+            ))]
+        },
         Error::DateTimeOutOfBounds(
             DateTimeField::Hour,
             25,

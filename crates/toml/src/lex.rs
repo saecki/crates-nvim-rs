@@ -6,6 +6,7 @@ use bumpalo::collections::String as BString;
 use bumpalo::Bump;
 use common::{FmtChar, Pos, Span};
 
+use crate::onevec::{onevec, OneVec};
 use crate::{Error, TomlCtx};
 
 #[cfg(test)]
@@ -15,10 +16,31 @@ pub(crate) type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tokens<'a> {
-    pub tokens: &'a [Token],
-    pub strings: &'a [StringToken<'a>],
-    pub literals: &'a [&'a str],
+    pub source: Source<'a>,
+    pub tokens: Vec<Token>,
+    pub strings: Vec<StringToken<'a>>,
     pub eof: Token,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Source<'a> {
+    pub input: &'a str,
+    pub lines: OneVec<u32>,
+}
+
+impl<'a> Source<'a> {
+    pub fn new(input: &'a str) -> Self {
+        Self {
+            input,
+            lines: onevec!(0),
+        }
+    }
+
+    pub fn spanned_str(&self, span: Span) -> &'a str {
+        let start = self.lines[span.start.line as usize] + span.start.char;
+        let end = self.lines[span.end.line as usize] + span.end.char;
+        &self.input[start as usize..end as usize]
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,9 +52,12 @@ pub struct Token {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenType {
     String(StringId),
-    LiteralOrIdent(LiteralId),
-    /// Contains all the text following a `#` excluding the next newline.
-    Comment(LiteralId),
+    LiteralOrIdent {
+        len: u32,
+    },
+    Comment {
+        len: u32,
+    },
     /// Contains the token index of the close delimiter.
     SquareLeft(Option<NonZeroU32>),
     SquareRight,
@@ -49,14 +74,9 @@ pub enum TokenType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StringId(pub u32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct LiteralId(pub u32);
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StringToken<'a> {
     pub quote: Quote,
-    /// The literal exactly as it is written in the toml file.
-    pub lit: &'a str,
     pub lit_end: Pos,
     /// The text with escape sequences evaluated. If there are no escape sequences this references
     /// the input string directly, otherwise it is bump allocated.
@@ -65,7 +85,7 @@ pub struct StringToken<'a> {
 }
 
 impl<'a> StringToken<'a> {
-    pub fn new(quote: Quote, lit: &'a str, lit_span: Span, text: &'a str, text_span: Span) -> Self {
+    pub fn new(quote: Quote, lit_span: Span, text: &'a str, text_span: Span) -> Self {
         let start_line = (text_span.start.line - lit_span.start.line) as u8;
         let end_line = (lit_span.end.line - text_span.end.line) as u8;
         let text_offset = TextOffset {
@@ -84,7 +104,6 @@ impl<'a> StringToken<'a> {
         };
         Self {
             quote,
-            lit,
             lit_end: lit_span.end,
             text,
             text_offset,
@@ -211,20 +230,15 @@ impl Quote {
 #[derive(Debug)]
 struct Lexer<'a> {
     bump: &'a Bump,
-    input: &'a str,
+    source: Source<'a>,
     chars: Chars<'a>,
-
-    line_idx: u32,
-    line_byte_start: usize,
     byte_pos: usize,
 
     in_lit: bool,
     lit_start: Pos,
-    lit_byte_start: usize,
 
     tokens: Vec<Token>,
     strings: Vec<StringToken<'a>>,
-    literals: Vec<&'a str>,
 
     // Delimiter stack to determine unclosed/unopened delimiters inside the lexer.
     delimiters: Vec<Delim>,
@@ -234,20 +248,15 @@ impl<'a> Lexer<'a> {
     fn new(bump: &'a Bump, input: &'a str) -> Self {
         Self {
             bump,
-            input,
+            source: Source::new(input),
             chars: input.chars(),
-
-            line_idx: 0,
-            line_byte_start: 0,
             byte_pos: 0,
 
             in_lit: false,
             lit_start: Pos::default(),
-            lit_byte_start: 0,
 
             tokens: Vec::new(),
             strings: Vec::new(),
-            literals: Vec::new(),
 
             delimiters: Vec::new(),
         }
@@ -255,9 +264,8 @@ impl<'a> Lexer<'a> {
 
     #[inline(always)]
     fn newline(&mut self) {
-        self.line_idx += 1;
         self.byte_pos += 1;
-        self.line_byte_start = self.byte_pos;
+        self.source.lines.push(self.byte_pos as u32);
     }
 
     fn store_string(&mut self, string: StringToken<'a>) -> StringId {
@@ -266,15 +274,9 @@ impl<'a> Lexer<'a> {
         StringId(id as u32)
     }
 
-    fn store_literal(&mut self, lit: &'a str) -> LiteralId {
-        let id = self.literals.len();
-        self.literals.push(lit);
-        LiteralId(id as u32)
-    }
-
     #[inline(always)]
     fn next(&mut self) -> Option<char> {
-        self.byte_pos = self.input.len() - self.chars.as_str().len();
+        self.byte_pos = self.source.input.len() - self.chars.as_str().len();
         self.chars.next()
     }
 
@@ -292,7 +294,7 @@ impl<'a> Lexer<'a> {
 
     #[inline(always)]
     fn peek_prev(&self) -> Option<char> {
-        self.input[..self.byte_pos].chars().next_back()
+        self.source.input[..self.byte_pos].chars().next_back()
     }
 
     #[inline(always)]
@@ -302,7 +304,7 @@ impl<'a> Lexer<'a> {
 
     #[inline(always)]
     fn next_byte_pos(&self) -> usize {
-        self.input.len() - self.chars.as_str().len()
+        self.source.input.len() - self.chars.as_str().len()
     }
 
     #[inline(always)]
@@ -313,8 +315,8 @@ impl<'a> Lexer<'a> {
     #[inline(always)]
     fn pos_in_line(&self, byte_pos: usize) -> Pos {
         Pos {
-            line: self.line_idx,
-            char: (byte_pos - self.line_byte_start) as u32,
+            line: self.source.lines.len() as u32 - 1,
+            char: byte_pos as u32 - self.source.lines.last(),
         }
     }
 }
@@ -328,7 +330,7 @@ struct StrState<'a> {
     quote: Quote,
 }
 
-impl<'a> StrState<'a> {
+impl StrState<'_> {
     fn push_char(&mut self, c: char) {
         if let Some(text) = &mut self.text {
             text.push(c);
@@ -365,7 +367,6 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
             '"' | '\'' => {
                 end_literal(&mut lexer);
 
-                lexer.lit_byte_start = lexer.byte_pos;
                 lexer.lit_start = lexer.pos();
                 let mut quote = match c {
                     '"' => Quote::Basic,
@@ -397,14 +398,9 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
                         // It's just an empty string
                         let lit_span = Span::from_pos_len(lexer.lit_start, 2);
                         let text_span = Span::pos(lexer.pos());
-                        let str_start = lexer.lit_byte_start;
-                        let id = lexer.store_string(StringToken::new(
-                            quote,
-                            &input[str_start..str_start + 2],
-                            lit_span,
-                            &input[str_start + 1..str_start + 1],
-                            text_span,
-                        ));
+                        let text = lexer.source.spanned_str(text_span);
+                        let id =
+                            lexer.store_string(StringToken::new(quote, lit_span, text, text_span));
                         let token = Token {
                             start: lit_span.start,
                             ty: TokenType::String(id),
@@ -451,9 +447,9 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens
         start: eof_pos,
     };
     Tokens {
-        tokens: bump.alloc_slice_fill_iter(lexer.tokens),
-        strings: bump.alloc_slice_fill_iter(lexer.strings),
-        literals: bump.alloc_slice_fill_iter(lexer.literals),
+        source: lexer.source,
+        tokens: lexer.tokens,
+        strings: lexer.strings,
         eof,
     }
 }
@@ -507,11 +503,11 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
         let c = loop {
             let Some(c) = lexer.next() else {
                 let mut pos = lexer.pos();
-                let mut chars = lexer.input.chars();
+                let mut chars = lexer.source.input.chars();
                 if chars.next_back() == Some('\n') {
                     let cr = chars.next_back() == Some('\r');
-                    let line_end = lexer.input.len() - (1 + cr as usize);
-                    let text = &lexer.input.as_bytes()[..line_end];
+                    let line_end = lexer.source.input.len() - (1 + cr as usize);
+                    let text = &lexer.source.input.as_bytes()[..line_end];
                     let line_len = text
                         .iter()
                         .rev()
@@ -543,7 +539,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
             }
         };
         if let Some(text) = &mut str.text {
-            let substr = &lexer.input[start..lexer.byte_pos];
+            let substr = &lexer.source.input[start..lexer.byte_pos];
             text.push_str(substr);
         }
 
@@ -585,7 +581,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
                         text.pop();
                     }
                     _ => {
-                        let text = &lexer.input[str.text_byte_start..line_end];
+                        let text = &lexer.source.input[str.text_byte_start..line_end];
                         str.text = Some(BString::from_str_in(text, lexer.bump));
                     }
                 }
@@ -595,7 +591,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
             lexer.newline();
         } else if str.quote.is_basic() && c == '\\' {
             if str.text.is_none() {
-                let text = &lexer.input[str.text_byte_start..lexer.byte_pos];
+                let text = &lexer.source.input[str.text_byte_start..lexer.byte_pos];
                 str.text = Some(BString::from_str_in(text, lexer.bump));
             }
 
@@ -828,7 +824,6 @@ fn string_closing_quote<'a>(
 
 fn start_literal(lexer: &mut Lexer) {
     if !lexer.in_lit {
-        lexer.lit_byte_start = lexer.byte_pos;
         lexer.lit_start = lexer.pos();
         lexer.in_lit = true;
     }
@@ -838,10 +833,10 @@ fn end_literal(lexer: &mut Lexer) {
     if !lexer.in_lit {
         return;
     }
-    let lit = &lexer.input[lexer.lit_byte_start..lexer.byte_pos];
     let start = lexer.lit_start;
-    let id = lexer.store_literal(lit);
-    let ty = TokenType::LiteralOrIdent(id);
+    // literals cannot span multiple lines
+    let len = lexer.pos().char - start.char;
+    let ty = TokenType::LiteralOrIdent { len };
     let token = Token { start, ty };
     lexer.tokens.push(token);
 
@@ -854,11 +849,9 @@ fn end_string<'a>(
     text_byte_end: usize,
     lit_byte_end: usize,
 ) {
-    let lit = &lexer.input[lexer.lit_byte_start..lit_byte_end];
-
     let text = match str.text.take() {
         Some(text) => text.into_bump_str(),
-        None => &lexer.input[str.text_byte_start..text_byte_end],
+        None => &lexer.source.input[str.text_byte_start..text_byte_end],
     };
 
     let lit_span = Span {
@@ -870,7 +863,7 @@ fn end_string<'a>(
         end: lexer.pos_in_line(text_byte_end),
     };
 
-    let id = lexer.store_string(StringToken::new(str.quote, lit, lit_span, text, text_span));
+    let id = lexer.store_string(StringToken::new(str.quote, lit_span, text, text_span));
     let token = Token {
         start: lit_span.start,
         ty: TokenType::String(id),
@@ -901,8 +894,8 @@ fn newline_token(lexer: &mut Lexer) {
 fn comment(ctx: &mut impl TomlCtx, lexer: &mut Lexer) {
     end_literal(lexer);
 
-    let start_pos = lexer.pos();
-    let text_start = lexer.byte_pos + 1;
+    let start_byte_pos = lexer.byte_pos;
+    let start = lexer.pos();
 
     while let Some(c) = lexer.peek() {
         match c {
@@ -919,17 +912,16 @@ fn comment(ctx: &mut impl TomlCtx, lexer: &mut Lexer) {
     }
     let newline = lexer.next().is_some();
     let cr = newline && lexer.peek_prev() == Some('\r');
-    let text_end = lexer.byte_pos - cr as usize;
+    let end = lexer.byte_pos - cr as usize;
 
-    let lit = &lexer.input[text_start..text_end];
-    let id = lexer.store_literal(lit);
+    let len = (end - start_byte_pos) as u32;
     lexer.tokens.push(Token {
-        start: start_pos,
-        ty: TokenType::Comment(id),
+        start,
+        ty: TokenType::Comment { len },
     });
 
     if newline {
-        let line_end_pos = lexer.pos_in_line(text_end);
+        let line_end_pos = lexer.pos_in_line(end);
         lexer.tokens.push(Token {
             start: line_end_pos,
             ty: TokenType::Newline,
