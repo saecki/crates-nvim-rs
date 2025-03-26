@@ -72,7 +72,7 @@ struct DeserializeVersion<'a> {
     // v: &'a str,
 }
 
-pub fn fetch_crate<'a>(source: DependencySource) -> Result<Crate, Error> {
+pub fn fetch_crate(source: DependencySource) -> Result<Crate, Error> {
     let url = source.sparse_index_url();
 
     fetch_crate_from_url(&url).map_err(|kind| Error {
@@ -83,7 +83,7 @@ pub fn fetch_crate<'a>(source: DependencySource) -> Result<Crate, Error> {
 }
 
 fn fetch_crate_from_url(url: &str) -> Result<Crate, ErrorKind> {
-    let uri = http_req::uri::Uri::try_from(url.as_ref()).expect("url to be valid");
+    let uri = http_req::uri::Uri::try_from(url).expect("url to be valid");
 
     let mut req = Request::new(&uri);
     req.header("User-Agent", USER_AGENT);
@@ -92,7 +92,7 @@ fn fetch_crate_from_url(url: &str) -> Result<Crate, ErrorKind> {
     let mut resp_body = Vec::new();
     let resp = req
         .send(&mut resp_body)
-        .map_err(|e| ErrorKind::Request(e))?;
+        .map_err(ErrorKind::Request)?;
 
     let status = resp.status_code();
     if !status.is_success() {
@@ -103,7 +103,7 @@ fn fetch_crate_from_url(url: &str) -> Result<Crate, ErrorKind> {
         };
     }
 
-    let str = String::from_utf8(resp_body).map_err(|e| ErrorKind::Utf8(e))?;
+    let str = String::from_utf8(resp_body).map_err(ErrorKind::Utf8)?;
 
     parse_crate(&str)
 }
@@ -112,7 +112,7 @@ pub(crate) fn parse_crate(str: &str) -> Result<Crate, ErrorKind> {
     let mut name: Option<Box<str>> = None;
     let mut versions = Vec::with_capacity(str.lines().count());
     for l in str.lines() {
-        let v: DeserializeVersion = serde_json::from_str(l).map_err(|e| ErrorKind::Json(e))?;
+        let v: DeserializeVersion = serde_json::from_str(l).map_err(ErrorKind::Json)?;
         match &name {
             Some(name) => {
                 if name.as_ref() != v.name {
