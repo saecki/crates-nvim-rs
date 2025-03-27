@@ -1,6 +1,6 @@
 use bumpalo::Bump;
-use common::diagnostic::Diagnostic;
 use common::Span;
+use common::diagnostic::{Diagnostic, DiagnosticHint};
 use ide::{IdeCtx, IdeDiagnostics};
 use nvim_oxi::conversion::ToObject;
 use nvim_oxi::serde::Serializer;
@@ -13,6 +13,7 @@ pub struct VimDiagnostics {
     pub errors: Vec<VimDiagnostic>,
     pub warnings: Vec<VimDiagnostic>,
     pub infos: Vec<VimDiagnostic>,
+    pub hints: Vec<VimDiagnostic>,
 }
 
 impl ToObject for VimDiagnostics {
@@ -39,7 +40,7 @@ impl ToObject for VimDiagnostic {
 #[nvim_oxi::plugin]
 pub fn crates_nvim_lib() -> nvim_oxi::Result<Dictionary> {
     let check: Function<(), Result<Object, nvim_oxi::Error>> = Function::from_fn(move |()| {
-        let diagnostics = check_toml(false)?;
+        let diagnostics = check_toml(true)?;
         let object = diagnostics.to_object()?;
         Ok(object)
     });
@@ -84,10 +85,19 @@ fn check_toml(check: bool) -> Result<VimDiagnostics, nvim_oxi::api::Error> {
     let warnings = ctx.warnings.iter().map(map_vim_diagnostic).collect();
     let infos = ctx.infos.iter().map(map_vim_diagnostic).collect();
 
+    let hints = ctx
+        .errors
+        .iter()
+        .filter_map(map_vim_diagnostic_hint)
+        .chain(ctx.warnings.iter().filter_map(map_vim_diagnostic_hint))
+        .chain(ctx.infos.iter().filter_map(map_vim_diagnostic_hint))
+        .collect();
+
     let diagnostics = VimDiagnostics {
         errors,
         warnings,
         infos,
+        hints,
     };
 
     Ok(diagnostics)
@@ -104,4 +114,18 @@ fn map_vim_diagnostic(d: &impl Diagnostic) -> VimDiagnostic {
         end_col: end.char,
         message,
     }
+}
+
+fn map_vim_diagnostic_hint(d: &impl Diagnostic) -> Option<VimDiagnostic> {
+    let hint = d.hint()?;
+    let Span { start, end } = hint.span();
+    let mut message = String::new();
+    _ = hint.annotation(&mut message);
+    Some(VimDiagnostic {
+        lnum: start.line,
+        end_lnum: end.line,
+        col: start.char,
+        end_col: end.char,
+        message,
+    })
 }

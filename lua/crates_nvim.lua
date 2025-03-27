@@ -1,3 +1,5 @@
+local crates_nvim = require("crates_nvim_lib")
+
 local M = {}
 
 local ns = vim.api.nvim_create_namespace("crates_nvim.diagnostics")
@@ -22,10 +24,7 @@ local function to_vim_diagnostic(d, severity)
     return d
 end
 
-function M.check_toml()
-    local crates_nvim = require("crates_nvim_lib")
-    ---@type VimDiagnostics
-    local diagnostics = crates_nvim.check_toml()
+local function update_diagnostics(diagnostics)
     local bufnr = vim.api.nvim_get_current_buf()
     local vim_diagnostics = {}
     for _, e in ipairs(diagnostics.errors) do
@@ -33,15 +32,31 @@ function M.check_toml()
         table.insert(vim_diagnostics, d)
     end
     for _, w in ipairs(diagnostics.warnings) do
-        local d = to_vim_diagnostic(w, vim.diagnostic.severity.ERROR)
+        local d = to_vim_diagnostic(w, vim.diagnostic.severity.WARN)
         table.insert(vim_diagnostics, d)
     end
-    for _, h in ipairs(diagnostics.infos) do
-        local d = to_vim_diagnostic(h, vim.diagnostic.severity.ERROR)
+    for _, i in ipairs(diagnostics.infos) do
+        local d = to_vim_diagnostic(i, vim.diagnostic.severity.INFO)
+        table.insert(vim_diagnostics, d)
+    end
+    for _, h in ipairs(diagnostics.hints) do
+        local d = to_vim_diagnostic(h, vim.diagnostic.severity.HINT)
         table.insert(vim_diagnostics, d)
     end
 
     vim.diagnostic.set(ns, bufnr, vim_diagnostics, {})
+end
+
+function M.check_toml()
+    ---@type VimDiagnostics
+    local diagnostics = crates_nvim.check_toml()
+    update_diagnostics(diagnostics)
+end
+
+function M.validate_toml()
+    ---@type VimDiagnostics
+    local diagnostics = crates_nvim.validate_toml()
+    update_diagnostics(diagnostics)
 end
 
 return M
