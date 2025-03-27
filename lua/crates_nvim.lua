@@ -59,4 +59,18 @@ function M.validate_toml()
     update_diagnostics(diagnostics)
 end
 
+function M.setup()
+    vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "TextChangedP" }, {
+        pattern = { "*.toml" },
+        callback = function(ev)
+            local file_name = ev.file:match("([^/]*)$") or ev.file
+            if file_name == "Crates.toml" then
+                M.check_toml()
+            else
+                M.validate_toml()
+            end
+        end
+    })
+end
+
 return M
