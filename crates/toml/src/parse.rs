@@ -1,8 +1,8 @@
 use std::num::NonZeroU32;
 use std::ops::ControlFlow;
 
-use bumpalo::collections::Vec as BVec;
 use bumpalo::Bump;
+use bumpalo::collections::Vec as BVec;
 use common::{DiagnosticMark, FmtChar, FmtStr, Span};
 
 use crate::datetime::{Date, DateTime};

@@ -1,5 +1,5 @@
-use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
 use common::Span;
+use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
 
 use crate::cargo;
 

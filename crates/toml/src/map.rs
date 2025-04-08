@@ -41,9 +41,8 @@ use common::{FmtChar, FmtStr, Span};
 
 use crate::onevec::OneVec;
 use crate::parse::{
-    ArrayEntry, Toplevel, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
-    InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, ToplevelAssignment,
-    Value,
+    ArrayEntry, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray, InlineArrayValue,
+    InlineTableAssignment, IntVal, Key, StringVal, Table, Toplevel, ToplevelAssignment, Value,
 };
 use crate::{Ast, Error, TomlCtx};
 

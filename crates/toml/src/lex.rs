@@ -2,11 +2,11 @@ use std::num::NonZeroU32;
 use std::ops::ControlFlow;
 use std::str::Chars;
 
-use bumpalo::collections::String as BString;
 use bumpalo::Bump;
+use bumpalo::collections::String as BString;
 use common::{FmtChar, Pos, Span};
 
-use crate::onevec::{onevec, OneVec};
+use crate::onevec::{OneVec, onevec};
 use crate::{Error, TomlCtx};
 
 #[cfg(test)]

@@ -1,10 +1,10 @@
 use common::{FmtChar, FmtStr, Span};
 
+use crate::Error;
 use crate::datetime::{Date, DateTime};
 use crate::lex::CharIter;
 use crate::parse::num::IntPrefix;
-use crate::parse::{num, unexpected_char, Sign};
-use crate::Error;
+use crate::parse::{Sign, num, unexpected_char};
 
 /// A possibly only partially parsed value
 pub enum PartialValue {

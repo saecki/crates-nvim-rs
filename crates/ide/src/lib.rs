@@ -2,7 +2,7 @@ use common::{Ctx, Diagnostics};
 use semver::SemverCtx;
 
 pub use cargo::CargoCtx;
-pub use check::{check, State};
+pub use check::{State, check};
 pub use error::{Error, Hint, Info, Warning};
 use toml::MapTable;
 

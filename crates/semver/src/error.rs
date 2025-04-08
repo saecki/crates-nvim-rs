@@ -1,7 +1,7 @@
 use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
 use common::{FmtChar, FmtStr, Pos, Span};
 
-use crate::{parse, IdentField, NumField, WlChar};
+use crate::{IdentField, NumField, WlChar, parse};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -66,13 +66,24 @@ impl Diagnostic for Error {
             Error::EmptyIdentifier(p, _) => write!(f, "emtpy {p}"),
             Error::EmptyIdentifierSegment(p, _) => write!(f, "emtpy identifier segment in {p}"),
             Error::LeadingZeroSegment(p, _) => write!(f, "invalid leading zero in {p} segment "),
-            Error::InvalidOp(c, _) => write!(f, "invalid operator `{c}`, expected one of: `=`, `>`, `>=`, `<`, `<=`, `~`, `^` or a blank version requirement"),
+            Error::InvalidOp(c, _) => write!(
+                f,
+                "invalid operator `{c}`, expected one of: `=`, `>`, `>=`, `<`, `<=`, `~`, `^` or a blank version requirement"
+            ),
             Error::MissingComma(_) => write!(f, "missing comma"),
             Error::TrailingComma(_) => write!(f, "invalid trailing comma"),
-            Error::WildcardNotTheSoleComparator(wl, _) => write!(f, "wildcard `{wl}` must be the only comparator"),
-            Error::ExcessiveComparators(_, _) => write!(f, "excessive number of comparators, the maximum allowed number is {}", parse::MAX_COMPARATORS),
+            Error::WildcardNotTheSoleComparator(wl, _) => {
+                write!(f, "wildcard `{wl}` must be the only comparator")
+            }
+            Error::ExcessiveComparators(_, _) => write!(
+                f,
+                "excessive number of comparators, the maximum allowed number is {}",
+                parse::MAX_COMPARATORS
+            ),
             Error::EmptyVersionReq(_) => write!(f, "empty version requirement"),
-            Error::UnexpectedAfterWildcard(c, p, _) => write!(f, "unexpected character `{c}` after wildcard {p}"),
+            Error::UnexpectedAfterWildcard(c, p, _) => {
+                write!(f, "unexpected character `{c}` after wildcard {p}")
+            }
         }
     }
 

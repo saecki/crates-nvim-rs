@@ -7,8 +7,8 @@ use toml::map::{
 use toml::parse::{BoolVal, Ident, StringVal};
 use toml::util::Datatype;
 
-use crate::cargo;
 use crate::IdeCtx;
+use crate::cargo;
 
 #[derive(Debug, Default, PartialEq)]
 pub struct State<'a> {

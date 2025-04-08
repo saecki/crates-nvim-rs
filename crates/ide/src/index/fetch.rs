@@ -90,9 +90,7 @@ fn fetch_crate_from_url(url: &str) -> Result<Crate, ErrorKind> {
     req.timeout(Duration::from_secs(10));
 
     let mut resp_body = Vec::new();
-    let resp = req
-        .send(&mut resp_body)
-        .map_err(ErrorKind::Request)?;
+    let resp = req.send(&mut resp_body).map_err(ErrorKind::Request)?;
 
     let status = resp.status_code();
     if !status.is_success() {

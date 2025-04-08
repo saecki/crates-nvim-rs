@@ -1,8 +1,8 @@
-use common::diagnostic::Diagnostic as _;
 use common::Pos;
+use common::diagnostic::Diagnostic as _;
 use serde::de::Visitor;
 
-use crate::{parse_requirement, parse_version, Version, VersionReq};
+use crate::{Version, VersionReq, parse_requirement, parse_version};
 
 pub struct SerdeError(crate::Error);
 

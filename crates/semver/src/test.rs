@@ -1,6 +1,6 @@
 use common::Pos;
 
-use crate::{parse_requirement, parse_version, Version, VersionReq};
+use crate::{Version, VersionReq, parse_requirement, parse_version};
 
 #[track_caller]
 pub fn version(str: &str) -> Version {

@@ -2,9 +2,9 @@ use bumpalo::Bump;
 use common::{Ctx, Diagnostics};
 
 pub use error::{Error, Hint, Info, Warning};
-pub use lex::{lex, Quote, Token, TokenType, Tokens};
-pub use map::{map, MapTable};
-pub use parse::{parse, Toplevel, Ast};
+pub use lex::{Quote, Token, TokenType, Tokens, lex};
+pub use map::{MapTable, map};
+pub use parse::{Ast, Toplevel, parse};
 
 pub mod datetime;
 pub mod error;

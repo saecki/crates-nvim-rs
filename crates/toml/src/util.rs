@@ -1,6 +1,6 @@
+use crate::Ast;
 use crate::datetime::DateTime;
 use crate::map::{MapArray, MapInner, MapNode, MapTable, Scalar};
-use crate::Ast;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Datatype {

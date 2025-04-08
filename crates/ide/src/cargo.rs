@@ -74,20 +74,47 @@ impl Diagnostic for Error {
         use ErrorKind::*;
         let Self { path, kind, .. } = self;
         match kind {
-            WrongDatatype { expected, found } => write!(f, "expected `{path}` to be of type {expected}, found {found}"),
+            WrongDatatype { expected, found } => write!(
+                f,
+                "expected `{path}` to be of type {expected}, found {found}"
+            ),
             UnsupportedUnderscore { old, new } => {
                 if !path.is_empty() {
                     write!(f, "`{path}`: ")?;
                 }
-                write!(f, "`{old}` has been replaced with `{new}` and is unsupported in the 2024 edition")
+                write!(
+                    f,
+                    "`{old}` has been replaced with `{new}` and is unsupported in the 2024 edition"
+                )
             }
-            DepWrongDatatype(found) => write!(f, "expected `{path}` to be of type string or table, found {found}"),
-            DepWorkspaceIsFalse => write!(f, "invalid dependency specification `{path}`; `workspace` cannot be false"),
-            AmbigousDepSpecGitPath => write!(f, "dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed"),
-            AmbigousDepSpecGitRegistry => write!(f, "dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed"),
-            AmbigousGitSpec => write!(f, "dependency specification `{path}` is ambigous, only one of `branch`, `tag` or `rev` is allowed"),
-            MissingDepSpec => write!(f, "dependency `{path}` is missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition"),
-            DepIgnoredGitKey(key) => write!(f, "invalid dependency specification `{path}`; `{key}` without `git` is not allowed"),
+            DepWrongDatatype(found) => write!(
+                f,
+                "expected `{path}` to be of type string or table, found {found}"
+            ),
+            DepWorkspaceIsFalse => write!(
+                f,
+                "invalid dependency specification `{path}`; `workspace` cannot be false"
+            ),
+            AmbigousDepSpecGitPath => write!(
+                f,
+                "dependency specification `{path}` is ambigous, only one of `git` or `path` is allowed"
+            ),
+            AmbigousDepSpecGitRegistry => write!(
+                f,
+                "dependency specification `{path}` is ambigous, only one of `git` or `registry` is allowed"
+            ),
+            AmbigousGitSpec => write!(
+                f,
+                "dependency specification `{path}` is ambigous, only one of `branch`, `tag` or `rev` is allowed"
+            ),
+            MissingDepSpec => write!(
+                f,
+                "dependency `{path}` is missing one of `workspace`, `path`, `git` or `version`, this is unsupported in the 2024 edition"
+            ),
+            DepIgnoredGitKey(key) => write!(
+                f,
+                "invalid dependency specification `{path}`; `{key}` without `git` is not allowed"
+            ),
         }
     }
 
@@ -168,16 +195,27 @@ impl Diagnostic for Warning {
                 if !path.is_empty() {
                     write!(f, "`{path}`: ")?;
                 }
-                write!(f, "`{old}` is deprecated in favor of `{new}` and will be unsupported in the 2024 edition")
+                write!(
+                    f,
+                    "`{old}` is deprecated in favor of `{new}` and will be unsupported in the 2024 edition"
+                )
             }
             RedundantDeprecatedUnderscore { old, new, .. } => {
                 if !path.is_empty() {
                     write!(f, "`{path}`: ")?;
                 }
-                write!(f, "`{old}` is redundant with `{new}` and will be unsupported in the 2024 edition")
+                write!(
+                    f,
+                    "`{old}` is redundant with `{new}` and will be unsupported in the 2024 edition"
+                )
             }
-            MissingDepSpec => write!(f, "missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"),
-            WorkspaceDepIgnoredKey { .. } => write!(f, "key `{path}` is ignored, because `workspace` is set"),
+            MissingDepSpec => write!(
+                f,
+                "missing one of `workspace`, `path`, `git` or `version`, this will be unsupported in the 2024 edition"
+            ),
+            WorkspaceDepIgnoredKey { .. } => {
+                write!(f, "key `{path}` is ignored, because `workspace` is set")
+            }
             IgnoredUnknownKey => write!(f, "unknown key `{path}` is ignored"),
         }
     }

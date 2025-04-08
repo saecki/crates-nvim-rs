@@ -2,9 +2,9 @@ use std::num::NonZeroU32;
 
 use common::{Pos, Span};
 
+use crate::Quote;
 use crate::datetime::DateTime;
 use crate::lex::{Source, TextOffset};
-use crate::Quote;
 
 #[derive(Debug, PartialEq)]
 pub struct Ast<'a> {
