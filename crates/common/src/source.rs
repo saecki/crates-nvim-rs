@@ -52,3 +52,27 @@ impl<'a> Source<'a> {
         self.lines[pos.line as usize] as usize + pos.char as usize
     }
 }
+
+impl<'a> std::ops::Index<std::ops::Range<u32>> for Source<'a> {
+    type Output = str;
+
+    fn index(&self, range: std::ops::Range<u32>) -> &'a Self::Output {
+        &self.text[range.start as usize..range.end as usize]
+    }
+}
+
+impl<'a> std::ops::Index<std::ops::RangeFrom<u32>> for Source<'a> {
+    type Output = str;
+
+    fn index(&self, range: std::ops::RangeFrom<u32>) -> &'a Self::Output {
+        &self.text[range.start as usize..]
+    }
+}
+
+impl<'a> std::ops::Index<std::ops::RangeTo<u32>> for Source<'a> {
+    type Output = str;
+
+    fn index(&self, range: std::ops::RangeTo<u32>) -> &'a Self::Output {
+        &self.text[..range.end as usize]
+    }
+}

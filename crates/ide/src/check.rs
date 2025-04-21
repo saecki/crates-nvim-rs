@@ -27,17 +27,6 @@ pub struct Dependency<'a> {
     /// version = "..."
     /// ```
     pub name: &'a str,
-    /// ```toml
-    /// [dependencies]
-    /// # either `<name>`
-    /// <name> = "..."
-    ///
-    /// # or `<package>`
-    /// explicit_name = { package = "<package>", ... }
-    ///
-    /// [dependencies.explicit_name]
-    /// package = "<package>"
-    /// ```
     pub package: Option<StringAssignment<'a>>,
     pub kind: DependencyKind,
     pub target: Option<&'a str>,
@@ -49,6 +38,20 @@ pub struct Dependency<'a> {
 }
 
 impl<'a> Dependency<'a> {
+    /// ```toml
+    /// # either `<package>`
+    /// [dependencies]
+    /// explicit_name = { package = "<package>", ... }
+    ///
+    /// [dependencies.explicit_name]
+    /// package = "<package>"
+    /// ```
+    /// ```toml
+    /// # or `<name>` if not present
+    /// [dependencies]
+    /// <name> = "..."
+    ///
+    /// ```
     pub fn package(&self) -> &'a str {
         (self.package.as_ref())
             .map(|p| p.val.text)

@@ -1,6 +1,7 @@
 use bumpalo::Bump;
 use common::{Ctx, Diagnostics};
 
+pub use container::{Container, Toml};
 pub use error::{Error, Hint, Info, Warning};
 pub use lex::{Quote, Token, TokenType, Tokens, lex};
 pub use map::{MapTable, map};
@@ -8,7 +9,7 @@ pub use parse::{Ast, Toplevel, parse};
 #[cfg(feature = "serde")]
 pub use serde::deserialize;
 
-pub mod container;
+mod container;
 pub mod datetime;
 pub mod error;
 mod lex;

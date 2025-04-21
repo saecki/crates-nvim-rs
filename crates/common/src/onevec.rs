@@ -59,6 +59,18 @@ impl<T> OneVec<T> {
         unsafe { self.inner.get_unchecked_mut(idx) }
     }
 
+    #[inline]
+    #[must_use]
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.inner.get(index)
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.inner.get_mut(index)
+    }
+
     pub fn push(&mut self, val: T) {
         self.inner.push(val);
     }
