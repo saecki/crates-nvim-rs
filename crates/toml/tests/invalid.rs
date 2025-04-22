@@ -70,10 +70,10 @@ fn main() {
                 let expect_path =
                     std::path::Path::new("tests/fixtures").join(case.name.with_extension("stderr"));
 
-                let Ok(input) = std::str::from_utf8(case.fixture) else {
+                let Ok(text) = std::str::from_utf8(case.fixture) else {
                     return Ok(());
                 };
-                let actual_text = match run_case(input) {
+                let actual_error = match run_case(text) {
                     Ok(v) => {
                         let msg = format!("Expected error but got:\n{v:?}");
                         return Err(Failed::from(msg));
@@ -81,7 +81,7 @@ fn main() {
                     Err(err) => err,
                 };
 
-                let expect_text = match std::fs::read_to_string(&expect_path) {
+                let expect_error = match std::fs::read_to_string(&expect_path) {
                     Ok(t) => t,
                     Err(e) => {
                         let mut msg = String::new();
@@ -94,12 +94,12 @@ fn main() {
                             &mut msg,
                             "=========================  input   ========================="
                         );
-                        _ = write!(&mut msg, "{input}");
+                        _ = write!(&mut msg, "{text}");
                         _ = writeln!(
                             &mut msg,
                             "========================= message  ========================="
                         );
-                        _ = write!(&mut msg, "{actual_text}");
+                        _ = write!(&mut msg, "{actual_error}");
                         _ = writeln!(
                             &mut msg,
                             "============================================================"
@@ -118,7 +118,7 @@ fn main() {
                                     "update" => {
                                         let dir = expect_path.parent().unwrap();
                                         std::fs::create_dir_all(dir).unwrap();
-                                        std::fs::write(expect_path, actual_text).unwrap();
+                                        std::fs::write(expect_path, actual_error).unwrap();
                                         println!("Added fixture");
                                         Ok(())
                                     }
@@ -128,26 +128,26 @@ fn main() {
                                 }
                             }
                             Mode::Force => {
-                                std::fs::write(expect_path, actual_text).unwrap();
+                                std::fs::write(expect_path, actual_error).unwrap();
                                 Ok(())
                             }
                         };
                     }
                 };
 
-                if expect_text == actual_text {
+                if expect_error == actual_error {
                     if let Mode::Revise = mode {
                         let mut msg = String::new();
                         _ = writeln!(
                             &mut msg,
                             "=========================  input   ========================="
                         );
-                        _ = write!(&mut msg, "{input}");
+                        _ = write!(&mut msg, "{text}");
                         _ = writeln!(
                             &mut msg,
                             "========================= message  ========================="
                         );
-                        _ = write!(&mut msg, "{actual_text}");
+                        _ = write!(&mut msg, "{actual_error}");
                         _ = writeln!(
                             &mut msg,
                             "============================================================"
@@ -173,7 +173,7 @@ fn main() {
                 if let Mode::Force | Mode::ForceExisting = mode {
                     let dir = expect_path.parent().unwrap();
                     std::fs::create_dir_all(dir).unwrap();
-                    std::fs::write(expect_path, actual_text).unwrap();
+                    std::fs::write(expect_path, actual_error).unwrap();
                     return Ok(());
                 }
 
@@ -182,32 +182,34 @@ fn main() {
                     &mut msg,
                     "=========================  input   ========================="
                 );
-                _ = write!(&mut msg, "{input}");
+                _ = write!(&mut msg, "{text}");
                 _ = writeln!(
                     &mut msg,
                     "========================= expected ========================="
                 );
-                _ = write!(&mut msg, "{expect_text}");
+                _ = write!(&mut msg, "{expect_error}");
                 _ = writeln!(
                     &mut msg,
                     "-------------------------  actual  -------------------------"
                 );
-                _ = write!(&mut msg, "{actual_text}");
+                _ = write!(&mut msg, "{actual_error}");
                 _ = writeln!(
                     &mut msg,
                     "=========================   diff   ========================="
                 );
                 let comp = pretty_assertions::StrComparison::new(
-                    expect_text.as_str(),
-                    actual_text.as_str(),
+                    expect_error.as_str(),
+                    actual_error.as_str(),
                 );
                 _ = write!(&mut msg, "{comp}");
                 _ = writeln!(
                     &mut msg,
                     "========================= raw diff ========================="
                 );
-                let comp =
-                    pretty_assertions::Comparison::new(expect_text.as_str(), actual_text.as_str());
+                let comp = pretty_assertions::Comparison::new(
+                    expect_error.as_str(),
+                    actual_error.as_str(),
+                );
                 _ = write!(&mut msg, "{comp:}");
                 _ = writeln!(
                     &mut msg,
@@ -223,7 +225,7 @@ fn main() {
                             "update" => {
                                 let dir = expect_path.parent().unwrap();
                                 std::fs::create_dir_all(dir).unwrap();
-                                std::fs::write(expect_path, actual_text).unwrap();
+                                std::fs::write(expect_path, actual_error).unwrap();
                                 println!("Updated fixture");
                                 Ok(())
                             }
@@ -254,10 +256,10 @@ fn main() {
     libtest_mimic::run(&args, tests).exit()
 }
 
-fn run_case(input: &str) -> Result<SimpleMap, String> {
+fn run_case(text: &str) -> Result<SimpleMap, String> {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
 
@@ -285,20 +287,20 @@ fn dialog<const SIZE: usize>(options: [&str; SIZE]) -> &str {
         _ = std::io::stdout().flush();
 
         let stdin = std::io::stdin();
-        let mut input = String::new();
-        _ = stdin.read_line(&mut input);
-        let len = input.trim_end().len();
-        input.truncate(len);
+        let mut text = String::new();
+        _ = stdin.read_line(&mut text);
+        let len = text.trim_end().len();
+        text.truncate(len);
 
         for o in options {
-            if input.len() == 1 && input[..1] == o[..1] {
+            if text.len() == 1 && text[..1] == o[..1] {
                 return o;
             }
-            if input == o {
+            if text == o {
                 return o;
             }
         }
 
-        println!("Invalid input {input:?}");
+        println!("Invalid input {text:?}");
     }
 }

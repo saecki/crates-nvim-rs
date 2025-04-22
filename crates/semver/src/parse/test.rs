@@ -8,21 +8,21 @@ fn pos(char: u32) -> Pos {
 }
 
 #[track_caller]
-fn check_version(input: &str, expected: Version) {
-    let version = parse_version(input, Pos::ZERO).unwrap();
+fn check_version(text: &str, expected: Version) {
+    let version = parse_version(text, Pos::ZERO).unwrap();
     assert_eq!(expected, version);
 }
 
 #[track_caller]
-fn check_version_display(input: &str) {
-    let version = parse_version(input, Pos::ZERO).unwrap();
+fn check_version_display(text: &str) {
+    let version = parse_version(text, Pos::ZERO).unwrap();
     let display = version.to_string();
-    assert_eq!(input.trim(), display);
+    assert_eq!(text.trim(), display);
 }
 
 #[track_caller]
-fn check_version_error(input: &str, expected: Error) {
-    let error = parse_version(input, Pos::ZERO).unwrap_err();
+fn check_version_error(text: &str, expected: Error) {
+    let error = parse_version(text, Pos::ZERO).unwrap_err();
     assert_eq!(expected, error);
 }
 
@@ -158,28 +158,28 @@ fn version_empty_buildmetadata() {
 }
 
 #[track_caller]
-fn check_req(input: &str, expected_comparators: Vec<Comparator>) {
-    let req = parse_requirement(input, Pos::ZERO).unwrap();
+fn check_req(text: &str, expected_comparators: Vec<Comparator>) {
+    let req = parse_requirement(text, Pos::ZERO).unwrap();
     let expected = VersionReq {
         pos: Pos::ZERO,
-        len: input.len() as u32,
+        len: text.len() as u32,
         comparators: expected_comparators,
     };
     assert_eq!(expected, req);
 }
 
 #[track_caller]
-fn check_req_display(input: &str) {
-    let req = parse_requirement(input, Pos::ZERO).unwrap();
+fn check_req_display(text: &str) {
+    let req = parse_requirement(text, Pos::ZERO).unwrap();
     let identical = format!("{req}");
     let trimmed = format!("{req:#}");
-    assert_eq!(input, identical);
-    assert_eq!(input.trim(), trimmed);
+    assert_eq!(text, identical);
+    assert_eq!(text.trim(), trimmed);
 }
 
 #[track_caller]
-fn check_req_error(input: &str, expected: Error) {
-    let error = parse_requirement(input, Pos::ZERO).unwrap_err();
+fn check_req_error(text: &str, expected: Error) {
+    let error = parse_requirement(text, Pos::ZERO).unwrap_err();
     assert_eq!(expected, error);
 }
 

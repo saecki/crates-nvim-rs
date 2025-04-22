@@ -11,11 +11,11 @@ struct TestDecoder;
 
 impl toml_test_harness::Decoder for TestDecoder {
     fn decode(&self, data: &[u8]) -> Result<toml_test_harness::Decoded, toml_test_harness::Error> {
-        let input = std::str::from_utf8(data).map_err(toml_test_harness::Error::new)?;
+        let text = std::str::from_utf8(data).map_err(toml_test_harness::Error::new)?;
 
         let mut ctx = TomlDiagnostics::default();
         let bump = Bump::new();
-        let tokens = ctx.lex(&bump, input);
+        let tokens = ctx.lex(&bump, text);
         let ast = ctx.parse(&bump, tokens);
         let map = ctx.map(&ast);
 

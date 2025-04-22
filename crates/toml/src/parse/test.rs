@@ -10,12 +10,12 @@ use super::*;
 
 #[track_caller]
 fn check<'a, const SIZE: usize>(
-    input: &str,
+    text: &str,
     expected_builder: impl FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let ast = ctx.parse(&bump, tokens);
 
     // HACK
@@ -38,13 +38,13 @@ fn check<'a, const SIZE: usize>(
 
 #[track_caller]
 fn check_error<'a, const SIZE: usize>(
-    input: &str,
+    text: &str,
     expected_builder: impl FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
     error: Error,
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let ast = ctx.parse(&bump, tokens);
 
     // HACK
@@ -68,7 +68,7 @@ fn check_error<'a, const SIZE: usize>(
 
 #[test]
 fn float_special_values() {
-    let input = "
+    let text = "
     a0 = nan
     a1 = +nan
     a2 = -nan
@@ -81,7 +81,7 @@ fn float_special_values() {
     c1 = -0.0
 ";
 
-    let (_, table) = parse_simple(input);
+    let (_, table) = parse_simple(text);
 
     assert!(expect_float(&table, "a0").is_nan());
     assert!(expect_float(&table, "a0").is_sign_positive());
@@ -631,13 +631,13 @@ fn nested_inline_array() {
 
 #[test]
 fn unclosed_inline_array_error_on_last_line() {
-    let inputs = [
+    let cases = [
         "array = [\n  0,\n  1",   // without newline
         "array = [\n  0,\n  1\n", // with newline
     ];
-    for input in inputs {
+    for text in cases {
         check_error(
-            input,
+            text,
             |builder| {
                 [Toplevel::Assignment(ta(
                     builder.empty_comments(1),

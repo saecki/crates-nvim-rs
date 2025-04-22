@@ -33,10 +33,6 @@ impl<T> OneVec<T> {
         unsafe { self.inner.get_unchecked(0) }
     }
 
-    pub fn get(&self, idx: usize) -> Option<&T> {
-        self.inner.get(idx)
-    }
-
     #[inline]
     #[must_use]
     pub fn first_mut(&mut self) -> &mut T {

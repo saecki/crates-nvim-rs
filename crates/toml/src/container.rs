@@ -5,7 +5,7 @@ use bumpalo::Bump;
 use crate::{Ast, MapTable, TomlCtx};
 
 pub struct Toml<'a> {
-    pub input: &'a str,
+    pub text: &'a str,
     pub ast: Ast<'a>,
     pub map: MapTable<'a>,
 }
@@ -35,28 +35,28 @@ impl Drop for Container {
 }
 
 impl<'a> Container {
-    pub fn parse(ctx: &mut impl TomlCtx, input: &str) -> Container {
+    pub fn parse(ctx: &mut impl TomlCtx, text: &str) -> Container {
         let bump = Box::leak(Box::new(Bump::new()));
-        let input = bump.alloc_str(input);
+        let text = bump.alloc_str(text);
 
-        // SAFETY: bump is constructed using Box::leak and input is allocated in bump
-        unsafe { build_container(ctx, bump, input) }
+        // SAFETY: bump is constructed using Box::leak and text is allocated in bump
+        unsafe { build_container(ctx, bump, text) }
     }
 
     pub fn parse_with<'b>(
         ctx: &mut impl TomlCtx,
-        alloc_input: impl FnOnce(&'b Bump) -> &'b str,
+        alloc_text: impl FnOnce(&'b Bump) -> &'b str,
     ) -> Container {
         let bump = Box::leak(Box::new(Bump::new()));
 
-        let input = alloc_input(bump);
+        let text = alloc_text(bump);
 
-        // force lifetime of input to be 'static
-        // SAFETY: input was allocated using bump
-        let input: &str = unsafe { std::mem::transmute(input) };
+        // force lifetime of text to be 'static
+        // SAFETY: text was allocated using bump
+        let text: &str = unsafe { std::mem::transmute(text) };
 
-        // SAFETY: bump is constructed using Box::leak and input is allocated in bump
-        unsafe { build_container(ctx, bump, input) }
+        // SAFETY: bump is constructed using Box::leak and text is allocated in bump
+        unsafe { build_container(ctx, bump, text) }
     }
 
     pub fn toml(&'a self) -> &'a Toml<'a> {
@@ -66,17 +66,17 @@ impl<'a> Container {
 }
 
 /// SAFETY: `bump` has to be constructed using Box::leak, so it can be freed when the container is
-/// dropped, and `input` has to be allocated inside `bump`
+/// dropped, and `text` has to be allocated inside `bump`
 unsafe fn build_container(
     ctx: &mut impl TomlCtx,
     bump: &'static Bump,
-    input: &'static str,
+    text: &'static str,
 ) -> Container {
-    let tokens = ctx.lex(bump, input);
+    let tokens = ctx.lex(bump, text);
     let ast = ctx.parse(bump, tokens);
     let map = ctx.map(&ast);
 
-    let toml = Toml { input, ast, map };
+    let toml = Toml { text, ast, map };
     let toml = ManuallyDrop::new(toml);
 
     Container { toml, bump }

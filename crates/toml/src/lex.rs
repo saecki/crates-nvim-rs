@@ -59,7 +59,7 @@ pub struct StringToken<'a> {
     pub quote: Quote,
     pub lit_end: Pos,
     /// The text with escape sequences evaluated. If there are no escape sequences this references
-    /// the input string directly, otherwise it is bump allocated.
+    /// the input text directly, otherwise it is bump allocated.
     pub text: &'a str,
     pub text_offset: TextOffset,
 }

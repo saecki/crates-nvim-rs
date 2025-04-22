@@ -9,10 +9,10 @@ use crate::{TomlDiagnostics, Warning};
 use super::*;
 
 #[track_caller]
-fn check(input: &str, expected: MapTable) {
+fn check(text: &str, expected: MapTable) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
     assert_eq!(
@@ -25,10 +25,10 @@ fn check(input: &str, expected: MapTable) {
 }
 
 #[track_caller]
-fn check_error(input: &str, expected: MapTable, error: Error) {
+fn check_error(text: &str, expected: MapTable, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
     assert_eq!(
@@ -42,7 +42,7 @@ fn check_error(input: &str, expected: MapTable, error: Error) {
 
 #[test]
 fn dotted_key() {
-    let input = "a.b.c = 1";
+    let text = "a.b.c = 1";
     let bump = Bump::new();
     let builder = AstBuilder::new(&bump);
 
@@ -75,7 +75,7 @@ fn dotted_key() {
 
     #[rustfmt::skip]
     check(
-        input,
+        text,
         MapTable::from_pairs(
             [("a", MapTableEntry::from_one(
                 MapNode::Table(MapTable::from_pairs(
@@ -112,7 +112,7 @@ fn dotted_key() {
 
 #[test]
 fn dotted_keys_extend() {
-    let input = "\
+    let text = "\
 a.b.c = 1
 a.b.d = 2
 ";
@@ -174,7 +174,8 @@ a.b.d = 2
     );
 
     #[rustfmt::skip]
-    check(input,
+    check(
+        text,
         MapTable::from_pairs(
             [("a", MapTableEntry::new(
                 MapNode::Table(MapTable::from_pairs(
@@ -241,7 +242,7 @@ a.b.d = 2
 
 #[test]
 fn table() {
-    let input = "\
+    let text = "\
 [mytable]
 abc = true
 def = 23.0
@@ -291,7 +292,7 @@ def = 23.0
 
     #[rustfmt::skip]
     check(
-        input,
+        text,
         MapTable::from_pairs(
             [("mytable", MapTableEntry::from_one(
                 MapNode::Table(MapTable::from_pairs(
@@ -334,7 +335,7 @@ def = 23.0
 
 #[test]
 fn inline_array() {
-    let input = "array = [4, 8, 16]";
+    let text = "array = [4, 8, 16]";
     let bump = Bump::new();
     let builder = AstBuilder::new(&bump);
 
@@ -390,7 +391,7 @@ fn inline_array() {
 
     #[rustfmt::skip]
     check(
-        input,
+        text,
         MapTable::from_pairs(
             [("array", MapTableEntry::from_one(
                 MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentId(0), &array, [
@@ -456,7 +457,7 @@ symbol = '£'
 
 #[test]
 fn table_cannot_extend_dotted_key_of_assignment() {
-    let input = "\
+    let text = "\
 fruit.apple = 3
 [fruit]
 ";
@@ -486,7 +487,7 @@ fruit.apple = 3
         },
     );
     check_error(
-        input,
+        text,
         MapTable::from_pairs(
             [(
                 "fruit",

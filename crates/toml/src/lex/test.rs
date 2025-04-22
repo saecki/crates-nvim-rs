@@ -26,10 +26,10 @@ impl<'a> TokenBuilder<'a> {
 }
 
 #[track_caller]
-fn check<const SIZE: usize>(input: &str, expected: [Token; SIZE]) {
+fn check<const SIZE: usize>(text: &str, expected: [Token; SIZE]) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let (expected_eof, expected_tokens) = expected.split_last().unwrap();
     assert_eq!(expected_tokens, tokens.tokens);
     assert_eq!(*expected_eof, tokens.eof);
@@ -39,19 +39,19 @@ fn check<const SIZE: usize>(input: &str, expected: [Token; SIZE]) {
 
 #[track_caller]
 fn check_builder<const SIZE: usize>(
-    input: &str,
+    text: &str,
     expected_builder: impl Fn(&mut TokenBuilder<'_>) -> [Token; SIZE],
 ) {
     let mut builder = TokenBuilder::new();
     let expected = expected_builder(&mut builder);
-    check(input, expected);
+    check(text, expected);
 }
 
 #[track_caller]
-fn check_error<const SIZE: usize>(input: &str, expected: [Token; SIZE], error: Error) {
+fn check_error<const SIZE: usize>(text: &str, expected: [Token; SIZE], error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let (expected_eof, expected_tokens) = expected.split_last().unwrap();
 
     assert_eq!(
@@ -66,20 +66,20 @@ fn check_error<const SIZE: usize>(input: &str, expected: [Token; SIZE], error: E
 
 #[track_caller]
 fn check_builder_error<const SIZE: usize>(
-    input: &str,
+    text: &str,
     expected_builder: impl Fn(&mut TokenBuilder<'_>) -> [Token; SIZE],
     error: Error,
 ) {
     let mut builder = TokenBuilder::new();
     let expected = expected_builder(&mut builder);
-    check_error(input, expected, error);
+    check_error(text, expected, error);
 }
 
 #[track_caller]
-fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
+fn check_str(text: &str, expected_lit: &str, expected_text: &str) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     assert_eq!(
         1,
         tokens.tokens.len(),
@@ -105,10 +105,10 @@ fn check_str(input: &str, expected_lit: &str, expected_text: &str) {
 }
 
 #[track_caller]
-fn check_str_error(input: &str, expected_lit: &str, expected_text: &str, error: Error) {
+fn check_str_error(text: &str, expected_lit: &str, expected_text: &str, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     assert_eq!(
         1,
         tokens.tokens.len(),
@@ -656,13 +656,13 @@ fn not_fully_closed_literal_multi_line_string_2() {
 
 #[test]
 fn unclosed_multi_line_string_error_on_last_line() {
-    let inputs = [
+    let cases = [
         (Quote::BasicMultiline, "\"\"\"some unclosed string\n"),
         (Quote::LiteralMultiline, "'''some unclosed string\n"),
     ];
-    for (quote, input) in inputs {
+    for (quote, text) in cases {
         check_builder_error(
-            input,
+            text,
             |builder| {
                 [
                     builder.string(
@@ -670,7 +670,7 @@ fn unclosed_multi_line_string_error_on_last_line() {
                         StringToken {
                             quote,
                             lit_end: Pos { line: 1, char: 0 },
-                            text: &input[3..],
+                            text: &text[3..],
                             text_offset: TextOffset::chars(3, 0),
                         },
                     ),

@@ -57,10 +57,10 @@ pub fn expect_float(table: &SimpleMap, key: &str) -> f64 {
     }
 }
 
-pub fn parse_simple(input: &str) -> (TomlDiagnostics, SimpleMap) {
+pub fn parse_simple(text: &str) -> (TomlDiagnostics, SimpleMap) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, input);
+    let tokens = ctx.lex(&bump, text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
     let table = util::map_simple(&ast, map);
@@ -68,8 +68,8 @@ pub fn parse_simple(input: &str) -> (TomlDiagnostics, SimpleMap) {
 }
 
 #[track_caller]
-pub fn check_simple(input: &str, expected: SimpleMap) {
-    let (ctx, table) = parse_simple(input);
+pub fn check_simple(text: &str, expected: SimpleMap) {
+    let (ctx, table) = parse_simple(text);
     assert_eq!(
         expected, table,
         "\nerrors: {:#?}\nwarnings: {:#?}",
@@ -80,8 +80,8 @@ pub fn check_simple(input: &str, expected: SimpleMap) {
 }
 
 #[track_caller]
-pub fn check_simple_error(input: &str, expected: SimpleMap, error: Error) {
-    let (ctx, table) = parse_simple(input);
+pub fn check_simple_error(text: &str, expected: SimpleMap, error: Error) {
+    let (ctx, table) = parse_simple(text);
     assert_eq!(
         expected, table,
         "\nerrors: {:#?}\nwarnings: {:#?}",

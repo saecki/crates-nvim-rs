@@ -49,9 +49,9 @@ impl<'a> CharIter<'a> {
     }
 }
 
-pub fn parse_requirement(input: &str, pos: Pos) -> Result<VersionReq, Error> {
-    let mut chars = CharIter::new(pos, input);
-    let num_commas = input.as_bytes().iter().filter(|b| **b == b',').count();
+pub fn parse_requirement(text: &str, pos: Pos) -> Result<VersionReq, Error> {
+    let mut chars = CharIter::new(pos, text);
+    let num_commas = text.as_bytes().iter().filter(|b| **b == b',').count();
     // If there is no comma, there are probably no comparators or one. If it's only one the push
     // won't have to reallocate anyway, but if there are 0 we saved an allocation. For 1 or more
     // commas this might allocate space for one extra item, but will never have to reallocate.
@@ -262,8 +262,8 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
     }
 }
 
-pub fn parse_version(input: &str, pos: Pos) -> Result<Version, Error> {
-    let mut chars = CharIter::new(pos, input);
+pub fn parse_version(text: &str, pos: Pos) -> Result<Version, Error> {
+    let mut chars = CharIter::new(pos, text);
 
     eat_whitespace(&mut chars);
 
