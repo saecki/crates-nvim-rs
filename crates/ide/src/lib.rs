@@ -2,7 +2,7 @@ use common::{Ctx, Diagnostics};
 use semver::SemverCtx;
 
 pub use cargo::CargoCtx;
-pub use check::{State, check};
+pub use check::{Manifest, check};
 pub use error::{Error, Hint, Info, Warning};
 use toml::MapTable;
 
@@ -21,7 +21,7 @@ pub trait IdeCtx:
     type IdeWarning: From<Warning> + From<toml::Warning> + From<semver::Warning> + From<cargo::Warning>;
     type IdeInfo: From<Info> + From<toml::Info> + From<semver::Info> + From<cargo::Info>;
 
-    fn check<'a>(&mut self, map: &'a MapTable<'a>) -> State<'a> {
+    fn check<'a>(&mut self, map: &'a MapTable<'a>) -> Manifest<'a> {
         check(self, map)
     }
 }

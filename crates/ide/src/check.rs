@@ -11,7 +11,7 @@ use crate::IdeCtx;
 use crate::cargo;
 
 #[derive(Debug, Default, PartialEq)]
-pub struct State<'a> {
+pub struct Manifest<'a> {
     dependencies: Vec<Dependency<'a>>,
 }
 
@@ -160,8 +160,8 @@ impl<'a> BoolAssignment<'a> {
     }
 }
 
-pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
-    let mut state = State::default();
+pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> Manifest<'a> {
+    let mut manifest = Manifest::default();
     for (key, entry) in table.iter() {
         let path = map::Path::root(&entry.reprs);
         match *key {
@@ -182,12 +182,19 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
 
             "dependencies" => {
                 if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(ctx, &mut state, &path, table, DependencyKind::Normal, None)
+                    parse_dependencies(
+                        ctx,
+                        &mut manifest,
+                        &path,
+                        table,
+                        DependencyKind::Normal,
+                        None,
+                    )
                 }
             }
             "dev-dependencies" => {
                 if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(ctx, &mut state, &path, table, DependencyKind::Dev, None)
+                    parse_dependencies(ctx, &mut manifest, &path, table, DependencyKind::Dev, None)
                 }
             }
             "dev_dependencies" => {
@@ -196,13 +203,27 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
                 let ignored = deprecated_underscore(ctx, None, table, OLD, NEW, entry);
                 if !ignored {
                     if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                        parse_dependencies(ctx, &mut state, &path, table, DependencyKind::Dev, None)
+                        parse_dependencies(
+                            ctx,
+                            &mut manifest,
+                            &path,
+                            table,
+                            DependencyKind::Dev,
+                            None,
+                        )
                     }
                 }
             }
             "build-dependencies" => {
                 if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(ctx, &mut state, &path, table, DependencyKind::Build, None)
+                    parse_dependencies(
+                        ctx,
+                        &mut manifest,
+                        &path,
+                        table,
+                        DependencyKind::Build,
+                        None,
+                    )
                 }
             }
             "build_dependencies" => {
@@ -213,7 +234,7 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
                     if let Some(table) = expect_table_in_table(ctx, &path, entry) {
                         parse_dependencies(
                             ctx,
-                            &mut state,
+                            &mut manifest,
                             &path,
                             table,
                             DependencyKind::Build,
@@ -224,18 +245,18 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
             }
             "target" => {
                 if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_target(ctx, &mut state, &path, table);
+                    parse_target(ctx, &mut manifest, &path, table);
                 }
             }
             _ => warn_unused(ctx, &path, entry),
         }
     }
-    state
+    manifest
 }
 
 pub fn parse_target<'a>(
     ctx: &mut impl IdeCtx,
-    state: &mut State<'a>,
+    manifest: &mut Manifest<'a>,
     path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
 ) {
@@ -243,14 +264,14 @@ pub fn parse_target<'a>(
         let path = path.append_key(&entry.reprs);
         // TODO: validate target spec
         if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-            parse_target_dependencies(ctx, state, &path, table, key);
+            parse_target_dependencies(ctx, manifest, &path, table, key);
         }
     }
 }
 
 pub fn parse_target_dependencies<'a>(
     ctx: &mut impl IdeCtx,
-    state: &mut State<'a>,
+    manifest: &mut Manifest<'a>,
     path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
     target: &'a str,
@@ -262,7 +283,7 @@ pub fn parse_target_dependencies<'a>(
                 if let Some(table) = expect_table_in_table(ctx, &path, entry) {
                     parse_dependencies(
                         ctx,
-                        state,
+                        manifest,
                         &path,
                         table,
                         DependencyKind::Normal,
@@ -272,7 +293,14 @@ pub fn parse_target_dependencies<'a>(
             }
             "dev-dependencies" => {
                 if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(ctx, state, &path, table, DependencyKind::Dev, Some(target))
+                    parse_dependencies(
+                        ctx,
+                        manifest,
+                        &path,
+                        table,
+                        DependencyKind::Dev,
+                        Some(target),
+                    )
                 }
             }
             "dev_dependencies" => {
@@ -283,7 +311,7 @@ pub fn parse_target_dependencies<'a>(
                     if let Some(table) = expect_table_in_table(ctx, &path, entry) {
                         parse_dependencies(
                             ctx,
-                            state,
+                            manifest,
                             &path,
                             table,
                             DependencyKind::Dev,
@@ -296,7 +324,7 @@ pub fn parse_target_dependencies<'a>(
                 if let Some(table) = expect_table_in_table(ctx, &path, entry) {
                     parse_dependencies(
                         ctx,
-                        state,
+                        manifest,
                         &path,
                         table,
                         DependencyKind::Build,
@@ -312,7 +340,7 @@ pub fn parse_target_dependencies<'a>(
                     if let Some(table) = expect_table_in_table(ctx, &path, entry) {
                         parse_dependencies(
                             ctx,
-                            state,
+                            manifest,
                             &path,
                             table,
                             DependencyKind::Build,
@@ -510,7 +538,7 @@ impl<'a> DependencyBuilder<'a> {
 
 fn parse_dependencies<'a>(
     ctx: &mut impl IdeCtx,
-    state: &mut State<'a>,
+    manifest: &mut Manifest<'a>,
     path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
     kind: DependencyKind,
@@ -569,7 +597,7 @@ fn parse_dependencies<'a>(
             }
         };
 
-        state.dependencies.push(dep);
+        manifest.dependencies.push(dep);
     }
 }
 
