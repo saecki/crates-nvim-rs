@@ -5,7 +5,6 @@ use bumpalo::Bump;
 use crate::{Ast, MapTable, TomlCtx};
 
 pub struct Toml<'a> {
-    pub text: &'a str,
     pub ast: Ast<'a>,
     pub map: MapTable<'a>,
 }
@@ -76,7 +75,7 @@ unsafe fn build_container(
     let ast = ctx.parse(bump, tokens);
     let map = ctx.map(&ast);
 
-    let toml = Toml { text, ast, map };
+    let toml = Toml { ast, map };
     let toml = ManuallyDrop::new(toml);
 
     Container { toml, bump }

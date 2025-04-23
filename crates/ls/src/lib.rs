@@ -16,6 +16,7 @@ use crate::request::RequestError;
 pub mod edit;
 pub mod notif;
 pub mod request;
+pub mod lsp;
 
 struct State {
     connection: Connection,

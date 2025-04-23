@@ -4,14 +4,14 @@ use common::{Pos, Source, Span};
 mod test;
 
 pub trait SpanExt {
-    fn to_lsp_range(&self, text: &Source<'_>, encoding: OffsetEncoding) -> lsp_types::Range;
+    fn to_lsp_range(&self, source: &Source<'_>, encoding: OffsetEncoding) -> lsp_types::Range;
 }
 
 impl SpanExt for Span {
-    fn to_lsp_range(&self, text: &Source<'_>, encoding: OffsetEncoding) -> lsp_types::Range {
+    fn to_lsp_range(&self, source: &Source<'_>, encoding: OffsetEncoding) -> lsp_types::Range {
         lsp_types::Range {
-            start: self.start.to_lsp_pos(text, encoding),
-            end: self.end.to_lsp_pos(text, encoding),
+            start: self.start.to_lsp_pos(source, encoding),
+            end: self.end.to_lsp_pos(source, encoding),
         }
     }
 }

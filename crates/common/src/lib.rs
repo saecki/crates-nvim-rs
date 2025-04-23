@@ -39,8 +39,13 @@ pub struct Diagnostics<E, W, I> {
 }
 
 impl<E, W, I> Diagnostics<E, W, I> {
+    /// The combined number of all diagnostics.
+    pub fn len(&self) -> usize {
+        self.errors.len() + self.warnings.len() + self.infos.len()
+    }
+
     pub fn is_empty(&self) -> bool {
-        self.errors.is_empty() && self.warnings.is_empty() && self.infos.is_empty()
+        self.len() == 0
     }
 }
 
