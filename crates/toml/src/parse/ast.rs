@@ -123,6 +123,7 @@ pub enum AssocPos {
 pub struct Table<'a> {
     pub comments: CommentRange,
     pub header: TableHeader<'a>,
+    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<ToplevelAssignment<'a>>,
 }
 
@@ -197,6 +198,7 @@ impl<'a> TableHeader<'a> {
 pub struct ArrayEntry<'a> {
     pub comments: CommentRange,
     pub header: ArrayHeader<'a>,
+    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<ToplevelAssignment<'a>>,
 }
 
@@ -560,6 +562,7 @@ impl DateTimeVal {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineTable<'a> {
     pub l_par: Pos,
+    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<InlineTableAssignment<'a>>,
     pub end: End,
 }
@@ -618,6 +621,7 @@ impl InlineTableAssignment<'_> {
 pub struct InlineArray<'a> {
     pub comments: CommentRange,
     pub l_par: Pos,
+    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub values: Vec<InlineArrayValue<'a>>,
     pub end: End,
 }
