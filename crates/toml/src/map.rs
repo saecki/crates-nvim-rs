@@ -41,8 +41,9 @@ use common::{FmtChar, FmtStr, Span};
 
 use crate::onevec::OneVec;
 use crate::parse::{
-    ArrayEntry, BoolVal, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray, InlineArrayValue,
-    InlineTableAssignment, IntVal, Key, StringVal, Table, Toplevel, ToplevelAssignment, Value,
+    ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
+    InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, Toplevel,
+    ToplevelAssignment, Value,
 };
 use crate::{Ast, Error, TomlCtx};
 
@@ -157,6 +158,16 @@ impl MapTableEntryReprKind<'_> {
             MapTableEntryReprKind::ArrayEntry(a) => a.span(),
             MapTableEntryReprKind::ToplevelAssignment(a) => a.span(),
             MapTableEntryReprKind::InlineTableAssignment(a) => a.span(),
+        }
+    }
+
+    #[inline]
+    pub fn comments(&self) -> Option<CommentRange> {
+        match self {
+            MapTableEntryReprKind::Table(t) => Some(t.comments),
+            MapTableEntryReprKind::ArrayEntry(a) => Some(a.comments),
+            MapTableEntryReprKind::ToplevelAssignment(a) => Some(a.comments),
+            MapTableEntryReprKind::InlineTableAssignment(_) => None,
         }
     }
 

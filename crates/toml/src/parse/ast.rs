@@ -13,6 +13,27 @@ pub struct Ast<'a> {
     pub comments: &'a [AssocComment],
 }
 
+impl<'a> Ast<'a> {
+    pub fn comments(&self, range: CommentRange) -> &[AssocComment] {
+        let start = range.start.0 as usize;
+        let end = start + range.len as usize;
+        &self.comments[start..end]
+    }
+
+    pub fn direct_comments(
+        &self,
+        range: CommentRange,
+    ) -> impl Iterator<Item = (AssocPos, &'a str)> {
+        self.comments(range).iter().filter_map(move |comment| {
+            if comment.level != range.level {
+                return None;
+            }
+            let str = self.source.spanned_str(comment.comment.span);
+            Some((comment.pos, str))
+        })
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Toplevel<'a> {
     Assignment(ToplevelAssignment<'a>),
