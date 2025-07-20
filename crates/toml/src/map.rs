@@ -75,7 +75,7 @@ impl<'a> MapTable<'a> {
         }
     }
 
-    pub fn get(&self, key: &'a str) -> Option<&MapTableEntry<'a>> {
+    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a>> {
         self.inner.get(key)
     }
 
