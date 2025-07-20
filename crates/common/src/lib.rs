@@ -32,6 +32,12 @@ pub struct Diagnostics<E, W, I> {
     pub infos: Vec<I>,
 }
 
+impl<E, W, I> Diagnostics<E, W, I> {
+    pub fn is_empty(&self) -> bool {
+        self.errors.is_empty() && self.warnings.is_empty() && self.infos.is_empty()
+    }
+}
+
 impl<E, W, I> Default for Diagnostics<E, W, I> {
     fn default() -> Self {
         Self {
