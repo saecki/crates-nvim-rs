@@ -4,11 +4,12 @@ use pretty_assertions::assert_eq;
 use crate::onevec::onevec;
 use crate::parse::{End, TableHeader};
 use crate::test::*;
+use crate::util::SimpleMap;
 
 use super::*;
 
 #[track_caller]
-fn check(input: &str, expected: MapTable) {
+fn check(input: &str, expected: Map) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
@@ -24,7 +25,7 @@ fn check(input: &str, expected: MapTable) {
 }
 
 #[track_caller]
-fn check_error(input: &str, expected: MapTable, error: Error) {
+fn check_error(input: &str, expected: Map, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
@@ -75,22 +76,28 @@ fn dotted_key() {
     #[rustfmt::skip]
     check(
         input,
-        MapTable::from_pairs([("a", MapTableEntry::from_one(
-            MapNode::Table(MapTable::from_pairs([("b", MapTableEntry::from_one(
-                MapNode::Table(MapTable::from_pairs([("c", MapTableEntry::from_one(
-                    MapNode::Scalar(Scalar::Int(&value)),
+        Map::from_pairs([("a", MapTableEntry::from_one(
+            MapNode::Table(MapTable::from_pairs(
+                [("b", MapTableEntry::from_one(
+                    MapNode::Table(MapTable::from_pairs(
+                        [("c", MapTableEntry::from_one(
+                            MapNode::Scalar(Scalar::Int(&value)),
+                            MapTableEntryRepr::new(
+                                ParentId(0),
+                                MapTableKeyRepr::Dotted(2, &key),
+                                MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                            ),
+                        ))],
+                        OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
+                    )),
                     MapTableEntryRepr::new(
                         ParentId(0),
-                        MapTableKeyRepr::Dotted(2, &key),
+                        MapTableKeyRepr::Dotted(1, &key),
                         MapTableEntryReprKind::ToplevelAssignment(&assignment),
                     ),
-                ))])),
-                MapTableEntryRepr::new(
-                    ParentId(0),
-                    MapTableKeyRepr::Dotted(1, &key),
-                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                ),
-            ))])),
+                ))],
+                OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
+            )),
             MapTableEntryRepr::new(
                 ROOT_PARENT,
                 MapTableKeyRepr::Dotted(0, &key),
@@ -165,39 +172,51 @@ a.b.d = 2
 
     #[rustfmt::skip]
     check(input,
-        MapTable::from_pairs([("a", MapTableEntry::new(
-            MapNode::Table(MapTable::from_pairs([("b", MapTableEntry::new(
-                MapNode::Table(MapTable::from_pairs([
-                    ("c", MapTableEntry::from_one(
-                        MapNode::Scalar(Scalar::Int(&value1)),
+        Map::from_pairs([("a", MapTableEntry::new(
+            MapNode::Table(MapTable::from_pairs(
+                [("b", MapTableEntry::new(
+                    MapNode::Table(MapTable::from_pairs(
+                        [
+                            ("c", MapTableEntry::from_one(
+                                MapNode::Scalar(Scalar::Int(&value1)),
+                                MapTableEntryRepr::new(
+                                    ParentId(0),
+                                    MapTableKeyRepr::Dotted(2, &key1),
+                                    MapTableEntryReprKind::ToplevelAssignment(&assignment1),
+                                ),
+                            )),
+                            ("d", MapTableEntry::from_one(
+                                MapNode::Scalar(Scalar::Int(&value2)),
+                                MapTableEntryRepr::new(
+                                    ParentId(1),
+                                    MapTableKeyRepr::Dotted(2, &key2),
+                                    MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                                ),
+                            )),
+                        ],
+                        onevec![
+                            MapTableRepr::ToplevelAssignment(&assignment1),
+                            MapTableRepr::ToplevelAssignment(&assignment2),
+                        ],
+                    )),
+                    onevec![
                         MapTableEntryRepr::new(
                             ParentId(0),
-                            MapTableKeyRepr::Dotted(2, &key1),
+                            MapTableKeyRepr::Dotted(1, &key1),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                         ),
-                    )),
-                    ("d", MapTableEntry::from_one(
-                        MapNode::Scalar(Scalar::Int(&value2)),
                         MapTableEntryRepr::new(
                             ParentId(1),
-                            MapTableKeyRepr::Dotted(2, &key2),
+                            MapTableKeyRepr::Dotted(1, &key2),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                         ),
-                    )),
-                ])),
+                    ],
+                ))],
                 onevec![
-                    MapTableEntryRepr::new(
-                        ParentId(0),
-                        MapTableKeyRepr::Dotted(1, &key1),
-                        MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                    ),
-                    MapTableEntryRepr::new(
-                        ParentId(1),
-                        MapTableKeyRepr::Dotted(1, &key2),
-                        MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                    ),
+                    MapTableRepr::ToplevelAssignment(&assignment1),
+                    MapTableRepr::ToplevelAssignment(&assignment2),
                 ],
-            ))])),
+            )),
             onevec![
                 MapTableEntryRepr::new(
                     ROOT_PARENT,
@@ -267,31 +286,34 @@ def = 23.0
     #[rustfmt::skip]
     check(
         input,
-        MapTable::from_pairs([("mytable", MapTableEntry::from_one(
-            MapNode::Table(MapTable::from_pairs([
-                (
-                    "abc",
-                    MapTableEntry::from_one(
-                        MapNode::Scalar(Scalar::Bool(&value1)),
-                        MapTableEntryRepr::new(
-                        ParentId(0),
-                            MapTableKeyRepr::One(&key1),
-                            MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                        ),
-                    ),
-                ),
-                (
-                    "def",
-                    MapTableEntry::from_one(
-                        MapNode::Scalar(Scalar::Float(&value2)),
-                        MapTableEntryRepr::new(
+        Map::from_pairs(
+            [("mytable", MapTableEntry::from_one(
+                MapNode::Table(MapTable::from_pairs([
+                    (
+                        "abc",
+                        MapTableEntry::from_one(
+                            MapNode::Scalar(Scalar::Bool(&value1)),
+                            MapTableEntryRepr::new(
                             ParentId(0),
-                            MapTableKeyRepr::One(&key2),
-                            MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                                MapTableKeyRepr::One(&key1),
+                                MapTableEntryReprKind::ToplevelAssignment(&assignment1),
+                            ),
                         ),
                     ),
-                ),
-            ])),
+                    (
+                        "def",
+                        MapTableEntry::from_one(
+                            MapNode::Scalar(Scalar::Float(&value2)),
+                            MapTableEntryRepr::new(
+                                ParentId(0),
+                                MapTableKeyRepr::One(&key2),
+                                MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                            ),
+                        ),
+                    ),
+                ],
+                OneVec::new(MapTableRepr::Table(&table)),
+            )),
             MapTableEntryRepr::new(
                 ROOT_PARENT,
                 MapTableKeyRepr::One(&table_key),
@@ -360,7 +382,7 @@ fn inline_array() {
     #[rustfmt::skip]
     check(
         input,
-        MapTable::from_pairs([("array", MapTableEntry::from_one(
+        Map::from_pairs([("array", MapTableEntry::from_one(
             MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentId(0), &array, [
                 MapArrayInlineEntry::new(
                     MapNode::Scalar(Scalar::Int(&value1)),
@@ -400,18 +422,18 @@ symbol = '$'
 name = 'Pound'
 symbol = '£'
 ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "currencies".into(),
             SimpleVal::Array(vec![
-                SimpleVal::Table(MapInner::from_iter([
+                SimpleVal::Table(SimpleMap::from_iter([
                     ("name".into(), SimpleVal::String("Euro".into())),
                     ("symbol".into(), SimpleVal::String("€".into())),
                 ])),
-                SimpleVal::Table(MapInner::from_iter([
+                SimpleVal::Table(SimpleMap::from_iter([
                     ("name".into(), SimpleVal::String("Dollar".into())),
                     ("symbol".into(), SimpleVal::String("$".into())),
                 ])),
-                SimpleVal::Table(MapInner::from_iter([
+                SimpleVal::Table(SimpleMap::from_iter([
                     ("name".into(), SimpleVal::String("Pound".into())),
                     ("symbol".into(), SimpleVal::String("£".into())),
                 ])),
@@ -453,20 +475,23 @@ fruit.apple = 3
     );
     check_error(
         input,
-        MapTable::from_pairs([(
+        Map::from_pairs([(
             "fruit",
             MapTableEntry::from_one(
-                MapNode::Table(MapTable::from_pairs([(
-                    "apple",
-                    MapTableEntry::from_one(
-                        MapNode::Scalar(Scalar::Int(&value)),
-                        MapTableEntryRepr::new(
-                            ParentId(0),
-                            MapTableKeyRepr::Dotted(1, &key),
-                            MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                MapNode::Table(MapTable::from_pairs(
+                    [(
+                        "apple",
+                        MapTableEntry::from_one(
+                            MapNode::Scalar(Scalar::Int(&value)),
+                            MapTableEntryRepr::new(
+                                ParentId(0),
+                                MapTableKeyRepr::Dotted(1, &key),
+                                MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                            ),
                         ),
-                    ),
-                )])),
+                    )],
+                    OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
+                )),
                 MapTableEntryRepr::new(
                     ROOT_PARENT,
                     MapTableKeyRepr::Dotted(0, &key),
@@ -492,18 +517,18 @@ fruit.berries.strawberry.num = 3
 [fruit.berries.raspberry]
 num = 8383
     ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "fruit".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "berries".into(),
-                SimpleVal::Table(MapInner::from_iter([
+                SimpleVal::Table(SimpleMap::from_iter([
                     (
                         "strawberry".into(),
-                        SimpleVal::Table(MapInner::from_iter([("num".into(), SimpleVal::Int(3))])),
+                        SimpleVal::Table(SimpleMap::from_iter([("num".into(), SimpleVal::Int(3))])),
                     ),
                     (
                         "raspberry".into(),
-                        SimpleVal::Table(MapInner::from_iter([(
+                        SimpleVal::Table(SimpleMap::from_iter([(
                             "num".into(),
                             SimpleVal::Int(8383),
                         )])),
@@ -524,13 +549,13 @@ fn table_extends_other_table() {
 [a.b]
 2 = true
     ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([
+            SimpleVal::Table(SimpleMap::from_iter([
                 ("1".into(), SimpleVal::Bool(false)),
                 (
                     "b".into(),
-                    SimpleVal::Table(MapInner::from_iter([("2".into(), SimpleVal::Bool(true))])),
+                    SimpleVal::Table(SimpleMap::from_iter([("2".into(), SimpleVal::Bool(true))])),
                 ),
             ])),
         )]),
@@ -547,13 +572,13 @@ fn super_table_declared_afterwards() {
 [a]
 1 = false
     ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([
+            SimpleVal::Table(SimpleMap::from_iter([
                 ("1".into(), SimpleVal::Bool(false)),
                 (
                     "b".into(),
-                    SimpleVal::Table(MapInner::from_iter([("2".into(), SimpleVal::Bool(true))])),
+                    SimpleVal::Table(SimpleMap::from_iter([("2".into(), SimpleVal::Bool(true))])),
                 ),
             ])),
         )]),
@@ -576,26 +601,26 @@ fn table_extends_last_array_entry() {
 [a.b.c]
 2 = 'four'
     ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "b".into(),
                 SimpleVal::Array(vec![
-                    SimpleVal::Table(MapInner::from_iter([
+                    SimpleVal::Table(SimpleMap::from_iter([
                         ("1".into(), SimpleVal::String("one".into())),
                         (
                             "c".into(),
-                            SimpleVal::Table(MapInner::from_iter([(
+                            SimpleVal::Table(SimpleMap::from_iter([(
                                 "2".into(),
                                 SimpleVal::String("two".into()),
                             )])),
                         ),
                     ])),
-                    SimpleVal::Table(MapInner::from_iter([
+                    SimpleVal::Table(SimpleMap::from_iter([
                         ("1".into(), SimpleVal::String("three".into())),
                         (
                             "c".into(),
-                            SimpleVal::Table(MapInner::from_iter([(
+                            SimpleVal::Table(SimpleMap::from_iter([(
                                 "2".into(),
                                 SimpleVal::String("four".into()),
                             )])),
@@ -620,17 +645,17 @@ fn array_of_table_of_arrays() {
 [[a.b.c]]
 2 = false
     ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "b".into(),
                 SimpleVal::Array(vec![
-                    SimpleVal::Table(MapInner::from_iter([("1".into(), SimpleVal::Bool(false))])),
-                    SimpleVal::Table(MapInner::from_iter([
+                    SimpleVal::Table(SimpleMap::from_iter([("1".into(), SimpleVal::Bool(false))])),
+                    SimpleVal::Table(SimpleMap::from_iter([
                         ("1".into(), SimpleVal::Bool(true)),
                         (
                             "c".into(),
-                            SimpleVal::Array(vec![SimpleVal::Table(MapInner::from_iter([(
+                            SimpleVal::Array(vec![SimpleVal::Table(SimpleMap::from_iter([(
                                 "2".into(),
                                 SimpleVal::Bool(false),
                             )]))]),
@@ -646,13 +671,13 @@ fn array_of_table_of_arrays() {
 fn dotted_keys_in_inline_table() {
     check_simple(
         "a = { b.c.d = 1, b.c.e = 2 }",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "b".into(),
-                SimpleVal::Table(MapInner::from_iter([(
+                SimpleVal::Table(SimpleMap::from_iter([(
                     "c".into(),
-                    SimpleVal::Table(MapInner::from_iter([
+                    SimpleVal::Table(SimpleMap::from_iter([
                         ("d".into(), SimpleVal::Int(1)),
                         ("e".into(), SimpleVal::Int(2)),
                     ])),
@@ -671,14 +696,14 @@ fn toml_test_repro_open_parent_table() {
 [parent-table]
 not-arr = 1
 ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "parent-table".into(),
-            SimpleVal::Table(MapInner::from_iter([
+            SimpleVal::Table(SimpleMap::from_iter([
                 (
                     "arr".into(),
                     SimpleVal::Array(vec![
-                        SimpleVal::Table(MapInner::new()),
-                        SimpleVal::Table(MapInner::new()),
+                        SimpleVal::Table(SimpleMap::new()),
+                        SimpleVal::Table(SimpleMap::new()),
                     ]),
                 ),
                 ("not-arr".into(), SimpleVal::Int(1)),
@@ -696,11 +721,11 @@ fn toml_test_repro_append_to_array_with_dotted_keys() {
 [a]
 b.y = 2
 ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "b".into(),
-                SimpleVal::Array(vec![SimpleVal::Table(MapInner::new())]),
+                SimpleVal::Array(vec![SimpleVal::Table(SimpleMap::new())]),
             )])),
         )]),
         Error::CannotExtendArrayWithDottedKey {
@@ -722,13 +747,13 @@ fn toml_test_repro_append_with_dotted_keys_1() {
 [a]
   b.c.t = \"Using dotted keys to add to [a.b.c] after explicitly defining it above is not allowed\"
 ",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "b".into(),
-                SimpleVal::Table(MapInner::from_iter([(
+                SimpleVal::Table(SimpleMap::from_iter([(
                     "c".into(),
-                    SimpleVal::Table(MapInner::from_iter([("z".into(), SimpleVal::Int(9))])),
+                    SimpleVal::Table(SimpleMap::from_iter([("z".into(), SimpleVal::Int(9))])),
                 )])),
             )])),
         )]),

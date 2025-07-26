@@ -3,7 +3,7 @@ use common::{Ctx, Diagnostics};
 
 pub use error::{Error, Hint, Info, Warning};
 pub use lex::{Quote, Token, TokenType, Tokens, lex};
-pub use map::{MapTable, map};
+pub use map::{Map, map};
 pub use parse::{Ast, Toplevel, parse};
 
 pub mod datetime;
@@ -33,7 +33,7 @@ pub trait TomlCtx:
         parse(self, bump, tokens)
     }
 
-    fn map<'a>(&mut self, ast: &Ast<'a>) -> MapTable<'a> {
+    fn map<'a>(&mut self, ast: &Ast<'a>) -> Map<'a> {
         map(self, ast)
     }
 }

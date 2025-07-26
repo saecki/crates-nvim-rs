@@ -3,8 +3,8 @@ use common::diagnostic;
 use toml_test_harness::{Decoded, DecodedValue};
 
 use crates_toml::datetime::DateTime;
-use crates_toml::map::{MapArray, MapNode, Scalar};
-use crates_toml::{Ast, MapTable, TomlCtx, TomlDiagnostics};
+use crates_toml::map::{MapArray, MapNode, MapTableEntry, Scalar};
+use crates_toml::{Ast, TomlCtx, TomlDiagnostics};
 
 #[derive(Clone, Copy)]
 struct TestDecoder;
@@ -69,7 +69,10 @@ fn map_decoded(ast: &Ast, node: MapNode) -> Decoded {
     }
 }
 
-fn map_table(ast: &Ast, table: MapTable) -> Decoded {
+fn map_table<'a, M>(ast: &Ast, table: M) -> Decoded
+where
+    M: IntoIterator<Item = (&'a str, MapTableEntry<'a>)>,
+{
     Decoded::Table(
         table
             .into_iter()

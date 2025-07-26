@@ -3,8 +3,8 @@ use pretty_assertions::assert_eq;
 
 use super::*;
 use crate::datetime::{DateTimeField, Offset, Time};
-use crate::map::MapInner;
 use crate::test::*;
+use crate::util::SimpleMap;
 
 #[track_caller]
 fn check<'a, const SIZE: usize>(
@@ -105,7 +105,7 @@ fn float_special_values() {
 fn assign_negative_int() {
     check_simple(
         "num = -2",
-        MapInner::from_iter([("num".into(), SimpleVal::Int(-2))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Int(-2))]),
     );
 }
 
@@ -113,7 +113,7 @@ fn assign_negative_int() {
 fn assign_positive_int() {
     check_simple(
         "num = +83",
-        MapInner::from_iter([("num".into(), SimpleVal::Int(83))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Int(83))]),
     );
 }
 
@@ -121,15 +121,15 @@ fn assign_positive_int() {
 fn assign_sgined_zero_ints() {
     check_simple(
         "num = 0",
-        MapInner::from_iter([("num".into(), SimpleVal::Int(0))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Int(0))]),
     );
     check_simple(
         "num = -0",
-        MapInner::from_iter([("num".into(), SimpleVal::Int(0))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Int(0))]),
     );
     check_simple(
         "num = +0",
-        MapInner::from_iter([("num".into(), SimpleVal::Int(0))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Int(0))]),
     );
 }
 
@@ -137,15 +137,15 @@ fn assign_sgined_zero_ints() {
 fn assign_sgined_zero_floats() {
     check_simple(
         "num = 0.0",
-        MapInner::from_iter([("num".into(), SimpleVal::Float(0.0))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Float(0.0))]),
     );
     check_simple(
         "num = -0.0",
-        MapInner::from_iter([("num".into(), SimpleVal::Float(-0.0))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Float(-0.0))]),
     );
     check_simple(
         "num = +0.0",
-        MapInner::from_iter([("num".into(), SimpleVal::Float(0.0))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Float(0.0))]),
     );
 }
 
@@ -209,7 +209,7 @@ fn signed_prefixed_hexadecimal_int() {
 fn uppercase_binray_radix_not_allowed() {
     check_simple_error(
         "num = 0B10",
-        MapInner::from_iter([("num".into(), SimpleVal::Invalid("0B10".into()))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Invalid("0B10".into()))]),
         Error::UppercaseIntRadix(IntPrefix::Binary, Pos::new(0, 7)),
     );
 }
@@ -218,7 +218,7 @@ fn uppercase_binray_radix_not_allowed() {
 fn uppercase_octal_radix_not_allowed() {
     check_simple_error(
         "num = 0O10",
-        MapInner::from_iter([("num".into(), SimpleVal::Invalid("0O10".into()))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Invalid("0O10".into()))]),
         Error::UppercaseIntRadix(IntPrefix::Octal, Pos::new(0, 7)),
     );
 }
@@ -227,7 +227,7 @@ fn uppercase_octal_radix_not_allowed() {
 fn uppercase_hexadecimal_radix_not_allowed() {
     check_simple_error(
         "num = 0X10",
-        MapInner::from_iter([("num".into(), SimpleVal::Invalid("0X10".into()))]),
+        SimpleMap::from_iter([("num".into(), SimpleVal::Invalid("0X10".into()))]),
         Error::UppercaseIntRadix(IntPrefix::Hexadecimal, Pos::new(0, 7)),
     );
 }
@@ -380,11 +380,11 @@ fn invalid_int_identifier() {
 fn space_between_array_header_brackets() {
     check_simple_error(
         "[ [a.b]]",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "b".into(),
-                SimpleVal::Array(vec![SimpleVal::Table(MapInner::new())]),
+                SimpleVal::Array(vec![SimpleVal::Table(SimpleMap::new())]),
             )])),
         )]),
         Error::SpaceBetweenArrayPars(Span::from_pos_len(Pos { line: 0, char: 1 }, 1)),
@@ -392,11 +392,11 @@ fn space_between_array_header_brackets() {
 
     check_simple_error(
         "[[a.b] ]",
-        MapInner::from_iter([(
+        SimpleMap::from_iter([(
             "a".into(),
-            SimpleVal::Table(MapInner::from_iter([(
+            SimpleVal::Table(SimpleMap::from_iter([(
                 "b".into(),
-                SimpleVal::Array(vec![SimpleVal::Table(MapInner::new())]),
+                SimpleVal::Array(vec![SimpleVal::Table(SimpleMap::new())]),
             )])),
         )]),
         Error::SpaceBetweenArrayPars(Span::from_pos_len(Pos { line: 0, char: 6 }, 1)),
@@ -1166,7 +1166,7 @@ fn many_unclosed_inline_tables() {
 fn recursion_limit_inline_array() {
     check_simple_error(
         "a=[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]",
-        MapInner::new(),
+        SimpleMap::new(),
         Error::RecursionLimitExceeded(Pos { line: 0, char: 100 }),
     );
 }
@@ -1175,7 +1175,7 @@ fn recursion_limit_inline_array() {
 fn recursion_limit_inline_table() {
     check_simple_error(
         "a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a={a=}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}",
-        MapInner::new(),
+        SimpleMap::new(),
         Error::RecursionLimitExceeded(Pos { line: 0, char: 296 }),
     );
 }

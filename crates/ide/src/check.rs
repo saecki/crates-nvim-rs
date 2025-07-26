@@ -1,8 +1,9 @@
 use common::{FmtStr, Span};
 use semver::{SemverCtx, VersionReq};
+use toml::Map;
 use toml::map::{
-    self, MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
-    ParentId, Scalar,
+    self, MapArray, MapArrayInlineEntry, MapInner, MapNode, MapTable, MapTableEntry,
+    MapTableEntryRepr, ParentId, Scalar,
 };
 use toml::parse::{BoolVal, Ident, StringVal};
 use toml::util::Datatype;
@@ -157,7 +158,7 @@ impl<'a> BoolAssignment<'a> {
     }
 }
 
-pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> State<'a> {
+pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a Map<'a>) -> State<'a> {
     let mut state = State::default();
     for (key, entry) in table.iter() {
         let path = map::Path::root(&entry.reprs);
@@ -767,14 +768,15 @@ fn warn_unused(ctx: &mut impl IdeCtx, path: &map::Path, entry: &MapTableEntry) {
 }
 
 /// Returns whether the key is ignored
-fn deprecated_underscore(
+fn deprecated_underscore<'a>(
     ctx: &mut impl IdeCtx,
     path: Option<&map::Path>,
-    table: &MapTable,
+    table: impl AsRef<MapInner<'a>>,
     old: &'static str,
     new: &'static str,
     old_entry: &MapTableEntry,
 ) -> bool {
+    let table = table.as_ref();
     let ignored;
     // TODO: in the 2024 edition this becomes an error
     let kind = if let Some(new_entry) = table.get(new) {

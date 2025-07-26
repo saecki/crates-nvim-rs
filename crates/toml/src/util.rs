@@ -1,6 +1,6 @@
 use crate::Ast;
 use crate::datetime::DateTime;
-use crate::map::{MapArray, MapInner, MapNode, MapTable, Scalar};
+use crate::map::{MapArray, MapNode, MapTableEntry, Scalar};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Datatype {
@@ -73,9 +73,15 @@ impl SimpleVal {
     }
 }
 
+#[cfg(feature = "indexmap")]
+pub type SimpleMap = indexmap::IndexMap<String, SimpleVal>;
+
+#[cfg(not(feature = "indexmap"))]
+pub type MapInner = std::collections::hash_map::HashMap<String, SimpleVal>;
+
 #[derive(PartialEq)]
 pub enum SimpleVal {
-    Table(MapInner<String, SimpleVal>),
+    Table(SimpleMap),
     Array(Vec<SimpleVal>),
     String(String),
     Int(i64),
@@ -100,11 +106,14 @@ impl std::fmt::Debug for SimpleVal {
     }
 }
 
-pub fn map_simple(ast: &Ast, map: MapTable) -> MapInner<String, SimpleVal> {
+pub fn map_simple<'a, M>(ast: &Ast, map: M) -> SimpleMap
+where
+    M: IntoIterator<Item = (&'a str, MapTableEntry<'a>)>,
+{
     let iter = map
         .into_iter()
         .map(|(k, e)| (k.to_string(), map_simple_val(ast, e.node)));
-    MapInner::from_iter(iter)
+    SimpleMap::from_iter(iter)
 }
 
 pub fn map_simple_val(ast: &Ast, node: MapNode) -> SimpleVal {

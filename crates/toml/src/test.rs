@@ -3,8 +3,8 @@ use common::{Pos, Span};
 pub use pretty_assertions::assert_eq;
 
 use crate::lex::TextOffset;
-use crate::map::MapInner;
 pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
+use crate::util::SimpleMap;
 pub use crate::util::{self, SimpleVal};
 pub use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
 
@@ -49,7 +49,7 @@ impl<'a> AstBuilder<'a> {
 }
 
 #[track_caller]
-pub fn expect_float(table: &MapInner<String, SimpleVal>, key: &str) -> f64 {
+pub fn expect_float(table: &SimpleMap, key: &str) -> f64 {
     let val = table.get(key).unwrap();
     match val {
         SimpleVal::Float(f) => *f,
@@ -57,7 +57,7 @@ pub fn expect_float(table: &MapInner<String, SimpleVal>, key: &str) -> f64 {
     }
 }
 
-pub fn parse_simple(input: &str) -> (TomlDiagnostics, MapInner<String, SimpleVal>) {
+pub fn parse_simple(input: &str) -> (TomlDiagnostics, SimpleMap) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
@@ -68,7 +68,7 @@ pub fn parse_simple(input: &str) -> (TomlDiagnostics, MapInner<String, SimpleVal
 }
 
 #[track_caller]
-pub fn check_simple(input: &str, expected: MapInner<String, SimpleVal>) {
+pub fn check_simple(input: &str, expected: SimpleMap) {
     let (ctx, table) = parse_simple(input);
     assert_eq!(
         expected, table,
@@ -80,7 +80,7 @@ pub fn check_simple(input: &str, expected: MapInner<String, SimpleVal>) {
 }
 
 #[track_caller]
-pub fn check_simple_error(input: &str, expected: MapInner<String, SimpleVal>, error: Error) {
+pub fn check_simple_error(input: &str, expected: SimpleMap, error: Error) {
     let (ctx, table) = parse_simple(input);
     assert_eq!(
         expected, table,

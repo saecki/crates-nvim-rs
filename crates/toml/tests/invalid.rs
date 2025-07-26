@@ -4,8 +4,7 @@ use std::io::Write as _;
 use bumpalo::Bump;
 use common::diagnostic;
 use common::diagnostic::{ANSII_CLEAR, ANSII_COLOR_BLUE, ANSII_COLOR_YELLOW};
-use crates_toml::map::MapInner;
-use crates_toml::util::SimpleVal;
+use crates_toml::util::SimpleMap;
 use crates_toml::{TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
 
@@ -256,7 +255,7 @@ fn main() {
     libtest_mimic::run(&args, tests).exit()
 }
 
-fn run_case(input: &str) -> Result<MapInner<String, SimpleVal>, String> {
+fn run_case(input: &str) -> Result<SimpleMap, String> {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);

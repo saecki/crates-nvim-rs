@@ -42,7 +42,7 @@ use common::{FmtChar, FmtStr, Span};
 use crate::onevec::OneVec;
 use crate::parse::{
     ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
-    InlineArrayValue, InlineTableAssignment, IntVal, Key, StringVal, Table, Toplevel,
+    InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, StringVal, Table, Toplevel,
     ToplevelAssignment, Value,
 };
 use crate::{Ast, Error, TomlCtx};
@@ -57,27 +57,34 @@ const ROOT_PARENT: ParentId = ParentId(u32::MAX);
 #[cfg(feature = "indexmap")]
 use indexmap::map::Entry::{Occupied, Vacant};
 #[cfg(feature = "indexmap")]
-pub type MapInner<K, V> = indexmap::IndexMap<K, V>;
+pub type MapInner<'a> = indexmap::IndexMap<&'a str, MapTableEntry<'a>>;
+#[cfg(feature = "indexmap")]
+pub type MapIter<'b, 'a> = indexmap::map::Iter<'b, &'a str, MapTableEntry<'a>>;
 
 #[cfg(not(feature = "indexmap"))]
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 #[cfg(not(feature = "indexmap"))]
-pub type MapInner<K, V> = std::collections::hash_map::HashMap<K, V>;
+pub type MapInner<'a> = std::collections::hash_map::HashMap<&'a str, MapTableEntry<'a>>;
+#[cfg(not(feature = "indexmap"))]
+pub type MapIter<'b, 'a> = std::collections::hash_map::Iter<'b, &'a str, MapTableEntry<'a>>;
 
+/// The root of a toml file.
 #[derive(Debug, Default, PartialEq)]
-pub struct MapTable<'a> {
-    inner: MapInner<&'a str, MapTableEntry<'a>>,
+pub struct Map<'a> {
+    inner: MapInner<'a>,
 }
 
-impl<'a> MapTable<'a> {
+impl<'a> AsRef<MapInner<'a>> for Map<'a> {
+    fn as_ref(&self) -> &MapInner<'a> {
+        &self.inner
+    }
+}
+
+impl<'a> Map<'a> {
     pub fn new() -> Self {
         Self {
             inner: MapInner::new(),
         }
-    }
-
-    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a>> {
-        self.inner.get(key)
     }
 
     pub fn from_pairs(pairs: impl IntoIterator<Item = (&'a str, MapTableEntry<'a>)>) -> Self {
@@ -86,17 +93,145 @@ impl<'a> MapTable<'a> {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (&&str, &MapTableEntry<'a>)> {
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a>> {
+        self.inner.get(key)
+    }
+
+    pub fn iter(&self) -> MapIter<'_, 'a> {
+        self.inner.iter()
+    }
+}
+
+impl<'a> IntoIterator for Map<'a> {
+    type Item = (&'a str, MapTableEntry<'a>);
+    type IntoIter = <MapInner<'a> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MapTable<'a> {
+    inner: MapInner<'a>,
+    pub reprs: OneVec<MapTableRepr<'a>>,
+}
+
+impl<'a> AsRef<MapInner<'a>> for MapTable<'a> {
+    fn as_ref(&self) -> &MapInner<'a> {
+        &self.inner
+    }
+}
+
+impl<'a> MapTable<'a> {
+    pub fn new(repr: MapTableRepr<'a>) -> Self {
+        Self {
+            reprs: OneVec::new(repr),
+            inner: MapInner::new(),
+        }
+    }
+
+    pub fn from_pairs(
+        pairs: impl IntoIterator<Item = (&'a str, MapTableEntry<'a>)>,
+        reprs: OneVec<MapTableRepr<'a>>,
+    ) -> Self {
+        Self {
+            reprs,
+            inner: MapInner::from_iter(pairs),
+        }
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a>> {
+        self.inner.get(key)
+    }
+
+    pub fn iter(&self) -> MapIter<'_, 'a> {
         self.inner.iter()
     }
 }
 
 impl<'a> IntoIterator for MapTable<'a> {
     type Item = (&'a str, MapTableEntry<'a>);
-    type IntoIter = <MapInner<&'a str, MapTableEntry<'a>> as IntoIterator>::IntoIter;
+    type IntoIter = <MapInner<'a> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
+    }
+}
+
+/// All possible ast definitions, that can make up a table.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum MapTableRepr<'a> {
+    /// This table would be part of the representation of the `a` and `a.table`
+    /// tables.
+    /// ```toml
+    /// [a.table]
+    /// ...
+    /// ```
+    Table(&'a Table<'a>),
+    /// ```toml
+    /// an.inline.table = { }
+    /// #                 ^^^ this part here
+    /// ```
+    InlineTable(&'a InlineTable<'a>),
+    /// This array of tables entry would be part of the represenation of the
+    /// `an` and `an.array` tables. The `an.array.entry` key corresponds to
+    /// a [`MapArray::Toplevel`], which in will contain a [`MapArrayToplevelEntry`]
+    /// for this definition.
+    /// ```toml
+    /// [[an.array.entry]]
+    /// ...
+    /// ```
+    ArrayEntry(&'a ArrayEntry<'a>),
+    /// This assignment would be part of the represenation for the `a` table and
+    /// the `a.toplevel` table.
+    ///
+    /// Note that only assignments with dotted keys can make up a table.
+    /// And the last identifier of the dotted key, cannot be part of the
+    /// representation that makes up a [`MapTableRepr`], but it will represent
+    /// a [`MapTableEntryRepr`].
+    /// ```toml
+    /// a.toplevel.assignment = 12
+    /// ```
+    ToplevelAssignment(&'a ToplevelAssignment<'a>),
+    /// Both assignments inside the inline table would make up part of the
+    /// `things.table` table.
+    /// ```toml
+    /// things = { table.a = 12, table.b = 13 }
+    ///            ^^^^^ here    ^^^^^ and here
+    /// ```
+    InlineTableAssignment(&'a InlineTableAssignment<'a>),
+}
+
+impl<'a> MapTableRepr<'a> {
+    pub fn span(&self) -> Span {
+        match self {
+            MapTableRepr::Table(table) => table.span(),
+            MapTableRepr::InlineTable(table) => table.span(),
+            MapTableRepr::ArrayEntry(array) => array.span(),
+            MapTableRepr::ToplevelAssignment(assignment) => assignment.span(),
+            MapTableRepr::InlineTableAssignment(assignment) => assignment.span(),
+        }
     }
 }
 
@@ -120,7 +255,7 @@ impl<'a> MapTableEntry<'a> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MapTableEntryRepr<'a> {
     /// Index of the parent defined in the parent [`MapTableEntry::reprs`].
     pub parent: ParentId,
@@ -150,7 +285,7 @@ pub enum MapTableEntryReprKind<'a> {
     InlineTableAssignment(&'a InlineTableAssignment<'a>),
 }
 
-impl MapTableEntryReprKind<'_> {
+impl<'a> MapTableEntryReprKind<'a> {
     #[inline]
     pub fn span(&self) -> Span {
         match self {
@@ -180,9 +315,22 @@ impl MapTableEntryReprKind<'_> {
             MapTableEntryReprKind::InlineTableAssignment(_) => true,
         }
     }
+
+    pub fn table_repr(&self) -> MapTableRepr<'a> {
+        match self {
+            MapTableEntryReprKind::Table(table) => MapTableRepr::Table(table),
+            MapTableEntryReprKind::ArrayEntry(array) => MapTableRepr::ArrayEntry(array),
+            MapTableEntryReprKind::ToplevelAssignment(assignment) => {
+                MapTableRepr::ToplevelAssignment(assignment)
+            }
+            MapTableEntryReprKind::InlineTableAssignment(assignment) => {
+                MapTableRepr::InlineTableAssignment(assignment)
+            }
+        }
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MapTableKeyRepr<'a> {
     One(&'a Ident<'a>),
     Dotted(u32, &'a [DottedIdent<'a>]),
@@ -458,7 +606,7 @@ fn fmt_path(path: &Path) -> String {
                 PathSegment::Table(reprs) => {
                     let key = reprs.first().key.repr_ident();
                     buf.push('.');
-                    fmt_path_segment(&mut buf, key).unwrap();
+                    fmt_ident(&mut buf, key).unwrap();
                 }
                 PathSegment::Array(i) => write!(&mut buf, "[{i}]").unwrap(),
             }
@@ -468,7 +616,7 @@ fn fmt_path(path: &Path) -> String {
             PathSegment::Table(reprs) => {
                 let mut buf = String::new();
                 let key = reprs.first().key.repr_ident();
-                fmt_path_segment(&mut buf, key).unwrap();
+                fmt_ident(&mut buf, key).unwrap();
                 buf
             }
             PathSegment::Array(_) => unreachable!(),
@@ -481,19 +629,19 @@ pub fn joined_path(prev: Option<&Path>, key: &Ident) -> FmtStr {
         Some(prev) => {
             let mut buf = fmt_path(prev);
             buf.push('.');
-            fmt_path_segment(&mut buf, key).unwrap();
+            fmt_ident(&mut buf, key).unwrap();
             buf
         }
         None => {
             let mut buf = String::new();
-            fmt_path_segment(&mut buf, key).unwrap();
+            fmt_ident(&mut buf, key).unwrap();
             buf
         }
     };
     FmtStr::from_string(str)
 }
 
-fn fmt_path_segment(f: &mut impl std::fmt::Write, key: &Ident) -> std::fmt::Result {
+pub fn fmt_ident(f: &mut impl std::fmt::Write, key: &Ident) -> std::fmt::Result {
     if key.text.is_empty() {
         f.write_str("''")?;
     } else {
@@ -548,11 +696,11 @@ fn collect_lines(lines: &mut Vec<u32>, mut path: &Path, mut parent: ParentId) {
 /// Value to be lazily mapped and inserted
 enum InsertValue<'a> {
     Value(&'a Value<'a>),
-    TableAssignments(&'a [ToplevelAssignment<'a>]),
+    TableAssignments(&'a Table<'a>),
 }
 
-pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
-    let mut root = MapTable::new();
+pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> Map<'a> {
+    let mut root = Map::new();
     let mut bump = Bump::new();
     for a in ast.toplevel.iter() {
         match a {
@@ -563,7 +711,7 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
                     &bump,
                     None,
                     ROOT_PARENT,
-                    &mut root,
+                    &mut root.inner,
                     &assignment.assignment.key,
                     InsertValue::Value(&assignment.assignment.val),
                     repr_kind,
@@ -580,9 +728,9 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
                     &bump,
                     None,
                     ROOT_PARENT,
-                    &mut root,
+                    &mut root.inner,
                     key,
-                    InsertValue::TableAssignments(&table.assignments),
+                    InsertValue::TableAssignments(&table),
                     repr_kind,
                 );
             }
@@ -590,7 +738,7 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
                 let Some(key) = &array_entry.header.key else {
                     continue;
                 };
-                insert_array_entry_at_path(ctx, &bump, &mut root, key, array_entry);
+                insert_array_entry_at_path(ctx, &bump, &mut root.inner, key, array_entry);
             }
         }
         bump.reset();
@@ -607,9 +755,16 @@ fn map_insert_value<'a, 'b>(
 ) -> MapNode<'a> {
     match value {
         InsertValue::Value(value) => map_value(ctx, bump, path, parent, value),
-        InsertValue::TableAssignments(assignments) => {
-            let mut map = MapTable::new();
-            insert_top_level_assignments(ctx, bump, Some(path), parent, &mut map, assignments);
+        InsertValue::TableAssignments(table) => {
+            let mut map = MapTable::new(MapTableRepr::Table(table));
+            insert_top_level_assignments(
+                ctx,
+                bump,
+                Some(path),
+                parent,
+                &mut map.inner,
+                &table.assignments,
+            );
             MapNode::Table(map)
         }
     }
@@ -629,7 +784,7 @@ fn map_value<'a, 'b>(
         Value::Bool(b) => MapNode::Scalar(Scalar::Bool(b)),
         Value::DateTime(d) => MapNode::Scalar(Scalar::DateTime(d)),
         Value::InlineTable(table) => {
-            let mut map = MapTable::new();
+            let mut map = MapTable::new(MapTableRepr::InlineTable(table));
             for assignment in table.assignments.iter() {
                 let repr_kind = MapTableEntryReprKind::InlineTableAssignment(assignment);
                 insert_node_at_path(
@@ -637,7 +792,7 @@ fn map_value<'a, 'b>(
                     bump,
                     Some(path),
                     parent,
-                    &mut map,
+                    &mut map.inner,
                     &assignment.assignment.key,
                     InsertValue::Value(&assignment.assignment.val),
                     repr_kind,
@@ -663,7 +818,7 @@ fn insert_node_at_path<'a, 'b>(
     bump: &'b Bump,
     mut path: Option<&'b Path<'a, 'b>>,
     mut parent: ParentId,
-    map: &'b mut MapTable<'a>,
+    map: &'b mut MapInner<'a>,
     key: &'a Key<'a>,
     value: InsertValue<'a>,
     repr_kind: MapTableEntryReprKind<'a>,
@@ -686,13 +841,13 @@ fn insert_node_at_path<'a, 'b>(
     };
     let mut current = map;
     for (i, o) in other.iter().enumerate() {
-        let entry = match current.inner.entry(o.ident.text) {
+        let entry = match current.entry(o.ident.text) {
             Occupied(occupied) => occupied.into_mut(),
             Vacant(mut vacant) => {
                 for j in i..idents.len() - 1 {
                     let key_repr = MapTableKeyRepr::Dotted(j as u32, idents);
                     let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-                    let node = MapNode::Table(MapTable::new());
+                    let node = MapNode::Table(MapTable::new(repr_kind.table_repr()));
                     let entry = vacant.insert(MapTableEntry::from_one(node, repr));
 
                     parent = ParentId(0);
@@ -749,12 +904,12 @@ fn insert_node<'a, 'b>(
     ctx: &mut impl TomlCtx,
     bump: &'b Bump,
     path: Option<&'b Path<'a, 'b>>,
-    map: &mut MapTable<'a>,
+    map: &'b mut MapInner<'a>,
     key: &'a Ident<'a>,
     value: InsertValue<'a>,
     repr: MapTableEntryRepr<'a>,
 ) -> Result<(), Error> {
-    let existing_entry = match map.inner.entry(key.text) {
+    let existing_entry = match map.entry(key.text) {
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
             // no previous entries in this chain -> this will be the first index
@@ -767,7 +922,7 @@ fn insert_node<'a, 'b>(
         }
     };
 
-    let InsertValue::TableAssignments(assignments) = value else {
+    let InsertValue::TableAssignments(table) = value else {
         return Err(duplicate_key_error(
             path,
             existing_entry.reprs.first(),
@@ -800,10 +955,23 @@ fn insert_node<'a, 'b>(
         }
     }
 
-    // extend existing table with items from super table
+    // Extend existing table with items from super table.
+    // ```toml
+    // [a.b.c] # this would be the existing table
+    //
+    // [a.b] # this would be the super table
+    // ```
     let parent = insert_repr(&mut existing_entry.reprs, repr);
     let path = append_key(path, &existing_entry.reprs);
-    insert_top_level_assignments(ctx, bump, Some(&path), parent, existing_table, assignments);
+    existing_table.reprs.push(repr.kind.table_repr());
+    insert_top_level_assignments(
+        ctx,
+        bump,
+        Some(&path),
+        parent,
+        &mut existing_table.inner,
+        &table.assignments,
+    );
 
     Ok(())
 }
@@ -811,7 +979,7 @@ fn insert_node<'a, 'b>(
 fn insert_array_entry_at_path<'a, 'b>(
     ctx: &mut impl TomlCtx,
     bump: &'b Bump,
-    map: &'b mut MapTable<'a>,
+    map: &'b mut MapInner<'a>,
     key: &'a Key<'a>,
     array_entry: &'a ArrayEntry<'a>,
 ) {
@@ -834,14 +1002,14 @@ fn insert_array_entry_at_path<'a, 'b>(
     };
     let mut current = map;
     for (i, o) in other.iter().enumerate() {
-        let entry = match current.inner.entry(o.ident.text) {
+        let entry = match current.entry(o.ident.text) {
             Occupied(occupied) => occupied.into_mut(),
             Vacant(mut vacant) => {
                 for j in i..idents.len() - 1 {
                     let key_repr = MapTableKeyRepr::Dotted(j as u32, idents);
                     let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
                     let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-                    let node = MapNode::Table(MapTable::new());
+                    let node = MapNode::Table(MapTable::new(repr_kind.table_repr()));
                     let entry = vacant.insert(MapTableEntry::from_one(node, repr));
 
                     parent = ParentId(0);
@@ -865,13 +1033,13 @@ fn insert_array_entry_at_path<'a, 'b>(
                 let path = append_key(path, &reprs);
                 let path = path.append_index(0);
 
-                let mut node = MapTable::new();
+                let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
                 insert_top_level_assignments(
                     ctx,
                     bump,
                     Some(&path),
                     parent,
-                    &mut node,
+                    &mut node.inner,
                     &array_entry.assignments,
                 );
                 let toplevel_array = MapArrayToplevel::new(node, parent, array_entry);
@@ -918,7 +1086,7 @@ fn insert_array_entry<'a, 'b>(
     ctx: &mut impl TomlCtx,
     bump: &'b Bump,
     path: Option<&'b Path<'a, 'b>>,
-    map: &mut MapTable<'a>,
+    map: &'b mut MapInner<'a>,
     parent: ParentId,
     key: &'a Ident<'a>,
     key_repr: MapTableKeyRepr<'a>,
@@ -927,7 +1095,7 @@ fn insert_array_entry<'a, 'b>(
     let repr_kind = MapTableEntryReprKind::ArrayEntry(array_entry);
     let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
 
-    match map.inner.entry(key.text) {
+    match map.entry(key.text) {
         Occupied(occupied) => {
             let entry = occupied.into_mut();
             let array = match &mut entry.node {
@@ -951,13 +1119,13 @@ fn insert_array_entry<'a, 'b>(
             let idx = array.len();
             let path = append_index(Some(&path), idx);
 
-            let mut node = MapTable::new();
+            let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
             insert_top_level_assignments(
                 ctx,
                 bump,
                 Some(&path),
                 parent,
-                &mut node,
+                &mut node.inner,
                 &array_entry.assignments,
             );
             array.push(MapArrayToplevelEntry::new(node, parent, array_entry));
@@ -968,13 +1136,13 @@ fn insert_array_entry<'a, 'b>(
             let path = append_key(path, &reprs);
             let path = append_index(Some(&path), 0);
 
-            let mut node = MapTable::new();
+            let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
             insert_top_level_assignments(
                 ctx,
                 bump,
                 Some(&path),
                 parent,
-                &mut node,
+                &mut node.inner,
                 &array_entry.assignments,
             );
             let toplevel_array = MapArrayToplevel::new(node, parent, array_entry);
@@ -992,7 +1160,7 @@ fn insert_top_level_assignments<'a, 'b>(
     bump: &'b Bump,
     path: Option<&'b Path<'a, 'b>>,
     parent: ParentId,
-    map: &mut MapTable<'a>,
+    map: &mut MapInner<'a>,
     assignments: &'a [ToplevelAssignment<'a>],
 ) {
     for assignment in assignments.iter() {
@@ -1015,12 +1183,10 @@ fn get_table_to_extend<'a, 'b>(
     prev: Option<&'b Path<'a, 'b>>,
     entry: &'b mut MapTableEntry<'a>,
     repr: MapTableEntryRepr<'a>,
-) -> Result<(ParentId, Option<&'b Path<'a, 'b>>, &'b mut MapTable<'a>), Error>
+) -> Result<(ParentId, Option<&'b Path<'a, 'b>>, &'b mut MapInner<'a>), Error>
 where
     'a: 'b,
 {
-    let is_assignment = repr.kind.is_assignment();
-
     let (next_parent, next_path, next) = match &mut entry.node {
         MapNode::Table(t) => {
             let parent = insert_repr(&mut entry.reprs, repr);
@@ -1064,10 +1230,12 @@ where
         }
     };
 
+    next.reprs.push(repr.kind.table_repr());
+
     for existing in entry.reprs.iter() {
         match &existing.kind {
             MapTableEntryReprKind::Table(_) => {
-                if is_assignment {
+                if repr.kind.is_assignment() {
                     let orig = entry.reprs.first();
                     let dupe = entry.reprs.last();
                     return Err(Error::CannotExtendTableWithDottedKey {
@@ -1096,7 +1264,7 @@ where
         }
     }
 
-    Ok((next_parent, Some(next_path), next))
+    Ok((next_parent, Some(next_path), &mut next.inner))
 }
 
 fn insert_repr<'a>(
