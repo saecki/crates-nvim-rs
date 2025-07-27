@@ -253,6 +253,7 @@ dependencies = [
  "indexmap",
  "libtest-mimic 0.8.1",
  "pretty_assertions",
+ "serde",
  "toml-test-data",
  "toml-test-harness",
 ]

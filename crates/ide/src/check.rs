@@ -632,12 +632,12 @@ fn parse_dependency_features<'a>(
         return;
     };
     let array = match array {
-        MapArray::Toplevel(_) => {
-            for (i, repr) in entry.reprs.iter().enumerate() {
+        MapArray::Toplevel(array) => {
+            for (i, array_entry) in array.iter().enumerate() {
                 ctx.error(cargo::Error::new(
-                    map::context_lines(path.prev, [repr.parent]),
-                    path.append_index(i).fmt_path(),
-                    repr.repr_span(),
+                    map::context_lines(path.prev, [array_entry.parent]),
+                    path.append_index(array_entry.parent, i).fmt_path(),
+                    array_entry.repr.span(),
                     cargo::ErrorKind::WrongDatatype {
                         expected: Datatype::String,
                         found: Datatype::Table,
@@ -650,7 +650,7 @@ fn parse_dependency_features<'a>(
     };
 
     for (i, entry) in array.iter().enumerate() {
-        let path = path.append_index(i);
+        let path = path.append_index(array.parent, i);
         if let Some(str) = expect_string_in_array(ctx, &path, array.parent, entry) {
             features.push(str);
         }

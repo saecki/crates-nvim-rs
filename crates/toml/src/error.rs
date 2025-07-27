@@ -7,6 +7,14 @@ use crate::parse::{IntPrefix, LitPart, RECURSION_LIMIT, Sign};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
+    #[cfg(feature = "serde")]
+    Serde {
+        lines: Box<[u32]>,
+        path: Option<FmtStr>,
+        msg: FmtStr,
+        span: Span,
+    },
+
     MissingQuote(Quote, Span),
     ExcessiveQuotes(Quote, Span),
     InvalidStringChar(FmtChar, Span),
@@ -122,6 +130,9 @@ impl Diagnostic for Error {
     fn span(&self) -> Span {
         use Error::*;
         match self {
+            #[cfg(feature = "serde")]
+            Serde { span, .. } => *span,
+
             MissingQuote(_, s) => *s,
             ExcessiveQuotes(_, s) => *s,
             InvalidStringChar(_, s) => *s,
@@ -199,6 +210,12 @@ impl Diagnostic for Error {
     fn description(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
         match self {
+            #[cfg(feature = "serde")]
+            Serde { path, msg, .. } => match path {
+                Some(path) => write!(f, "{msg} `{path}`"),
+                None => write!(f, "{msg}"),
+            },
+
             MissingQuote(quote, _) => {
                 let kind = quote.kind_str();
                 write!(f, "unterminated {kind} string, missing `{quote}`")
@@ -415,6 +432,9 @@ impl Diagnostic for Error {
     fn annotation(&self, f: &mut impl std::fmt::Write) -> std::fmt::Result {
         use Error::*;
         match self {
+            #[cfg(feature = "serde")]
+            Serde { msg, .. } => write!(f, "{msg}"),
+
             MissingQuote(..) => write!(f, "unterminated string"),
             ExcessiveQuotes(..) => write!(f, "excess quotes"),
             InvalidStringChar(..) => write!(f, "invalid character"),
@@ -506,6 +526,9 @@ impl Diagnostic for Error {
     fn hint(&self) -> Option<Self::Hint> {
         use Error::*;
         match self {
+            #[cfg(feature = "serde")]
+            Serde { .. } => None,
+
             MissingQuote(..) => None,
             ExcessiveQuotes(..) => None,
             InvalidStringChar(_, _) => None,
@@ -587,6 +610,9 @@ impl Diagnostic for Error {
     fn context_lines(&self) -> Option<&[u32]> {
         use Error::*;
         match self {
+            #[cfg(feature = "serde")]
+            Serde { lines, .. } => Some(lines),
+
             MissingQuote(..) => None,
             ExcessiveQuotes(..) => None,
             InvalidStringChar(..) => None,

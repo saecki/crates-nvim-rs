@@ -35,6 +35,7 @@
 //! # 3
 //! children_1 = { node_1 = 1, node_2 = false }
 //! ```
+use std::fmt::Write as _;
 
 use bumpalo::Bump;
 use common::OneVec;
@@ -502,10 +503,10 @@ pub struct Path<'a, 'b> {
     pub segment: PathSegment<'a, 'b>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum PathSegment<'a, 'b> {
     Table(&'b OneVec<MapTableEntryRepr<'a>>),
-    Array(usize),
+    Array(ParentId, usize),
 }
 
 impl<'a, 'b> Path<'a, 'b> {
@@ -520,8 +521,8 @@ impl<'a, 'b> Path<'a, 'b> {
     }
 
     #[inline(always)]
-    pub fn append_index(&'b self, index: usize) -> Self {
-        append_index(Some(self), index)
+    pub fn append_index(&'b self, parent: ParentId, index: usize) -> Self {
+        append_index(Some(self), parent, index)
     }
 
     pub fn joined_path(&self, ident: &Ident) -> FmtStr {
@@ -556,38 +557,33 @@ pub fn append_key<'a, 'b>(
 }
 
 #[inline(always)]
-pub fn append_index<'a, 'b>(prev: Option<&'b Path<'a, 'b>>, index: usize) -> Path<'a, 'b> {
+pub fn append_index<'a, 'b>(
+    prev: Option<&'b Path<'a, 'b>>,
+    parent: ParentId,
+    index: usize,
+) -> Path<'a, 'b> {
     Path {
         prev,
-        segment: PathSegment::Array(index),
+        segment: PathSegment::Array(parent, index),
     }
 }
 
 fn fmt_path(path: &Path) -> String {
-    match path.prev {
-        Some(prev) => {
-            use std::fmt::Write as _;
-            let mut buf = fmt_path(prev);
-            match path.segment {
-                PathSegment::Table(reprs) => {
-                    let key = reprs.first().key.repr_ident();
-                    buf.push('.');
-                    fmt_ident(&mut buf, key).unwrap();
-                }
-                PathSegment::Array(i) => write!(&mut buf, "[{i}]").unwrap(),
+    let mut buf = String::new();
+    if let Some(prev) = path.prev {
+        buf = fmt_path(prev)
+    };
+    match path.segment {
+        PathSegment::Table(reprs) => {
+            if path.prev.is_some() {
+                buf.push('.');
             }
-            buf
+            let key = reprs.first().key.repr_ident();
+            fmt_ident(&mut buf, key).unwrap();
         }
-        None => match path.segment {
-            PathSegment::Table(reprs) => {
-                let mut buf = String::new();
-                let key = reprs.first().key.repr_ident();
-                fmt_ident(&mut buf, key).unwrap();
-                buf
-            }
-            PathSegment::Array(_) => unreachable!(),
-        },
+        PathSegment::Array(_, i) => write!(&mut buf, "[{i}]").unwrap(),
     }
+    buf
 }
 
 pub fn joined_path(prev: Option<&Path>, key: &Ident) -> FmtStr {
@@ -607,20 +603,32 @@ pub fn joined_path(prev: Option<&Path>, key: &Ident) -> FmtStr {
     FmtStr::from_string(str)
 }
 
+pub struct FmtIdent<'a>(pub &'a str);
+
+impl std::fmt::Display for FmtIdent<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fmt_ident_str(f, self.0)
+    }
+}
+
 pub fn fmt_ident(f: &mut impl std::fmt::Write, key: &Ident) -> std::fmt::Result {
-    if key.text.is_empty() {
+    fmt_ident_str(f, key.text)
+}
+
+fn fmt_ident_str(f: &mut impl std::fmt::Write, key: &str) -> std::fmt::Result {
+    if key.is_empty() {
         f.write_str("''")?;
     } else {
         let is_invalid_plain_ident =
-            (key.text.chars()).any(|c| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
+            (key.chars()).any(|c| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'));
         if is_invalid_plain_ident {
             f.write_char('\'')?;
-            for c in key.text.chars() {
+            for c in key.chars() {
                 write!(f, "{}", FmtChar(c))?;
             }
             f.write_char('\'')?;
         } else {
-            f.write_str(key.text)?;
+            f.write_str(key)?;
         }
     }
     Ok(())
@@ -651,7 +659,9 @@ fn collect_lines(lines: &mut Vec<u32>, mut path: &Path, mut parent: ParentId) {
                 lines.push(repr.key.repr_ident().lit_start.line);
                 parent = repr.parent;
             }
-            PathSegment::Array(_) => (),
+            PathSegment::Array(p, _) => {
+                parent = p;
+            }
         }
 
         let Some(prev) = path.prev else { break };
@@ -768,7 +778,7 @@ fn map_value<'a, 'b>(
         }
         Value::InlineArray(inline_array) => {
             let entries = (inline_array.values.iter().enumerate()).map(|(index, value)| {
-                let path = append_index(Some(path), index);
+                let path = append_index(Some(path), parent, index);
                 let node = map_value(ctx, bump, &path, parent, &value.val);
                 MapArrayInlineEntry::new(node, value)
             });
@@ -817,8 +827,8 @@ fn insert_node_at_path<'a, 'b>(
                     let node = MapNode::Table(MapTable::new(repr_kind.table_repr()));
                     let entry = vacant.insert(MapTableEntry::from_one(node, repr));
 
-                    parent = ParentId(0);
                     path = Some(bump.alloc(append_key(path, &entry.reprs)));
+                    parent = ParentId(0);
 
                     let MapNode::Table(next) = &mut entry.node else {
                         unreachable!()
@@ -833,8 +843,8 @@ fn insert_node_at_path<'a, 'b>(
                 let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
                 let reprs = OneVec::new(repr);
 
-                parent = ParentId(0);
                 let path = append_key(path, &reprs);
+                parent = ParentId(0);
 
                 let node = map_insert_value(ctx, bump, &path, parent, value);
                 vacant.insert(MapTableEntry::new(node, reprs));
@@ -879,10 +889,10 @@ fn insert_node<'a, 'b>(
     let existing_entry = match map.entry(key.text) {
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
-            // no previous entries in this chain -> this will be the first index
-            let parent = ParentId(0);
             let reprs = OneVec::new(repr);
             let path = append_key(path, &reprs);
+            // no previous entries in this chain -> this will be the first parent
+            let parent = ParentId(0);
             let node = map_insert_value(ctx, bump, &path, parent, value);
             vacant.insert(MapTableEntry::new(node, reprs));
             return Ok(());
@@ -979,8 +989,8 @@ fn insert_array_entry_at_path<'a, 'b>(
                     let node = MapNode::Table(MapTable::new(repr_kind.table_repr()));
                     let entry = vacant.insert(MapTableEntry::from_one(node, repr));
 
-                    parent = ParentId(0);
                     path = Some(bump.alloc(append_key(path, &entry.reprs)));
+                    parent = ParentId(0);
 
                     let MapNode::Table(next) = &mut entry.node else {
                         unreachable!()
@@ -996,9 +1006,9 @@ fn insert_array_entry_at_path<'a, 'b>(
                 let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
                 let reprs = OneVec::new(repr);
 
-                parent = ParentId(0);
                 let path = append_key(path, &reprs);
-                let path = path.append_index(0);
+                parent = ParentId(0);
+                let path = path.append_index(parent, 0);
 
                 let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
                 insert_top_level_assignments(
@@ -1085,7 +1095,7 @@ fn insert_array_entry<'a, 'b>(
             let parent = insert_repr(&mut entry.reprs, repr);
             let path = append_key(path, &entry.reprs);
             let idx = array.len();
-            let path = append_index(Some(&path), idx);
+            let path = append_index(Some(&path), parent, idx);
 
             let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
             insert_top_level_assignments(
@@ -1099,10 +1109,10 @@ fn insert_array_entry<'a, 'b>(
             array.push(MapArrayToplevelEntry::new(node, parent, array_entry));
         }
         Vacant(vacant) => {
-            let parent = ParentId(0);
             let reprs = OneVec::new(repr);
             let path = append_key(path, &reprs);
-            let path = append_index(Some(&path), 0);
+            let parent = ParentId(0);
+            let path = append_index(Some(&path), parent, 0);
 
             let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
             insert_top_level_assignments(
@@ -1180,7 +1190,7 @@ where
 
             let parent = insert_repr(&mut entry.reprs, repr);
             let path = Some(&*bump.alloc(append_key(prev, &entry.reprs)));
-            let path = bump.alloc(append_index(path, a.inner.len() - 1));
+            let path = bump.alloc(append_index(path, parent, a.inner.len() - 1));
             let t = &mut a.inner.last_mut().node;
             (parent, path, t)
         }

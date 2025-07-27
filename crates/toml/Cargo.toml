@@ -4,13 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["indexmap"]
+default = ["indexmap", "serde"]
 indexmap = ["dep:indexmap"]
+# serde requires ordered table entries for deserializing tables with
+# integer keys as tuple structs
+serde = ["indexmap", "dep:serde"]
 
 [dependencies]
 common = { workspace = true }
 bumpalo = { workspace = true }
 indexmap = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }

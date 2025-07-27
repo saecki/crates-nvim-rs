@@ -5,6 +5,8 @@ pub use error::{Error, Hint, Info, Warning};
 pub use lex::{Quote, Token, TokenType, Tokens, lex};
 pub use map::{MapTable, map};
 pub use parse::{Ast, Toplevel, parse};
+#[cfg(feature = "serde")]
+pub use serde::deserialize;
 
 pub mod container;
 pub mod datetime;
@@ -15,6 +17,9 @@ pub mod parse;
 #[cfg(test)]
 mod test;
 pub mod util;
+
+#[cfg(feature = "serde")]
+pub mod serde;
 
 pub trait TomlCtx:
     Ctx<Error = Self::TomlError, Warning = Self::TomlWarning, Info = Self::TomlInfo>
