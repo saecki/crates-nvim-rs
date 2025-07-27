@@ -1,9 +1,10 @@
 use common::{Pos, onevec};
 use pretty_assertions::assert_eq;
 
-use crate::parse::{End, TableHeader};
+use crate::parse::{Assignment, End, TableHeader};
 use crate::test::*;
-use crate::util::SimpleMap;
+use crate::util::{SimpleMap, SimpleVal};
+use crate::{TomlDiagnostics, Warning};
 
 use super::*;
 

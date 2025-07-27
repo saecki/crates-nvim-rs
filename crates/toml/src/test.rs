@@ -3,10 +3,10 @@ use common::{Pos, Span};
 pub use pretty_assertions::assert_eq;
 
 use crate::lex::TextOffset;
-pub use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
+use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
 use crate::util::SimpleMap;
-pub use crate::util::{self, SimpleVal};
-pub use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
+use crate::util::{self, SimpleVal};
+use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
