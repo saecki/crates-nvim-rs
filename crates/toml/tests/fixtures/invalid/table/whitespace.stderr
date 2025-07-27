@@ -4,7 +4,7 @@
 [94m   1 |[0m [invalid key]
      [94m|[0m [94m- left `[` defined here[0m
 [94m   1 |[0m [invalid key]
-     [94m|[0m          [91m^^^ Expected `.` or `]`[0m
+     [94m|[0m          [91m^^^ expected `.` or `]`[0m
 [91merror[0m: expected a line break, found `key`
     [94m-->[0m 1:9
      [94m|[0m

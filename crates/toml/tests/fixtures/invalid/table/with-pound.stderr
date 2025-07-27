@@ -4,4 +4,4 @@
 [94m   1 |[0m [key#group]
      [94m|[0m [94m- left `[` defined here[0m
 [94m   1 |[0m [key#group]
-     [94m|[0m     [91m^^^^^^^ Expected `.` or `]`[0m
+     [94m|[0m     [91m^^^^^^^ expected `.` or `]`[0m
