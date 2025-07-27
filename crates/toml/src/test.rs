@@ -191,7 +191,7 @@ pub fn twrap<'a>(comments: CommentRange, assignment: Assignment<'a>) -> Toplevel
     }
 }
 
-pub fn ta<'a, 'b>(
+pub fn ta<'a>(
     comments: CommentRange,
     line: u32,
     ident: &'a str,

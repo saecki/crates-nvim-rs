@@ -24,12 +24,14 @@ pub struct Version {
     deps: Vec<Dependency>,
 }
 
+#[allow(clippy::doc_overindented_list_items)]
 /// One of:
-/// - `<feature_name>`              a plain feature
-/// - `dep:<package_name>`          an explicit dependency
-/// - `<package_name>/<feature>`    a feature of a dependency
-/// - `<package_name>?/<feature>`   a weak dependency feature of an optional dependency, that is only
-///                                 enabled if something else enabled the optional dependency
+/// - `<feature_name>`              A plain feature.
+/// - `dep:<package_name>`          An explicit dependency.
+/// - `<package_name>/<feature>`    A feature of a dependency.
+/// - `<package_name>?/<feature>`   A weak dependency feature of an optional
+///                                 dependency, that is only enabled if something
+///                                 else enabled the optional dependency.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FeatureMember(pub Box<str>);
 

@@ -696,7 +696,7 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
                     ROOT_PARENT,
                     &mut root.inner,
                     key,
-                    InsertValue::TableAssignments(&table),
+                    InsertValue::TableAssignments(table),
                     repr_kind,
                 );
             }
@@ -779,6 +779,7 @@ fn map_value<'a, 'b>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn insert_node_at_path<'a, 'b>(
     ctx: &mut impl TomlCtx,
     bump: &'b Bump,
@@ -1048,6 +1049,7 @@ fn insert_array_entry_at_path<'a, 'b>(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn insert_array_entry<'a, 'b>(
     ctx: &mut impl TomlCtx,
     bump: &'b Bump,

@@ -767,7 +767,7 @@ fn warn_unused(ctx: &mut impl IdeCtx, path: &map::Path, entry: &MapTableEntry) {
 }
 
 /// Returns whether the key is ignored
-fn deprecated_underscore<'a>(
+fn deprecated_underscore(
     ctx: &mut impl IdeCtx,
     path: Option<&map::Path>,
     table: &MapTable,

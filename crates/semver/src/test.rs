@@ -16,7 +16,7 @@ pub fn req(str: &str) -> VersionReq {
 fn assert_match_all(req: &VersionReq, versions: &[&str]) {
     for string in versions {
         let parsed = version(string);
-        assert!(req.matches(&parsed), "did not match {}", string);
+        assert!(req.matches(&parsed), "did not match {string}");
     }
 }
 
@@ -24,7 +24,7 @@ fn assert_match_all(req: &VersionReq, versions: &[&str]) {
 fn assert_match_none(req: &VersionReq, versions: &[&str]) {
     for string in versions {
         let parsed = version(string);
-        assert!(!req.matches(&parsed), "matched {}", string);
+        assert!(!req.matches(&parsed), "matched {string}");
     }
 }
 

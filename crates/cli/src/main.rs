@@ -83,7 +83,7 @@ fn main() -> ExitCode {
     let simple = toml::util::map_simple(&ast, map);
     let end = std::time::SystemTime::now();
 
-    println!("{:#?}", simple);
+    println!("{simple:#?}");
     ctx.sort_diagnostics();
     let mut msg = String::new();
     for error in ctx.errors.iter() {
@@ -110,15 +110,15 @@ fn main() -> ExitCode {
     let us_total = end.duration_since(start).unwrap().as_micros();
 
     println!();
-    println!("lexing   {:6}us", us_lexing);
-    println!("parsing  {:6}us", us_parsing);
-    println!("mapping  {:6}us", us_mapping);
+    println!("lexing   {us_lexing:6}us");
+    println!("parsing  {us_parsing:6}us");
+    println!("mapping  {us_mapping:6}us");
     if mode == Mode::Check {
-        println!("checking {:4}us", us_checking);
+        println!("checking {us_checking:4}us");
     }
-    println!("simple   {:6}us", us_simple);
+    println!("simple   {us_simple:6}us");
     println!("-----------------");
-    println!("total    {:6}us", us_total);
+    println!("total    {us_total:6}us");
 
     ExitCode::SUCCESS
 }

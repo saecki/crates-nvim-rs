@@ -461,17 +461,17 @@ fn req_wildcard_and_another() {
 fn req_leading_digit_in_pre_and_build() {
     for op in &["=", ">", ">=", "<", "<=", "~", "^"] {
         // digit then alpha
-        req(&format!("{} 1.2.3-1a", op));
-        req(&format!("{} 1.2.3+1a", op));
+        req(&format!("{op} 1.2.3-1a"));
+        req(&format!("{op} 1.2.3+1a"));
 
         // digit then alpha (leading zero)
-        req(&format!("{} 1.2.3-01a", op));
-        req(&format!("{} 1.2.3+01", op));
+        req(&format!("{op} 1.2.3-01a"));
+        req(&format!("{op} 1.2.3+01"));
 
         // multiple
-        req(&format!("{} 1.2.3-1+1", op));
-        req(&format!("{} 1.2.3-1-1+1-1-1", op));
-        req(&format!("{} 1.2.3-1a+1a", op));
-        req(&format!("{} 1.2.3-1a-1a+1a-1a-1a", op));
+        req(&format!("{op} 1.2.3-1+1"));
+        req(&format!("{op} 1.2.3-1-1+1-1-1"));
+        req(&format!("{op} 1.2.3-1a+1a"));
+        req(&format!("{op} 1.2.3-1a-1a+1a-1a-1a"));
     }
 }
