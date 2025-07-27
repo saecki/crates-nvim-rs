@@ -59,6 +59,10 @@ impl<T> OneVec<T> {
         self.inner.push(val);
     }
 
+    pub fn as_slice(&self) -> &[T] {
+        &self.inner
+    }
+
     pub fn iter(&self) -> std::slice::Iter<T> {
         self.inner.iter()
     }

@@ -383,6 +383,18 @@ impl<'a> MapArrayToplevel<'a> {
         self.inner.len() == 0
     }
 
+    pub fn as_slice(&self) -> &[MapArrayToplevelEntry<'a>] {
+        self.inner.as_slice()
+    }
+
+    pub fn first(&self) -> &MapArrayToplevelEntry<'a> {
+        self.inner.first()
+    }
+
+    pub fn last(&self) -> &MapArrayToplevelEntry<'a> {
+        self.inner.last()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = &MapArrayToplevelEntry<'a>> {
         self.inner.iter()
     }
@@ -449,6 +461,10 @@ impl<'a> MapArrayInline<'a> {
 
     pub fn get(&'a self, idx: usize) -> Option<&'a MapArrayInlineEntry<'a>> {
         self.inner.get(idx)
+    }
+
+    pub fn as_slice(&self) -> &[MapArrayInlineEntry<'a>] {
+        &self.inner
     }
 
     pub fn iter(&'a self) -> impl Iterator<Item = &'a MapArrayInlineEntry<'a>> {
