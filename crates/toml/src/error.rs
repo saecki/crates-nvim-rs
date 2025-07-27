@@ -432,7 +432,7 @@ impl Diagnostic for Error {
             ExpectedEqOrDotFound(..) => write!(f, "expected `=` or `.`"),
             ExpectedRightCurlyFound(..) => write!(f, "expected `}}`"),
             ExpectedRightSquareFound(..) => write!(f, "expected `]`"),
-            ExpectedDotOrRightSquareFound(..) => write!(f, "Expected `.` or `]`"),
+            ExpectedDotOrRightSquareFound(..) => write!(f, "expected `.` or `]`"),
             ExpectedKeyFound(..) => write!(f, "expected a key"),
             ExpectedValueFound(..) => write!(f, "expected a value"),
             MissingComma(_) => write!(f, "missing comma (`,`)"),
