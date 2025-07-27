@@ -2,7 +2,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use bumpalo::Bump;
-use common::diagnostic::{self, ANSII_CLEAR, ANSII_COLOR_RED, ANSII_UNDERLINED};
+use common::diagnostic::{ANSII_CLEAR, ANSII_COLOR_RED, ANSII_UNDERLINED, DisplayDiagnostic};
 use ide::{IdeCtx, IdeDiagnostics};
 use toml::TomlCtx;
 
@@ -65,7 +65,6 @@ fn main() -> ExitCode {
         Ok(text) => text,
         Err(e) => error!("error reading from file: {e}"),
     };
-    let lines = diagnostic::lines(&text);
 
     let start = std::time::SystemTime::now();
     let mut ctx = IdeDiagnostics::default();
@@ -85,21 +84,14 @@ fn main() -> ExitCode {
 
     println!("{simple:#?}");
     ctx.sort_diagnostics();
-    let mut msg = String::new();
     for error in ctx.errors.iter() {
-        diagnostic::display(&mut msg, error, &lines).unwrap();
-        println!("{msg}");
-        msg.clear()
+        println!("{}", error.display(&ast.source));
     }
     for warning in ctx.warnings.iter() {
-        diagnostic::display(&mut msg, warning, &lines).unwrap();
-        println!("{msg}");
-        msg.clear()
+        println!("{}", warning.display(&ast.source));
     }
     for info in ctx.infos.iter() {
-        diagnostic::display(&mut msg, info, &lines).unwrap();
-        println!("{msg}");
-        msg.clear()
+        println!("{}", info.display(&ast.source));
     }
 
     let us_lexing = lexing.duration_since(start).unwrap().as_micros();

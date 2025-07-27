@@ -4,9 +4,10 @@ use std::str::Chars;
 
 use bumpalo::Bump;
 use bumpalo::collections::String as BString;
+use common::OneVec;
+use common::Source;
 use common::{FmtChar, Pos, Span};
 
-use crate::onevec::{OneVec, onevec};
 use crate::{Error, TomlCtx};
 
 #[cfg(test)]
@@ -20,27 +21,6 @@ pub struct Tokens<'a> {
     pub tokens: Vec<Token>,
     pub strings: Vec<StringToken<'a>>,
     pub eof: Token,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Source<'a> {
-    pub input: &'a str,
-    pub lines: OneVec<u32>,
-}
-
-impl<'a> Source<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Self {
-            input,
-            lines: onevec!(0),
-        }
-    }
-
-    pub fn spanned_str(&self, span: Span) -> &'a str {
-        let start = self.lines[span.start.line as usize] + span.start.char;
-        let end = self.lines[span.end.line as usize] + span.end.char;
-        &self.input[start as usize..end as usize]
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -245,11 +225,14 @@ struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    fn new(bump: &'a Bump, input: &'a str) -> Self {
+    fn new(bump: &'a Bump, text: &'a str) -> Self {
         Self {
             bump,
-            source: Source::new(input),
-            chars: input.chars(),
+            source: Source {
+                text,
+                lines: OneVec::new(0),
+            },
+            chars: text.chars(),
             byte_pos: 0,
 
             in_lit: false,
@@ -276,7 +259,7 @@ impl<'a> Lexer<'a> {
 
     #[inline(always)]
     fn next(&mut self) -> Option<char> {
-        self.byte_pos = self.source.input.len() - self.chars.as_str().len();
+        self.byte_pos = self.source.text.len() - self.chars.as_str().len();
         self.chars.next()
     }
 
@@ -294,7 +277,7 @@ impl<'a> Lexer<'a> {
 
     #[inline(always)]
     fn peek_prev(&self) -> Option<char> {
-        self.source.input[..self.byte_pos].chars().next_back()
+        self.source.text[..self.byte_pos].chars().next_back()
     }
 
     #[inline(always)]
@@ -304,7 +287,7 @@ impl<'a> Lexer<'a> {
 
     #[inline(always)]
     fn next_byte_pos(&self) -> usize {
-        self.source.input.len() - self.chars.as_str().len()
+        self.source.text.len() - self.chars.as_str().len()
     }
 
     #[inline(always)]
@@ -350,8 +333,8 @@ enum DelimKind {
     Curly,
 }
 
-pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, input: &'a str) -> Tokens<'a> {
-    let mut lexer = Lexer::new(bump, input);
+pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, text: &'a str) -> Tokens<'a> {
+    let mut lexer = Lexer::new(bump, text);
     while let Some(c) = lexer.next() {
         match c {
             '\r' if lexer.peek() == Some('\n') => {
@@ -503,11 +486,11 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
         let c = loop {
             let Some(c) = lexer.next() else {
                 let mut pos = lexer.pos();
-                let mut chars = lexer.source.input.chars();
+                let mut chars = lexer.source.text.chars();
                 if chars.next_back() == Some('\n') {
                     let cr = chars.next_back() == Some('\r');
-                    let line_end = lexer.source.input.len() - (1 + cr as usize);
-                    let text = &lexer.source.input.as_bytes()[..line_end];
+                    let line_end = lexer.source.text.len() - (1 + cr as usize);
+                    let text = &lexer.source.text.as_bytes()[..line_end];
                     let line_len = text
                         .iter()
                         .rev()
@@ -539,7 +522,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
             }
         };
         if let Some(text) = &mut str.text {
-            let substr = &lexer.source.input[start..lexer.byte_pos];
+            let substr = &lexer.source.text[start..lexer.byte_pos];
             text.push_str(substr);
         }
 
@@ -581,7 +564,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
                         text.pop();
                     }
                     _ => {
-                        let text = &lexer.source.input[str.text_byte_start..line_end];
+                        let text = &lexer.source.text[str.text_byte_start..line_end];
                         str.text = Some(BString::from_str_in(text, lexer.bump));
                     }
                 }
@@ -591,7 +574,7 @@ fn string<'a>(ctx: &mut impl TomlCtx, lexer: &mut Lexer<'a>, str: &mut StrState<
             lexer.newline();
         } else if str.quote.is_basic() && c == '\\' {
             if str.text.is_none() {
-                let text = &lexer.source.input[str.text_byte_start..lexer.byte_pos];
+                let text = &lexer.source.text[str.text_byte_start..lexer.byte_pos];
                 str.text = Some(BString::from_str_in(text, lexer.bump));
             }
 
@@ -851,7 +834,7 @@ fn end_string<'a>(
 ) {
     let text = match str.text.take() {
         Some(text) => text.into_bump_str(),
-        None => &lexer.source.input[str.text_byte_start..text_byte_end],
+        None => &lexer.source.text[str.text_byte_start..text_byte_end],
     };
 
     let lit_span = Span {

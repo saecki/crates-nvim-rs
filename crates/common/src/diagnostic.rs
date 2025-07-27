@@ -1,18 +1,6 @@
 use unicode_width::UnicodeWidthStr;
 
-use crate::Span;
-
-pub fn lines(input: &str) -> Vec<&str> {
-    let mut lines = input.split('\n').collect::<Vec<_>>();
-    if let [terminated_lines @ .., _] = lines.as_mut_slice() {
-        for l in terminated_lines {
-            if l.ends_with('\r') {
-                *l = &l[..l.len() - 1];
-            }
-        }
-    }
-    lines
-}
+use crate::{Source, Span};
 
 pub fn cmp<D: Diagnostic>(a: &D, b: &D) -> std::cmp::Ordering {
     span_cmp(a.span(), b.span())
@@ -81,14 +69,38 @@ impl std::fmt::Display for Severity {
     }
 }
 
+pub trait DisplayDiagnostic: Diagnostic {
+    fn display<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnostic<'a, Self>;
+}
+
+impl<D: Diagnostic> DisplayDiagnostic for D {
+    fn display<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnostic<'a, D> {
+        FmtDiagnostic {
+            diagnostic: self,
+            source,
+        }
+    }
+}
+
+pub struct FmtDiagnostic<'a, D: Diagnostic + ?Sized> {
+    diagnostic: &'a D,
+    source: &'a Source<'a>,
+}
+
+impl<D: Diagnostic> std::fmt::Display for FmtDiagnostic<'_, D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        display(f, self.diagnostic, self.source)
+    }
+}
+
 pub fn display(
     f: &mut impl std::fmt::Write,
     diagnostic: &impl Diagnostic,
-    lines: &[&str],
+    source: &Source,
 ) -> std::fmt::Result {
     fn display_context_lines(
         f: &mut impl std::fmt::Write,
-        lines: &[&str],
+        source: &Source,
         context_lines: &[u32],
         range: std::ops::Range<u32>,
     ) -> std::fmt::Result {
@@ -97,7 +109,7 @@ pub fn display(
                 continue;
             }
             if l < range.end {
-                display_line(f, l as usize, lines[l as usize])?;
+                display_line(f, l, source.line_str(l))?;
             } else {
                 break;
             }
@@ -105,7 +117,7 @@ pub fn display(
         Ok(())
     }
 
-    writeln!(f, "{}", diagnostic.header(lines))?;
+    writeln!(f, "{}", diagnostic.header(source))?;
     writeln!(f, "     {ANSII_COLOR_BLUE}|{ANSII_CLEAR}")?;
 
     let context_lines = diagnostic.context_lines().unwrap_or(&[]);
@@ -116,55 +128,55 @@ pub fn display(
     if let Some(hint) = &hint {
         let hint_span = hint.span();
         if hint_span.start < main_span.start {
-            display_context_lines(f, lines, context_lines, current_line..hint_span.start.line)?;
-            write!(f, "{}", hint.body(lines))?;
+            display_context_lines(f, source, context_lines, current_line..hint_span.start.line)?;
+            write!(f, "{}", hint.body(source))?;
             current_line = hint_span.end.line + 1;
         }
     }
 
-    display_context_lines(f, lines, context_lines, current_line..main_span.start.line)?;
-    write!(f, "{}", diagnostic.body(lines))?;
+    display_context_lines(f, source, context_lines, current_line..main_span.start.line)?;
+    write!(f, "{}", diagnostic.body(source))?;
     current_line = main_span.end.line + 1;
 
     if let Some(hint) = &hint {
         let hint_span = hint.span();
         if hint_span.start >= main_span.start {
-            display_context_lines(f, lines, context_lines, current_line..hint_span.start.line)?;
-            write!(f, "{}", hint.body(lines))?;
+            display_context_lines(f, source, context_lines, current_line..hint_span.start.line)?;
+            write!(f, "{}", hint.body(source))?;
         }
     }
 
     Ok(())
 }
 
-pub trait DisplayDiagnosticHeader: Diagnostic + Sized {
-    fn header<'a, T>(&'a self, text: &'a [T]) -> DiagnosticHeader<'a, Self, T>;
+pub trait DisplayDiagnosticHeader: Diagnostic {
+    fn header<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnosticHeader<'a, Self>;
 }
 
 impl<D: Diagnostic> DisplayDiagnosticHeader for D {
-    fn header<'a, T>(&'a self, text: &'a [T]) -> DiagnosticHeader<'a, D, T> {
-        DiagnosticHeader {
+    fn header<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnosticHeader<'a, D> {
+        FmtDiagnosticHeader {
             diagnostic: self,
-            text,
+            source,
         }
     }
 }
 
-pub struct DiagnosticHeader<'a, D: Diagnostic, T> {
+pub struct FmtDiagnosticHeader<'a, D: Diagnostic + ?Sized> {
     diagnostic: &'a D,
-    text: &'a [T],
+    source: &'a Source<'a>,
 }
 
-impl<'a, D: Diagnostic, T: AsRef<str>> std::fmt::Display for DiagnosticHeader<'a, D, T> {
+impl<D: Diagnostic> std::fmt::Display for FmtDiagnosticHeader<'_, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        display_header(f, self.diagnostic, self.text)
+        display_header(f, self.diagnostic, self.source)
     }
 }
 
-fn display_header<D: Diagnostic>(
+pub fn display_header<D: Diagnostic>(
     f: &mut impl std::fmt::Write,
     diagnostic: &D,
-    text: &[impl AsRef<str>],
+    source: &Source,
 ) -> std::fmt::Result {
     let severity = D::SEVERITY;
     let color = ansii_esc_color(severity);
@@ -173,68 +185,68 @@ fn display_header<D: Diagnostic>(
     f.write_char('\n')?;
     let pos = diagnostic.span().start;
     let line_nr = pos.line + 1;
-    let char = text[pos.line as usize].as_ref()[0..pos.char as usize]
+    let char = source.line_str(pos.line)[..pos.char as usize]
         .chars()
         .count();
     write!(f, "    {ANSII_COLOR_BLUE}-->{ANSII_CLEAR} {line_nr}:{char}")
 }
 
-pub trait DisplayDiagnosticBody: Diagnostic + Sized {
-    fn body<'a, T>(&'a self, text: &'a [T]) -> DiagnosticBody<'a, Self, T>;
+pub trait DisplayDiagnosticBody: Diagnostic {
+    fn body<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnosticBody<'a, Self>;
 }
 
 impl<D: Diagnostic> DisplayDiagnosticBody for D {
-    fn body<'a, T>(&'a self, text: &'a [T]) -> DiagnosticBody<'a, D, T> {
-        DiagnosticBody {
+    fn body<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnosticBody<'a, D> {
+        FmtDiagnosticBody {
             diagnostic: self,
-            text,
+            source,
         }
     }
 }
 
-pub struct DiagnosticBody<'a, D: Diagnostic, T> {
+pub struct FmtDiagnosticBody<'a, D: Diagnostic + ?Sized> {
     diagnostic: &'a D,
-    text: &'a [T],
+    source: &'a Source<'a>,
 }
 
-pub trait DisplayDiagnosticHintBody: DiagnosticHint + Sized {
-    fn body<'a, T>(&'a self, text: &'a [T]) -> DiagnosticHintBody<'a, Self, T>;
-}
-
-impl<D: DiagnosticHint> DisplayDiagnosticHintBody for D {
-    fn body<'a, T>(&'a self, text: &'a [T]) -> DiagnosticHintBody<'a, D, T> {
-        DiagnosticHintBody {
-            diagnostic: self,
-            text,
-        }
-    }
-}
-
-pub struct DiagnosticHintBody<'a, D: DiagnosticHint, T> {
-    diagnostic: &'a D,
-    text: &'a [T],
-}
-
-impl<'a, D: Diagnostic, T: AsRef<str> + 'a> std::fmt::Display for DiagnosticBody<'a, D, T> {
+impl<'a, D: Diagnostic> std::fmt::Display for FmtDiagnosticBody<'a, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         display_body(
             f,
             |f| self.diagnostic.annotation(f),
             D::SEVERITY,
             self.diagnostic.span(),
-            self.text,
+            self.source,
         )
     }
 }
 
-impl<'a, D: DiagnosticHint, T: AsRef<str> + 'a> std::fmt::Display for DiagnosticHintBody<'a, D, T> {
+pub trait DisplayDiagnosticHintBody: DiagnosticHint {
+    fn body<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnosticHintBody<'a, Self>;
+}
+
+impl<D: DiagnosticHint> DisplayDiagnosticHintBody for D {
+    fn body<'a>(&'a self, source: &'a Source<'a>) -> FmtDiagnosticHintBody<'a, D> {
+        FmtDiagnosticHintBody {
+            diagnostic: self,
+            source,
+        }
+    }
+}
+
+pub struct FmtDiagnosticHintBody<'a, D: DiagnosticHint + ?Sized> {
+    diagnostic: &'a D,
+    source: &'a Source<'a>,
+}
+
+impl<'a, D: DiagnosticHint> std::fmt::Display for FmtDiagnosticHintBody<'a, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         display_body(
             f,
             |f| self.diagnostic.annotation(f),
             Severity::Hint,
             self.diagnostic.span(),
-            self.text,
+            self.source,
         )
     }
 }
@@ -244,35 +256,37 @@ fn display_body<F: std::fmt::Write>(
     annotation: impl Fn(&mut F) -> std::fmt::Result,
     severity: Severity,
     span: Span,
-    text: &[impl AsRef<str>],
+    source: &Source,
 ) -> std::fmt::Result {
-    let start_line = span.start.line as usize;
-    let end_line = span.end.line as usize + 1;
-    let num_lines = end_line - start_line;
+    let start_line = span.start.line;
+    let end_line = span.end.line;
     let color = ansii_esc_color(severity);
     let underline_char = underline_char(severity);
 
-    for (i, line) in text[start_line..end_line].iter().enumerate() {
-        let line_nr = start_line + i;
-        let line = line.as_ref();
-        display_line(f, line_nr, line)?;
+    for line_idx in start_line..=end_line {
+        let line = source.line_str(line_idx);
+        display_line(f, line_idx, line)?;
 
-        let col_start = if i == 0 { span.start.char as usize } else { 0 };
-        let col_end = if i == num_lines - 1 {
+        let char_start = if line_idx == start_line {
+            span.start.char as usize
+        } else {
+            0
+        };
+        let char_end = if line_idx == end_line {
             span.end.char as usize
         } else {
             line.len()
         };
-        let num_spaces = calc_width(&line[0..col_start]);
+        let num_spaces = calc_width(&line[0..char_start]);
         write!(f, "     {ANSII_COLOR_BLUE}|{ANSII_CLEAR} ")?;
         write!(f, "{:num_spaces$}{color}", "")?;
 
-        let spanned_text = &line[col_start..col_end];
+        let spanned_text = &line[char_start..char_end];
         let num_carets = spanned_text.width().max(1);
         for _ in 0..num_carets {
             f.write_char(underline_char)?;
         }
-        if i == num_lines - 1 {
+        if line_idx == end_line {
             f.write_char(' ')?;
             annotation(f)?;
         }
@@ -282,9 +296,9 @@ fn display_body<F: std::fmt::Write>(
     Ok(())
 }
 
-/// `line_nr` is 0-based
-pub fn display_line(f: &mut impl std::fmt::Write, line_nr: usize, line: &str) -> std::fmt::Result {
-    let line_nr = line_nr + 1;
+/// `line_idx` is 0-based
+pub fn display_line(f: &mut impl std::fmt::Write, line_idx: u32, line: &str) -> std::fmt::Result {
+    let line_nr = line_idx + 1;
     write!(f, "{ANSII_COLOR_BLUE}{line_nr:4} |{ANSII_CLEAR} ")?;
 
     let mut next_start = 0;
@@ -330,7 +344,7 @@ pub const ANSII_COLOR_YELLOW: &str = "\x1b[93m";
 pub const ANSII_COLOR_BLUE: &str = "\x1b[94m";
 pub const ANSII_COLOR_CYAN: &str = "\x1b[96m";
 
-fn ansii_esc_color(severity: Severity) -> &'static str {
+pub const fn ansii_esc_color(severity: Severity) -> &'static str {
     match severity {
         Severity::Error => ANSII_COLOR_RED,
         Severity::Warning => ANSII_COLOR_YELLOW,
@@ -339,7 +353,7 @@ fn ansii_esc_color(severity: Severity) -> &'static str {
     }
 }
 
-fn underline_char(severity: Severity) -> char {
+pub const fn underline_char(severity: Severity) -> char {
     match severity {
         Severity::Error => '^',
         Severity::Warning => '^',

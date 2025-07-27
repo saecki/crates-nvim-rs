@@ -1,10 +1,10 @@
 use std::num::NonZeroU32;
 
-use common::{Pos, Span};
+use common::{Pos, Source, Span};
 
 use crate::Quote;
 use crate::datetime::DateTime;
-use crate::lex::{Source, TextOffset};
+use crate::lex::TextOffset;
 
 #[derive(Debug, PartialEq)]
 pub struct Ast<'a> {

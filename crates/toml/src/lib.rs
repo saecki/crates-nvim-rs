@@ -6,17 +6,15 @@ pub use lex::{Quote, Token, TokenType, Tokens, lex};
 pub use map::{MapTable, map};
 pub use parse::{Ast, Toplevel, parse};
 
+pub mod container;
 pub mod datetime;
 pub mod error;
 mod lex;
 pub mod map;
-pub mod util;
-#[macro_use]
-pub mod onevec;
-pub mod container;
 pub mod parse;
 #[cfg(test)]
 mod test;
+pub mod util;
 
 pub trait TomlCtx:
     Ctx<Error = Self::TomlError, Warning = Self::TomlWarning, Info = Self::TomlInfo>

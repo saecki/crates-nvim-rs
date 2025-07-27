@@ -37,9 +37,9 @@
 //! ```
 
 use bumpalo::Bump;
+use common::OneVec;
 use common::{FmtChar, FmtStr, Span};
 
-use crate::onevec::OneVec;
 use crate::parse::{
     ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
     InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, StringVal, Table, Toplevel,

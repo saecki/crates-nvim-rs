@@ -2,8 +2,7 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 
 use bumpalo::Bump;
-use common::diagnostic;
-use common::diagnostic::{ANSII_CLEAR, ANSII_COLOR_BLUE, ANSII_COLOR_YELLOW};
+use common::diagnostic::{self, ANSII_CLEAR, ANSII_COLOR_BLUE, ANSII_COLOR_YELLOW};
 use crates_toml::util::SimpleMap;
 use crates_toml::{TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
@@ -264,10 +263,9 @@ fn run_case(input: &str) -> Result<SimpleMap, String> {
 
     if !ctx.errors.is_empty() {
         ctx.sort_diagnostics();
-        let lines = diagnostic::lines(input);
         let mut msg = String::new();
         for error in ctx.errors.iter() {
-            _ = diagnostic::display(&mut msg, error, &lines);
+            diagnostic::display(&mut msg, error, &ast.source).unwrap();
         }
         return Err(msg);
     }

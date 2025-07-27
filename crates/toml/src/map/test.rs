@@ -1,7 +1,6 @@
-use common::Pos;
+use common::{Pos, onevec};
 use pretty_assertions::assert_eq;
 
-use crate::onevec::onevec;
 use crate::parse::{End, TableHeader};
 use crate::test::*;
 use crate::util::SimpleMap;

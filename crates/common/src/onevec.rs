@@ -33,6 +33,10 @@ impl<T> OneVec<T> {
         unsafe { self.inner.get_unchecked(0) }
     }
 
+    pub fn get(&self, idx: usize) -> Option<&T> {
+        self.inner.get(idx)
+    }
+
     #[inline]
     #[must_use]
     pub fn first_mut(&mut self) -> &mut T {
@@ -57,6 +61,10 @@ impl<T> OneVec<T> {
 
     pub fn push(&mut self, val: T) {
         self.inner.push(val);
+    }
+
+    pub fn extend(&mut self, iter: impl Iterator<Item = T>) {
+        self.inner.extend(iter);
     }
 
     pub fn as_slice(&self) -> &[T] {
@@ -115,7 +123,9 @@ impl<T: PartialEq> PartialEq for OneVec<T> {
 
 impl<T: Eq> Eq for OneVec<T> {}
 
-macro_rules! onevec {
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __onevec {
     ($($x:expr),+ $(,)?) => {
         // SAFETY: macro rules enforce at least one element
         unsafe {
@@ -125,4 +135,5 @@ macro_rules! onevec {
         }
     };
 }
-pub(crate) use onevec;
+
+pub use __onevec as onevec;

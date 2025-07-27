@@ -3,10 +3,10 @@ use std::ops::ControlFlow;
 
 use bumpalo::Bump;
 use bumpalo::collections::Vec as BVec;
-use common::{DiagnosticMark, FmtChar, FmtStr, Pos, Span};
+use common::{DiagnosticMark, FmtChar, FmtStr, Pos, Source, Span};
 
 use crate::datetime::{Date, DateTime};
-use crate::lex::{Source, StringId, StringToken, Token, TokenType, Tokens};
+use crate::lex::{StringId, StringToken, Token, TokenType, Tokens};
 use crate::parse::lit::PartialValue;
 use crate::{Error, Quote, TomlCtx};
 
