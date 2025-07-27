@@ -1,12 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/cli",
-    "crates/nvim",
-    "crates/ide",
-    "crates/toml",
-    "crates/semver",
-    "crates/common",
+    "crates/*",
     "fuzz",
 ]
 
@@ -24,7 +19,6 @@ serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
 unicode-width = "0.2.0"
-
 
 [profile.release]
 strip = true

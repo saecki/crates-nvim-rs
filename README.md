@@ -5,5 +5,4 @@ __This repository contains__
 - `crates-semver` A lossless semver parser that tries to be compatible with [cargos semver implementation](https://github.com/dtolnay/semver)
 - `crates-ide` **[WIP]** ide like functionality for `Cargo.toml` files
 - `crates-cli` **[WIP]** A cli currently mainly used for testing purposes
-- `crates-nvim` **[WIP]** A neovim plugin wrapping `crates-ide`
 - `crates-common` Common datatypes
