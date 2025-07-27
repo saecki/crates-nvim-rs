@@ -1,4 +1,4 @@
-use common::FmtStr;
+use common::Span;
 use serde::de::IntoDeserializer as _;
 
 use crate::MapTable;
@@ -56,9 +56,16 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'de> {
             MapNode::Scalar(Scalar::Bool(bool)) => visitor
                 .visit_bool(bool.val)
                 .map_err(|e| SerdeError::with_span(e, bool.lit_span)),
-            MapNode::Scalar(Scalar::DateTime(date)) => {
-                visitor.visit_enum(DateTimeDeserializer::new(date))
-            }
+            MapNode::Scalar(Scalar::DateTime(date)) => visitor
+                .visit_map(DateTimeDeserializer::new(date))
+                .map_err(|mut e| {
+                    const BAD_MSG: &str = "invalid type: map";
+                    const GOOD_MSG: &str = "invalid type: date-time";
+                    if e.msg.starts_with(BAD_MSG) {
+                        e.msg.replace_range(0..BAD_MSG.len(), GOOD_MSG);
+                    }
+                    SerdeError::with_span(e, date.lit_span)
+                }),
             MapNode::Scalar(Scalar::Invalid(span)) => {
                 Err(SerdeError::spanned("encountered invalid value", **span))
             }
@@ -152,6 +159,6 @@ fn validate_struct_keys<'a>(
         extra_fields.join(", "),
         fields.join(", "),
     );
-    let span = table.reprs.first().span();
-    Err(SerdeError::spanned(FmtStr::from_string(msg), span))
+    let span = Span::across(table.reprs.first().span(), table.reprs.last().span());
+    Err(SerdeError::spanned(msg, span))
 }

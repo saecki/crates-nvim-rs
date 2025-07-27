@@ -1,4 +1,4 @@
-use common::FmtStr;
+use serde::de::IntoDeserializer;
 use serde::de::value::BorrowedStrDeserializer;
 
 use crate::datetime::DateTime;
@@ -7,90 +7,44 @@ use crate::serde::SerdeError;
 
 pub(crate) struct DateTimeDeserializer<'a> {
     pub datetime: &'a DateTimeVal,
+    pub taken: bool,
 }
 
 impl<'a> DateTimeDeserializer<'a> {
     pub fn new(datetime: &'a DateTimeVal) -> Self {
-        Self { datetime }
+        Self {
+            datetime,
+            taken: false,
+        }
     }
 }
 
-impl<'de> serde::de::EnumAccess<'de> for DateTimeDeserializer<'de> {
+impl<'de> serde::de::MapAccess<'de> for DateTimeDeserializer<'de> {
     type Error = SerdeError<'de>;
 
-    type Variant = DateTimeEnumDeserializer<'de>;
-
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
     where
-        V: serde::de::DeserializeSeed<'de>,
+        K: serde::de::DeserializeSeed<'de>,
     {
+        if self.taken {
+            return Ok(None);
+        }
+        self.taken = true;
+
         let key_str = match self.datetime.val {
             DateTime::OffsetDateTime(..) => "OffsetDateTime",
             DateTime::LocalDateTime(..) => "LocalDateTime",
             DateTime::LocalDate(..) => "LocalDate",
             DateTime::LocalTime(..) => "LocalTime",
         };
-        let key = seed.deserialize(BorrowedStrDeserializer::new(key_str))?;
-
-        let val = DateTimeEnumDeserializer::new(self.datetime);
-
-        Ok((key, val))
-    }
-}
-
-pub(crate) struct DateTimeEnumDeserializer<'a> {
-    pub datetime: &'a DateTimeVal,
-}
-
-impl<'a> DateTimeEnumDeserializer<'a> {
-    pub fn new(datetime: &'a DateTimeVal) -> Self {
-        Self { datetime }
-    }
-}
-
-#[macro_export]
-macro_rules! const_assert {
-    ($x:expr $(,)?) => {
-        #[allow(unknown_lints, clippy::eq_op)]
-        const _: [(); 0 - !{
-            const ASSERT: bool = $x;
-            ASSERT
-        } as usize] = [];
-    };
-}
-
-impl<'de> serde::de::VariantAccess<'de> for DateTimeEnumDeserializer<'de> {
-    type Error = SerdeError<'de>;
-
-    fn unit_variant(self) -> Result<(), Self::Error> {
-        Err(SerdeError::spanned(
-            "expected empty table, found TOML date-time",
-            self.datetime.lit_span,
-        ))
+        seed.deserialize(BorrowedStrDeserializer::new(key_str))
+            .map(Some)
     }
 
-    fn newtype_variant_seed<T>(self, _seed: T) -> Result<T::Value, Self::Error>
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
     where
-        T: serde::de::DeserializeSeed<'de>,
+        V: serde::de::DeserializeSeed<'de>,
     {
-        Err(SerdeError::spanned(
-            "expected newtype, found TOML date-time",
-            self.datetime.lit_span,
-        ))
-    }
-
-    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de>,
-    {
-        if len != 1 {
-            let msg = format!("expected tuple with length {len}, found TOML date-time");
-            return Err(SerdeError::spanned(
-                FmtStr::from_string(msg),
-                self.datetime.lit_span,
-            ));
-        }
-
         let mut buf: u128 = 0;
 
         // SAFETY: The transmute below guarantees, that `u128` and `DateTime`
@@ -99,21 +53,7 @@ impl<'de> serde::de::VariantAccess<'de> for DateTimeEnumDeserializer<'de> {
         let ptr = &raw mut buf as *mut DateTime;
         unsafe { *ptr = self.datetime.val };
 
-        visitor.visit_u128(buf)
-    }
-
-    fn struct_variant<V>(
-        self,
-        _fields: &'static [&'static str],
-        _visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: serde::de::Visitor<'de>,
-    {
-        Err(SerdeError::spanned(
-            "expected struct variant, found TOML date-time",
-            self.datetime.lit_span,
-        ))
+        seed.deserialize(buf.into_deserializer())
     }
 }
 
@@ -128,19 +68,59 @@ impl<'de> serde::de::Deserialize<'de> for DateTime {
             type Value = DateTime;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("a TOML date-time")
+                formatter.write_str("a date-time")
             }
 
-            fn visit_enum<A>(self, visitor: A) -> Result<DateTime, A::Error>
+            fn visit_map<A>(self, mut visitor: A) -> Result<DateTime, A::Error>
             where
-                A: serde::de::EnumAccess<'de>,
+                A: serde::de::MapAccess<'de>,
             {
-                let (d, _): (DateTimeFromU128, _) = visitor.variant()?;
+                let key = visitor.next_key::<DateTimeKey>()?;
+                if key.is_none() {
+                    return Err(serde::de::Error::custom("date-time key not found"));
+                }
+                let d: DateTimeFromU128 = visitor.next_value()?;
                 Ok(d.value)
             }
         }
 
-        deserializer.deserialize_str(DateTimeVisitor)
+        deserializer.deserialize_map(DateTimeVisitor)
+    }
+}
+
+struct DateTimeKey;
+
+#[cfg(feature = "serde")]
+impl<'de> serde::de::Deserialize<'de> for DateTimeKey {
+    fn deserialize<D>(deserializer: D) -> Result<DateTimeKey, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct FieldVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for FieldVisitor {
+            type Value = ();
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a valid datetime field")
+            }
+
+            fn visit_str<E>(self, s: &str) -> Result<(), E>
+            where
+                E: serde::de::Error,
+            {
+                const VARIANTS: [&str; 4] =
+                    ["OffsetDateTime", "LocalDateTime", "LocalDate", "LocalTime"];
+                if VARIANTS.contains(&s) {
+                    Ok(())
+                } else {
+                    Err(serde::de::Error::custom("expected field with custom name"))
+                }
+            }
+        }
+
+        deserializer.deserialize_identifier(FieldVisitor)?;
+        Ok(DateTimeKey)
     }
 }
 
@@ -162,7 +142,7 @@ impl<'de> serde::de::Deserialize<'de> for DateTimeFromU128 {
             type Value = DateTimeFromU128;
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                formatter.write_str("u128 that represents a TOML date-time")
+                formatter.write_str("u128 that represents a date-time")
             }
 
             fn visit_u128<E>(self, s: u128) -> Result<DateTimeFromU128, E>
@@ -182,6 +162,7 @@ impl<'de> serde::de::Deserialize<'de> for DateTimeFromU128 {
             }
         }
 
-        deserializer.deserialize_str(Visitor)
+        dbg!("here");
+        deserializer.deserialize_u128(Visitor)
     }
 }

@@ -11,7 +11,7 @@ pub struct SerdeError<'a> {
     /// the outermost ones last.
     pub path: Vec<PathSegment<'a, 'a>>,
     pub span: Option<Span>,
-    pub msg: FmtStr,
+    pub msg: String,
 }
 
 impl std::error::Error for SerdeError<'_> {}
@@ -69,7 +69,7 @@ impl From<SerdeError<'_>> for Error {
         Error::Serde {
             lines: lines.into_boxed_slice(),
             path: path.map(FmtStr::from_string),
-            msg: error.msg,
+            msg: FmtStr::from_string(error.msg),
             span: error.span.unwrap_or(Span::pos(Pos::ZERO)),
         }
     }
@@ -89,7 +89,7 @@ fn collect_lines(lines: &mut Vec<u32>, path_segments: &[PathSegment], mut parent
 }
 
 impl<'a> SerdeError<'a> {
-    pub fn new(msg: impl Into<FmtStr>) -> Self {
+    pub fn new(msg: impl Into<String>) -> Self {
         Self {
             span: None,
             path: Vec::new(),
@@ -97,7 +97,7 @@ impl<'a> SerdeError<'a> {
         }
     }
 
-    pub fn spanned(msg: impl Into<FmtStr>, span: Span) -> Self {
+    pub fn spanned(msg: impl Into<String>, span: Span) -> Self {
         Self {
             span: Some(span),
             path: Vec::new(),
@@ -133,11 +133,10 @@ impl serde::de::Error for SerdeError<'_> {
     where
         T: std::fmt::Display,
     {
-        let msg = FmtStr::from_string(msg.to_string());
         SerdeError {
             span: None,
             path: Vec::new(),
-            msg,
+            msg: msg.to_string(),
         }
     }
 }

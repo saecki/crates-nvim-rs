@@ -1,4 +1,4 @@
-use common::{FmtStr, Span};
+use common::Span;
 
 use crate::map::{FmtIdent, MapArray, MapNode, MapTableEntry, PathSegment};
 use crate::serde::SerdeError;
@@ -44,7 +44,7 @@ impl<'de> serde::de::VariantAccess<'de> for TableEnumDeserializer<'de> {
             MapNode::Scalar(scalar) => {
                 let msg = format!("expected table, found {}", scalar.datatype());
                 let span = self.entry.reprs.first().repr_span();
-                Err(SerdeError::spanned(FmtStr::from_string(msg), span))
+                Err(SerdeError::spanned(msg, span))
             }
         }
     }
@@ -69,7 +69,7 @@ impl<'de> serde::de::VariantAccess<'de> for TableEnumDeserializer<'de> {
 
                     let msg = format!("expected table key `{idx}`, but was `{}`", FmtIdent(key));
                     let span = entry.reprs.first().key.repr_ident().lit_span();
-                    return Err(SerdeError::spanned(FmtStr::from_string(msg), span));
+                    return Err(SerdeError::spanned(msg, span));
                 }
 
                 if table.len() == len {
@@ -80,7 +80,7 @@ impl<'de> serde::de::VariantAccess<'de> for TableEnumDeserializer<'de> {
                 } else {
                     let msg = format!("expected tuple with length {len}");
                     let span = Span::across(table.reprs.first().span(), table.reprs.last().span());
-                    Err(SerdeError::spanned(FmtStr::from_string(msg), span))
+                    Err(SerdeError::spanned(msg, span))
                 }
             }
             MapNode::Array(MapArray::Toplevel(array)) => {
@@ -92,7 +92,7 @@ impl<'de> serde::de::VariantAccess<'de> for TableEnumDeserializer<'de> {
                 } else {
                     let msg = format!("expected tuple with length {len}");
                     let span = Span::across(array.first().repr.span(), array.last().repr.span());
-                    Err(SerdeError::spanned(FmtStr::from_string(msg), span))
+                    Err(SerdeError::spanned(msg, span))
                 }
             }
             MapNode::Array(MapArray::Inline(array)) => {
@@ -103,12 +103,12 @@ impl<'de> serde::de::VariantAccess<'de> for TableEnumDeserializer<'de> {
                 } else {
                     let msg = format!("expected tuple with length {len}");
                     let span = array.repr.span();
-                    Err(SerdeError::spanned(FmtStr::from_string(msg), span))
+                    Err(SerdeError::spanned(msg, span))
                 }
             }
             MapNode::Scalar(scalar) => {
                 let msg = format!("expected table, found {}", scalar.datatype());
-                Err(SerdeError::spanned(FmtStr::from_string(msg), scalar.span()))
+                Err(SerdeError::spanned(msg, scalar.span()))
             }
         }
     }
