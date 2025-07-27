@@ -9,6 +9,8 @@ use crate::lex::{Source, TextOffset};
 #[derive(Debug, PartialEq)]
 pub struct Ast<'a> {
     pub source: Source<'a>,
+    /// Span of the complete file.
+    pub span: Span,
     pub toplevel: &'a [Toplevel<'a>],
     pub comments: &'a [AssocComment],
 }

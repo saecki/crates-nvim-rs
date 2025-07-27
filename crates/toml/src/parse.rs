@@ -3,7 +3,7 @@ use std::ops::ControlFlow;
 
 use bumpalo::Bump;
 use bumpalo::collections::Vec as BVec;
-use common::{DiagnosticMark, FmtChar, FmtStr, Span};
+use common::{DiagnosticMark, FmtChar, FmtStr, Pos, Span};
 
 use crate::datetime::{Date, DateTime};
 use crate::lex::{Source, StringId, StringToken, Token, TokenType, Tokens};
@@ -409,6 +409,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
 
     Ast {
         source: parser.source,
+        span: Span::new(Pos::ZERO, parser.eof.start),
         toplevel: bump.alloc_slice_fill_iter(toplevel),
         comments: bump.alloc_slice_fill_iter(parser.comment_storage),
     }

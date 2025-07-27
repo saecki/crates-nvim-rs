@@ -9,7 +9,7 @@ use crate::util::SimpleMap;
 use super::*;
 
 #[track_caller]
-fn check(input: &str, expected: Map) {
+fn check(input: &str, expected: MapTable) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
@@ -25,7 +25,7 @@ fn check(input: &str, expected: Map) {
 }
 
 #[track_caller]
-fn check_error(input: &str, expected: Map, error: Error) {
+fn check_error(input: &str, expected: MapTable, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, input);
@@ -76,34 +76,37 @@ fn dotted_key() {
     #[rustfmt::skip]
     check(
         input,
-        Map::from_pairs([("a", MapTableEntry::from_one(
-            MapNode::Table(MapTable::from_pairs(
-                [("b", MapTableEntry::from_one(
-                    MapNode::Table(MapTable::from_pairs(
-                        [("c", MapTableEntry::from_one(
-                            MapNode::Scalar(Scalar::Int(&value)),
-                            MapTableEntryRepr::new(
-                                ParentId(0),
-                                MapTableKeyRepr::Dotted(2, &key),
-                                MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                            ),
-                        ))],
-                        OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
-                    )),
-                    MapTableEntryRepr::new(
-                        ParentId(0),
-                        MapTableKeyRepr::Dotted(1, &key),
-                        MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                    ),
-                ))],
-                OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
-            )),
-            MapTableEntryRepr::new(
-                ROOT_PARENT,
-                MapTableKeyRepr::Dotted(0, &key),
-                MapTableEntryReprKind::ToplevelAssignment(&assignment),
-            ),
-        ))]),
+        MapTable::from_pairs(
+            [("a", MapTableEntry::from_one(
+                MapNode::Table(MapTable::from_pairs(
+                    [("b", MapTableEntry::from_one(
+                        MapNode::Table(MapTable::from_pairs(
+                            [("c", MapTableEntry::from_one(
+                                MapNode::Scalar(Scalar::Int(&value)),
+                                MapTableEntryRepr::new(
+                                    ParentId(0),
+                                    MapTableKeyRepr::Dotted(2, &key),
+                                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                                ),
+                            ))],
+                            OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
+                        )),
+                        MapTableEntryRepr::new(
+                            ParentId(0),
+                            MapTableKeyRepr::Dotted(1, &key),
+                            MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                        ),
+                    ))],
+                    OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
+                )),
+                MapTableEntryRepr::new(
+                    ROOT_PARENT,
+                    MapTableKeyRepr::Dotted(0, &key),
+                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                ),
+            ))],
+            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(0, 9)))),
+        ),
     );
 }
 
@@ -172,64 +175,67 @@ a.b.d = 2
 
     #[rustfmt::skip]
     check(input,
-        Map::from_pairs([("a", MapTableEntry::new(
-            MapNode::Table(MapTable::from_pairs(
-                [("b", MapTableEntry::new(
-                    MapNode::Table(MapTable::from_pairs(
-                        [
-                            ("c", MapTableEntry::from_one(
-                                MapNode::Scalar(Scalar::Int(&value1)),
-                                MapTableEntryRepr::new(
-                                    ParentId(0),
-                                    MapTableKeyRepr::Dotted(2, &key1),
-                                    MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                                ),
-                            )),
-                            ("d", MapTableEntry::from_one(
-                                MapNode::Scalar(Scalar::Int(&value2)),
-                                MapTableEntryRepr::new(
-                                    ParentId(1),
-                                    MapTableKeyRepr::Dotted(2, &key2),
-                                    MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                                ),
-                            )),
-                        ],
+        MapTable::from_pairs(
+            [("a", MapTableEntry::new(
+                MapNode::Table(MapTable::from_pairs(
+                    [("b", MapTableEntry::new(
+                        MapNode::Table(MapTable::from_pairs(
+                            [
+                                ("c", MapTableEntry::from_one(
+                                    MapNode::Scalar(Scalar::Int(&value1)),
+                                    MapTableEntryRepr::new(
+                                        ParentId(0),
+                                        MapTableKeyRepr::Dotted(2, &key1),
+                                        MapTableEntryReprKind::ToplevelAssignment(&assignment1),
+                                    ),
+                                )),
+                                ("d", MapTableEntry::from_one(
+                                    MapNode::Scalar(Scalar::Int(&value2)),
+                                    MapTableEntryRepr::new(
+                                        ParentId(1),
+                                        MapTableKeyRepr::Dotted(2, &key2),
+                                        MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                                    ),
+                                )),
+                            ],
+                            onevec![
+                                MapTableRepr::ToplevelAssignment(&assignment1),
+                                MapTableRepr::ToplevelAssignment(&assignment2),
+                            ],
+                        )),
                         onevec![
-                            MapTableRepr::ToplevelAssignment(&assignment1),
-                            MapTableRepr::ToplevelAssignment(&assignment2),
+                            MapTableEntryRepr::new(
+                                ParentId(0),
+                                MapTableKeyRepr::Dotted(1, &key1),
+                                MapTableEntryReprKind::ToplevelAssignment(&assignment1),
+                            ),
+                            MapTableEntryRepr::new(
+                                ParentId(1),
+                                MapTableKeyRepr::Dotted(1, &key2),
+                                MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                            ),
                         ],
-                    )),
+                    ))],
                     onevec![
-                        MapTableEntryRepr::new(
-                            ParentId(0),
-                            MapTableKeyRepr::Dotted(1, &key1),
-                            MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                        ),
-                        MapTableEntryRepr::new(
-                            ParentId(1),
-                            MapTableKeyRepr::Dotted(1, &key2),
-                            MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                        ),
+                        MapTableRepr::ToplevelAssignment(&assignment1),
+                        MapTableRepr::ToplevelAssignment(&assignment2),
                     ],
-                ))],
+                )),
                 onevec![
-                    MapTableRepr::ToplevelAssignment(&assignment1),
-                    MapTableRepr::ToplevelAssignment(&assignment2),
+                    MapTableEntryRepr::new(
+                        ROOT_PARENT,
+                        MapTableKeyRepr::Dotted(0, &key1),
+                        MapTableEntryReprKind::ToplevelAssignment(&assignment1),
+                    ),
+                    MapTableEntryRepr::new(
+                        ROOT_PARENT,
+                        MapTableKeyRepr::Dotted(0, &key2),
+                        MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                    ),
                 ],
-            )),
-            onevec![
-                MapTableEntryRepr::new(
-                    ROOT_PARENT,
-                    MapTableKeyRepr::Dotted(0, &key1),
-                    MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                ),
-                MapTableEntryRepr::new(
-                    ROOT_PARENT,
-                    MapTableKeyRepr::Dotted(0, &key2),
-                    MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                ),
-            ],
-        ))]),
+            ))],
+            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(1, 9))))
+        ),
     );
 }
 
@@ -286,40 +292,43 @@ def = 23.0
     #[rustfmt::skip]
     check(
         input,
-        Map::from_pairs(
+        MapTable::from_pairs(
             [("mytable", MapTableEntry::from_one(
-                MapNode::Table(MapTable::from_pairs([
-                    (
-                        "abc",
-                        MapTableEntry::from_one(
-                            MapNode::Scalar(Scalar::Bool(&value1)),
-                            MapTableEntryRepr::new(
-                            ParentId(0),
-                                MapTableKeyRepr::One(&key1),
-                                MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                            ),
-                        ),
-                    ),
-                    (
-                        "def",
-                        MapTableEntry::from_one(
-                            MapNode::Scalar(Scalar::Float(&value2)),
-                            MapTableEntryRepr::new(
+                MapNode::Table(MapTable::from_pairs(
+                    [
+                        (
+                            "abc",
+                            MapTableEntry::from_one(
+                                MapNode::Scalar(Scalar::Bool(&value1)),
+                                MapTableEntryRepr::new(
                                 ParentId(0),
-                                MapTableKeyRepr::One(&key2),
-                                MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                                    MapTableKeyRepr::One(&key1),
+                                    MapTableEntryReprKind::ToplevelAssignment(&assignment1),
+                                ),
                             ),
                         ),
-                    ),
-                ],
-                OneVec::new(MapTableRepr::Table(&table)),
-            )),
-            MapTableEntryRepr::new(
-                ROOT_PARENT,
-                MapTableKeyRepr::One(&table_key),
-                MapTableEntryReprKind::Table(&table),
-            ),
-        ))]),
+                        (
+                            "def",
+                            MapTableEntry::from_one(
+                                MapNode::Scalar(Scalar::Float(&value2)),
+                                MapTableEntryRepr::new(
+                                    ParentId(0),
+                                    MapTableKeyRepr::One(&key2),
+                                    MapTableEntryReprKind::ToplevelAssignment(&assignment2),
+                                ),
+                            ),
+                        ),
+                    ],
+                    OneVec::new(MapTableRepr::Table(&table)),
+                )),
+                MapTableEntryRepr::new(
+                    ROOT_PARENT,
+                    MapTableKeyRepr::One(&table_key),
+                    MapTableEntryReprKind::Table(&table),
+                ),
+            ))],
+            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(2, 10)))),
+        ),
     );
 }
 
@@ -382,27 +391,30 @@ fn inline_array() {
     #[rustfmt::skip]
     check(
         input,
-        Map::from_pairs([("array", MapTableEntry::from_one(
-            MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentId(0), &array, [
-                MapArrayInlineEntry::new(
-                    MapNode::Scalar(Scalar::Int(&value1)),
-                    &inline_array_value1,
+        MapTable::from_pairs(
+            [("array", MapTableEntry::from_one(
+                MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentId(0), &array, [
+                    MapArrayInlineEntry::new(
+                        MapNode::Scalar(Scalar::Int(&value1)),
+                        &inline_array_value1,
+                    ),
+                    MapArrayInlineEntry::new(
+                        MapNode::Scalar(Scalar::Int(&value2)),
+                        &inline_array_value2,
+                    ),
+                    MapArrayInlineEntry::new(
+                        MapNode::Scalar(Scalar::Int(&value3)),
+                        &inline_array_value3,
+                    ),
+                ]))),
+                MapTableEntryRepr::new(
+                    ROOT_PARENT,
+                    MapTableKeyRepr::One(&array_key),
+                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
                 ),
-                MapArrayInlineEntry::new(
-                    MapNode::Scalar(Scalar::Int(&value2)),
-                    &inline_array_value2,
-                ),
-                MapArrayInlineEntry::new(
-                    MapNode::Scalar(Scalar::Int(&value3)),
-                    &inline_array_value3,
-                ),
-            ]))),
-            MapTableEntryRepr::new(
-                ROOT_PARENT,
-                MapTableKeyRepr::One(&array_key),
-                MapTableEntryReprKind::ToplevelAssignment(&assignment),
-            ),
-        ))]),
+            ))],
+            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(0, 18))))
+        ),
     );
 }
 
@@ -475,30 +487,33 @@ fruit.apple = 3
     );
     check_error(
         input,
-        Map::from_pairs([(
-            "fruit",
-            MapTableEntry::from_one(
-                MapNode::Table(MapTable::from_pairs(
-                    [(
-                        "apple",
-                        MapTableEntry::from_one(
-                            MapNode::Scalar(Scalar::Int(&value)),
-                            MapTableEntryRepr::new(
-                                ParentId(0),
-                                MapTableKeyRepr::Dotted(1, &key),
-                                MapTableEntryReprKind::ToplevelAssignment(&assignment),
+        MapTable::from_pairs(
+            [(
+                "fruit",
+                MapTableEntry::from_one(
+                    MapNode::Table(MapTable::from_pairs(
+                        [(
+                            "apple",
+                            MapTableEntry::from_one(
+                                MapNode::Scalar(Scalar::Int(&value)),
+                                MapTableEntryRepr::new(
+                                    ParentId(0),
+                                    MapTableKeyRepr::Dotted(1, &key),
+                                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                                ),
                             ),
-                        ),
-                    )],
-                    OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
-                )),
-                MapTableEntryRepr::new(
-                    ROOT_PARENT,
-                    MapTableKeyRepr::Dotted(0, &key),
-                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                        )],
+                        OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
+                    )),
+                    MapTableEntryRepr::new(
+                        ROOT_PARENT,
+                        MapTableKeyRepr::Dotted(0, &key),
+                        MapTableEntryReprKind::ToplevelAssignment(&assignment),
+                    ),
                 ),
-            ),
-        )]),
+            )],
+            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(1, 7)))),
+        ),
         Error::DuplicateKey {
             lines: Box::new([]),
             path: "fruit".into(),

@@ -2,12 +2,12 @@ use std::mem::ManuallyDrop;
 
 use bumpalo::Bump;
 
-use crate::{Ast, Map, TomlCtx};
+use crate::{Ast, MapTable, TomlCtx};
 
 pub struct Toml<'a> {
     pub input: &'a str,
     pub ast: Ast<'a>,
-    pub map: Map<'a>,
+    pub map: MapTable<'a>,
 }
 
 /// Self contained, movable container for a parsed [`Toml`] structure.

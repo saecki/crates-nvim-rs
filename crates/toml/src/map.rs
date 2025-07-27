@@ -68,59 +68,6 @@ pub type MapInner<'a> = std::collections::hash_map::HashMap<&'a str, MapTableEnt
 #[cfg(not(feature = "indexmap"))]
 pub type MapIter<'b, 'a> = std::collections::hash_map::Iter<'b, &'a str, MapTableEntry<'a>>;
 
-/// The root of a toml file.
-#[derive(Debug, Default, PartialEq)]
-pub struct Map<'a> {
-    inner: MapInner<'a>,
-}
-
-impl<'a> AsRef<MapInner<'a>> for Map<'a> {
-    fn as_ref(&self) -> &MapInner<'a> {
-        &self.inner
-    }
-}
-
-impl<'a> Map<'a> {
-    pub fn new() -> Self {
-        Self {
-            inner: MapInner::new(),
-        }
-    }
-
-    pub fn from_pairs(pairs: impl IntoIterator<Item = (&'a str, MapTableEntry<'a>)>) -> Self {
-        Self {
-            inner: MapInner::from_iter(pairs),
-        }
-    }
-
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.inner.len()
-    }
-
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a>> {
-        self.inner.get(key)
-    }
-
-    pub fn iter(&self) -> MapIter<'_, 'a> {
-        self.inner.iter()
-    }
-}
-
-impl<'a> IntoIterator for Map<'a> {
-    type Item = (&'a str, MapTableEntry<'a>);
-    type IntoIter = <MapInner<'a> as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub struct MapTable<'a> {
     inner: MapInner<'a>,
@@ -182,6 +129,8 @@ impl<'a> IntoIterator for MapTable<'a> {
 /// All possible ast definitions, that can make up a table.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MapTableRepr<'a> {
+    /// The entire file. This is the root table.
+    Root(Span),
     /// This table would be part of the representation of the `a` and `a.table`
     /// tables.
     /// ```toml
@@ -226,6 +175,7 @@ pub enum MapTableRepr<'a> {
 impl<'a> MapTableRepr<'a> {
     pub fn span(&self) -> Span {
         match self {
+            MapTableRepr::Root(span) => *span,
             MapTableRepr::Table(table) => table.span(),
             MapTableRepr::InlineTable(table) => table.span(),
             MapTableRepr::ArrayEntry(array) => array.span(),
@@ -715,8 +665,8 @@ enum InsertValue<'a> {
     TableAssignments(&'a Table<'a>),
 }
 
-pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> Map<'a> {
-    let mut root = Map::new();
+pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
+    let mut root = MapTable::new(MapTableRepr::Root(ast.span));
     let mut bump = Bump::new();
     for a in ast.toplevel.iter() {
         match a {
