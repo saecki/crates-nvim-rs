@@ -22,11 +22,9 @@ pub trait LocationExt {
 
 impl LocationExt for Pos {
     fn to_lsp_pos(&self, source: &Source<'_>, encoding: OffsetEncoding) -> lsp_types::Position {
-        let line = self.line - 1;
-        let line_start = source.lines[self.line as usize] as usize;
-        let line_text = &source.text[line_start..][..self.char as usize];
+        let line_text = source.line_str(self.line);
         let character = encoded_offset(line_text, encoding);
-        lsp_types::Position { line, character }
+        lsp_types::Position::new(self.line, character)
     }
 }
 
