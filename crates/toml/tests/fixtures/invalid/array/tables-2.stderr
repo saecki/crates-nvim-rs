@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `fruit[0].variety`
-    [94m-->[0m 9:9
+    [94m-->[0m <fixture>:9:9
      [94m|[0m
 [94m   5 |[0m   [[fruit.variety]]
      [94m|[0m           [94m------- original key defined here[0m

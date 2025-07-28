@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `name`
-    [94m-->[0m 2:0
+    [94m-->[0m <fixture>:2:0
      [94m|[0m
 [94m   1 |[0m name = "Tom"
      [94m|[0m [94m---- original key defined here[0m

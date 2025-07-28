@@ -1,5 +1,5 @@
 [91merror[0m: cannot extend table `a.b` with dotted key
-    [94m-->[0m 8:2
+    [94m-->[0m <fixture>:8:2
      [94m|[0m
 [94m   4 |[0m [a.b.c.d]
      [94m|[0m [94m---------[0m

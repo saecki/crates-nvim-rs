@@ -1,10 +1,10 @@
 [91merror[0m: expected a key, found `,`
-    [94m-->[0m 1:5
+    [94m-->[0m <fixture>:1:5
      [94m|[0m
 [94m   1 |[0m t = {,}
      [94m|[0m      [91m^ expected a key[0m
 [91merror[0m: trailing commas aren't permitted in inline tables
-    [94m-->[0m 1:5
+    [94m-->[0m <fixture>:1:5
      [94m|[0m
 [94m   1 |[0m t = {,}
      [94m|[0m      [91m^ trailing comma[0m

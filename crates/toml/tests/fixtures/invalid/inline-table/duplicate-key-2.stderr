@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `table1.table2.dupe`
-    [94m-->[0m 1:35
+    [94m-->[0m <fixture>:1:35
      [94m|[0m
 [94m   1 |[0m table1 = { table2.dupe = 1, table2.dupe = 2 }
      [94m|[0m                   [94m---- original key defined here[0m

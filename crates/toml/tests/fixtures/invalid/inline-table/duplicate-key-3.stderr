@@ -1,5 +1,5 @@
 [91merror[0m: cannot extend inline table `tbl.fruit`
-    [94m-->[0m 1:41
+    [94m-->[0m <fixture>:1:41
      [94m|[0m
 [94m   1 |[0m tbl = { fruit = { apple.color = "red" }, fruit.apple.texture = { smooth = true } }
      [94m|[0m         [94m-------------------------------- original table defined here[0m

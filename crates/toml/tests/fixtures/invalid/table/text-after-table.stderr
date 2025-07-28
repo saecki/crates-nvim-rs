@@ -1,10 +1,10 @@
 [91merror[0m: expected a line break, found `this`
-    [94m-->[0m 1:8
+    [94m-->[0m <fixture>:1:8
      [94m|[0m
 [94m   1 |[0m [error] this shouldn't be here
      [94m|[0m         [91m^^^^^^^^^^^^^^^^^^^^^^ expected a line break[0m
 [91merror[0m: unterminated literal string, missing `'`
-    [94m-->[0m 1:20
+    [94m-->[0m <fixture>:1:20
      [94m|[0m
 [94m   1 |[0m [error] this shouldn't be here
      [94m|[0m                     [91m^^^^^^^^^^ unterminated string[0m

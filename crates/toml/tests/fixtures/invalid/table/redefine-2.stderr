@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `t1.t2`
-    [94m-->[0m 3:4
+    [94m-->[0m <fixture>:3:4
      [94m|[0m
 [94m   1 |[0m [t1]
 [94m   2 |[0m t2.t3.v = 0

@@ -1,5 +1,5 @@
 [91merror[0m: cannot extend table `tab.nested` with dotted key
-    [94m-->[0m 5:0
+    [94m-->[0m <fixture>:5:0
      [94m|[0m
 [94m   1 |[0m [tab.nested]
      [94m|[0m [94m------------[0m

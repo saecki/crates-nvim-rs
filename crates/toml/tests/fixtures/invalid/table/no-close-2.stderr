@@ -1,10 +1,10 @@
 [91merror[0m: invalid character `ö` in identifier, valid characters are: `a-z`, `A-Z`, `0-9`, `_` and `-`
-    [94m-->[0m 1:24
+    [94m-->[0m <fixture>:1:24
      [94m|[0m
 [94m   1 |[0m [closing-bracket.missingö
      [94m|[0m                         [91m^ invalid character in identifier[0m
 [91merror[0m: expected `.` or `]`, found `\n`
-    [94m-->[0m 1:25
+    [94m-->[0m <fixture>:1:25
      [94m|[0m
 [94m   1 |[0m [closing-bracket.missingö
      [94m|[0m [94m- left `[` defined here[0m

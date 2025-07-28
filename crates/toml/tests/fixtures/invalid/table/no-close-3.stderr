@@ -1,10 +1,10 @@
 [91merror[0m: unterminated basic string, missing `"`
-    [94m-->[0m 1:1
+    [94m-->[0m <fixture>:1:1
      [94m|[0m
 [94m   1 |[0m ["where will it end]
      [94m|[0m  [91m^^^^^^^^^^^^^^^^^^^ unterminated string[0m
 [91merror[0m: unexpected character `v` at start of literal
-    [94m-->[0m 2:7
+    [94m-->[0m <fixture>:2:7
      [94m|[0m
 [94m   2 |[0m name = value
      [94m|[0m        [91m^ unexpected character[0m

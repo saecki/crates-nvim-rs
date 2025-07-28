@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `fruit.apple.taste`
-    [94m-->[0m 4:13
+    [94m-->[0m <fixture>:4:13
      [94m|[0m
 [94m   1 |[0m [fruit]
 [94m   2 |[0m apple.taste.sweet = true

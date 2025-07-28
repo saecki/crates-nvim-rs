@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `a.b`
-    [94m-->[0m 4:14
+    [94m-->[0m <fixture>:4:14
      [94m|[0m
 [94m   4 |[0m a = {b.a = 1, b = 2, b.c = 3}
      [94m|[0m      [94m- original key defined here[0m

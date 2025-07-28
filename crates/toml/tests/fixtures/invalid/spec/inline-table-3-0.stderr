@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `product.type`
-    [94m-->[0m 3:0
+    [94m-->[0m <fixture>:3:0
      [94m|[0m
 [94m   1 |[0m [product]
 [94m   2 |[0m type.name = "Nail"

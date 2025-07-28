@@ -1,5 +1,5 @@
 [91merror[0m: cannot extend array `a.b` with dotted key
-    [94m-->[0m 4:0
+    [94m-->[0m <fixture>:4:0
      [94m|[0m
 [94m   1 |[0m [[a.b]]
      [94m|[0m [94m------- original array defined here[0m

@@ -1,5 +1,5 @@
 [91merror[0m: cannot extend inline table `tab.inner`
-    [94m-->[0m 1:34
+    [94m-->[0m <fixture>:1:34
      [94m|[0m
 [94m   1 |[0m tab = { inner = { dog = "best" }, inner.cat = "worst" }
      [94m|[0m         [94m------------------------- original table defined here[0m

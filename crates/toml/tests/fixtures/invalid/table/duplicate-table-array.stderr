@@ -1,5 +1,5 @@
 [91merror[0m: duplicate key `tbl`
-    [94m-->[0m 2:2
+    [94m-->[0m <fixture>:2:2
      [94m|[0m
 [94m   1 |[0m [tbl]
      [94m|[0m  [94m--- original key defined here[0m
