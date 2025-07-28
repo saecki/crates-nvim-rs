@@ -15,7 +15,7 @@ impl toml_test_harness::Decoder for TestDecoder {
 
         let mut ctx = TomlDiagnostics::default();
         let bump = Bump::new();
-        let tokens = ctx.lex(&bump, text);
+        let tokens = ctx.lex(&bump, "<case>", text);
         let ast = ctx.parse(&bump, tokens);
         let map = ctx.map(&ast);
 

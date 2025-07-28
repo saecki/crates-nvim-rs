@@ -3,21 +3,20 @@ use crate::{Pos, Span};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Source<'a> {
+    pub path: &'a str,
     pub text: &'a str,
     /// Line start indices. The first one is guaranteed to be 0, and all others
     /// immediately follow a newline (`'\n'`) character.
     pub lines: OneVec<u32>,
 }
 
-impl<'a> From<&'a str> for Source<'a> {
-    fn from(input: &'a str) -> Self {
-        let mut lines = OneVec::new(0);
-        lines.extend(memchr::memchr_iter(b'\n', input.as_bytes()).map(|i| i as u32 + 1));
-        Self { text: input, lines }
-    }
-}
-
 impl<'a> Source<'a> {
+    pub fn new(path: &'a str, text: &'a str) -> Self {
+        let mut lines = OneVec::new(0);
+        lines.extend(memchr::memchr_iter(b'\n', text.as_bytes()).map(|i| i as u32 + 1));
+        Self { path, text, lines }
+    }
+
     pub fn spanned_str(&self, span: Span) -> &'a str {
         let start = self.lines[span.start.line as usize] + span.start.char;
         let end = self.lines[span.end.line as usize] + span.end.char;

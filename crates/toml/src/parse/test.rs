@@ -15,7 +15,7 @@ fn check<'a, const SIZE: usize>(
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
 
     // HACK
@@ -44,7 +44,7 @@ fn check_error<'a, const SIZE: usize>(
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
 
     // HACK

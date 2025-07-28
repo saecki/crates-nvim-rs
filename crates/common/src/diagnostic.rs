@@ -188,7 +188,10 @@ pub fn display_header<D: Diagnostic>(
     let char = source.line_str(pos.line)[..pos.char as usize]
         .chars()
         .count();
-    write!(f, "    {ANSII_COLOR_BLUE}-->{ANSII_CLEAR} {line_nr}:{char}")
+    let path = source.path;
+    write!(f, "    {ANSII_COLOR_BLUE}-->{ANSII_CLEAR} ")?;
+    write!(f, "{path}:{line_nr}:{char}")?;
+    Ok(())
 }
 
 pub trait DisplayDiagnosticBody: Diagnostic {

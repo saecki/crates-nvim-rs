@@ -38,30 +38,29 @@ fn main() -> ExitCode {
     let mut args = std::env::args();
     args.next();
 
-    let Some(mode_str) = args.next() else {
-        input_error!("missing mode");
+    let Some(command_str) = args.next() else {
+        input_error!("missing command");
     };
-    let mode = match mode_str.as_str() {
-        "validate" => Mode::Validate,
-        "check" => Mode::Check,
-        _ => input_error!("invalid mode `{mode_str}`"),
+    let command = match command_str.as_str() {
+        "validate" => Command::Validate,
+        "check" => Command::Check,
+        _ => input_error!("invalid command `{command_str}`"),
     };
 
     let Some(path) = args.next() else {
         input_error!("missing argument <file>");
     };
-    let path: &Path = path.as_ref();
-    if let Some(filename) = path.file_name() {
-        if mode == Mode::Check && filename != "Cargo.toml" {
+    if let Some(filename) = AsRef::<Path>::as_ref(&path).file_name() {
+        if command == Command::Check && filename != "Cargo.toml" {
             input_error!(
-                "file isn't named `Cargo.toml`, use mode `validate` for arbitrary toml files"
+                "file isn't named `Cargo.toml`, use the `validate` command for arbitrary toml files"
             );
         }
     } else {
         input_error!("<file> path is empty");
     }
 
-    let text = match std::fs::read_to_string(path) {
+    let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
         Err(e) => error!("error reading from file: {e}"),
     };
@@ -69,7 +68,7 @@ fn main() -> ExitCode {
     let start = std::time::SystemTime::now();
     let mut ctx = IdeDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, &text);
+    let tokens = ctx.lex(&bump, &path, &text);
     let lexing = std::time::SystemTime::now();
     let ast = ctx.parse(&bump, tokens);
     let parsing = std::time::SystemTime::now();

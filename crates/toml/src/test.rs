@@ -60,7 +60,7 @@ pub fn expect_float(table: &SimpleMap, key: &str) -> f64 {
 pub fn parse_simple(text: &str) -> (TomlDiagnostics, SimpleMap) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
     let table = util::map_simple(&ast, map);

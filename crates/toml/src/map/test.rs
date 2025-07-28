@@ -12,7 +12,7 @@ use super::*;
 fn check(text: &str, expected: MapTable) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
     assert_eq!(
@@ -28,7 +28,7 @@ fn check(text: &str, expected: MapTable) {
 fn check_error(text: &str, expected: MapTable, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
     assert_eq!(

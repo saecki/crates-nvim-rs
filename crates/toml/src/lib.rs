@@ -29,8 +29,8 @@ pub trait TomlCtx:
     type TomlWarning: From<Warning>;
     type TomlInfo: From<Info>;
 
-    fn lex<'a>(&mut self, bump: &'a Bump, text: &'a str) -> Tokens<'a> {
-        lex(self, bump, text)
+    fn lex<'a>(&mut self, bump: &'a Bump, path: &'a str, text: &'a str) -> Tokens<'a> {
+        lex(self, bump, path, text)
     }
 
     fn parse<'a>(&mut self, bump: &'a Bump, tokens: Tokens<'a>) -> Ast<'a> {

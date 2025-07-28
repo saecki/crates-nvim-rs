@@ -34,19 +34,23 @@ impl Drop for Container {
 }
 
 impl<'a> Container {
-    pub fn parse(ctx: &mut impl TomlCtx, text: &str) -> Container {
+    pub fn parse(ctx: &mut impl TomlCtx, path: &str, text: &str) -> Container {
         let bump = Box::leak(Box::new(Bump::new()));
+        let path = bump.alloc_str(path);
         let text = bump.alloc_str(text);
 
         // SAFETY: bump is constructed using Box::leak and text is allocated in bump
-        unsafe { build_container(ctx, bump, text) }
+        unsafe { build_container(ctx, bump, path, text) }
     }
 
     pub fn parse_with<'b>(
         ctx: &mut impl TomlCtx,
+        path: &str,
         alloc_text: impl FnOnce(&'b Bump) -> &'b str,
     ) -> Container {
         let bump = Box::leak(Box::new(Bump::new()));
+
+        let path = bump.alloc_str(path);
 
         let text = alloc_text(bump);
 
@@ -55,7 +59,7 @@ impl<'a> Container {
         let text: &str = unsafe { std::mem::transmute(text) };
 
         // SAFETY: bump is constructed using Box::leak and text is allocated in bump
-        unsafe { build_container(ctx, bump, text) }
+        unsafe { build_container(ctx, bump, path, text) }
     }
 
     pub fn toml(&'a self) -> &'a Toml<'a> {
@@ -69,9 +73,10 @@ impl<'a> Container {
 unsafe fn build_container(
     ctx: &mut impl TomlCtx,
     bump: &'static Bump,
+    path: &'static str,
     text: &'static str,
 ) -> Container {
-    let tokens = ctx.lex(bump, text);
+    let tokens = ctx.lex(bump, path, text);
     let ast = ctx.parse(bump, tokens);
     let map = ctx.map(&ast);
 

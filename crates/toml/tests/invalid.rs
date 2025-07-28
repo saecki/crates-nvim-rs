@@ -259,7 +259,7 @@ fn main() {
 fn run_case(text: &str) -> Result<SimpleMap, String> {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<fixture>", text);
     let ast = ctx.parse(&bump, tokens);
     let map = ctx.map(&ast);
 

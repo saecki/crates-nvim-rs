@@ -29,7 +29,7 @@ impl<'a> TokenBuilder<'a> {
 fn check<const SIZE: usize>(text: &str, expected: [Token; SIZE]) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     let (expected_eof, expected_tokens) = expected.split_last().unwrap();
     assert_eq!(expected_tokens, tokens.tokens);
     assert_eq!(*expected_eof, tokens.eof);
@@ -51,7 +51,7 @@ fn check_builder<const SIZE: usize>(
 fn check_error<const SIZE: usize>(text: &str, expected: [Token; SIZE], error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     let (expected_eof, expected_tokens) = expected.split_last().unwrap();
 
     assert_eq!(
@@ -79,7 +79,7 @@ fn check_builder_error<const SIZE: usize>(
 fn check_str(text: &str, expected_lit: &str, expected_text: &str) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     assert_eq!(
         1,
         tokens.tokens.len(),
@@ -108,7 +108,7 @@ fn check_str(text: &str, expected_lit: &str, expected_text: &str) {
 fn check_str_error(text: &str, expected_lit: &str, expected_text: &str, error: Error) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, text);
+    let tokens = ctx.lex(&bump, "<test>", text);
     assert_eq!(
         1,
         tokens.tokens.len(),

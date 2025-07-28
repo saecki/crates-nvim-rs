@@ -225,10 +225,11 @@ struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    fn new(bump: &'a Bump, text: &'a str) -> Self {
+    fn new(bump: &'a Bump, path: &'a str, text: &'a str) -> Self {
         Self {
             bump,
             source: Source {
+                path,
                 text,
                 lines: OneVec::new(0),
             },
@@ -333,8 +334,8 @@ enum DelimKind {
     Curly,
 }
 
-pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, text: &'a str) -> Tokens<'a> {
-    let mut lexer = Lexer::new(bump, text);
+pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, path: &'a str, text: &'a str) -> Tokens<'a> {
+    let mut lexer = Lexer::new(bump, path, text);
     while let Some(c) = lexer.next() {
         match c {
             '\r' if lexer.peek() == Some('\n') => {
