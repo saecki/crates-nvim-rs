@@ -103,7 +103,7 @@ fn handle_did_change_text_document(
     };
 
     let changes = params.content_changes;
-    let text = edit::apply_document_changes(&doc.source().text, changes, state.offset_encoding)
+    let text = edit::apply_document_changes(doc.source().text, changes, state.offset_encoding)
         .map_err(NotificationError::Ignored)?;
 
     let mut ctx = IdeDiagnostics::default();

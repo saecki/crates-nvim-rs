@@ -69,7 +69,8 @@ fn handle_doucment_highlight(
     params: lsp_types::DocumentHighlightParams,
 ) -> Result<Option<Vec<lsp_types::DocumentHighlight>>, RequestError> {
     let (_toml, _path, _pos) = try_from_pos_params(state, params.text_document_position_params)?;
-    return Ok(None);
+    // TODO
+    Ok(None)
 }
 
 fn try_from_pos_params(

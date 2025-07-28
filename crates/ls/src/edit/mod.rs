@@ -149,8 +149,8 @@ pub fn text_byte_range(
 
 struct TextPos {
     byte_offset: usize,
-    line: u32,
-    char: u32,
+    _line: u32,
+    _char: u32,
 }
 fn text_range(
     text: &[u8],
@@ -193,13 +193,13 @@ fn text_range(
 
     let start = TextPos {
         byte_offset: start_offset,
-        line: range.start.line,
-        char: start_char_offset as u32,
+        _line: range.start.line,
+        _char: start_char_offset as u32,
     };
     let end = TextPos {
         byte_offset: end_offset,
-        line: range.end.line,
-        char: end_char_offset as u32,
+        _line: range.end.line,
+        _char: end_char_offset as u32,
     };
     Ok([start, end])
 }
