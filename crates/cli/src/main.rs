@@ -7,7 +7,7 @@ use ide::{IdeCtx, IdeDiagnostics};
 use toml::TomlCtx;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Mode {
+enum Command {
     /// Validate arbitrary toml files.
     Validate,
     /// Check a `Cargo.toml` manifest.
@@ -74,7 +74,7 @@ fn main() -> ExitCode {
     let parsing = std::time::SystemTime::now();
     let map = ctx.map(&ast);
     let mapping = std::time::SystemTime::now();
-    if mode == Mode::Check {
+    if command == Command::Check {
         let _state = ctx.check(&map);
     }
     let checking = std::time::SystemTime::now();
@@ -104,7 +104,7 @@ fn main() -> ExitCode {
     println!("lexing   {us_lexing:6}us");
     println!("parsing  {us_parsing:6}us");
     println!("mapping  {us_mapping:6}us");
-    if mode == Mode::Check {
+    if command == Command::Check {
         println!("checking {us_checking:4}us");
     }
     println!("simple   {us_simple:6}us");
@@ -115,9 +115,9 @@ fn main() -> ExitCode {
 }
 
 fn help_message() {
-    eprintln!("ctoml <mode> <file>");
+    eprintln!("ctoml <command> <file>");
     eprintln!();
-    eprintln!("modes:");
+    eprintln!("commands:");
     eprintln!("  {ANSII_UNDERLINED}validate{ANSII_CLEAR}  to validate arbitrary toml files");
     eprintln!("  {ANSII_UNDERLINED}check{ANSII_CLEAR}     to check a `Cargo.toml` manifest");
 }
