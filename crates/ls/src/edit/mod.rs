@@ -9,10 +9,12 @@ pub trait SpanExt {
 
 impl SpanExt for Span {
     fn to_lsp_range(&self, source: &Source<'_>, encoding: OffsetEncoding) -> lsp_types::Range {
-        lsp_types::Range {
+        let range = lsp_types::Range {
             start: self.start.to_lsp_pos(source, encoding),
             end: self.end.to_lsp_pos(source, encoding),
-        }
+        };
+        eprintln!("{self:?} {range:?}");
+        range
     }
 }
 
@@ -23,7 +25,7 @@ pub trait LocationExt {
 impl LocationExt for Pos {
     fn to_lsp_pos(&self, source: &Source<'_>, encoding: OffsetEncoding) -> lsp_types::Position {
         let line_text = source.line_str(self.line);
-        let character = encoded_offset(line_text, encoding);
+        let character = encoded_offset(&line_text[..self.char as usize], encoding);
         lsp_types::Position::new(self.line, character)
     }
 }
