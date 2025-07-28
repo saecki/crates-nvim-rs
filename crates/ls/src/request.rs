@@ -101,8 +101,7 @@ fn get_text_pos(
     pos: lsp_types::Position,
     encoding: OffsetEncoding,
 ) -> Result<Pos, RequestError> {
-    let text = toml.ast.source.text.as_bytes();
-    edit::text_location(text, pos, encoding).map_err(invalid_params_error)
+    edit::source_pos(&toml.ast.source, pos, encoding).map_err(invalid_params_error)
 }
 
 fn to_path(uri: &lsp_types::Url) -> Result<VfsPath, RequestError> {

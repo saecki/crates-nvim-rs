@@ -66,6 +66,29 @@ pub fn negotiated_encoding(capabilities: &lsp_types::ClientCapabilities) -> Offs
     negotiated_encoding
 }
 
+pub fn source_span(
+    source: &Source<'_>,
+    range: lsp_types::Range,
+    encoding: OffsetEncoding,
+) -> anyhow::Result<Span> {
+    let start = source_pos(source, range.start, encoding)?;
+    let end = source_pos(source, range.start, encoding)?;
+    Ok(Span::new(start, end))
+}
+
+pub fn source_pos(
+    source: &Source<'_>,
+    pos: lsp_types::Position,
+    encoding: OffsetEncoding,
+) -> anyhow::Result<Pos> {
+    if pos.line as usize >= source.lines.len() {
+        anyhow::bail!("position line out of bounds for text document: {pos:?}");
+    }
+    let line_text = source.line_str(pos.line);
+    let char_offset = utf8_offset(line_text, pos.character, encoding)? as u32;
+    Ok(Pos::new(pos.line, char_offset))
+}
+
 /// Compute the offset of this text in the given offset encoding.
 pub fn encoded_offset(text: &str, encoding: OffsetEncoding) -> u32 {
     match encoding {
@@ -124,23 +147,6 @@ pub fn text_byte_range(
     Ok(start.byte_offset..end.byte_offset)
 }
 
-pub fn text_span(
-    text: &[u8],
-    range: lsp_types::Range,
-    encoding: OffsetEncoding,
-) -> anyhow::Result<Span> {
-    let [start, end] = text_range(text, range, encoding)?;
-    let start = Pos {
-        line: start.line,
-        char: start.char,
-    };
-    let end = Pos {
-        line: end.line,
-        char: end.char,
-    };
-    Ok(Span::new(start, end))
-}
-
 struct TextPos {
     byte_offset: usize,
     line: u32,
@@ -196,33 +202,6 @@ fn text_range(
         char: end_char_offset as u32,
     };
     Ok([start, end])
-}
-
-pub fn text_location(
-    text: &[u8],
-    pos: lsp_types::Position,
-    encoding: OffsetEncoding,
-) -> anyhow::Result<Pos> {
-    // PERF: cache line byte offsets, see rust-analyzer's `LineIndex`
-    let mut start_line_offset = 0;
-    let mut line_iter = memchr::memchr_iter(b'\n', text);
-    for _ in 0..pos.line {
-        let Some(o) = line_iter.next() else {
-            anyhow::bail!("position line out of bounds for text document: {pos:?}");
-        };
-        start_line_offset = o + 1;
-    }
-
-    let line_text = std::str::from_utf8(&text[start_line_offset..])?;
-    let char_offset = utf8_offset(line_text, pos.character, encoding)?;
-    let byte_offset = start_line_offset + char_offset;
-    if byte_offset > text.len() {
-        anyhow::bail!("position out of bounds for text document: {pos:?}");
-    }
-    Ok(Pos {
-        line: pos.line + 1,
-        char: char_offset as u32,
-    })
 }
 
 pub fn apply_document_changes(

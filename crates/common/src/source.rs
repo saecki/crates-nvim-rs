@@ -18,9 +18,7 @@ impl<'a> Source<'a> {
     }
 
     pub fn spanned_str(&self, span: Span) -> &'a str {
-        let start = self.lines[span.start.line as usize] + span.start.char;
-        let end = self.lines[span.end.line as usize] + span.end.char;
-        &self.text[start as usize..end as usize]
+        &self.text[self.range(span)]
     }
 
     /// The line corresponding to the index with newlines (`'\n'`) and carriage
