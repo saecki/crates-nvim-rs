@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use common::Source;
+use ide::IdeDiagnostics;
 use lsp_server::{Connection, Message, Response};
 use lsp_types::notification::Notification as _;
 use lsp_types::{
@@ -14,28 +16,22 @@ use crate::notif::NotificationError;
 use crate::request::RequestError;
 
 pub mod edit;
+pub mod lsp;
 pub mod notif;
 pub mod request;
-pub mod lsp;
 
 struct State {
     connection: Connection,
     mem_docs: HashMap<VfsPath, VfsDocumentData>,
-    workspace_dirs: Vec<lsp_types::WorkspaceFolder>,
     offset_encoding: OffsetEncoding,
     shutdown: bool,
 }
 
 impl State {
-    pub fn new(
-        connection: Connection,
-        workspace_dirs: Vec<lsp_types::WorkspaceFolder>,
-        offset_encoding: OffsetEncoding,
-    ) -> Self {
+    pub fn new(connection: Connection, offset_encoding: OffsetEncoding) -> Self {
         Self {
             connection,
             mem_docs: HashMap::new(),
-            workspace_dirs,
             offset_encoding,
             shutdown: false,
         }
@@ -81,17 +77,21 @@ impl VfsPath {
 
 pub struct VfsDocumentData {
     pub version: i32,
-    pub text: String,
+    pub diagnostics: IdeDiagnostics,
     pub toml: toml::Container,
 }
 
 impl VfsDocumentData {
-    pub fn new(version: i32, text: String, toml: toml::Container) -> Self {
+    pub fn new(version: i32, diagnostics: IdeDiagnostics, toml: toml::Container) -> Self {
         Self {
             version,
-            text,
+            diagnostics,
             toml,
         }
+    }
+
+    pub fn source(&self) -> &Source<'_> {
+        &self.toml.toml().ast.source
     }
 }
 
@@ -101,7 +101,6 @@ pub fn run() -> anyhow::Result<()> {
     let (id, params) = connection.initialize_start()?;
 
     let InitializeParams {
-        workspace_folders,
         capabilities: client_capabilities,
         ..
     } = serde_json::from_value(params)?;
@@ -148,8 +147,7 @@ pub fn run() -> anyhow::Result<()> {
     let value = serde_json::to_value(initialize_result)?;
     connection.initialize_finish(id, value)?;
 
-    let workspace_folders = workspace_folders.unwrap_or_default();
-    let mut state = State::new(connection, workspace_folders, offset_encoding);
+    let mut state = State::new(connection, offset_encoding);
 
     loop {
         let msg = state.connection.receiver.recv()?;

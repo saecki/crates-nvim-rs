@@ -1,13 +1,12 @@
-use common::Source;
+use ide::{IdeCtx, IdeDiagnostics};
 use lsp_server::{Message, Notification};
 use lsp_types::notification::{self as notif, Notification as _, PublishDiagnostics};
 use lsp_types::{
     DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
     PublishDiagnosticsParams,
 };
-use toml::TomlDiagnostics;
 
-use crate::{State, VfsDocumentData, VfsPath, edit};
+use crate::{State, VfsDocumentData, VfsPath, edit, lsp};
 
 pub enum NotificationError {
     /// Exit the server, fatal error.
@@ -76,15 +75,16 @@ fn handle_did_open_text_document(
     params: DidOpenTextDocumentParams,
 ) -> Result<(), NotificationError> {
     let text_doc = params.text_document;
-
     let path = to_path(&text_doc.uri)?;
-    let mut ctx = TomlDiagnostics::default();
-    let toml = toml::Container::parse(&mut ctx, &params.text_document.text);
-    let doc = VfsDocumentData::new(text_doc.version, text_doc.text, toml);
 
-    state.mem_docs.insert(path.clone(), doc);
+    let mut ctx = IdeDiagnostics::default();
+    let toml = toml::Container::parse(&mut ctx, path.as_str(), &text_doc.text);
+    ctx.check(&toml.toml().map);
+    let doc = VfsDocumentData::new(text_doc.version, ctx, toml);
 
-    run_analysis(state)?;
+    state.mem_docs.insert(path, doc);
+
+    publish_diagnostics(state)?;
 
     Ok(())
 }
@@ -94,8 +94,8 @@ fn handle_did_change_text_document(
     params: DidChangeTextDocumentParams,
 ) -> Result<(), NotificationError> {
     let text_doc = params.text_document;
-
     let path = to_path(&text_doc.uri)?;
+
     let Some(doc) = state.mem_docs.get_mut(&path) else {
         return Err(NotificationError::Ignored(anyhow::anyhow!(
             "text document not found"
@@ -103,14 +103,15 @@ fn handle_did_change_text_document(
     };
 
     let changes = params.content_changes;
-    let text = edit::apply_document_changes(&doc.text, changes, state.offset_encoding)
+    let text = edit::apply_document_changes(&doc.source().text, changes, state.offset_encoding)
         .map_err(NotificationError::Ignored)?;
 
-    let source = Source::new(path.as_str(), &text);
-    let ast = libvvm_parser::parse(&source);
-    *doc = VfsDocumentData::new(text_doc.version, text, ast);
+    let mut ctx = IdeDiagnostics::default();
+    let toml = toml::Container::parse(&mut ctx, path.as_str(), &text);
+    ctx.check(&toml.toml().map);
+    *doc = VfsDocumentData::new(text_doc.version, ctx, toml);
 
-    run_analysis(state)?;
+    publish_diagnostics(state)?;
 
     Ok(())
 }
@@ -124,48 +125,26 @@ fn handle_did_close_text_document(
     Ok(())
 }
 
-fn run_analysis(state: &mut State) -> Result<(), NotificationError> {
-    // TODO: Maybe run in worker thread.
-    // NOTE: If so, make sure ordering of requests is consistent with global analysis state.
-
-    let sources = state.mem_docs.iter().map(|(path, doc)| {
-        let name = {
-            let idx = path.as_str().rfind('/').expect("path to be absolute");
-            let filename = &path.as_str()[idx + 1..];
-            filename.strip_suffix(".vvm").expect("a vvm file").into()
-        };
-        let source = OwnedSource {
-            path: path.clone(),
-            name,
-            text: doc.text.as_str().into(),
-            version: doc.version,
-        };
-        (source, &doc.ast)
-    });
-    let analysis = analysis::analyze(sources);
-    let diagnostics = lsp::diagnostic::generate_diagnostics(&analysis, state.offset_encoding);
-
-    for (module, diagnostics) in diagnostics {
-        let source = &analysis.modules.get(module).source;
+fn publish_diagnostics(state: &mut State) -> Result<(), NotificationError> {
+    for (path, doc) in state.mem_docs.iter() {
+        let diagnostics =
+            lsp::generate_diagnostics(doc.source(), &doc.diagnostics, state.offset_encoding);
         state
             .connection
             .sender
             .send(Message::Notification(Notification::new(
                 PublishDiagnostics::METHOD.into(),
                 PublishDiagnosticsParams {
-                    uri: source.path.to_uri(),
-                    version: Some(source.version),
+                    uri: path.to_uri(),
+                    version: Some(doc.version),
                     diagnostics,
                 },
             )))
             .unwrap();
     }
-
-    state.analysis = Some(analysis);
-
     Ok(())
 }
 
-fn to_path(uri: &lsp_types::Uri) -> Result<VfsPath, NotificationError> {
+fn to_path(uri: &lsp_types::Url) -> Result<VfsPath, NotificationError> {
     VfsPath::try_from(uri).map_err(NotificationError::Ignored)
 }

@@ -1,7 +1,10 @@
+use common::Pos;
 use lsp_server::ResponseError;
 use lsp_types::request::{self, Request as _};
+use toml::Toml;
 
-use crate::{State, VfsDocumentData, VfsPath};
+use crate::edit::{self, OffsetEncoding};
+use crate::{State, VfsPath};
 
 pub enum RequestError {
     /// Respond to the client with a response error.
@@ -21,13 +24,17 @@ impl From<lsp_server::ResponseError> for RequestError {
 pub(crate) fn handle_request(
     state: &mut State,
     method: String,
-    _params: serde_json::Value,
+    params: serde_json::Value,
 ) -> Result<serde_json::Value, RequestError> {
     #[rustfmt::skip]
     let res = match method.as_str() {
         request::Shutdown::METHOD => {
             state.shutdown = true;
             Ok(serde_json::Value::Null)
+        }
+
+        request::DocumentHighlightRequest::METHOD => {
+            wrap_request::<request::DocumentHighlightRequest>(state, params, handle_doucment_highlight)
         }
 
         _ if method.starts_with("$/") => {
@@ -46,29 +53,60 @@ pub(crate) fn handle_request(
     res
 }
 
-fn wrap_request<R>(
+fn wrap_request<R: lsp_types::request::Request>(
     state: &mut State,
     value: serde_json::Value,
     handler: fn(&mut State, R::Params) -> Result<R::Result, RequestError>,
-) -> Result<serde_json::Value, RequestError>
-where
-    R: lsp_types::request::Request,
-{
+) -> Result<serde_json::Value, RequestError> {
     let params = serde_json::from_value(value).map_err(|e| {
         invalid_params_response(format!("invalid request params for `{}`: {e}", R::METHOD))
     })?;
     handler(state, params).map(|result| serde_json::to_value(result).unwrap())
 }
 
-fn to_path(uri: &lsp_types::Url) -> Result<VfsPath, RequestError> {
-    VfsPath::try_from(uri).map_err(invalid_params_error)
+fn handle_doucment_highlight(
+    state: &mut State,
+    params: lsp_types::DocumentHighlightParams,
+) -> Result<Option<Vec<lsp_types::DocumentHighlight>>, RequestError> {
+    let (_toml, _path, _pos) = try_from_pos_params(state, params.text_document_position_params)?;
+    return Ok(None);
 }
 
-fn get_document<'a>(state: &'a State, path: &VfsPath) -> Result<&'a VfsDocumentData, RequestError> {
-    state
-        .mem_docs
-        .get(path)
-        .ok_or_else(|| invalid_params_response(format!("text document not found `{path}`")).into())
+fn try_from_pos_params(
+    state: &State,
+    text_document_position: lsp_types::TextDocumentPositionParams,
+) -> Result<(&Toml, VfsPath, Pos), RequestError> {
+    let uri = &text_document_position.text_document.uri;
+    let (toml, path) = get_module(state, uri)?;
+
+    let pos = get_text_pos(toml, text_document_position.position, state.offset_encoding)?;
+
+    Ok((toml, path, pos))
+}
+
+fn get_module<'a>(
+    state: &'a State,
+    uri: &lsp_types::Url,
+) -> Result<(&'a Toml<'a>, VfsPath), RequestError> {
+    let path = to_path(uri)?;
+    let Some(doc) = state.mem_docs.get(&path) else {
+        return Err(invalid_params_response(format!("text document not found `{path}`")).into());
+    };
+
+    Ok((doc.toml.toml(), path))
+}
+
+fn get_text_pos(
+    toml: &Toml,
+    pos: lsp_types::Position,
+    encoding: OffsetEncoding,
+) -> Result<Pos, RequestError> {
+    let text = toml.ast.source.text.as_bytes();
+    edit::text_location(text, pos, encoding).map_err(invalid_params_error)
+}
+
+fn to_path(uri: &lsp_types::Url) -> Result<VfsPath, RequestError> {
+    VfsPath::try_from(uri).map_err(invalid_params_error)
 }
 
 fn invalid_params_response(message: String) -> ResponseError {

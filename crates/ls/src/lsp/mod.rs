@@ -1,51 +1,60 @@
-use common::diagnostic::{Diagnostic, Severity};
+use std::str::FromStr;
+
+use common::Source;
+use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
 use ide::IdeDiagnostics;
-use toml::Toml;
 
 use crate::edit::{OffsetEncoding, SpanExt};
 
 pub fn generate_diagnostics(
-    toml: &Toml,
+    source: &Source<'_>,
     diagnostics: &IdeDiagnostics,
     encoding: OffsetEncoding,
 ) -> Vec<lsp_types::Diagnostic> {
     let mut acc = Vec::with_capacity(diagnostics.len());
-    generate(&mut acc, toml, &diagnostics.errors, encoding);
-    generate(&mut acc, toml, &diagnostics.warnings, encoding);
-    generate(&mut acc, toml, &diagnostics.infos, encoding);
+    generate(&mut acc, source, &diagnostics.errors, encoding);
+    generate(&mut acc, source, &diagnostics.warnings, encoding);
+    generate(&mut acc, source, &diagnostics.infos, encoding);
     acc
 }
 
 fn generate<D: Diagnostic>(
     acc: &mut Vec<lsp_types::Diagnostic>,
-    toml: &Toml,
+    source: &Source<'_>,
     diagnostics: &[D],
     encoding: OffsetEncoding,
 ) {
     for d in diagnostics {
         acc.push(lsp_types::Diagnostic {
-            range: d.span().to_lsp_range(&toml.ast.source, encoding),
+            range: d.span().to_lsp_range(source, encoding),
             severity: Some(lsp_severity(D::SEVERITY)),
             code: None,
             code_description: None,
             source: None,
             message: {
                 let mut buf = String::new();
-                d.description(&mut buf);
+                d.description(&mut buf).unwrap();
                 buf
             },
             related_information: d.hint().map(|hint| {
                 vec![lsp_types::DiagnosticRelatedInformation {
-                    location: todo!("store file id or similar"),
+                    location: lsp_types::Location::new(
+                        {
+                            // FIXME: store VfsPath in source
+                            let uri = format!("file://{}", source.path);
+                            lsp_types::Url::from_str(&uri).expect("VfsPath to be a valid path")
+                        },
+                        hint.span().to_lsp_range(source, encoding),
+                    ),
                     message: {
                         let mut buf = String::new();
-                        d.annotation(&mut buf);
+                        hint.annotation(&mut buf).unwrap();
                         buf
                     },
                 }]
             }),
-            tags: todo!(),
-            data: todo!(),
+            tags: None,
+            data: None,
         });
     }
 }
