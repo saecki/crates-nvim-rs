@@ -15,7 +15,22 @@ impl std::error::Error for SerdeError<'_> {}
 
 impl std::fmt::Display for SerdeError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.msg)
+        f.write_str(&self.msg)?;
+        if self.parent.is_some() || self.span.is_some() {
+            f.write_str(" (")?;
+            if let Some(parent) = self.parent {
+                write!(f, "at {}", parent.fmt_path())?;
+            }
+            if let Some(span) = self.span {
+                if self.parent.is_some() {
+                    f.write_str(" ")?;
+                }
+                let Pos { line, char } = span.start;
+                write!(f, "in line {} column {char}", line + 1)?;
+            }
+            f.write_str(")")?;
+        }
+        Ok(())
     }
 }
 

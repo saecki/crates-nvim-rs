@@ -7,7 +7,7 @@ pub use lex::{Quote, Token, TokenType, Tokens, lex};
 pub use map::{MapTable, map};
 pub use parse::{Ast, Toplevel, parse};
 #[cfg(feature = "serde")]
-pub use serde::deserialize;
+pub use serde::{deserialize, deserialize_owned};
 
 mod container;
 pub mod datetime;

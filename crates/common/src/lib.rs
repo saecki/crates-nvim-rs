@@ -39,6 +39,14 @@ pub struct Diagnostics<E, W, I> {
 }
 
 impl<E, W, I> Diagnostics<E, W, I> {
+    pub const fn new() -> Self {
+        Self {
+            errors: Vec::new(),
+            warnings: Vec::new(),
+            infos: Vec::new(),
+        }
+    }
+
     /// The combined number of all diagnostics.
     pub fn len(&self) -> usize {
         self.errors.len() + self.warnings.len() + self.infos.len()
