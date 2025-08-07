@@ -35,44 +35,87 @@
 //! # 3
 //! children_1 = { node_1 = 1, node_2 = false }
 //! ```
+// TODO: update the comment above
 use std::fmt::Write as _;
+use std::mem::MaybeUninit;
 
 use bumpalo::Bump;
 use common::OneVec;
 use common::{FmtChar, FmtStr, Span};
 
 use crate::parse::{
-    ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
-    InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, StringVal, Table, Toplevel,
-    ToplevelAssignment, Value,
+    ArrayEntry, BoolVal, CommentRange, Cyclic, DateTimeVal, DottedIdent, FloatVal, Ident,
+    InlineArray, InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, Key, StringVal,
+    Table, Toplevel, ToplevelAssignment, Value,
 };
 use crate::{Ast, Error, TomlCtx};
 
 #[cfg(test)]
 mod test;
 
-// The id is irrelevant, since the caller won't have any [`MapTableEntry::reprs`]
-// array to index anyway, but this will most likely panic if used wrong.
-const ROOT_PARENT: ParentId = ParentId(u32::MAX);
-
 #[cfg(feature = "indexmap")]
 use indexmap::map::Entry::{Occupied, Vacant};
 #[cfg(feature = "indexmap")]
-pub type MapInner<'a> = indexmap::IndexMap<&'a str, MapTableEntry<'a>>;
+use indexmap::map::VacantEntry;
 #[cfg(feature = "indexmap")]
-pub type MapIter<'b, 'a> = indexmap::map::Iter<'b, &'a str, MapTableEntry<'a>>;
+pub type MapInner<'a> = indexmap::IndexMap<&'a str, &'a mut MapTableEntry<'a>>;
+#[cfg(feature = "indexmap")]
+pub type MapIter<'b, 'a> = indexmap::map::Iter<'b, &'a str, &'a mut MapTableEntry<'a>>;
 
 #[cfg(not(feature = "indexmap"))]
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 #[cfg(not(feature = "indexmap"))]
-pub type MapInner<'a> = std::collections::hash_map::HashMap<&'a str, MapTableEntry<'a>>;
+use std::collections::hash_map::VacantEntry;
 #[cfg(not(feature = "indexmap"))]
-pub type MapIter<'b, 'a> = std::collections::hash_map::Iter<'b, &'a str, MapTableEntry<'a>>;
+pub type MapInner<'a> = std::collections::hash_map::HashMap<&'a str, &'a MapTableEntry<'a>>;
+#[cfg(not(feature = "indexmap"))]
+pub type MapIter<'b, 'a> = std::collections::hash_map::Iter<'b, &'a str, &'a MapTableEntry<'a>>;
+
+#[derive(Debug, PartialEq)]
+pub struct Map<'a> {
+    root: &'a MapTable<'a>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReprIdx(u32);
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ParentTable {
+    map: Cyclic<MapTable<'static>>,
+    idx: ReprIdx,
+}
+
+impl ParentTable {
+    fn repr(&self) -> &MapTableRepr<'_> {
+        &self.map.get().reprs[self.idx.0 as usize]
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ParentToplevelArray {
+    array: Cyclic<MapArrayToplevel<'static>>,
+    idx: ReprIdx,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ParentInlineArray {
+    array: Cyclic<MapArrayInline<'static>>,
+    idx: ReprIdx,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ParentEntry {
+    Root,
+    Table(Cyclic<MapTableEntry<'static>>, ReprIdx),
+    ToplevelArray(Cyclic<MapArrayToplevelEntry<'static>>, ReprIdx),
+    InlineArray(Cyclic<MapArrayInlineEntry<'static>>, ReprIdx),
+}
 
 #[derive(Debug, PartialEq)]
 pub struct MapTable<'a> {
     inner: MapInner<'a>,
     pub reprs: OneVec<MapTableRepr<'a>>,
+    pub parent: ParentEntry,
 }
 
 impl<'a> AsRef<MapInner<'a>> for MapTable<'a> {
@@ -82,20 +125,11 @@ impl<'a> AsRef<MapInner<'a>> for MapTable<'a> {
 }
 
 impl<'a> MapTable<'a> {
-    pub fn new(repr: MapTableRepr<'a>) -> Self {
+    pub fn new(repr: MapTableRepr<'a>, parent: ParentEntry) -> Self {
         Self {
             reprs: OneVec::new(repr),
             inner: MapInner::new(),
-        }
-    }
-
-    pub fn from_pairs(
-        pairs: impl IntoIterator<Item = (&'a str, MapTableEntry<'a>)>,
-        reprs: OneVec<MapTableRepr<'a>>,
-    ) -> Self {
-        Self {
-            reprs,
-            inner: MapInner::from_iter(pairs),
+            parent,
         }
     }
 
@@ -110,16 +144,23 @@ impl<'a> MapTable<'a> {
     }
 
     pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a>> {
-        self.inner.get(key)
+        self.inner.get(key).map(|e| &**e)
     }
 
     pub fn iter(&self) -> MapIter<'_, 'a> {
         self.inner.iter()
     }
+
+    pub(crate) fn insert_repr(&mut self, repr: MapTableRepr<'a>) -> ParentTable {
+        let idx = ReprIdx(self.reprs.len() as u32);
+        self.reprs.push(repr);
+        let map = Cyclic::new(self as *const MapTable<'_> as *const MapTable<'static>);
+        ParentTable { map, idx }
+    }
 }
 
 impl<'a> IntoIterator for MapTable<'a> {
-    type Item = (&'a str, MapTableEntry<'a>);
+    type Item = (&'a str, &'a mut MapTableEntry<'a>);
     type IntoIter = <MapInner<'a> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -209,13 +250,13 @@ impl<'a> MapTableEntry<'a> {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MapTableEntryRepr<'a> {
     /// Index of the parent defined in the parent [`MapTableEntry::reprs`].
-    pub parent: ParentId,
+    pub parent: ParentTable,
     pub key: MapTableKeyRepr<'a>,
     pub kind: MapTableEntryReprKind<'a>,
 }
 
 impl<'a> MapTableEntryRepr<'a> {
-    fn new(parent: ParentId, key: MapTableKeyRepr<'a>, kind: MapTableEntryReprKind<'a>) -> Self {
+    fn new(parent: ParentTable, key: MapTableKeyRepr<'a>, kind: MapTableEntryReprKind<'a>) -> Self {
         Self { parent, key, kind }
     }
 
@@ -224,9 +265,6 @@ impl<'a> MapTableEntryRepr<'a> {
         Span::new(self.key.repr_ident().lit_start, self.kind.span().end)
     }
 }
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentId(pub u32);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MapTableEntryReprKind<'a> {
@@ -281,7 +319,7 @@ impl<'a> MapTableEntryReprKind<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum MapTableKeyRepr<'a> {
     One(&'a Ident<'a>),
     Dotted(u32, &'a [DottedIdent<'a>]),
@@ -313,13 +351,18 @@ pub enum MapArray<'a> {
 #[derive(Debug, PartialEq)]
 pub struct MapArrayToplevel<'a> {
     inner: OneVec<MapArrayToplevelEntry<'a>>,
+    pub parent: ParentEntry,
 }
 
 impl<'a> MapArrayToplevel<'a> {
-    pub fn new(node: MapTable<'a>, parent: ParentId, repr: &'a ArrayEntry<'a>) -> Self {
-        Self {
-            inner: OneVec::new(MapArrayToplevelEntry::new(node, parent, repr)),
-        }
+    pub fn new(bump: &'a Bump, node: MapTable<'a>, repr: &'a ArrayEntry<'a>, parent_entry: ParentEntry) -> &'a Self {
+        let reserved = reserve::<Self>(bump);
+        let parent = reserved.parent_array(ReprIdx(0));
+        let array = Self {
+            inner: OneVec::new(MapArrayToplevelEntry::new(node, repr, parent, 0)),
+            parent: parent_entry,
+        };
+        reserved.init(array)
     }
 
     fn push(&mut self, entry: MapArrayToplevelEntry<'a>) {
@@ -364,25 +407,26 @@ impl<'a> IntoIterator for MapArrayToplevel<'a> {
 #[derive(Debug, PartialEq)]
 pub struct MapArrayToplevelEntry<'a> {
     pub node: MapTable<'a>,
-    pub parent: ParentId,
     pub repr: &'a ArrayEntry<'a>,
+    pub parent: ParentToplevelArray,
+    pub idx: u32,
 }
 
 impl<'a> MapArrayToplevelEntry<'a> {
-    pub fn new(node: MapTable<'a>, parent: ParentId, repr: &'a ArrayEntry<'a>) -> Self {
-        Self { node, parent, repr }
+    pub fn new(node: MapTable<'a>, repr: &'a ArrayEntry<'a>, parent: ParentToplevelArray, idx: u32) -> Self {
+        Self { node, repr, parent, idx }
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MapArrayInline<'a> {
-    pub parent: ParentId,
+    pub parent: ParentInlineArray,
     pub repr: &'a InlineArray<'a>,
     inner: Box<[MapArrayInlineEntry<'a>]>,
 }
 
 impl<'a> MapArrayInline<'a> {
-    pub fn new(parent: ParentId, repr: &'a InlineArray<'a>) -> Self {
+    pub fn new(parent: ParentInlineArray, repr: &'a InlineArray<'a>) -> Self {
         Self {
             repr,
             parent,
@@ -390,7 +434,7 @@ impl<'a> MapArrayInline<'a> {
         }
     }
 
-    pub fn from_iter<T>(parent: ParentId, repr: &'a InlineArray<'a>, iter: T) -> Self
+    pub fn from_iter<T>(parent: ParentInlineArray, repr: &'a InlineArray<'a>, iter: T) -> Self
     where
         T: IntoIterator<Item = MapArrayInlineEntry<'a>>,
         <T as IntoIterator>::IntoIter: ExactSizeIterator<Item = MapArrayInlineEntry<'a>>,
@@ -457,17 +501,19 @@ impl<'a, I: std::slice::SliceIndex<[MapArrayInlineEntry<'a>]>> std::ops::IndexMu
 pub struct MapArrayInlineEntry<'a> {
     pub node: MapNode<'a>,
     pub repr: &'a InlineArrayValue<'a>,
+    pub parent: ParentInlineArray,
+    pub idx: u32,
 }
 
 impl<'a> MapArrayInlineEntry<'a> {
-    pub fn new(node: MapNode<'a>, repr: &'a InlineArrayValue<'a>) -> Self {
-        Self { node, repr }
+    pub fn new(node: MapNode<'a>, repr: &'a InlineArrayValue<'a>, parent: ParentInlineArray, idx: u32) -> Self {
+        Self { node, repr, parent, idx }
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub enum MapNode<'a> {
-    Table(MapTable<'a>),
+    Table(&'a mut MapTable<'a>),
     Array(MapArray<'a>),
     Scalar(Scalar<'a>),
 }
@@ -495,6 +541,9 @@ impl Scalar<'_> {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ParentId(pub u32);
 
 /// Linked list of path segments with parent span information, mainly used for diagnostics.
 #[derive(Clone)]
@@ -635,6 +684,7 @@ fn fmt_ident_str(f: &mut impl std::fmt::Write, key: &str) -> std::fmt::Result {
 }
 
 pub fn context_lines<const LEN: usize>(
+    parent: ParentEntry,
     path: Option<&Path>,
     parents: [ParentId; LEN],
 ) -> Box<[u32]> {
@@ -651,17 +701,13 @@ pub fn context_lines<const LEN: usize>(
     lines.into_boxed_slice()
 }
 
-fn collect_lines(lines: &mut Vec<u32>, mut path: &Path, mut parent: ParentId) {
+fn collect_lines(lines: &mut Vec<u32>, mut parent: ParentEntry, mut idx: ReprIdx) {
     loop {
-        match path.segment {
-            PathSegment::Table(reprs) => {
-                let repr = &reprs[parent.0 as usize];
-                lines.push(repr.key.repr_ident().lit_start.line);
-                parent = repr.parent;
-            }
-            PathSegment::Array(p, _) => {
-                parent = p;
-            }
+        match parent {
+            ParentEntry::Root => break,
+            ParentEntry::Table(cyclic) => cyclic.get().reprs
+            ParentEntry::ToplevelArray(cyclic) => todo!(),
+            ParentEntry::InlineArray(cyclic) => todo!(),
         }
 
         let Some(prev) = path.prev else { break };
@@ -675,18 +721,18 @@ enum InsertValue<'a> {
     TableAssignments(&'a Table<'a>),
 }
 
-pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
-    let mut root = MapTable::new(MapTableRepr::Root(ast.span));
-    let mut bump = Bump::new();
-    for a in ast.toplevel.iter() {
+pub fn map<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, ast: &'_ Ast<'a>) -> Map<'a> {
+    let reserved = reserve::<MapTable>(bump);
+    let mut root = MapTable::new(MapTableRepr::Root(ast.span), ParentEntry::Root);
+    for (a, i) in ast.toplevel.iter().zip(0..) {
+        let parent = reserved.parent_table(ReprIdx(i));
         match a {
             Toplevel::Assignment(assignment) => {
                 let repr_kind = MapTableEntryReprKind::ToplevelAssignment(assignment);
                 insert_node_at_path(
                     ctx,
                     &bump,
-                    None,
-                    ROOT_PARENT,
+                    parent,
                     &mut root.inner,
                     &assignment.assignment.key,
                     InsertValue::Value(&assignment.assignment.val),
@@ -702,8 +748,7 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
                 insert_node_at_path(
                     ctx,
                     &bump,
-                    None,
-                    ROOT_PARENT,
+                    parent,
                     &mut root.inner,
                     key,
                     InsertValue::TableAssignments(table),
@@ -714,43 +759,48 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, ast: &'_ Ast<'a>) -> MapTable<'a> {
                 let Some(key) = &array_entry.header.key else {
                     continue;
                 };
-                insert_array_entry_at_path(ctx, &bump, &mut root.inner, key, array_entry);
+                insert_array_entry_at_path(
+                    ctx,
+                    &bump,
+                    parent,
+                    &mut root.inner,
+                    key,
+                    array_entry,
+                );
             }
         }
-        bump.reset();
     }
-    root
+    let root = reserved.init(root);
+    Map { root }
 }
 
-fn map_insert_value<'a, 'b>(
+fn map_insert_value<'a>(
     ctx: &mut impl TomlCtx,
-    bump: &'b Bump,
-    path: &'b Path<'a, 'b>,
-    parent: ParentId,
+    bump: &'a Bump,
+    parent_entry: ParentEntry,
     value: InsertValue<'a>,
 ) -> MapNode<'a> {
     match value {
-        InsertValue::Value(value) => map_value(ctx, bump, path, parent, value),
+        InsertValue::Value(value) => map_value(ctx, bump, parent_entry, value),
         InsertValue::TableAssignments(table) => {
-            let mut map = MapTable::new(MapTableRepr::Table(table));
+            let reserved = reserve::<MapTable>(bump);
+            let mut map = MapTable::new(MapTableRepr::Table(table), parent_entry);
             insert_top_level_assignments(
                 ctx,
                 bump,
-                Some(path),
-                parent,
+                reserved.parent_table(ReprIdx(0)),
                 &mut map.inner,
                 &table.assignments,
             );
-            MapNode::Table(map)
+            MapNode::Table(reserved.init(map))
         }
     }
 }
 
-fn map_value<'a, 'b>(
+fn map_value<'a>(
     ctx: &mut impl TomlCtx,
-    bump: &'b Bump,
-    path: &'b Path<'a, 'b>,
-    parent: ParentId,
+    bump: &'a Bump,
+    parent_entry: ParentEntry,
     value: &'a Value<'a>,
 ) -> MapNode<'a> {
     match value {
@@ -760,51 +810,86 @@ fn map_value<'a, 'b>(
         Value::Bool(b) => MapNode::Scalar(Scalar::Bool(b)),
         Value::DateTime(d) => MapNode::Scalar(Scalar::DateTime(d)),
         Value::InlineTable(table) => {
-            let mut map = MapTable::new(MapTableRepr::InlineTable(table));
-            for assignment in table.assignments.iter() {
+            let reserved = reserve::<MapTable>(bump);
+            let mut map = MapTable::new(MapTableRepr::InlineTable(table), parent_entry);
+            for (assignment, i) in table.assignments.iter().zip(0..) {
                 let repr_kind = MapTableEntryReprKind::InlineTableAssignment(assignment);
                 insert_node_at_path(
                     ctx,
                     bump,
-                    Some(path),
-                    parent,
+                    reserved.parent_table(ReprIdx(i)),
                     &mut map.inner,
                     &assignment.assignment.key,
                     InsertValue::Value(&assignment.assignment.val),
                     repr_kind,
                 );
             }
-            MapNode::Table(map)
+            MapNode::Table(reserved.init(val))
         }
         Value::InlineArray(inline_array) => {
-            let entries = (inline_array.values.iter().enumerate()).map(|(index, value)| {
-                let path = append_index(Some(path), parent, index);
+            let entries = (inline_array.values.iter().zip(0..)).map(|(value, idx)| {
+                let array = MapArrayInlineEntry::new(node, value)
+                let parent = ParentEntry::InlineArray { parent, idx };
                 let node = map_value(ctx, bump, &path, parent, &value.val);
-                MapArrayInlineEntry::new(node, value)
             });
-            let array = MapArrayInline::from_iter(parent, inline_array, entries);
+            let array = MapArrayInline::(parent, inline_array, entries);
             MapNode::Array(MapArray::Inline(array))
         }
         Value::Invalid(s) => MapNode::Scalar(Scalar::Invalid(s)),
     }
 }
 
+fn reserve<'a, T>(bump: &'a Bump) -> Reserved<'a, T> {
+    let loc = bump.alloc(MaybeUninit::uninit());
+    Reserved { loc }
+}
+
+struct Reserved<'a, T> {
+    loc: &'a mut MaybeUninit<T>,
+}
+
+impl<'a, T> Reserved<'a, T> {
+    pub fn init(self, val: T) -> &'a mut T {
+        self.loc.write(val)
+    }
+}
+
+impl<'a> Reserved<'a, MapTableEntry<'a>> {
+    pub fn parent_entry(&self, idx: ReprIdx) -> ParentEntry {
+        let table_entry = Cyclic::new(self.loc as *const MaybeUninit<MapTableEntry<'a>> as *const MapTableEntry<'static>);
+        ParentEntry::Table(table_entry, idx)
+    }
+}
+
+impl<'a> Reserved<'a, MapTable<'a>> {
+    pub fn parent_table(&self, idx: ReprIdx) -> ParentTable {
+        let map = Cyclic::new(self.loc as *const MaybeUninit<MapTable<'a>> as *const MapTable<'static>);
+        ParentTable { map, idx }
+    }
+}
+
+impl<'a> Reserved<'a, MapArrayToplevel<'a>> {
+    pub fn parent_array(&self, idx: ReprIdx) -> ParentToplevelArray {
+        let array = Cyclic::new(self.loc as *const MaybeUninit<MapArrayToplevel<'a>> as *const MapArrayToplevel<'static>);
+        ParentToplevelArray { array, idx }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
-fn insert_node_at_path<'a, 'b>(
+fn insert_node_at_path<'a>(
     ctx: &mut impl TomlCtx,
-    bump: &'b Bump,
-    mut path: Option<&'b Path<'a, 'b>>,
-    mut parent: ParentId,
-    map: &'b mut MapInner<'a>,
+    bump: &'a Bump,
+    mut parent: ParentTable,
+    map: &mut MapInner<'a>,
     key: &'a Key<'a>,
     value: InsertValue<'a>,
     repr_kind: MapTableEntryReprKind<'a>,
 ) {
     let idents = match key {
-        Key::One(i) => {
-            let key_repr = MapTableKeyRepr::One(i);
+        Key::One(ident) => {
+            let key_repr = MapTableKeyRepr::One(ident);
             let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-            let res = insert_node(ctx, bump, path, map, i, value, repr);
+            let res = insert_node(ctx, bump, map, ident, value, repr);
             if let Err(e) = res {
                 ctx.error(e);
             }
@@ -817,48 +902,20 @@ fn insert_node_at_path<'a, 'b>(
         unreachable!()
     };
     let mut current = map;
-    for (i, o) in other.iter().enumerate() {
+    for (o, i) in other.iter().zip(0..) {
         let entry = match current.entry(o.ident.text) {
             Occupied(occupied) => occupied.into_mut(),
-            Vacant(mut vacant) => {
-                for j in i..idents.len() - 1 {
-                    let key_repr = MapTableKeyRepr::Dotted(j as u32, idents);
-                    let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-                    let node = MapNode::Table(MapTable::new(repr_kind.table_repr()));
-                    let entry = vacant.insert(MapTableEntry::from_one(node, repr));
-
-                    path = Some(bump.alloc(append_key(path, &entry.reprs)));
-                    parent = ParentId(0);
-
-                    let MapNode::Table(next) = &mut entry.node else {
-                        unreachable!()
-                    };
-                    vacant = match next.inner.entry(idents[j + 1].ident.text) {
-                        Occupied(_) => unreachable!(),
-                        Vacant(vacant) => vacant,
-                    };
-                }
-
-                let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
-                let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-                let reprs = OneVec::new(repr);
-
-                let path = append_key(path, &reprs);
-                parent = ParentId(0);
-
-                let node = map_insert_value(ctx, bump, &path, parent, value);
-                vacant.insert(MapTableEntry::new(node, reprs));
-
+            Vacant(vacant) => {
+                insert_at_vacant_path(ctx, bump, parent, vacant, idents, i, value, repr_kind);
                 return;
             }
         };
 
         let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
         let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-        match get_table_to_extend(bump, path, entry, repr) {
-            Ok((next_parent, next_path, next)) => {
+        match get_table_to_extend(entry, repr) {
+            Ok((next_parent, next)) => {
                 parent = next_parent;
-                path = next_path;
                 current = next;
             }
             Err(e) => {
@@ -870,18 +927,60 @@ fn insert_node_at_path<'a, 'b>(
 
     let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
     let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
-
-    let res = insert_node(ctx, bump, path, current, &last.ident, value, repr);
+    let res = insert_node(ctx, bump, current, &last.ident, value, repr);
     if let Err(e) = res {
         ctx.error(e);
     }
 }
 
-fn insert_node<'a, 'b>(
+fn insert_at_vacant_path<'a>(
     ctx: &mut impl TomlCtx,
-    bump: &'b Bump,
-    path: Option<&'b Path<'a, 'b>>,
-    map: &'b mut MapInner<'a>,
+    bump: &'a Bump,
+    mut parent: ParentTable,
+    mut vacant: VacantEntry<'_, &'a str, &'a mut MapTableEntry<'a>>,
+    idents: &'a [DottedIdent<'a>],
+    i: u32,
+    value: InsertValue<'a>,
+    repr_kind: MapTableEntryReprKind<'a>,
+) {
+    for (pair, i) in idents[i as usize..].windows(2).zip(i..) {
+        let reserved = reserve::<MapTableEntry>(bump);
+        let parent_entry = reserved.parent_entry(ReprIdx(0));
+        let key_repr = MapTableKeyRepr::Dotted(i, idents);
+        let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
+
+        let node = {
+            let reserved = reserve::<MapTable>(bump);
+            let map = MapTable::new(repr_kind.table_repr(), parent_entry);
+            parent = reserved.parent_table(ReprIdx(0));
+            MapNode::Table(reserved.init(map))
+        };
+
+        let table_entry = MapTableEntry::from_one(node, repr);
+        let entry = vacant.insert(reserved.init(table_entry));
+
+        let MapNode::Table(next) = &mut entry.node else {
+            unreachable!()
+        };
+        vacant = match next.inner.entry(pair[1].ident.text) {
+            Occupied(_) => unreachable!(),
+            Vacant(vacant) => vacant,
+        };
+    }
+
+    let reserved = reserve::<MapTableEntry>(bump);
+    let parent_entry = reserved.parent_entry(ReprIdx(0));
+    let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
+    let repr = MapTableEntryRepr::new(parent, key_repr, repr_kind);
+    let node = map_insert_value(ctx, bump, parent_entry, value);
+    let table_entry = MapTableEntry::from_one(node, repr);
+    vacant.insert(reserved.init(table_entry));
+}
+
+fn insert_node<'a>(
+    ctx: &mut impl TomlCtx,
+    bump: &'a Bump,
+    map: &mut MapInner<'a>,
     key: &'a Ident<'a>,
     value: InsertValue<'a>,
     repr: MapTableEntryRepr<'a>,
@@ -889,15 +988,15 @@ fn insert_node<'a, 'b>(
     let existing_entry = match map.entry(key.text) {
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
-            let reprs = OneVec::new(repr);
-            let path = append_key(path, &reprs);
-            // no previous entries in this chain -> this will be the first parent
-            let parent = ParentId(0);
-            let node = map_insert_value(ctx, bump, &path, parent, value);
-            vacant.insert(MapTableEntry::new(node, reprs));
+            let reserved = reserve::<MapTableEntry>(bump);
+            let parent_entry = reserved.parent_entry(ReprIdx(0));
+            let node = map_insert_value(ctx, bump, parent_entry, value);
+            let table_entry = MapTableEntry::from_one(node, repr);
+            vacant.insert(reserved.init(table_entry));
             return Ok(());
         }
     };
+    existing_entry.reprs.push(repr);
 
     let InsertValue::TableAssignments(table) = value else {
         return Err(duplicate_key_error(
@@ -907,7 +1006,7 @@ fn insert_node<'a, 'b>(
         ));
     };
     let existing_table = match &mut existing_entry.node {
-        MapNode::Table(t) => t,
+        MapNode::Table(table) => table,
         MapNode::Array(_) | MapNode::Scalar(_) => {
             return Err(duplicate_key_error(
                 path,
@@ -938,13 +1037,10 @@ fn insert_node<'a, 'b>(
     //
     // [a.b] # this would be the super table
     // ```
-    let parent = insert_repr(&mut existing_entry.reprs, repr);
-    let path = append_key(path, &existing_entry.reprs);
-    existing_table.reprs.push(repr.kind.table_repr());
+    let parent = existing_table.insert_repr(repr.kind.table_repr());
     insert_top_level_assignments(
         ctx,
         bump,
-        Some(&path),
         parent,
         &mut existing_table.inner,
         &table.assignments,
@@ -953,14 +1049,14 @@ fn insert_node<'a, 'b>(
     Ok(())
 }
 
-fn insert_array_entry_at_path<'a, 'b>(
+fn insert_array_entry_at_path<'a>(
     ctx: &mut impl TomlCtx,
-    bump: &'b Bump,
-    map: &'b mut MapInner<'a>,
+    bump: &'a Bump,
+    parent: ParentTable,
+    map: &mut MapInner<'a>,
     key: &'a Key<'a>,
     array_entry: &'a ArrayEntry<'a>,
 ) {
-    let mut parent = ROOT_PARENT;
     let mut path = None;
     let idents = match key {
         Key::One(i) => {
@@ -990,7 +1086,7 @@ fn insert_array_entry_at_path<'a, 'b>(
                     let entry = vacant.insert(MapTableEntry::from_one(node, repr));
 
                     path = Some(bump.alloc(append_key(path, &entry.reprs)));
-                    parent = ParentId(0);
+                    parent = ParentThingy(0);
 
                     let MapNode::Table(next) = &mut entry.node else {
                         unreachable!()
@@ -1007,7 +1103,7 @@ fn insert_array_entry_at_path<'a, 'b>(
                 let reprs = OneVec::new(repr);
 
                 let path = append_key(path, &reprs);
-                parent = ParentId(0);
+                parent = ParentThingy(0);
                 let path = path.append_index(parent, 0);
 
                 let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
@@ -1019,7 +1115,7 @@ fn insert_array_entry_at_path<'a, 'b>(
                     &mut node.inner,
                     &array_entry.assignments,
                 );
-                let toplevel_array = MapArrayToplevel::new(node, parent, array_entry);
+                let toplevel_array = MapArrayToplevel::new(bump, node, parent, array_entry);
                 let node = MapNode::Array(MapArray::Toplevel(toplevel_array));
 
                 vacant.insert(MapTableEntry::new(node, reprs));
@@ -1065,7 +1161,7 @@ fn insert_array_entry<'a, 'b>(
     bump: &'b Bump,
     path: Option<&'b Path<'a, 'b>>,
     map: &'b mut MapInner<'a>,
-    parent: ParentId,
+    parent: ParentThingy,
     key: &'a Ident<'a>,
     key_repr: MapTableKeyRepr<'a>,
     array_entry: &'a ArrayEntry<'a>,
@@ -1111,7 +1207,7 @@ fn insert_array_entry<'a, 'b>(
         Vacant(vacant) => {
             let reprs = OneVec::new(repr);
             let path = append_key(path, &reprs);
-            let parent = ParentId(0);
+            let parent = ParentThingy(0);
             let path = append_index(Some(&path), parent, 0);
 
             let mut node = MapTable::new(MapTableRepr::ArrayEntry(array_entry));
@@ -1133,11 +1229,10 @@ fn insert_array_entry<'a, 'b>(
     Ok(())
 }
 
-fn insert_top_level_assignments<'a, 'b>(
+fn insert_top_level_assignments<'a>(
     ctx: &mut impl TomlCtx,
-    bump: &'b Bump,
-    path: Option<&'b Path<'a, 'b>>,
-    parent: ParentId,
+    bump: &'a Bump,
+    parent: ParentTable,
     map: &mut MapInner<'a>,
     assignments: &'a [ToplevelAssignment<'a>],
 ) {
@@ -1146,7 +1241,6 @@ fn insert_top_level_assignments<'a, 'b>(
         insert_node_at_path(
             ctx,
             bump,
-            path,
             parent,
             map,
             &assignment.assignment.key,
@@ -1157,19 +1251,13 @@ fn insert_top_level_assignments<'a, 'b>(
 }
 
 fn get_table_to_extend<'a, 'b>(
-    bump: &'b Bump,
-    prev: Option<&'b Path<'a, 'b>>,
     entry: &'b mut MapTableEntry<'a>,
     repr: MapTableEntryRepr<'a>,
-) -> Result<(ParentId, Option<&'b Path<'a, 'b>>, &'b mut MapInner<'a>), Error>
-where
-    'a: 'b,
-{
-    let (next_parent, next_path, next) = match &mut entry.node {
+) -> Result<(ParentTable, &'b mut MapInner<'a>), Error> {
+    let (parent_idx, next) = match &mut entry.node {
         MapNode::Table(t) => {
-            let parent = insert_repr(&mut entry.reprs, repr);
-            let path = bump.alloc(append_key(prev, &entry.reprs));
-            (parent, path, t)
+            let next_parent_idx = insert_repr(&mut entry.reprs, repr);
+            (next_parent_idx, t)
         }
         MapNode::Array(MapArray::Toplevel(a)) => {
             if repr.kind.is_assignment() {
@@ -1242,14 +1330,14 @@ where
         }
     }
 
-    Ok((next_parent, Some(next_path), &mut next.inner))
+    Ok((next_parent, &mut next.inner))
 }
 
 fn insert_repr<'a>(
-    reprs: &mut OneVec<MapTableEntryRepr<'a>>,
+    entry: &mut MapTableEntry,
     repr: MapTableEntryRepr<'a>,
-) -> ParentId {
-    let id = ParentId(reprs.len() as u32);
+) -> ParentTable {
+    let id = ReprIdx(entry.reprs.len() as u32);
     reprs.push(repr);
     id
 }

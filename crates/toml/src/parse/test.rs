@@ -774,6 +774,7 @@ fn table_header() {
                 Some(Pos { line: 0, char: 9 }),
             ),
             assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
+            mapped: CyclicCell::new(),
         })]
     })
 }
@@ -795,6 +796,7 @@ fn array_header() {
                 ),
             ),
             assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
+            mapped: CyclicCell::new(),
         })]
     })
 }
@@ -815,6 +817,7 @@ fn newline_is_required_after_table_header() {
                     Some(Pos { line: 0, char: 9 }),
                 ),
                 assignments: vec![twrap(builder.ec(2), abool(0, 10, "entry", false))],
+                mapped: CyclicCell::new(),
             })]
         },
         Error::MissingNewline(Pos { line: 0, char: 10 }),
@@ -858,6 +861,7 @@ fn table_header_with_associated_comment_above() {
                 Some(Pos { line: 1, char: 9 }),
             ),
             assignments: Vec::new(),
+            mapped: CyclicCell::new(),
         })]
     })
 }
@@ -887,6 +891,7 @@ fn non_associated_comment() {
                 Some(Pos { line: 2, char: 9 }),
             ),
             assignments: Vec::new(),
+            mapped: CyclicCell::new(),
         })]
     })
 }
@@ -914,6 +919,7 @@ fn comment_after_table_header() {
                 Some(Pos { line: 0, char: 9 }),
             ),
             assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
+            mapped: CyclicCell::new(),
         })]
     })
 }
@@ -1039,6 +1045,7 @@ fn comment_contained_by_table() {
                     Some(Pos { line: 0, char: 9 }),
                 ),
                 assignments: vec![tabool(builder.ec(2), 4, "abc", false)],
+                mapped: CyclicCell::new(),
             })]
         },
     )

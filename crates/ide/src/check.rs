@@ -2,7 +2,7 @@ use common::{FmtStr, Span};
 use semver::{SemverCtx, VersionReq};
 use toml::map::{
     self, MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
-    ParentId, Scalar,
+    ParentThingy, Scalar,
 };
 use toml::parse::{BoolVal, Ident, StringVal};
 use toml::util::Datatype;
@@ -745,7 +745,7 @@ fn expect_string_in_table<'a>(
 fn expect_string_in_array<'a>(
     ctx: &mut impl IdeCtx,
     path: &map::Path,
-    parent: ParentId,
+    parent: ParentThingy,
     entry: &'a MapArrayInlineEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {

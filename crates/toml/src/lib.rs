@@ -9,6 +9,8 @@ pub use parse::{Ast, Toplevel, parse};
 #[cfg(feature = "serde")]
 pub use serde::deserialize;
 
+use crate::map::Map;
+
 mod container;
 pub mod datetime;
 pub mod error;
@@ -37,8 +39,8 @@ pub trait TomlCtx:
         parse(self, bump, tokens)
     }
 
-    fn map<'a>(&mut self, ast: &Ast<'a>) -> MapTable<'a> {
-        map(self, ast)
+    fn map<'a>(&mut self, bump: &'a Bump, ast: &Ast<'a>) -> Map<'a> {
+        map(self, bump, ast)
     }
 }
 

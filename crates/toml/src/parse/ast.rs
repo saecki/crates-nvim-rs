@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::num::NonZeroU32;
 
 use common::{Pos, Source, Span};
@@ -5,6 +6,7 @@ use common::{Pos, Source, Span};
 use crate::Quote;
 use crate::datetime::DateTime;
 use crate::lex::TextOffset;
+use crate::map::{MapArrayToplevelEntry, MapTableEntry};
 
 #[derive(Debug, PartialEq)]
 pub struct Ast<'a> {
@@ -33,6 +35,67 @@ impl<'a> Ast<'a> {
             let str = self.source.spanned_str(comment.comment.span);
             Some((comment.pos, str))
         })
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct CyclicCell<T: 'static>(OnceCell<*const T>);
+
+impl<T> std::fmt::Debug for CyclicCell<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("...")
+    }
+}
+
+impl<T> CyclicCell<T> {
+    pub(crate) fn new() -> Self {
+        Self(OnceCell::new())
+    }
+
+    pub(crate) fn get(&self) -> Option<&T> {
+        let ptr = self.0.get()?;
+        // TODO: safety comment
+        Some(unsafe { &**ptr })
+    }
+}
+
+impl<T: std::fmt::Debug> CyclicCell<T> {
+    pub(crate) fn set(&self, val: *const T) {
+        self.0.set(val).unwrap()
+    }
+}
+
+pub(crate) struct Cyclic<T: 'static>(*const T);
+
+impl<T: 'static> Eq for Cyclic<T> {}
+impl<T: 'static> PartialEq for Cyclic<T> {
+    fn eq(&self, other: &Self) -> bool {
+        // Can't compare by value, because that might recurse indefinitely.
+        todo!("decide what to do here {self:?} {other:?}")
+    }
+}
+
+impl<T> Copy for Cyclic<T> {}
+impl<T> Clone for Cyclic<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> std::fmt::Debug for Cyclic<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("...")
+    }
+}
+
+impl<T> Cyclic<T> {
+    pub(crate) fn new(val: *const T) -> Self {
+        Self(val)
+    }
+
+    pub(crate) fn get(&self) -> &T {
+        // TODO: safety comment
+        unsafe { &*self.0 }
     }
 }
 
@@ -125,6 +188,9 @@ pub struct Table<'a> {
     pub header: TableHeader<'a>,
     // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<ToplevelAssignment<'a>>,
+
+    /// This must stay private, to not leak the static lifetime.
+    pub(crate) mapped: CyclicCell<&'static MapTableEntry<'static>>,
 }
 
 impl Table<'_> {
@@ -151,9 +217,14 @@ impl Table<'_> {
             None => &mut self.comments,
         }
     }
+
+    // Constrain the returned reference to self, to not leak the static lifetime.
+    pub fn mapped<'m>(&'m self) -> Option<&'m MapTableEntry<'m>> {
+        self.mapped.get().copied()
+    }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct TableHeader<'a> {
     pub l_par: Pos,
     pub key: Option<Key<'a>>,
@@ -200,6 +271,9 @@ pub struct ArrayEntry<'a> {
     pub header: ArrayHeader<'a>,
     // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<ToplevelAssignment<'a>>,
+
+    /// This must stay private, to not leak the static lifetime.
+    pub(crate) mapped: CyclicCell<&'static MapArrayToplevelEntry<'static>>,
 }
 
 impl ArrayEntry<'_> {
@@ -226,6 +300,11 @@ impl ArrayEntry<'_> {
             Some(a) => &mut a.comments,
             None => &mut self.comments,
         }
+    }
+
+    // Constrain the returned reference to self, to not leak the static lifetime.
+    pub fn mapped<'m>(&'m self) -> Option<&'m MapArrayToplevelEntry<'m>> {
+        self.mapped.get().copied()
     }
 }
 
@@ -331,13 +410,13 @@ impl Assignment<'_> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Key<'a> {
     One(Ident<'a>),
     Dotted(&'a [DottedIdent<'a>]),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DottedIdent<'a> {
     pub ident: Ident<'a>,
     pub dot: Option<Pos>,
@@ -372,7 +451,7 @@ impl Key<'_> {
 }
 
 /// Identifiers cannot contain line breaks.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Ident<'a> {
     pub lit_start: Pos,
     pub lit_len: u32,
@@ -380,6 +459,9 @@ pub struct Ident<'a> {
     pub text_start_offset: u8,
     pub text_end_offset: u8,
     pub kind: IdentKind,
+
+    /// This must stay private, to not leak the static lifetime.
+    pub(crate) mapped: CyclicCell<&'static MapTableEntry<'static>>,
 }
 
 impl<'a> Ident<'a> {
@@ -391,6 +473,7 @@ impl<'a> Ident<'a> {
             text_start_offset: 0,
             text_end_offset: 0,
             kind: IdentKind::Plain,
+            mapped: CyclicCell::new(),
         }
     }
 
@@ -409,6 +492,7 @@ impl<'a> Ident<'a> {
             text_start_offset: text_offset.start_char,
             text_end_offset: text_offset.end_char,
             kind,
+            mapped: CyclicCell::new(),
         }
     }
 
@@ -427,6 +511,11 @@ impl<'a> Ident<'a> {
         let start = self.lit_start.plus(self.text_start_offset as u32);
         let len = self.lit_len - (self.text_start_offset + self.text_end_offset) as u32;
         Span::from_pos_len(start, len)
+    }
+
+    // Constrain the returned reference to self, to not leak the static lifetime.
+    pub fn mapped<'m>(&'m self) -> Option<&'m MapTableEntry<'m>> {
+        self.mapped.get().copied()
     }
 }
 

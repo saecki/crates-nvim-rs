@@ -3,7 +3,7 @@ use std::fmt::Write as _;
 use common::{FmtStr, OneVec, Pos, Span};
 
 use crate::Error;
-use crate::map::{MapTableEntryRepr, ParentId, PathSegment, fmt_ident};
+use crate::map::{MapTableEntryRepr, ParentThingy, PathSegment, fmt_ident};
 
 #[derive(Debug)]
 pub struct SerdeError<'a> {
@@ -75,7 +75,7 @@ impl From<SerdeError<'_>> for Error {
     }
 }
 
-fn collect_lines(lines: &mut Vec<u32>, path_segments: &[PathSegment], mut parent: ParentId) {
+fn collect_lines(lines: &mut Vec<u32>, path_segments: &[PathSegment], mut parent: ParentThingy) {
     for segment in path_segments.iter() {
         match segment {
             PathSegment::Table(reprs) => {
@@ -110,7 +110,7 @@ impl<'a> SerdeError<'a> {
         self
     }
 
-    pub fn with_array_path(mut self, parent: ParentId, idx: usize) -> Self {
+    pub fn with_array_path(mut self, parent: ParentThingy, idx: usize) -> Self {
         self.path.push(PathSegment::Array(parent, idx));
         self
     }

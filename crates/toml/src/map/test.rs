@@ -1,7 +1,7 @@
 use common::{Pos, onevec};
 use pretty_assertions::assert_eq;
 
-use crate::parse::{Assignment, End, TableHeader};
+use crate::parse::{Assignment, Cyclic, CyclicCell, End, TableHeader};
 use crate::test::*;
 use crate::util::{SimpleMap, SimpleVal};
 use crate::{TomlDiagnostics, Warning};
@@ -84,7 +84,7 @@ fn dotted_key() {
                             [("c", MapTableEntry::from_one(
                                 MapNode::Scalar(Scalar::Int(&value)),
                                 MapTableEntryRepr::new(
-                                    ParentId(0),
+                                    ParentThingy(0),
                                     MapTableKeyRepr::Dotted(2, &key),
                                     MapTableEntryReprKind::ToplevelAssignment(&assignment),
                                 ),
@@ -92,7 +92,7 @@ fn dotted_key() {
                             OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
                         )),
                         MapTableEntryRepr::new(
-                            ParentId(0),
+                            ParentThingy(0),
                             MapTableKeyRepr::Dotted(1, &key),
                             MapTableEntryReprKind::ToplevelAssignment(&assignment),
                         ),
@@ -185,7 +185,7 @@ a.b.d = 2
                                 ("c", MapTableEntry::from_one(
                                     MapNode::Scalar(Scalar::Int(&value1)),
                                     MapTableEntryRepr::new(
-                                        ParentId(0),
+                                        ParentThingy(0),
                                         MapTableKeyRepr::Dotted(2, &key1),
                                         MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                                     ),
@@ -193,7 +193,7 @@ a.b.d = 2
                                 ("d", MapTableEntry::from_one(
                                     MapNode::Scalar(Scalar::Int(&value2)),
                                     MapTableEntryRepr::new(
-                                        ParentId(1),
+                                        ParentThingy(1),
                                         MapTableKeyRepr::Dotted(2, &key2),
                                         MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                                     ),
@@ -206,12 +206,12 @@ a.b.d = 2
                         )),
                         onevec![
                             MapTableEntryRepr::new(
-                                ParentId(0),
+                                ParentThingy(0),
                                 MapTableKeyRepr::Dotted(1, &key1),
                                 MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                             ),
                             MapTableEntryRepr::new(
-                                ParentId(1),
+                                ParentThingy(1),
                                 MapTableKeyRepr::Dotted(1, &key2),
                                 MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                             ),
@@ -288,6 +288,7 @@ def = 23.0
             Some(Pos::new(0, 8)),
         ),
         assignments: vec![assignment1.clone(), assignment2.clone()],
+        mapped: CyclicCell::new(),
     };
 
     #[rustfmt::skip]
@@ -302,7 +303,7 @@ def = 23.0
                             MapTableEntry::from_one(
                                 MapNode::Scalar(Scalar::Bool(&value1)),
                                 MapTableEntryRepr::new(
-                                ParentId(0),
+                                ParentThingy(0),
                                     MapTableKeyRepr::One(&key1),
                                     MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                                 ),
@@ -313,7 +314,7 @@ def = 23.0
                             MapTableEntry::from_one(
                                 MapNode::Scalar(Scalar::Float(&value2)),
                                 MapTableEntryRepr::new(
-                                    ParentId(0),
+                                    ParentThingy(0),
                                     MapTableKeyRepr::One(&key2),
                                     MapTableEntryReprKind::ToplevelAssignment(&assignment2),
                                 ),
@@ -394,7 +395,7 @@ fn inline_array() {
         text,
         MapTable::from_pairs(
             [("array", MapTableEntry::from_one(
-                MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentId(0), &array, [
+                MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentThingy(0), &array, [
                     MapArrayInlineEntry::new(
                         MapNode::Scalar(Scalar::Int(&value1)),
                         &inline_array_value1,
@@ -498,7 +499,7 @@ fruit.apple = 3
                             MapTableEntry::from_one(
                                 MapNode::Scalar(Scalar::Int(&value)),
                                 MapTableEntryRepr::new(
-                                    ParentId(0),
+                                    ParentThingy(0),
                                     MapTableKeyRepr::Dotted(1, &key),
                                     MapTableEntryReprKind::ToplevelAssignment(&assignment),
                                 ),

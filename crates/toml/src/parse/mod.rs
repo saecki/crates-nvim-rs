@@ -357,6 +357,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
                             comments,
                             header,
                             assignments: Vec::new(),
+                            mapped: CyclicCell::new(),
                         }));
                     }
                     None => {
@@ -365,6 +366,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
                             comments,
                             header,
                             assignments: Vec::new(),
+                            mapped: CyclicCell::new(),
                         }));
                     }
                 }
