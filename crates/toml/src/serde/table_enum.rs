@@ -91,7 +91,7 @@ impl<'de> serde::de::VariantAccess<'de> for TableEnumDeserializer<'de> {
                     )
                 } else {
                     let msg = format!("expected tuple with length {len}");
-                    let span = Span::across(array.first().repr.span(), array.last().repr.span());
+                    let span = Span::across(array.first().definition.span(), array.last().definition.span());
                     Err(SerdeError::spanned(msg, span))
                 }
             }

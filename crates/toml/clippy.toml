@@ -1,0 +1,8 @@
+disallowed_methods = [
+    "crate::map::parent::ParentTable::*",
+    "crate::map::parent::ParentTableEntry::*",
+    "crate::map::parent::ParentInlineArray::*",
+    "crate::map::parent::ParentToplevelArray::*",
+    "crate::map::parent::ParentInlineArrayEntry::*",
+    "crate::map::parent::ParentToplevelArrayEntry::*",
+]

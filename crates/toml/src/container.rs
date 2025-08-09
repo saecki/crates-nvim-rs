@@ -6,7 +6,7 @@ use crate::{Ast, MapTable, TomlCtx};
 
 pub struct Toml<'a> {
     pub ast: Ast<'a>,
-    pub map: MapTable<'a>,
+    pub map: &'a MapTable<'a>,
 }
 
 /// Self contained, movable container for a parsed [`Toml`] structure.
@@ -78,7 +78,7 @@ unsafe fn build_container(
 ) -> Container {
     let tokens = ctx.lex(bump, path, text);
     let ast = ctx.parse(bump, tokens);
-    let map = ctx.map(&ast);
+    let map = ctx.map(bump, &ast);
 
     let toml = Toml { ast, map };
     let toml = ManuallyDrop::new(toml);

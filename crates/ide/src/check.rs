@@ -668,7 +668,7 @@ fn parse_dependency_features<'a>(
                 ctx.error(cargo::Error::new(
                     map::context_lines(path.prev, [array_entry.parent]),
                     path.append_index(array_entry.parent, i).fmt_path(),
-                    array_entry.repr.span(),
+                    array_entry.definition.span(),
                     cargo::ErrorKind::WrongDatatype {
                         expected: Datatype::String,
                         found: Datatype::Table,

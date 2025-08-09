@@ -1,9 +1,9 @@
-use std::cell::OnceCell;
 use std::num::NonZeroU32;
 
 use common::{Pos, Source, Span};
 
-use crate::Quote;
+use crate::map::parent::CyclicCell;
+use crate::{MapTable, Quote};
 use crate::datetime::DateTime;
 use crate::lex::TextOffset;
 use crate::map::{MapArrayToplevelEntry, MapTableEntry};
@@ -35,67 +35,6 @@ impl<'a> Ast<'a> {
             let str = self.source.spanned_str(comment.comment.span);
             Some((comment.pos, str))
         })
-    }
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) struct CyclicCell<T: 'static>(OnceCell<*const T>);
-
-impl<T> std::fmt::Debug for CyclicCell<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("...")
-    }
-}
-
-impl<T> CyclicCell<T> {
-    pub(crate) fn new() -> Self {
-        Self(OnceCell::new())
-    }
-
-    pub(crate) fn get(&self) -> Option<&T> {
-        let ptr = self.0.get()?;
-        // TODO: safety comment
-        Some(unsafe { &**ptr })
-    }
-}
-
-impl<T: std::fmt::Debug> CyclicCell<T> {
-    pub(crate) fn set(&self, val: *const T) {
-        self.0.set(val).unwrap()
-    }
-}
-
-pub(crate) struct Cyclic<T: 'static>(*const T);
-
-impl<T: 'static> Eq for Cyclic<T> {}
-impl<T: 'static> PartialEq for Cyclic<T> {
-    fn eq(&self, other: &Self) -> bool {
-        // Can't compare by value, because that might recurse indefinitely.
-        todo!("decide what to do here {self:?} {other:?}")
-    }
-}
-
-impl<T> Copy for Cyclic<T> {}
-impl<T> Clone for Cyclic<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T> std::fmt::Debug for Cyclic<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("...")
-    }
-}
-
-impl<T> Cyclic<T> {
-    pub(crate) fn new(val: *const T) -> Self {
-        Self(val)
-    }
-
-    pub(crate) fn get(&self) -> &T {
-        // TODO: safety comment
-        unsafe { &*self.0 }
     }
 }
 
@@ -190,7 +129,7 @@ pub struct Table<'a> {
     pub assignments: Vec<ToplevelAssignment<'a>>,
 
     /// This must stay private, to not leak the static lifetime.
-    pub(crate) mapped: CyclicCell<&'static MapTableEntry<'static>>,
+    pub(crate) mapped: CyclicCell<MapTable<'static>>,
 }
 
 impl Table<'_> {
@@ -220,7 +159,7 @@ impl Table<'_> {
 
     // Constrain the returned reference to self, to not leak the static lifetime.
     pub fn mapped<'m>(&'m self) -> Option<&'m MapTableEntry<'m>> {
-        self.mapped.get().copied()
+        self.mapped.get()
     }
 }
 
@@ -273,7 +212,7 @@ pub struct ArrayEntry<'a> {
     pub assignments: Vec<ToplevelAssignment<'a>>,
 
     /// This must stay private, to not leak the static lifetime.
-    pub(crate) mapped: CyclicCell<&'static MapArrayToplevelEntry<'static>>,
+    pub(crate) mapped: CyclicCell<MapArrayToplevelEntry<'static>>,
 }
 
 impl ArrayEntry<'_> {
@@ -304,7 +243,7 @@ impl ArrayEntry<'_> {
 
     // Constrain the returned reference to self, to not leak the static lifetime.
     pub fn mapped<'m>(&'m self) -> Option<&'m MapArrayToplevelEntry<'m>> {
-        self.mapped.get().copied()
+        self.mapped.get()
     }
 }
 
@@ -461,7 +400,7 @@ pub struct Ident<'a> {
     pub kind: IdentKind,
 
     /// This must stay private, to not leak the static lifetime.
-    pub(crate) mapped: CyclicCell<&'static MapTableEntry<'static>>,
+    pub(crate) mapped: CyclicCell<MapTableEntry<'static>>,
 }
 
 impl<'a> Ident<'a> {
@@ -515,7 +454,7 @@ impl<'a> Ident<'a> {
 
     // Constrain the returned reference to self, to not leak the static lifetime.
     pub fn mapped<'m>(&'m self) -> Option<&'m MapTableEntry<'m>> {
-        self.mapped.get().copied()
+        self.mapped.get()
     }
 }
 

@@ -106,7 +106,7 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'de> {
             MapNode::Scalar(Scalar::String(str)) => {
                 return visitor.visit_enum(str.text.into_deserializer());
             }
-            MapNode::Array(MapArray::Toplevel(array)) => array.first().repr.span(),
+            MapNode::Array(MapArray::Toplevel(array)) => array.first().definition.span(),
             MapNode::Array(MapArray::Inline(array)) => array.repr.span(),
             MapNode::Scalar(scalar) => scalar.span(),
         };
