@@ -1,11 +1,10 @@
 use bumpalo::Bump;
-use common::OneVec;
 use indexmap::map::Entry::{Occupied, Vacant};
-use indexmap::map::{OccupiedEntry, VacantEntry};
+use indexmap::map::VacantEntry;
 
 use crate::map::parent::{
     ParentInlineArray, ParentInlineArrayEntry, ParentTableEntry, ParentToplevelArray,
-    ParentToplevelArrayEntry, ReprIdx, cyclic, cyclic_slice,
+    ParentToplevelArrayEntry, ParentToplevelArrayExtensionEntry, ReprIdx, cyclic, cyclic_slice,
 };
 use crate::map::{
     MapArray, MapArrayInline, MapArrayInlineEntry, MapArrayToplevel, MapArrayToplevelEntry,
@@ -16,7 +15,7 @@ use crate::parse::{
     ArrayEntry, DottedIdent, Ident, InlineTableAssignment, Key, Table, Toplevel,
     ToplevelAssignment, Value,
 };
-use crate::{Ast, Error, MapTable};
+use crate::{Ast, MapTable};
 
 #[derive(Default)]
 pub struct Mapper<'a> {
@@ -29,6 +28,7 @@ impl<'a> Mapper<'a> {
     }
 }
 
+// TODO: set `mapped` references in Ast
 pub fn map<'a>(ctx: &mut Mapper<'a>, bump: &'a Bump, ast: &'_ Ast<'a>) -> &'a MapTable<'a> {
     cyclic::<MapTable>(bump, |ptr| {
         let mut root = MapTable::new(MapTableRepr::Root(ast.span));
@@ -110,13 +110,12 @@ fn map_insert_value<'a>(
                 let parent = ParentToplevelArray::new(ptr);
 
                 let array_entry = cyclic::<MapArrayToplevelEntry>(bump, |ptr| {
-                    let parent_entry =
-                        ParentEntry::ToplevelArray(ParentToplevelArrayEntry::new(ptr));
+                    let parent_array_entry = ParentToplevelArrayEntry::new(ptr).wrap();
 
                     let map = cyclic::<MapTable>(bump, |ptr| {
                         let parent = ParentTable::new(ptr, ReprIdx(0));
                         let mut map =
-                            MapTable::new(MapTableRepr::ArrayEntry(array_repr, parent_entry));
+                            MapTable::new(MapTableRepr::ArrayEntry(array_repr, parent_array_entry));
                         insert_top_level_assignments(
                             ctx,
                             bump,
@@ -127,10 +126,10 @@ fn map_insert_value<'a>(
                         map
                     });
 
-                    MapArrayToplevelEntry::new(map, array_repr, parent, 0)
+                    MapArrayToplevelEntry::new(map, array_repr, parent_entry, parent, 0)
                 });
 
-                MapArrayToplevel::new(array_entry, parent_entry)
+                MapArrayToplevel::new(array_entry)
             });
             MapNode::Array(MapArray::Toplevel(array))
         }
@@ -176,7 +175,7 @@ fn map_value<'a>(
             let array = cyclic::<MapArrayInline>(bump, |ptr| {
                 let parent = ParentInlineArray::new(ptr);
                 let entries = cyclic_slice(bump, &inline_array.values, |idx, ptr, val| {
-                    let parent_entry = ParentEntry::InlineArray(ParentInlineArrayEntry::new(ptr));
+                    let parent_entry = ParentInlineArrayEntry::new(ptr).wrap();
                     let node = map_value(ctx, bump, parent_entry, &val.val);
                     MapArrayInlineEntry::new(node, val, parent, idx)
                 });
@@ -257,7 +256,7 @@ fn insert_at_vacant_path<'a>(
 ) {
     for (pair, i) in idents[i as usize..].windows(2).zip(i..) {
         let table_entry = cyclic::<MapTableEntry>(bump, |ptr| {
-            let parent_entry = ParentEntry::Table(ParentTableEntry::new(ptr, ReprIdx(0)));
+            let parent_entry = ParentTableEntry::new(ptr, ReprIdx(0)).wrap();
             let key_repr = MapTableKeyRepr::Dotted(i, idents);
             let repr = MapTableEntryRepr::new(parent, key_repr, value.repr_kind());
 
@@ -280,7 +279,7 @@ fn insert_at_vacant_path<'a>(
     }
 
     let table_entry = cyclic::<MapTableEntry>(bump, |ptr| {
-        let parent_entry = ParentEntry::Table(ParentTableEntry::new(ptr, ReprIdx(0)));
+        let parent_entry = ParentTableEntry::new(ptr, ReprIdx(0)).wrap();
         let key_repr = MapTableKeyRepr::Dotted((idents.len() - 1) as u32, idents);
         let repr = MapTableEntryRepr::new(parent, key_repr, value.repr_kind());
         let node = map_insert_value(ctx, bump, parent_entry, value);
@@ -301,7 +300,7 @@ fn insert_node<'a>(
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
             let table_entry = cyclic::<MapTableEntry>(bump, |ptr| {
-                let parent_entry = ParentEntry::Table(ParentTableEntry::new(ptr, ReprIdx(0)));
+                let parent_entry = ParentTableEntry::new(ptr, ReprIdx(0)).wrap();
                 let node = map_insert_value(ctx, bump, parent_entry, value);
                 MapTableEntry::from_one(node, repr)
             });
@@ -311,7 +310,7 @@ fn insert_node<'a>(
     };
 
     // TODO: Should happen only if the entry is inserted?
-    let parent_entry = ParentTableEntry::insert_repr(bump, &mut existing_entry, repr);
+    let parent_entry = ParentTableEntry::insert_repr(bump, &mut existing_entry, repr).wrap();
 
     match value {
         InsertValue::Table(table) => {
@@ -320,8 +319,13 @@ fn insert_node<'a>(
         InsertValue::ArrayEntry(array_entry) => {
             insert_array_entry(ctx, bump, existing_entry, parent_entry, array_entry, repr)
         }
-        InsertValue::ToplevelAssignment(value) => todo!("duplicate key error"),
-        InsertValue::InlineTableAssignment(value) => todo!("duplicate key error"),
+        InsertValue::ToplevelAssignment(_) | InsertValue::InlineTableAssignment(_) => {
+            return Err(map_error(
+                MapErrorKind::DuplicateKey,
+                existing_entry.reprs.first(),
+                &repr,
+            ));
+        }
     }
 }
 
@@ -336,7 +340,11 @@ fn insert_table<'a>(
     let mut existing_table = match &mut existing_entry.node {
         MapNode::Table(table) => table,
         MapNode::Array(_) | MapNode::Scalar(_) => {
-            return Err(duplicate_key_error(existing_entry.reprs.first(), &repr));
+            return Err(map_error(
+                MapErrorKind::DuplicateKey,
+                existing_entry.reprs.first(),
+                &repr,
+            ));
         }
     };
     for existing_repr in existing_entry.reprs.iter() {
@@ -350,7 +358,7 @@ fn insert_table<'a>(
             | MapTableEntryReprKind::ArrayEntry(_)
             | MapTableEntryReprKind::ToplevelAssignment(_)
             | MapTableEntryReprKind::InlineTableAssignment(_) => {
-                return Err(duplicate_key_error(existing_repr, &repr));
+                return Err(map_error(MapErrorKind::DuplicateKey, existing_repr, &repr));
             }
         }
     }
@@ -385,30 +393,32 @@ fn insert_array_entry<'a>(
     array_repr: &'a ArrayEntry<'a>,
     repr: MapTableEntryRepr<'a>,
 ) -> Result<(), MapError<'a>> {
-    let array = match &mut existing_entry.node {
+    let mut array = match &mut existing_entry.node {
         MapNode::Array(MapArray::Toplevel(a)) => a,
         MapNode::Array(MapArray::Inline(_)) => {
-            let orig = existing_entry.reprs.first();
-            return Err(MapError::CannotExtendInlineArray {
-                lines: context_lines(path, [orig.parent, repr.parent]),
-                path: joined_path(path, repr.key.repr_ident()),
-                orig: orig.kind.span(),
-                new: repr.key.repr_ident().lit_span(),
-            });
+            return Err(map_error(
+                MapErrorKind::CannotExtendInlineArray,
+                existing_entry.reprs.first(),
+                &repr,
+            ));
         }
         MapNode::Table(_) | MapNode::Scalar(_) => {
-            return Err(duplicate_key_error(existing_entry.reprs.first(), &repr));
+            return Err(map_error(
+                MapErrorKind::DuplicateKey,
+                existing_entry.reprs.first(),
+                &repr,
+            ));
         }
     };
 
     let parent = ParentToplevelArray::new_from(bump, &mut array);
 
     let array_entry = cyclic::<MapArrayToplevelEntry>(bump, |ptr| {
-        let parent_entry = ParentEntry::ToplevelArray(ParentToplevelArrayEntry::new(ptr));
+        let parent_array_entry = ParentToplevelArrayEntry::new(ptr).wrap();
 
         let map = cyclic::<MapTable>(bump, |ptr| {
             let parent = ParentTable::new(ptr, ReprIdx(0));
-            let mut map = MapTable::new(repr.kind.table_repr(parent_entry));
+            let mut map = MapTable::new(repr.kind.table_repr(parent_array_entry));
             insert_top_level_assignments(
                 ctx,
                 bump,
@@ -420,7 +430,7 @@ fn insert_array_entry<'a>(
         });
 
         let idx = array.len() as u32;
-        MapArrayToplevelEntry::new(map, array_repr, parent, idx)
+        MapArrayToplevelEntry::new(map, array_repr, parent_entry, parent, idx)
     });
 
     array.push(array_entry);
@@ -447,26 +457,26 @@ fn insert_top_level_assignments<'a>(
     }
 }
 
-fn get_table_to_extend<'a>(
+fn get_table_to_extend<'a, 'b>(
     bump: &'a Bump,
-    entry: &mut &'a mut MapTableEntry<'a>,
+    mut entry: &'b mut &'a mut MapTableEntry<'a>,
     repr: MapTableEntryRepr<'a>,
-) -> Result<(ParentTable<'a>, &'a mut MapInner<'a>), MapError<'a>> {
+) -> Result<(ParentTable<'a>, &'b mut MapInner<'a>), MapError<'a>> {
+    let parent_table_entry = ParentTableEntry::insert_repr(bump, &mut entry, repr);
+
     let (parent, map) = match &mut entry.node {
         MapNode::Table(map) => {
-            let parent_entry = ParentTableEntry::insert_repr(bump, entry, repr);
-            let parent = ParentTable::insert_repr(bump, map, repr.kind.table_repr(parent_entry));
+            let table_repr = repr.kind.table_repr(parent_table_entry.wrap());
+            let parent = ParentTable::insert_repr(bump, map, table_repr);
             (parent, map)
         }
         MapNode::Array(MapArray::Toplevel(array)) => {
             if repr.kind.is_assignment() {
-                let orig = entry.reprs.first();
-                return Err(Error::CannotExtendArrayWithDottedKey {
-                    lines: context_lines(prev, [orig.parent, repr.parent]),
-                    orig: orig.kind.span(),
-                    path: joined_path(prev, repr.key.repr_ident()),
-                    new: repr.key.repr_ident().lit_span(),
-                });
+                return Err(map_error(
+                    MapErrorKind::CannotExtendArrayWithDottedKey,
+                    entry.reprs.first(),
+                    &repr,
+                ));
             }
 
             // From the toml spec (https://toml.io/en/v1.0.0#array-of-tables):
@@ -475,29 +485,32 @@ fn get_table_to_extend<'a>(
             // sub-tables, and even sub-arrays of tables, inside the most recent
             // table.
 
-            let parent_entry = ParentTableEntry::insert_repr(bump, entry, repr);
             // TODO: include the array entry in the parent hierarchy, so it can
             // be included in the context lines and the path.
-            let array_entry = array.inner.last_mut();
+            let mut array_entry = array.inner.last_mut();
 
-            array_entry.parent
+            let parent_extension_entry =
+                ParentToplevelArrayExtensionEntry::insert(&mut array_entry, parent_table_entry)
+                    .wrap();
 
             let map = &mut array_entry.node;
-            let parent = ParentTable::insert_repr(bump, map, repr.kind.table_repr(parent_entry));
+            let parent =
+                ParentTable::insert_repr(bump, map, repr.kind.table_repr(parent_extension_entry));
             (parent, map)
-
         }
         MapNode::Array(MapArray::Inline(_)) => {
-            let orig = entry.reprs.first();
-            return Err(Error::CannotExtendInlineArrayAsTable {
-                lines: context_lines(prev, [orig.parent, repr.parent]),
-                path: joined_path(prev, repr.key.repr_ident()),
-                orig: orig.kind.span(),
-                new: repr.key.repr_ident().lit_span(),
-            });
+            return Err(map_error(
+                MapErrorKind::CannotExtendInlineArrayAsTable,
+                entry.reprs.first(),
+                &repr,
+            ));
         }
         MapNode::Scalar(_) => {
-            return Err(duplicate_key_error(entry.reprs.first(), &repr));
+            return Err(map_error(
+                MapErrorKind::DuplicateKey,
+                entry.reprs.first(),
+                &repr,
+            ));
         }
     };
 
@@ -505,29 +518,23 @@ fn get_table_to_extend<'a>(
         match &existing.kind {
             MapTableEntryReprKind::Table(_) => {
                 if repr.kind.is_assignment() {
-                    let orig = entry.reprs.first();
-                    let dupe = entry.reprs.last();
-                    return Err(Error::CannotExtendTableWithDottedKey {
-                        lines: context_lines(prev, [orig.parent, dupe.parent]),
-                        path: next_path.fmt_path(),
-                        orig: orig.kind.span(),
-                        new: dupe.key.repr_ident().lit_span(),
-                    });
+                    return Err(map_error(
+                        MapErrorKind::CannotExtendTableWithDottedKey,
+                        entry.reprs.first(),
+                        &repr,
+                    ));
                 }
             }
             MapTableEntryReprKind::ArrayEntry(_) => (),
             MapTableEntryReprKind::ToplevelAssignment(_)
             | MapTableEntryReprKind::InlineTableAssignment(_) => {
                 if existing.key.is_last_ident() {
-                    // `next` is an inline table
-                    let orig = entry.reprs.first();
-                    let dupe = entry.reprs.last();
-                    return Err(Error::CannotExtendInlineTable {
-                        lines: context_lines(prev, [orig.parent, dupe.parent]),
-                        path: next_path.fmt_path(),
-                        orig: orig.kind.span(),
-                        new: entry.reprs.last().key.repr_ident().lit_span(),
-                    });
+                    // `map` is an inline table
+                    return Err(map_error(
+                        MapErrorKind::CannotExtendInlineTable,
+                        entry.reprs.first(),
+                        &repr,
+                    ));
                 }
             }
         }
@@ -536,23 +543,33 @@ fn get_table_to_extend<'a>(
     Ok((parent, &mut map.inner))
 }
 
-pub enum MapError<'a> {
-    DuplicateKey {
-        original_parent: ParentTable<'a>,
-        original_ident: &'a Ident<'a>,
-        duplicate_parent: ParentTable<'a>,
-        duplicate_ident: &'a Ident<'a>,
-    },
+pub struct MapError<'a> {
+    pub kind: MapErrorKind,
+    pub orig_parent: ParentTable<'a>,
+    pub orig_ident: &'a Ident<'a>,
+    pub new_parent: ParentTable<'a>,
+    pub new_ident: &'a Ident<'a>,
 }
 
-fn duplicate_key_error<'a>(
+pub enum MapErrorKind {
+    DuplicateKey,
+    CannotExtendTableWithDottedKey,
+    CannotExtendInlineTable,
+    CannotExtendArrayWithDottedKey,
+    CannotExtendInlineArray,
+    CannotExtendInlineArrayAsTable,
+}
+
+fn map_error<'a>(
+    kind: MapErrorKind,
     original: &MapTableEntryRepr<'a>,
     duplicate: &MapTableEntryRepr<'a>,
 ) -> MapError<'a> {
-    MapError::DuplicateKey {
-        original_parent: original.parent,
-        original_ident: original.key.repr_ident(),
-        duplicate_parent: duplicate.parent,
-        duplicate_ident: duplicate.key.repr_ident(),
+    MapError {
+        kind,
+        orig_parent: original.parent,
+        orig_ident: original.key.repr_ident(),
+        new_parent: duplicate.parent,
+        new_ident: duplicate.key.repr_ident(),
     }
 }

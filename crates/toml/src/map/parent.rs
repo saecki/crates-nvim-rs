@@ -4,10 +4,10 @@ use std::mem::MaybeUninit;
 
 use bumpalo::Bump;
 
-use crate::parse::ArrayEntry;
 use crate::MapTable;
 use crate::map::{
-    MapArrayInline, MapArrayInlineEntry, MapArrayToplevel, MapArrayToplevelEntry, MapArrayToplevelEntryParent, MapTableEntry, MapTableEntryRepr, MapTableRepr
+    MapArrayInline, MapArrayInlineEntry, MapArrayToplevel, MapArrayToplevelEntry, MapTableEntry,
+    MapTableEntryRepr, MapTableRepr,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -46,7 +46,7 @@ impl<'a> ParentTable<'a> {
         let idx = ReprIdx(map.reprs.len() as u32);
         map.reprs.push(repr);
         // SAFETY: map is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(*map as *const MapTable<'a>) };
+        let ptr = unsafe { Cyclic::new_ptr(*map) };
         Self { ptr, idx }
     }
 
@@ -109,6 +109,7 @@ impl<'a> ParentInlineArray<'a> {
 pub enum ParentEntry<'a> {
     Table(ParentTableEntry<'a>),
     ToplevelArray(ParentToplevelArrayEntry<'a>),
+    ToplevelArrayExtension(ParentToplevelArrayExtensionEntry<'a>),
     InlineArray(ParentInlineArrayEntry<'a>),
 }
 
@@ -129,12 +130,12 @@ impl<'a> ParentTableEntry<'a> {
         _bump: &'a Bump,
         entry: &mut &'a mut MapTableEntry<'a>,
         repr: MapTableEntryRepr<'a>,
-    ) -> ParentEntry<'a> {
+    ) -> ParentTableEntry<'a> {
         let idx = ReprIdx(entry.reprs.len() as u32);
         entry.reprs.push(repr);
         // SAFETY: entry is allocated inside bump and will be valid to access.
         let ptr = unsafe { Cyclic::new_ptr(*entry) };
-        ParentEntry::Table(Self { ptr, idx })
+        Self { ptr, idx }
     }
 
     pub fn get(self) -> &'a MapTableEntry<'a> {
@@ -144,16 +145,50 @@ impl<'a> ParentTableEntry<'a> {
     pub fn repr(self) -> &'a MapTableEntryRepr<'a> {
         &self.ptr.get().reprs[self.idx.idx()]
     }
+
+    pub fn wrap(self) -> ParentEntry<'a> {
+        ParentEntry::Table(self)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParentToplevelArrayEntry<'a> {
     ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>,
-    idx: ReprIdx,
 }
 
 impl<'a> ParentToplevelArrayEntry<'a> {
+    pub(crate) fn new(ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>) -> Self {
+        Self { ptr }
+    }
+
+    pub fn get(self) -> &'a MapArrayToplevelEntry<'a> {
+        self.ptr.get()
+    }
+
+    pub fn wrap(self) -> ParentEntry<'a> {
+        ParentEntry::ToplevelArray(self)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ParentToplevelArrayExtensionEntry<'a> {
+    ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>,
+    idx: ReprIdx,
+}
+
+impl<'a> ParentToplevelArrayExtensionEntry<'a> {
     pub(crate) fn new(ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>, idx: ReprIdx) -> Self {
+        Self { ptr, idx }
+    }
+
+    pub(crate) fn insert(
+        array_entry: &mut &'a mut MapArrayToplevelEntry<'a>,
+        parent_entry: ParentTableEntry<'a>,
+    ) -> Self {
+        let idx = ReprIdx(array_entry.extensions.len() as u32);
+        array_entry.extensions.push(parent_entry);
+        // SAFETY: map is allocated inside bump and will be valid to access.
+        let ptr = unsafe { Cyclic::new_ptr(*array_entry) };
         Self { ptr, idx }
     }
 
@@ -161,8 +196,12 @@ impl<'a> ParentToplevelArrayEntry<'a> {
         self.ptr.get()
     }
 
-    pub fn repr(self) -> &'a MapArrayToplevelEntryParent<'a> {
-        &self.ptr.get().reprs[self.idx.idx()]
+    pub fn parent_table_entry(self) -> ParentTableEntry<'a> {
+        self.ptr.get().extensions[self.idx.idx()]
+    }
+
+    pub fn wrap(self) -> ParentEntry<'a> {
+        ParentEntry::ToplevelArrayExtension(self)
     }
 }
 
@@ -178,6 +217,10 @@ impl<'a> ParentInlineArrayEntry<'a> {
 
     pub fn get(self) -> &'a MapArrayInlineEntry<'a> {
         self.ptr.get()
+    }
+
+    pub fn wrap(self) -> ParentEntry<'a> {
+        ParentEntry::InlineArray(self)
     }
 }
 

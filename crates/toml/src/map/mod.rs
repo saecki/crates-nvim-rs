@@ -42,8 +42,10 @@ use bumpalo::Bump;
 use common::OneVec;
 use common::{FmtChar, FmtStr, Span};
 
-use crate::map::construct::Mapper;
-use crate::map::parent::{ParentEntry, ParentInlineArray, ParentTable, ParentTableEntry, ParentToplevelArray};
+use crate::map::construct::{MapErrorKind, Mapper};
+use crate::map::parent::{
+    ParentEntry, ParentInlineArray, ParentTable, ParentTableEntry, ParentToplevelArray,
+};
 use crate::parse::{
     ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
     InlineArrayValue, InlineTable, InlineTableAssignment, IntVal, StringVal, Table,
@@ -304,21 +306,20 @@ pub enum MapArray<'a> {
     Inline(&'a MapArrayInline<'a>),
 }
 
+// FIXME: avoid mutable references, maybe using some sort of transmute trick at the end.
 #[derive(Debug, PartialEq)]
 pub struct MapArrayToplevel<'a> {
-    inner: OneVec<&'a MapArrayToplevelEntry<'a>>,
-    pub parent: ParentEntry<'a>,
+    inner: OneVec<&'a mut MapArrayToplevelEntry<'a>>,
 }
 
 impl<'a> MapArrayToplevel<'a> {
-    pub fn new(entry: &'a MapArrayToplevelEntry<'a>, parent_entry: ParentEntry<'a>) -> Self {
+    pub fn new(entry: &'a mut MapArrayToplevelEntry<'a>) -> Self {
         Self {
             inner: OneVec::new(entry),
-            parent: parent_entry,
         }
     }
 
-    fn push(&mut self, entry: &'a MapArrayToplevelEntry<'a>) {
+    fn push(&mut self, entry: &'a mut MapArrayToplevelEntry<'a>) {
         self.inner.push(entry);
     }
 
@@ -330,7 +331,7 @@ impl<'a> MapArrayToplevel<'a> {
         self.inner.len() == 0
     }
 
-    pub fn as_slice(&self) -> &[&'a MapArrayToplevelEntry<'a>] {
+    pub fn as_slice(&self) -> &[&'a mut MapArrayToplevelEntry<'a>] {
         self.inner.as_slice()
     }
 
@@ -342,8 +343,8 @@ impl<'a> MapArrayToplevel<'a> {
         self.inner.last()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &'a MapArrayToplevelEntry<'a>> {
-        self.inner.iter().copied()
+    pub fn iter(&self) -> impl Iterator<Item = &&'a mut MapArrayToplevelEntry<'a>> {
+        self.inner.iter()
     }
 }
 
@@ -356,6 +357,7 @@ pub struct MapArrayToplevelEntry<'a> {
     /// ```
     pub definition: &'a ArrayEntry<'a>,
     pub parent: ParentToplevelArray<'a>,
+    pub parent_entry: ParentEntry<'a>,
     /// A list of tables that extend the this array of tables entry.
     /// ```toml
     /// [[a.b]] # another entry
@@ -372,12 +374,14 @@ impl<'a> MapArrayToplevelEntry<'a> {
     pub fn new(
         node: &'a mut MapTable<'a>,
         repr: &'a ArrayEntry<'a>,
+        parent_entry: ParentEntry<'a>,
         parent: ParentToplevelArray<'a>,
         idx: u32,
     ) -> Self {
         Self {
             node,
             definition: repr,
+            parent_entry,
             parent,
             extensions: Vec::new(),
             idx,
@@ -504,7 +508,49 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, ast: &Ast<'a>) -> &'a Map
     let map = construct::map(&mut mapper, bump, ast);
 
     for e in mapper.errors {
-        let error: Error = todo!("convert errors by accessing parents");
+        let lines = context_lines([e.orig_parent, e.new_parent]);
+        let path = joined_path(e.new_parent, e.new_ident);
+        let orig = e.orig_ident.lit_span();
+        let new = e.new_ident.lit_span();
+
+        let error = match e.kind {
+            MapErrorKind::DuplicateKey => Error::DuplicateKey {
+                lines,
+                path,
+                orig,
+                new,
+            },
+            MapErrorKind::CannotExtendTableWithDottedKey => Error::CannotExtendTableWithDottedKey {
+                lines,
+                path,
+                orig,
+                new,
+            },
+            MapErrorKind::CannotExtendInlineTable => Error::CannotExtendInlineTable {
+                lines,
+                path,
+                orig,
+                new,
+            },
+            MapErrorKind::CannotExtendArrayWithDottedKey => Error::CannotExtendArrayWithDottedKey {
+                lines,
+                path,
+                orig,
+                new,
+            },
+            MapErrorKind::CannotExtendInlineArray => Error::CannotExtendInlineArray {
+                lines,
+                path,
+                orig,
+                new,
+            },
+            MapErrorKind::CannotExtendInlineArrayAsTable => Error::CannotExtendInlineArrayAsTable {
+                lines,
+                path,
+                orig,
+                new,
+            },
+        };
         ctx.error(error);
     }
 
@@ -528,8 +574,13 @@ fn fmt_path(parent_entry: ParentEntry) -> String {
         }
         ParentEntry::ToplevelArray(entry) => {
             let array_entry = entry.get();
-            let mut buf = fmt_path(array_entry.parent.get().parent);
+            let mut buf = fmt_path(array_entry.parent_entry);
             write!(&mut buf, "[{}]", array_entry.idx).ok();
+            buf
+        }
+        ParentEntry::ToplevelArrayExtension(entry) => {
+            let mut buf = fmt_path(entry.parent_table_entry().wrap());
+            write!(&mut buf, "[{}]", entry.get().idx).ok();
             buf
         }
         ParentEntry::InlineArray(entry) => {
@@ -541,9 +592,10 @@ fn fmt_path(parent_entry: ParentEntry) -> String {
     }
 }
 
-pub fn joined_path(parent: ParentEntry, ident: &Ident) -> FmtStr {
-    let mut buf = fmt_path(parent);
-    if !buf.is_empty() {
+pub fn joined_path(parent: ParentTable, ident: &Ident) -> FmtStr {
+    let parent_entry = parent.repr().parent_entry();
+    let mut buf = parent_entry.map(fmt_path).unwrap_or_default();
+    if parent_entry.is_some() {
         buf.push('.');
     }
     fmt_ident(&mut buf, ident).unwrap();
@@ -581,18 +633,20 @@ fn fmt_ident_str(f: &mut impl std::fmt::Write, key: &str) -> std::fmt::Result {
     Ok(())
 }
 
-// TODO: Cannot access parent information during construction, consider storing
-// a list of errors then computing the context lines once mapping has completed.
-pub fn context_lines(parent: ParentEntry) -> Box<[u32]> {
+pub fn context_lines<const LEN: usize>(parents: [ParentTable; LEN]) -> Box<[u32]> {
     let mut lines = Vec::new();
-    collect_lines(&mut lines, parent);
+    for parent in parents {
+        if let Some(parent_entry) = parent.repr().parent_entry() {
+            collect_lines(&mut lines, parent_entry);
+        }
+    }
     lines.sort();
     lines.dedup();
     lines.into_boxed_slice()
 }
 
-fn collect_lines(lines: &mut Vec<u32>, parent: ParentEntry) {
-    match parent {
+fn collect_lines(lines: &mut Vec<u32>, parent_entry: ParentEntry) {
+    match parent_entry {
         ParentEntry::Table(entry) => {
             let repr = entry.repr();
             if let Some(parent) = repr.parent.repr().parent_entry() {
@@ -602,8 +656,12 @@ fn collect_lines(lines: &mut Vec<u32>, parent: ParentEntry) {
         }
         ParentEntry::ToplevelArray(entry) => {
             let array_entry = entry.get();
-            collect_lines(lines, array_entry.parent.get().parent);
+            collect_lines(lines, array_entry.parent_entry);
             lines.push(array_entry.definition.start().line);
+        }
+        ParentEntry::ToplevelArrayExtension(entry) => {
+            collect_lines(lines, ParentEntry::Table(entry.parent_table_entry()));
+            lines.push(entry.get().definition.start().line);
         }
         ParentEntry::InlineArray(entry) => {
             let array_entry = entry.get();

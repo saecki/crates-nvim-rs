@@ -520,7 +520,7 @@ fruit.apple = 3
             lines: Box::new([]),
             path: "fruit".into(),
             orig: Span::from_pos_len(Pos::new(0, 0), 5),
-            duplicate: Span::from_pos_len(Pos::new(1, 1), 5),
+            new: Span::from_pos_len(Pos::new(1, 1), 5),
         },
     );
 }

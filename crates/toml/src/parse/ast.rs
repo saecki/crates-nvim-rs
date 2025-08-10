@@ -2,11 +2,11 @@ use std::num::NonZeroU32;
 
 use common::{Pos, Source, Span};
 
-use crate::map::parent::CyclicCell;
-use crate::{MapTable, Quote};
 use crate::datetime::DateTime;
 use crate::lex::TextOffset;
+use crate::map::parent::CyclicCell;
 use crate::map::{MapArrayToplevelEntry, MapTableEntry};
+use crate::{MapTable, Quote};
 
 #[derive(Debug, PartialEq)]
 pub struct Ast<'a> {

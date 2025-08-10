@@ -88,7 +88,7 @@ pub enum Error {
         lines: Box<[u32]>,
         path: FmtStr,
         orig: Span,
-        duplicate: Span,
+        new: Span,
     },
     CannotExtendInlineTable {
         lines: Box<[u32]>,
@@ -198,7 +198,7 @@ impl Diagnostic for Error {
             LocalDateTimeOffset(p) => Span::ascii_char(*p),
             DateAndTimeTooFarApart(s) => *s,
 
-            DuplicateKey { duplicate, .. } => *duplicate,
+            DuplicateKey { new: duplicate, .. } => *duplicate,
             CannotExtendInlineTable { new, .. } => *new,
             CannotExtendInlineArray { new, .. } => *new,
             CannotExtendInlineArrayAsTable { new, .. } => *new,

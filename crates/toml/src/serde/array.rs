@@ -1,4 +1,5 @@
-use crate::map::{MapArrayToplevelEntry, MapNode, PathSegment};
+use crate::MapTable;
+use crate::map::MapNode;
 use crate::serde::SerdeError;
 use crate::serde::table::TableDeserializer;
 use crate::serde::value::ValueDeserializer;
@@ -7,6 +8,7 @@ pub struct ArrayDeserializer<I, N>
 where
     I: Iterator<Item = N>,
 {
+    pub idx: usize,
     pub iter: I,
 }
 
@@ -15,16 +17,14 @@ where
     I: Iterator<Item = N>,
 {
     pub fn new(iter: I) -> Self {
-        Self { iter }
+        Self { idx: 0, iter }
     }
 }
 
 // impls for `MapNode`
-type ArrayItem<'a> = (PathSegment<'a, 'a>, &'a MapNode<'a>);
-
-impl<'de, I> serde::Deserializer<'de> for ArrayDeserializer<I, ArrayItem<'de>>
+impl<'de, I> serde::Deserializer<'de> for ArrayDeserializer<I, &'de MapNode<'de>>
 where
-    I: Iterator<Item = ArrayItem<'de>>,
+    I: Iterator<Item = &'de MapNode<'de>>,
 {
     type Error = SerdeError<'de>;
 
@@ -42,9 +42,9 @@ where
     }
 }
 
-impl<'de, I> serde::de::SeqAccess<'de> for ArrayDeserializer<I, ArrayItem<'de>>
+impl<'de, I> serde::de::SeqAccess<'de> for ArrayDeserializer<I, &'de MapNode<'de>>
 where
-    I: Iterator<Item = ArrayItem<'de>>,
+    I: Iterator<Item = &'de MapNode<'de>>,
 {
     type Error = SerdeError<'de>;
 
@@ -53,21 +53,22 @@ where
         T: serde::de::DeserializeSeed<'de>,
     {
         match self.iter.next() {
-            Some((segment, node)) => seed
-                .deserialize(ValueDeserializer::new(node))
-                .map_err(|e| e.with_path(segment))
-                .map(Some),
+            Some(node) => {
+                let idx = self.idx;
+                self.idx += 1;
+                seed.deserialize(ValueDeserializer::new(node))
+                    .map_err(|e| e.with_array_path(idx))
+                    .map(Some)
+            }
             None => Ok(None),
         }
     }
 }
 
 // impls for `MapTable`
-type ArrayTableItem<'a> = (usize, &'a MapArrayToplevelEntry<'a>);
-
-impl<'de, I> serde::Deserializer<'de> for ArrayDeserializer<I, ArrayTableItem<'de>>
+impl<'de, I> serde::Deserializer<'de> for ArrayDeserializer<I, &'de MapTable<'de>>
 where
-    I: Iterator<Item = ArrayTableItem<'de>>,
+    I: Iterator<Item = &'de MapTable<'de>>,
 {
     type Error = SerdeError<'de>;
 
@@ -85,9 +86,9 @@ where
     }
 }
 
-impl<'de, I> serde::de::SeqAccess<'de> for ArrayDeserializer<I, ArrayTableItem<'de>>
+impl<'de, I> serde::de::SeqAccess<'de> for ArrayDeserializer<I, &'de MapTable<'de>>
 where
-    I: Iterator<Item = ArrayTableItem<'de>>,
+    I: Iterator<Item = &'de MapTable<'de>>,
 {
     type Error = SerdeError<'de>;
 
@@ -96,10 +97,13 @@ where
         T: serde::de::DeserializeSeed<'de>,
     {
         match self.iter.next() {
-            Some((idx, entry)) => seed
-                .deserialize(TableDeserializer::new(&entry.node))
-                .map_err(|e| e.with_array_path(entry.parent, idx))
-                .map(Some),
+            Some(table) => {
+                let idx = self.idx;
+                self.idx += 1;
+                seed.deserialize(TableDeserializer::new(table))
+                    .map_err(|e| e.with_array_path(idx))
+                    .map(Some)
+            }
             None => Ok(None),
         }
     }

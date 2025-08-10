@@ -73,11 +73,7 @@ impl SimpleVal {
     }
 }
 
-#[cfg(feature = "indexmap")]
 pub type SimpleMap = indexmap::IndexMap<String, SimpleVal>;
-
-#[cfg(not(feature = "indexmap"))]
-pub type MapInner = std::collections::hash_map::HashMap<String, SimpleVal>;
 
 #[derive(PartialEq)]
 pub enum SimpleVal {
@@ -108,7 +104,7 @@ impl std::fmt::Debug for SimpleVal {
 
 pub fn map_simple<'a, M>(ast: &Ast, map: M) -> SimpleMap
 where
-    M: IntoIterator<Item = (&'a str, MapTableEntry<'a>)>,
+    M: IntoIterator<Item = (&'a str, &'a MapTableEntry<'a>)>,
 {
     let iter = map
         .into_iter()
@@ -118,9 +114,9 @@ where
 
 pub fn map_simple_val(ast: &Ast, node: MapNode) -> SimpleVal {
     match node {
-        MapNode::Table(t) => SimpleVal::Table(map_simple(ast, t)),
+        MapNode::Table(t) => SimpleVal::Table(map_simple(ast, t.iter())),
         MapNode::Array(MapArray::Toplevel(a)) => SimpleVal::Array(
-            a.into_iter()
+            a.iter()
                 .map(|e| SimpleVal::Table(map_simple(ast, e.node)))
                 .collect(),
         ),
