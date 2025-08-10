@@ -9,18 +9,17 @@ use crate::{TomlDiagnostics, Warning};
 use super::*;
 
 #[track_caller]
-fn check<'a, const SIZE: usize>(
+fn check<const SIZE: usize>(
     text: &str,
-    expected_builder: impl FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
+    expected_builder: impl for<'a> FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
 
-    // HACK
-    let expected_bump = Box::leak(Box::new(Bump::new()));
-    let mut builder = AstBuilder::new(expected_bump);
+    let expected_bump = Bump::new();
+    let mut builder = AstBuilder::new(&expected_bump);
     let expected_toplevel = expected_builder(&mut builder);
     assert_eq!(
         expected_toplevel, ast.toplevel,
@@ -37,9 +36,9 @@ fn check<'a, const SIZE: usize>(
 }
 
 #[track_caller]
-fn check_error<'a, const SIZE: usize>(
+fn check_error<const SIZE: usize>(
     text: &str,
-    expected_builder: impl FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
+    expected_builder: impl for<'a> FnOnce(&mut AstBuilder<'a>) -> [Toplevel<'a>; SIZE],
     error: Error,
 ) {
     let mut ctx = TomlDiagnostics::default();
@@ -47,9 +46,8 @@ fn check_error<'a, const SIZE: usize>(
     let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
 
-    // HACK
-    let expected_bump = Box::leak(Box::new(Bump::new()));
-    let mut builder = AstBuilder::new(expected_bump);
+    let expected_bump = Bump::new();
+    let mut builder = AstBuilder::new(&expected_bump);
     let expected_toplevel = expected_builder(&mut builder);
 
     assert_eq!(
@@ -774,7 +772,7 @@ fn table_header() {
                 Some(Pos { line: 0, char: 9 }),
             ),
             assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
-            mapped: CyclicCell::new(),
+            mapped: ManuallySyncCell::empty(),
         })]
     })
 }
@@ -796,7 +794,7 @@ fn array_header() {
                 ),
             ),
             assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
-            mapped: CyclicCell::new(),
+            mapped: ManuallySyncCell::empty(),
         })]
     })
 }
@@ -817,7 +815,7 @@ fn newline_is_required_after_table_header() {
                     Some(Pos { line: 0, char: 9 }),
                 ),
                 assignments: vec![twrap(builder.ec(2), abool(0, 10, "entry", false))],
-                mapped: CyclicCell::new(),
+                mapped: ManuallySyncCell::empty(),
             })]
         },
         Error::MissingNewline(Pos { line: 0, char: 10 }),
@@ -861,7 +859,7 @@ fn table_header_with_associated_comment_above() {
                 Some(Pos { line: 1, char: 9 }),
             ),
             assignments: Vec::new(),
-            mapped: CyclicCell::new(),
+            mapped: ManuallySyncCell::empty(),
         })]
     })
 }
@@ -891,7 +889,7 @@ fn non_associated_comment() {
                 Some(Pos { line: 2, char: 9 }),
             ),
             assignments: Vec::new(),
-            mapped: CyclicCell::new(),
+            mapped: ManuallySyncCell::empty(),
         })]
     })
 }
@@ -919,7 +917,7 @@ fn comment_after_table_header() {
                 Some(Pos { line: 0, char: 9 }),
             ),
             assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
-            mapped: CyclicCell::new(),
+            mapped: ManuallySyncCell::empty(),
         })]
     })
 }
@@ -1045,7 +1043,7 @@ fn comment_contained_by_table() {
                     Some(Pos { line: 0, char: 9 }),
                 ),
                 assignments: vec![tabool(builder.ec(2), 4, "abc", false)],
-                mapped: CyclicCell::new(),
+                mapped: ManuallySyncCell::empty(),
             })]
         },
     )

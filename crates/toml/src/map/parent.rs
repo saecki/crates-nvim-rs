@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 
@@ -19,42 +18,42 @@ impl ReprIdx {
     }
 }
 
-// TODO: The `get` functions of the parent structs should ideally be guarded
-// from access using the type system.
-// Either have a generic tag that is only changed once the whole map is
-// constructed. Or maybe have a generic wrapper struct.
-// Generic tag with phantom data on map that allows accessing parent pointers.
-// During construction disallow accessing them, then transmute the root table, making
-// parent pointers accessible, and making reference
+/// A generic tag used to signal that a [`Cyclic`] reference isn't yet safe to
+/// access, because it is still being constructed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct Incomplete;
+
+/// A generic tag used to signal that a [`Cyclic`] reference is safe to access.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Complete;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentTable<'a> {
-    ptr: Cyclic<'a, MapTable<'a>>,
+pub struct ParentTable<'a, S = Complete> {
+    ptr: Cyclic<'a, MapTable<'a, S>, S>,
     idx: ReprIdx,
 }
 
-impl<'a> ParentTable<'a> {
-    pub(crate) fn new(ptr: Cyclic<'a, MapTable<'a>>, idx: ReprIdx) -> Self {
+impl<'a, S> ParentTable<'a, S> {
+    pub(super) fn new(ptr: Cyclic<'a, MapTable<'a, S>, S>, idx: ReprIdx) -> Self {
         Self { ptr, idx }
     }
+}
 
-    pub(crate) fn insert_repr(
+impl<'a> ParentTable<'a, Incomplete> {
+    pub(super) fn insert_repr(
         _bump: &'a Bump,
-        map: &mut &'a mut MapTable<'a>,
-        repr: MapTableRepr<'a>,
+        map: &mut &'a mut MapTable<'a, Incomplete>,
+        repr: MapTableRepr<'a, Incomplete>,
     ) -> Self {
         let idx = ReprIdx(map.reprs.len() as u32);
         map.reprs.push(repr);
         // SAFETY: map is allocated inside bump and will be valid to access.
         let ptr = unsafe { Cyclic::new_ptr(*map) };
-        Self { ptr, idx }
+        Self::new(ptr, idx)
     }
+}
 
-    pub(crate) fn with_idx(mut self, idx: ReprIdx) -> Self {
-        self.idx = idx;
-        self
-    }
-
+impl<'a> ParentTable<'a, Complete> {
     pub fn get(self) -> &'a MapTable<'a> {
         self.ptr.get()
     }
@@ -65,79 +64,93 @@ impl<'a> ParentTable<'a> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentToplevelArray<'a> {
-    ptr: Cyclic<'a, MapArrayToplevel<'a>>,
+pub struct ParentToplevelArray<'a, S = Complete> {
+    ptr: Cyclic<'a, MapArrayToplevel<'a, S>, S>,
 }
 
-impl<'a> ParentToplevelArray<'a> {
-    pub(crate) fn new(ptr: Cyclic<'a, MapArrayToplevel<'a>>) -> Self {
+impl<'a, S> ParentToplevelArray<'a, S> {
+    pub(super) fn new(ptr: Cyclic<'a, MapArrayToplevel<'a, S>, S>) -> Self {
         Self { ptr }
     }
+}
 
+impl<'a> ParentToplevelArray<'a, Incomplete> {
     /// The bump allocator is only required to prove that entry is not stack
     /// allocated.
-    pub(crate) fn new_from(
+    pub(super) fn new_from(
         _bump: &'a Bump,
-        array: &mut &'a mut MapArrayToplevel<'a>,
-    ) -> ParentToplevelArray<'a> {
+        array: &mut &'a mut MapArrayToplevel<'a, Incomplete>,
+    ) -> Self {
         // SAFETY: entry is allocated inside bump and will be valid to access.
         let ptr = unsafe { Cyclic::new_ptr(*array) };
-        Self { ptr }
+        Self::new(ptr)
     }
+}
 
+impl<'a> ParentToplevelArray<'a, Complete> {
     pub fn get(self) -> &'a MapArrayToplevel<'a> {
         self.ptr.get()
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentInlineArray<'a> {
-    ptr: Cyclic<'a, MapArrayInline<'a>>,
+pub struct ParentInlineArray<'a, S = Complete> {
+    ptr: Cyclic<'a, MapArrayInline<'a, S>, S>,
 }
 
-impl<'a> ParentInlineArray<'a> {
-    pub(crate) fn new(ptr: Cyclic<'a, MapArrayInline<'a>>) -> Self {
+impl<'a, S> ParentInlineArray<'a, S> {
+    pub(super) fn new(ptr: Cyclic<'a, MapArrayInline<'a, S>, S>) -> Self {
         Self { ptr }
     }
+}
 
+impl<'a> ParentInlineArray<'a, Complete> {
     pub fn get(self) -> &'a MapArrayInline<'a> {
         self.ptr.get()
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParentEntry<'a> {
-    Table(ParentTableEntry<'a>),
-    ToplevelArray(ParentToplevelArrayEntry<'a>),
-    ToplevelArrayExtension(ParentToplevelArrayExtensionEntry<'a>),
-    InlineArray(ParentInlineArrayEntry<'a>),
+pub enum ParentEntry<'a, S = Complete> {
+    Table(ParentTableEntry<'a, S>),
+    ToplevelArray(ParentToplevelArrayEntry<'a, S>),
+    ToplevelArrayExtension(ParentToplevelArrayExtensionEntry<'a, S>),
+    InlineArray(ParentInlineArrayEntry<'a, S>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentTableEntry<'a> {
-    ptr: Cyclic<'a, MapTableEntry<'a>>,
+pub struct ParentTableEntry<'a, S = Complete> {
+    ptr: Cyclic<'a, MapTableEntry<'a, S>, S>,
     idx: ReprIdx,
 }
 
-impl<'a> ParentTableEntry<'a> {
-    pub(crate) fn new(ptr: Cyclic<'a, MapTableEntry<'a>>, idx: ReprIdx) -> Self {
+impl<'a, S> ParentTableEntry<'a, S> {
+    pub(super) fn new(ptr: Cyclic<'a, MapTableEntry<'a, S>, S>, idx: ReprIdx) -> Self {
         Self { ptr, idx }
     }
 
+    pub fn wrap(self) -> ParentEntry<'a, S> {
+        ParentEntry::Table(self)
+    }
+}
+
+impl<'a> ParentTableEntry<'a, Incomplete> {
     /// The bump allocator is only required to prove that entry is not stack
     /// allocated.
-    pub(crate) fn insert_repr(
+    pub(super) fn insert_repr(
         _bump: &'a Bump,
-        entry: &mut &'a mut MapTableEntry<'a>,
-        repr: MapTableEntryRepr<'a>,
-    ) -> ParentTableEntry<'a> {
+        entry: &mut &'a mut MapTableEntry<'a, Incomplete>,
+        repr: MapTableEntryRepr<'a, Incomplete>,
+    ) -> Self {
         let idx = ReprIdx(entry.reprs.len() as u32);
         entry.reprs.push(repr);
         // SAFETY: entry is allocated inside bump and will be valid to access.
         let ptr = unsafe { Cyclic::new_ptr(*entry) };
-        Self { ptr, idx }
+        Self::new(ptr, idx)
     }
+}
 
+impl<'a> ParentTableEntry<'a, Complete> {
     pub fn get(self) -> &'a MapTableEntry<'a> {
         self.ptr.get()
     }
@@ -145,53 +158,59 @@ impl<'a> ParentTableEntry<'a> {
     pub fn repr(self) -> &'a MapTableEntryRepr<'a> {
         &self.ptr.get().reprs[self.idx.idx()]
     }
-
-    pub fn wrap(self) -> ParentEntry<'a> {
-        ParentEntry::Table(self)
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentToplevelArrayEntry<'a> {
-    ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>,
+pub struct ParentToplevelArrayEntry<'a, S = Complete> {
+    ptr: Cyclic<'a, MapArrayToplevelEntry<'a, S>, S>,
 }
 
-impl<'a> ParentToplevelArrayEntry<'a> {
-    pub(crate) fn new(ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>) -> Self {
+impl<'a, S> ParentToplevelArrayEntry<'a, S> {
+    pub(super) fn new(ptr: Cyclic<'a, MapArrayToplevelEntry<'a, S>, S>) -> Self {
         Self { ptr }
     }
 
-    pub fn get(self) -> &'a MapArrayToplevelEntry<'a> {
-        self.ptr.get()
-    }
-
-    pub fn wrap(self) -> ParentEntry<'a> {
+    pub fn wrap(self) -> ParentEntry<'a, S> {
         ParentEntry::ToplevelArray(self)
     }
 }
 
+impl<'a> ParentToplevelArrayEntry<'a, Complete> {
+    pub fn get(self) -> &'a MapArrayToplevelEntry<'a> {
+        self.ptr.get()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentToplevelArrayExtensionEntry<'a> {
-    ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>,
+pub struct ParentToplevelArrayExtensionEntry<'a, S> {
+    ptr: Cyclic<'a, MapArrayToplevelEntry<'a, S>, S>,
     idx: ReprIdx,
 }
 
-impl<'a> ParentToplevelArrayExtensionEntry<'a> {
-    pub(crate) fn new(ptr: Cyclic<'a, MapArrayToplevelEntry<'a>>, idx: ReprIdx) -> Self {
+impl<'a, S> ParentToplevelArrayExtensionEntry<'a, S> {
+    pub(super) fn new(ptr: Cyclic<'a, MapArrayToplevelEntry<'a, S>, S>, idx: ReprIdx) -> Self {
         Self { ptr, idx }
     }
 
-    pub(crate) fn insert(
-        array_entry: &mut &'a mut MapArrayToplevelEntry<'a>,
-        parent_entry: ParentTableEntry<'a>,
+    pub fn wrap(self) -> ParentEntry<'a, S> {
+        ParentEntry::ToplevelArrayExtension(self)
+    }
+}
+
+impl<'a> ParentToplevelArrayExtensionEntry<'a, Incomplete> {
+    pub(super) fn insert(
+        array_entry: &mut &'a mut MapArrayToplevelEntry<'a, Incomplete>,
+        parent_entry: ParentTableEntry<'a, Incomplete>,
     ) -> Self {
         let idx = ReprIdx(array_entry.extensions.len() as u32);
         array_entry.extensions.push(parent_entry);
         // SAFETY: map is allocated inside bump and will be valid to access.
         let ptr = unsafe { Cyclic::new_ptr(*array_entry) };
-        Self { ptr, idx }
+        Self::new(ptr, idx)
     }
+}
 
+impl<'a> ParentToplevelArrayExtensionEntry<'a, Complete> {
     pub fn get(self) -> &'a MapArrayToplevelEntry<'a> {
         self.ptr.get()
     }
@@ -199,38 +218,36 @@ impl<'a> ParentToplevelArrayExtensionEntry<'a> {
     pub fn parent_table_entry(self) -> ParentTableEntry<'a> {
         self.ptr.get().extensions[self.idx.idx()]
     }
-
-    pub fn wrap(self) -> ParentEntry<'a> {
-        ParentEntry::ToplevelArrayExtension(self)
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentInlineArrayEntry<'a> {
-    ptr: Cyclic<'a, MapArrayInlineEntry<'a>>,
+pub struct ParentInlineArrayEntry<'a, S> {
+    ptr: Cyclic<'a, MapArrayInlineEntry<'a, S>, S>,
 }
 
-impl<'a> ParentInlineArrayEntry<'a> {
-    pub(crate) fn new(ptr: Cyclic<'a, MapArrayInlineEntry<'a>>) -> Self {
+impl<'a, S> ParentInlineArrayEntry<'a, S> {
+    pub(super) fn new(ptr: Cyclic<'a, MapArrayInlineEntry<'a, S>, S>) -> Self {
         Self { ptr }
     }
 
+    pub fn wrap(self) -> ParentEntry<'a, S> {
+        ParentEntry::InlineArray(self)
+    }
+}
+
+impl<'a> ParentInlineArrayEntry<'a, Complete> {
     pub fn get(self) -> &'a MapArrayInlineEntry<'a> {
         self.ptr.get()
-    }
-
-    pub fn wrap(self) -> ParentEntry<'a> {
-        ParentEntry::InlineArray(self)
     }
 }
 
 /// Construct A slice with [`Cyclic`] references.
 /// NOTE: The [`Cyclic`] references are only valid to access once this function
 /// returns and the values are written.
-pub(crate) fn cyclic_slice<'a, V, T>(
+pub(super) fn cyclic_slice<'a, V, T>(
     bump: &'a Bump,
     values: &'a [V],
-    mut f: impl FnMut(u32, Cyclic<'a, T>, &'a V) -> T,
+    mut f: impl FnMut(u32, Cyclic<'a, T, Incomplete>, &'a V) -> T,
 ) -> &'a [T] {
     let slice = bump.alloc_slice_fill_with(values.len(), |_| MaybeUninit::uninit());
 
@@ -250,7 +267,10 @@ pub(crate) fn cyclic_slice<'a, V, T>(
 /// Construct A [`Cyclic`] reference.
 /// NOTE: The [`Cyclic`] reference is only valid to access once this function
 /// returns and the value is written.
-pub(crate) fn cyclic<'a, T>(bump: &'a Bump, f: impl FnOnce(Cyclic<'a, T>) -> T) -> &'a mut T {
+pub(super) fn cyclic<'a, T>(
+    bump: &'a Bump,
+    f: impl FnOnce(Cyclic<'a, T, Incomplete>) -> T,
+) -> &'a mut T {
     let loc = bump.alloc(MaybeUninit::uninit());
     // SAFETY: loc is allocated inside the bump allocator, we just can't borrow
     // it, because we need to write to it later, after the value has been
@@ -260,82 +280,54 @@ pub(crate) fn cyclic<'a, T>(bump: &'a Bump, f: impl FnOnce(Cyclic<'a, T>) -> T) 
     loc.write(val)
 }
 
-pub(crate) struct CyclicCell<'a, T>(Cell<Option<Cyclic<'a, T>>>);
-
-impl<T> Eq for CyclicCell<'_, T> {}
-impl<T> PartialEq for CyclicCell<'_, T> {
-    fn eq(&self, other: &Self) -> bool {
-        // Can't compare by value, because that might recurse indefinitely.
-        todo!("decide what to do here {self:?} {other:?}")
-    }
-}
-
-impl<T> std::fmt::Debug for CyclicCell<'_, T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("...")
-    }
-}
-
-impl<'a, T> CyclicCell<'a, T> {
-    pub(crate) fn new() -> Self {
-        Self(Cell::new(None))
-    }
-
-    /// # Safety
-    ///
-    /// This should only be called while the map is being constructed.
-    /// That happens on a single thread
-    pub(crate) fn set(&self, ptr: Cyclic<'a, T>) {
-        self.0.set(Some(ptr));
-    }
-
-    /// # Safety
-    ///
-    /// The caller must guarantee that the cyclic pointer is valid and points to
-    /// a valid value.
-    pub(crate) unsafe fn get(self) -> Option<&'a T> {
-        let ptr = self.0.get()?;
-        Some(unsafe { ptr.get() })
-    }
-}
-
-pub(crate) struct Cyclic<'a, T> {
+pub(super) struct Cyclic<'a, T, S> {
     ptr: *const T,
     lifetime: PhantomData<&'a T>,
+    state: PhantomData<S>,
 }
 
-impl<T> Eq for Cyclic<'_, T> {}
-impl<T> PartialEq for Cyclic<'_, T> {
-    fn eq(&self, other: &Self) -> bool {
+impl<T, S> Eq for Cyclic<'_, T, S> {}
+impl<T, S> PartialEq for Cyclic<'_, T, S> {
+    fn eq(&self, _other: &Self) -> bool {
         // Can't compare by value, because that might recurse indefinitely.
-        todo!("decide what to do here {self:?} {other:?}")
+        true
     }
 }
 
-impl<T> Copy for Cyclic<'_, T> {}
-impl<T> Clone for Cyclic<'_, T> {
+impl<T, S> Copy for Cyclic<'_, T, S> {}
+impl<T, S> Clone for Cyclic<'_, T, S> {
     fn clone(&self) -> Self {
         Cyclic {
             ptr: self.ptr,
             lifetime: self.lifetime,
+            state: self.state,
         }
     }
 }
 
-impl<T> std::fmt::Debug for Cyclic<'_, T> {
+impl<T, S> std::fmt::Debug for Cyclic<'_, T, S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("...")
     }
 }
 
-impl<'a, T> Cyclic<'a, T> {
+impl<'a, T> Cyclic<'a, T, Complete> {
     fn new(reference: &'a T) -> Self {
         Self {
             ptr: reference,
             lifetime: PhantomData,
+            state: PhantomData,
         }
     }
 
+    fn get(self) -> &'a T {
+        // SAFETY: Either this cyclic cell was constructed in a complete state,
+        // or the state has been changed to be complete.
+        unsafe { &*self.ptr }
+    }
+}
+
+impl<'a, T> Cyclic<'a, T, Incomplete> {
     /// # Safety
     ///
     /// The caller must guarantee that pointer is, or will be valid for the
@@ -344,14 +336,36 @@ impl<'a, T> Cyclic<'a, T> {
         Self {
             ptr,
             lifetime: PhantomData,
+            state: PhantomData,
         }
+    }
+}
+
+/// A cell that is Sync and Send, by requiring manual synchronization from the
+/// user.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ManuallySyncCell<T>(Option<T>);
+
+impl<T> ManuallySyncCell<T> {
+    pub(crate) const fn empty() -> Self {
+        Self(None)
     }
 
     /// # Safety
     ///
-    /// The caller must guarantee that the cyclic pointer is valid and points to
-    /// a valid value.
-    pub(crate) unsafe fn get(self) -> &'a T {
-        unsafe { &*self.ptr }
+    /// If there are no other references to the inside of this cell, and there
+    /// aren't multiple threads accessing the cell this should be safe.
+    pub(crate) unsafe fn set(&self, val: T) {
+        let ptr = &self.0 as *const Option<T> as *mut Option<T>;
+        // SAFETY: The user must guarantee that this is safe.
+        unsafe { ptr.write(Some(val)) }
+    }
+
+    pub(crate) fn get(self) -> Option<T>
+    where
+        T: Copy,
+    {
+        self.0
     }
 }

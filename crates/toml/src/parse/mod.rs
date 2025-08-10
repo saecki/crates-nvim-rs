@@ -7,6 +7,7 @@ use common::{DiagnosticMark, FmtChar, FmtStr, Pos, Source, Span};
 
 use crate::datetime::{Date, DateTime};
 use crate::lex::{StringId, StringToken, Token, TokenType, Tokens};
+use crate::map::parent::ManuallySyncCell;
 use crate::parse::lit::PartialValue;
 use crate::{Error, Quote, TomlCtx};
 
@@ -357,7 +358,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
                             comments,
                             header,
                             assignments: Vec::new(),
-                            mapped: CyclicCell::new(),
+                            mapped: ManuallySyncCell::empty(),
                         }));
                     }
                     None => {
@@ -366,7 +367,7 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
                             comments,
                             header,
                             assignments: Vec::new(),
-                            mapped: CyclicCell::new(),
+                            mapped: ManuallySyncCell::empty(),
                         }));
                     }
                 }

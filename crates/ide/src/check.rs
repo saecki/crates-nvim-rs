@@ -2,7 +2,7 @@ use common::{FmtStr, Span};
 use semver::{SemverCtx, VersionReq};
 use toml::map::{
     self, MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
-    ParentThingy, Scalar,
+    Scalar,
 };
 use toml::parse::{BoolVal, Ident, StringVal};
 use toml::util::Datatype;

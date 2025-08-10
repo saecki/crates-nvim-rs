@@ -2,11 +2,12 @@ use std::num::NonZeroU32;
 
 use common::{Pos, Source, Span};
 
+use crate::Quote;
 use crate::datetime::DateTime;
 use crate::lex::TextOffset;
-use crate::map::parent::CyclicCell;
-use crate::map::{MapArrayToplevelEntry, MapTableEntry};
-use crate::{MapTable, Quote};
+use crate::map::parent::{
+    ManuallySyncCell, ParentTable, ParentTableEntry, ParentToplevelArrayEntry,
+};
 
 #[derive(Debug, PartialEq)]
 pub struct Ast<'a> {
@@ -128,11 +129,10 @@ pub struct Table<'a> {
     // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<ToplevelAssignment<'a>>,
 
-    /// This must stay private, to not leak the static lifetime.
-    pub(crate) mapped: CyclicCell<MapTable<'static>>,
+    pub(crate) mapped: ManuallySyncCell<ParentTable<'a>>,
 }
 
-impl Table<'_> {
+impl<'a> Table<'a> {
     #[inline]
     pub fn span(&self) -> Span {
         Span::new(self.start(), self.end())
@@ -158,7 +158,7 @@ impl Table<'_> {
     }
 
     // Constrain the returned reference to self, to not leak the static lifetime.
-    pub fn mapped<'m>(&'m self) -> Option<&'m MapTableEntry<'m>> {
+    pub fn mapped(&self) -> Option<ParentTable<'a>> {
         self.mapped.get()
     }
 }
@@ -211,11 +211,10 @@ pub struct ArrayEntry<'a> {
     // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<ToplevelAssignment<'a>>,
 
-    /// This must stay private, to not leak the static lifetime.
-    pub(crate) mapped: CyclicCell<MapArrayToplevelEntry<'static>>,
+    pub(crate) mapped: ManuallySyncCell<ParentToplevelArrayEntry<'a>>,
 }
 
-impl ArrayEntry<'_> {
+impl<'a> ArrayEntry<'a> {
     #[inline]
     pub fn span(&self) -> Span {
         Span::new(self.start(), self.end())
@@ -242,7 +241,7 @@ impl ArrayEntry<'_> {
     }
 
     // Constrain the returned reference to self, to not leak the static lifetime.
-    pub fn mapped<'m>(&'m self) -> Option<&'m MapArrayToplevelEntry<'m>> {
+    pub fn mapped(&self) -> Option<ParentToplevelArrayEntry<'a>> {
         self.mapped.get()
     }
 }
@@ -399,8 +398,7 @@ pub struct Ident<'a> {
     pub text_end_offset: u8,
     pub kind: IdentKind,
 
-    /// This must stay private, to not leak the static lifetime.
-    pub(crate) mapped: CyclicCell<MapTableEntry<'static>>,
+    pub(crate) mapped: ManuallySyncCell<ParentTableEntry<'a>>,
 }
 
 impl<'a> Ident<'a> {
@@ -412,7 +410,7 @@ impl<'a> Ident<'a> {
             text_start_offset: 0,
             text_end_offset: 0,
             kind: IdentKind::Plain,
-            mapped: CyclicCell::new(),
+            mapped: ManuallySyncCell::empty(),
         }
     }
 
@@ -431,7 +429,7 @@ impl<'a> Ident<'a> {
             text_start_offset: text_offset.start_char,
             text_end_offset: text_offset.end_char,
             kind,
-            mapped: CyclicCell::new(),
+            mapped: ManuallySyncCell::empty(),
         }
     }
 
@@ -453,7 +451,7 @@ impl<'a> Ident<'a> {
     }
 
     // Constrain the returned reference to self, to not leak the static lifetime.
-    pub fn mapped<'m>(&'m self) -> Option<&'m MapTableEntry<'m>> {
+    pub fn mapped(&self) -> Option<ParentTableEntry<'a>> {
         self.mapped.get()
     }
 }

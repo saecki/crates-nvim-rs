@@ -43,28 +43,32 @@ impl<'a> Container {
         unsafe { build_container(ctx, bump, path, text) }
     }
 
-    pub fn parse_with<'b>(
+    /// ```compile_fail
+    /// let mut ctx = TomlDiagnostics::default();
+    /// let static_bump: &'static Bump;
+    /// let _container = Container::parse_with(&mut ctx, "<test>", |bump| {
+    ///     static_bump = bump;
+    ///     bump.alloc_str("a = 1")
+    /// });
+    /// ```
+    pub fn parse_with(
         ctx: &mut impl TomlCtx,
         path: &str,
-        alloc_text: impl FnOnce(&'b Bump) -> &'b str,
+        alloc_text: impl for<'b> FnOnce(&'b Bump) -> &'b str,
     ) -> Container {
         let bump = Box::leak(Box::new(Bump::new()));
-
         let path = bump.alloc_str(path);
-
         let text = alloc_text(bump);
-
-        // force lifetime of text to be 'static
-        // SAFETY: text was allocated using bump
-        let text: &str = unsafe { std::mem::transmute(text) };
 
         // SAFETY: bump is constructed using Box::leak and text is allocated in bump
         unsafe { build_container(ctx, bump, path, text) }
     }
 
     pub fn toml(&'a self) -> &'a Toml<'a> {
-        // only give out a reference which is restricted to the container's lifetime
-        &self.toml
+        // Only give out a reference which is restricted to the container's lifetime.
+        let ptr = &*self.toml as *const Toml<'static> as *const Toml<'a>;
+        // TODO: safety comment
+        unsafe { &*ptr }
     }
 }
 

@@ -1,17 +1,21 @@
 //! ## Structure
 //! - [MapTable] // root
+//!     - reprs: [OneVec<MapTableRepr>]
+//!         - [MapTableRepr::Root]
 //!     - entries:
 //!         - "children_1": [MapTableEntry]
 //!             - reprs: [OneVec<MapTableEntryRepr>]
-//!                 - parent: [ParentId] // refers to root (nothing to index into)
+//!                 - parent: [ParentEntry::Table] // refers to root
 //!                 - key: ...
 //!                 - kind: ...
 //!             - node: [MapNode::Table]: [MapTable]
+//!                 - reprs: [OneVec<MapTableRepr>]
+//!                     - ...
 //!                 - entries:
 //!                     - "node_1": [MapTableEntry]
 //!                         - node: [MapNode::Scalar]
 //!                         - reprs: [OneVec<MapTableEntryRepr>]
-//!                             - parent: [ParentId] // index into children_1
+//!                             - parent: [ParentEntry::Table]
 //!                             - key: ...
 //!                             - kind: ...
 //!                     - "node_2": MapTableEntry
@@ -36,15 +40,15 @@
 //! children_1 = { node_1 = 1, node_2 = false }
 //! ```
 use std::fmt::Write as _;
-// TODO: Update the comment above.
+// FIXME: All collections that allocate outside of the bump allocator will leak.
 
 use bumpalo::Bump;
 use common::OneVec;
 use common::{FmtChar, FmtStr, Span};
 
-use crate::map::construct::{MapErrorKind, Mapper};
+use crate::map::construct::{MapError, MapErrorKind, Mapper};
 use crate::map::parent::{
-    ParentEntry, ParentInlineArray, ParentTable, ParentTableEntry, ParentToplevelArray,
+    Complete, ParentEntry, ParentInlineArray, ParentTable, ParentTableEntry, ParentToplevelArray,
 };
 use crate::parse::{
     ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
@@ -58,13 +62,14 @@ pub mod parent;
 #[cfg(test)]
 mod test;
 
-pub type MapInner<'a> = indexmap::IndexMap<&'a str, &'a mut MapTableEntry<'a>>;
-pub type MapIter<'b, 'a> = indexmap::map::Iter<'b, &'a str, &'a mut MapTableEntry<'a>>;
+pub type MapInner<'a, S = Complete> = indexmap::IndexMap<&'a str, &'a mut MapTableEntry<'a, S>>;
+pub type MapIter<'b, 'a, S = Complete> =
+    indexmap::map::Iter<'b, &'a str, &'a mut MapTableEntry<'a, S>>;
 
 #[derive(Debug, PartialEq)]
-pub struct MapTable<'a> {
-    inner: MapInner<'a>,
-    pub reprs: OneVec<MapTableRepr<'a>>,
+pub struct MapTable<'a, S = Complete> {
+    inner: MapInner<'a, S>,
+    pub reprs: OneVec<MapTableRepr<'a, S>>,
 }
 
 impl<'a> AsRef<MapInner<'a>> for MapTable<'a> {
@@ -73,8 +78,8 @@ impl<'a> AsRef<MapInner<'a>> for MapTable<'a> {
     }
 }
 
-impl<'a> MapTable<'a> {
-    pub fn new(repr: MapTableRepr<'a>) -> Self {
+impl<'a, S> MapTable<'a, S> {
+    pub fn new(repr: MapTableRepr<'a, S>) -> Self {
         Self {
             reprs: OneVec::new(repr),
             inner: MapInner::new(),
@@ -91,18 +96,18 @@ impl<'a> MapTable<'a> {
         self.inner.is_empty()
     }
 
-    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a>> {
+    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a, S>> {
         self.inner.get(key).map(|e| &**e)
     }
 
-    pub fn iter(&self) -> MapIter<'_, 'a> {
+    pub fn iter(&self) -> MapIter<'_, 'a, S> {
         self.inner.iter()
     }
 }
 
-impl<'a> IntoIterator for MapTable<'a> {
-    type Item = (&'a str, &'a mut MapTableEntry<'a>);
-    type IntoIter = <MapInner<'a> as IntoIterator>::IntoIter;
+impl<'a, S> IntoIterator for MapTable<'a, S> {
+    type Item = (&'a str, &'a mut MapTableEntry<'a, S>);
+    type IntoIter = <MapInner<'a, S> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.inner.into_iter()
@@ -111,7 +116,7 @@ impl<'a> IntoIterator for MapTable<'a> {
 
 /// All possible ast definitions, that can make up a table.
 #[derive(Clone, Debug, PartialEq)]
-pub enum MapTableRepr<'a> {
+pub enum MapTableRepr<'a, S = Complete> {
     /// The entire file. This is the root table.
     Root(Span),
     /// This table would be part of the representation of the `a` and `a.table`
@@ -120,12 +125,12 @@ pub enum MapTableRepr<'a> {
     /// [a.table]
     /// ...
     /// ```
-    Table(&'a Table<'a>, ParentEntry<'a>),
+    Table(&'a Table<'a>, ParentEntry<'a, S>),
     /// ```toml
     /// an.inline.table = { }
     /// #                 ^^^ this part here
     /// ```
-    InlineTable(&'a InlineTable<'a>, ParentEntry<'a>),
+    InlineTable(&'a InlineTable<'a>, ParentEntry<'a, S>),
     /// This array of tables entry would be part of the represenation of the
     /// `an` and `an.array` tables. The `an.array.entry` key corresponds to
     /// a [`MapArray::Toplevel`], which in will contain a [`MapArrayToplevelEntry`]
@@ -134,7 +139,7 @@ pub enum MapTableRepr<'a> {
     /// [[an.array.entry]]
     /// ...
     /// ```
-    ArrayEntry(&'a ArrayEntry<'a>, ParentEntry<'a>),
+    ArrayEntry(&'a ArrayEntry<'a>, ParentEntry<'a, S>),
     /// This assignment would be part of the represenation for the `a` table and
     /// the `a.toplevel` table.
     ///
@@ -145,17 +150,17 @@ pub enum MapTableRepr<'a> {
     /// ```toml
     /// a.toplevel.assignment = 12
     /// ```
-    ToplevelAssignment(&'a ToplevelAssignment<'a>, ParentEntry<'a>),
+    ToplevelAssignment(&'a ToplevelAssignment<'a>, ParentEntry<'a, S>),
     /// Both assignments inside the inline table would make up part of the
     /// `things.table` table.
     /// ```toml
     /// things = { table.a = 12, table.b = 13 }
     ///            ^^^^^ here    ^^^^^ and here
     /// ```
-    InlineTableAssignment(&'a InlineTableAssignment<'a>, ParentEntry<'a>),
+    InlineTableAssignment(&'a InlineTableAssignment<'a>, ParentEntry<'a, S>),
 }
 
-impl<'a> MapTableRepr<'a> {
+impl<'a, S> MapTableRepr<'a, S> {
     pub fn span(&self) -> Span {
         match self {
             MapTableRepr::Root(span) => *span,
@@ -167,7 +172,10 @@ impl<'a> MapTableRepr<'a> {
         }
     }
 
-    pub fn parent_entry(&self) -> Option<ParentEntry<'a>> {
+    pub fn parent_entry(&self) -> Option<ParentEntry<'a, S>>
+    where
+        S: Copy,
+    {
         match self {
             MapTableRepr::Root(_) => None,
             MapTableRepr::Table(_, parent_entry) => Some(*parent_entry),
@@ -180,18 +188,14 @@ impl<'a> MapTableRepr<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MapTableEntry<'a> {
-    pub node: MapNode<'a>,
+pub struct MapTableEntry<'a, S = Complete> {
+    pub node: MapNode<'a, S>,
     /// References to the actual representations inside the toml file.
-    pub reprs: OneVec<MapTableEntryRepr<'a>>,
+    pub reprs: OneVec<MapTableEntryRepr<'a, S>>,
 }
 
-impl<'a> MapTableEntry<'a> {
-    fn new(node: MapNode<'a>, reprs: OneVec<MapTableEntryRepr<'a>>) -> Self {
-        Self { node, reprs }
-    }
-
-    fn from_one(node: MapNode<'a>, repr: MapTableEntryRepr<'a>) -> Self {
+impl<'a, S> MapTableEntry<'a, S> {
+    fn new(node: MapNode<'a, S>, repr: MapTableEntryRepr<'a, S>) -> Self {
         Self {
             node,
             reprs: OneVec::new(repr),
@@ -200,16 +204,16 @@ impl<'a> MapTableEntry<'a> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct MapTableEntryRepr<'a> {
+pub struct MapTableEntryRepr<'a, S = Complete> {
     /// Index of the parent defined in the parent [`MapTableEntry::reprs`].
-    pub parent: ParentTable<'a>,
+    pub parent: ParentTable<'a, S>,
     pub key: MapTableKeyRepr<'a>,
     pub kind: MapTableEntryReprKind<'a>,
 }
 
-impl<'a> MapTableEntryRepr<'a> {
+impl<'a, S> MapTableEntryRepr<'a, S> {
     fn new(
-        parent: ParentTable<'a>,
+        parent: ParentTable<'a, S>,
         key: MapTableKeyRepr<'a>,
         kind: MapTableEntryReprKind<'a>,
     ) -> Self {
@@ -261,7 +265,7 @@ impl<'a> MapTableEntryReprKind<'a> {
         }
     }
 
-    pub fn table_repr(&self, parent_entry: ParentEntry<'a>) -> MapTableRepr<'a> {
+    pub fn table_repr<S>(&self, parent_entry: ParentEntry<'a, S>) -> MapTableRepr<'a, S> {
         match self {
             MapTableEntryReprKind::Table(table) => MapTableRepr::Table(table, parent_entry),
             MapTableEntryReprKind::ArrayEntry(array) => {
@@ -301,25 +305,25 @@ impl<'a> MapTableKeyRepr<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum MapArray<'a> {
-    Toplevel(&'a mut MapArrayToplevel<'a>),
-    Inline(&'a MapArrayInline<'a>),
+pub enum MapArray<'a, S = Complete> {
+    Toplevel(&'a mut MapArrayToplevel<'a, S>),
+    Inline(&'a MapArrayInline<'a, S>),
 }
 
 // FIXME: avoid mutable references, maybe using some sort of transmute trick at the end.
 #[derive(Debug, PartialEq)]
-pub struct MapArrayToplevel<'a> {
-    inner: OneVec<&'a mut MapArrayToplevelEntry<'a>>,
+pub struct MapArrayToplevel<'a, S = Complete> {
+    inner: OneVec<&'a mut MapArrayToplevelEntry<'a, S>>,
 }
 
-impl<'a> MapArrayToplevel<'a> {
-    pub fn new(entry: &'a mut MapArrayToplevelEntry<'a>) -> Self {
+impl<'a, S> MapArrayToplevel<'a, S> {
+    pub fn new(entry: &'a mut MapArrayToplevelEntry<'a, S>) -> Self {
         Self {
             inner: OneVec::new(entry),
         }
     }
 
-    fn push(&mut self, entry: &'a mut MapArrayToplevelEntry<'a>) {
+    fn push(&mut self, entry: &'a mut MapArrayToplevelEntry<'a, S>) {
         self.inner.push(entry);
     }
 
@@ -331,33 +335,43 @@ impl<'a> MapArrayToplevel<'a> {
         self.inner.len() == 0
     }
 
-    pub fn as_slice(&self) -> &[&'a mut MapArrayToplevelEntry<'a>] {
+    pub fn as_slice(&self) -> &[&'a mut MapArrayToplevelEntry<'a, S>] {
         self.inner.as_slice()
     }
 
-    pub fn first(&self) -> &MapArrayToplevelEntry<'a> {
+    pub fn first(&self) -> &MapArrayToplevelEntry<'a, S> {
         self.inner.first()
     }
 
-    pub fn last(&self) -> &MapArrayToplevelEntry<'a> {
+    pub fn last(&self) -> &MapArrayToplevelEntry<'a, S> {
         self.inner.last()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &&'a mut MapArrayToplevelEntry<'a>> {
-        self.inner.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &MapArrayToplevelEntry<'a, S>> {
+        self.inner.iter().map(|e| &**e)
+    }
+}
+
+impl<'a, S: 'a> IntoIterator for MapArrayToplevel<'a, S> {
+    type Item = &'a mut MapArrayToplevelEntry<'a, S>;
+
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MapArrayToplevelEntry<'a> {
-    pub node: &'a mut MapTable<'a>,
+pub struct MapArrayToplevelEntry<'a, S = Complete> {
+    pub node: &'a mut MapTable<'a, S>,
     /// The definition of this array of tables entry.
     /// ```toml
     /// [[a.b]] # this here
     /// ```
     pub definition: &'a ArrayEntry<'a>,
-    pub parent: ParentToplevelArray<'a>,
-    pub parent_entry: ParentEntry<'a>,
+    pub parent: ParentToplevelArray<'a, S>,
+    pub parent_entry: ParentEntry<'a, S>,
     /// A list of tables that extend the this array of tables entry.
     /// ```toml
     /// [[a.b]] # another entry
@@ -366,16 +380,16 @@ pub struct MapArrayToplevelEntry<'a> {
     ///
     /// [a.b.c] # the extension
     /// ```
-    pub extensions: Vec<ParentTableEntry<'a>>,
+    pub extensions: Vec<ParentTableEntry<'a, S>>,
     pub idx: u32,
 }
 
-impl<'a> MapArrayToplevelEntry<'a> {
+impl<'a, S> MapArrayToplevelEntry<'a, S> {
     pub fn new(
-        node: &'a mut MapTable<'a>,
+        node: &'a mut MapTable<'a, S>,
         repr: &'a ArrayEntry<'a>,
-        parent_entry: ParentEntry<'a>,
-        parent: ParentToplevelArray<'a>,
+        parent_entry: ParentEntry<'a, S>,
+        parent: ParentToplevelArray<'a, S>,
         idx: u32,
     ) -> Self {
         Self {
@@ -390,23 +404,23 @@ impl<'a> MapArrayToplevelEntry<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum MapArrayToplevelEntryRepr<'a> {
-    Definition(&'a ArrayEntry<'a>, ParentToplevelArray<'a>),
-    Extension(ParentTable<'a>),
+pub enum MapArrayToplevelEntryRepr<'a, S = Complete> {
+    Definition(&'a ArrayEntry<'a>, ParentToplevelArray<'a, S>),
+    Extension(ParentTable<'a, S>),
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MapArrayInline<'a> {
-    pub parent: ParentEntry<'a>,
+pub struct MapArrayInline<'a, S = Complete> {
+    pub parent: ParentEntry<'a, S>,
     pub repr: &'a InlineArray<'a>,
-    inner: &'a [MapArrayInlineEntry<'a>],
+    inner: &'a [MapArrayInlineEntry<'a, S>],
 }
 
-impl<'a> MapArrayInline<'a> {
+impl<'a, S> MapArrayInline<'a, S> {
     pub fn new(
-        parent: ParentEntry<'a>,
+        parent: ParentEntry<'a, S>,
         repr: &'a InlineArray<'a>,
-        inner: &'a [MapArrayInlineEntry<'a>],
+        inner: &'a [MapArrayInlineEntry<'a, S>],
     ) -> Self {
         Self {
             parent,
@@ -423,15 +437,15 @@ impl<'a> MapArrayInline<'a> {
         self.inner.len() == 0
     }
 
-    pub fn get(&self, idx: usize) -> Option<&MapArrayInlineEntry<'a>> {
+    pub fn get(&self, idx: usize) -> Option<&MapArrayInlineEntry<'a, S>> {
         self.inner.get(idx)
     }
 
-    pub fn as_slice(&self) -> &[MapArrayInlineEntry<'a>] {
+    pub fn as_slice(&self) -> &[MapArrayInlineEntry<'a, S>] {
         &self.inner
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &MapArrayInlineEntry<'a>> {
+    pub fn iter(&self) -> impl Iterator<Item = &'a MapArrayInlineEntry<'a, S>> {
         self.inner.iter()
     }
 }
@@ -448,18 +462,18 @@ impl<'a, I: std::slice::SliceIndex<[MapArrayInlineEntry<'a>]>> std::ops::Index<I
 }
 
 #[derive(Debug, PartialEq)]
-pub struct MapArrayInlineEntry<'a> {
-    pub node: MapNode<'a>,
+pub struct MapArrayInlineEntry<'a, S = Complete> {
+    pub node: MapNode<'a, S>,
     pub repr: &'a InlineArrayValue<'a>,
-    pub parent: ParentInlineArray<'a>,
+    pub parent: ParentInlineArray<'a, S>,
     pub idx: u32,
 }
 
-impl<'a> MapArrayInlineEntry<'a> {
+impl<'a, S> MapArrayInlineEntry<'a, S> {
     pub fn new(
-        node: MapNode<'a>,
+        node: MapNode<'a, S>,
         repr: &'a InlineArrayValue<'a>,
-        parent: ParentInlineArray<'a>,
+        parent: ParentInlineArray<'a, S>,
         idx: u32,
     ) -> Self {
         Self {
@@ -472,9 +486,9 @@ impl<'a> MapArrayInlineEntry<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum MapNode<'a> {
-    Table(&'a mut MapTable<'a>),
-    Array(MapArray<'a>),
+pub enum MapNode<'a, S = Complete> {
+    Table(&'a mut MapTable<'a, S>),
+    Array(MapArray<'a, S>),
     Scalar(Scalar<'a>),
 }
 
@@ -507,54 +521,70 @@ pub fn map<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, ast: &Ast<'a>) -> &'a Map
     let mut mapper = Mapper::default();
     let map = construct::map(&mut mapper, bump, ast);
 
-    for e in mapper.errors {
-        let lines = context_lines([e.orig_parent, e.new_parent]);
-        let path = joined_path(e.new_parent, e.new_ident);
-        let orig = e.orig_ident.lit_span();
-        let new = e.new_ident.lit_span();
-
-        let error = match e.kind {
-            MapErrorKind::DuplicateKey => Error::DuplicateKey {
-                lines,
-                path,
-                orig,
-                new,
-            },
-            MapErrorKind::CannotExtendTableWithDottedKey => Error::CannotExtendTableWithDottedKey {
-                lines,
-                path,
-                orig,
-                new,
-            },
-            MapErrorKind::CannotExtendInlineTable => Error::CannotExtendInlineTable {
-                lines,
-                path,
-                orig,
-                new,
-            },
-            MapErrorKind::CannotExtendArrayWithDottedKey => Error::CannotExtendArrayWithDottedKey {
-                lines,
-                path,
-                orig,
-                new,
-            },
-            MapErrorKind::CannotExtendInlineArray => Error::CannotExtendInlineArray {
-                lines,
-                path,
-                orig,
-                new,
-            },
-            MapErrorKind::CannotExtendInlineArrayAsTable => Error::CannotExtendInlineArrayAsTable {
-                lines,
-                path,
-                orig,
-                new,
-            },
-        };
-        ctx.error(error);
+    // SAFETY: The map has been fully constructed, and all cyclic references
+    // should be valid.
+    let errors: Vec<MapError<Complete>> = unsafe { std::mem::transmute(mapper.errors) };
+    for e in errors {
+        ctx.error(convert_error(e));
     }
 
     map
+}
+
+fn convert_error(error: MapError<Complete>) -> Error {
+    let lines = context_lines([error.orig_parent, error.new_parent]);
+    let path = joined_path(error.new_parent, error.new_ident);
+    let orig = error.orig_ident.lit_span();
+    let new = error.new_ident.lit_span();
+
+    match error.kind {
+        MapErrorKind::DuplicateKey => Error::DuplicateKey {
+            lines,
+            path,
+            orig,
+            new,
+        },
+        MapErrorKind::CannotExtendTableWithDottedKey => Error::CannotExtendTableWithDottedKey {
+            lines,
+            path,
+            orig,
+            new,
+        },
+        MapErrorKind::CannotExtendInlineTable => Error::CannotExtendInlineTable {
+            lines,
+            path,
+            orig,
+            new,
+        },
+        MapErrorKind::CannotExtendArrayWithDottedKey => Error::CannotExtendArrayWithDottedKey {
+            lines,
+            path,
+            orig,
+            new,
+        },
+        MapErrorKind::CannotExtendInlineArray => Error::CannotExtendInlineArray {
+            lines,
+            path,
+            orig,
+            new,
+        },
+        MapErrorKind::CannotExtendInlineArrayAsTable => Error::CannotExtendInlineArrayAsTable {
+            lines,
+            path,
+            orig,
+            new,
+        },
+    }
+}
+
+pub fn joined_path(parent: ParentTable, ident: &Ident) -> FmtStr {
+    let parent_entry = parent.repr().parent_entry();
+    let mut buf = parent_entry.map(fmt_path).unwrap_or_default();
+    if parent_entry.is_some() {
+        buf.push('.');
+    }
+    fmt_ident(&mut buf, ident).unwrap();
+    FmtStr::from_string(buf)
 }
 
 fn fmt_path(parent_entry: ParentEntry) -> String {
@@ -590,16 +620,6 @@ fn fmt_path(parent_entry: ParentEntry) -> String {
             buf
         }
     }
-}
-
-pub fn joined_path(parent: ParentTable, ident: &Ident) -> FmtStr {
-    let parent_entry = parent.repr().parent_entry();
-    let mut buf = parent_entry.map(fmt_path).unwrap_or_default();
-    if parent_entry.is_some() {
-        buf.push('.');
-    }
-    fmt_ident(&mut buf, ident).unwrap();
-    FmtStr::from_string(buf)
 }
 
 pub struct FmtIdent<'a>(pub &'a str);

@@ -1,7 +1,7 @@
 use common::{Pos, onevec};
 use pretty_assertions::assert_eq;
 
-use crate::parse::{Assignment, Cyclic, CyclicCell, End, TableHeader};
+use crate::parse::{Assignment, End, Key, TableHeader, Value};
 use crate::test::*;
 use crate::util::{SimpleMap, SimpleVal};
 use crate::{TomlDiagnostics, Warning};
@@ -9,14 +9,14 @@ use crate::{TomlDiagnostics, Warning};
 use super::*;
 
 #[track_caller]
-fn check(text: &str, expected: MapTable) {
+fn check(text: &'static str, expected: MapTable<'_>) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
-    let map = ctx.map(&ast);
+    let map = ctx.map(&bump, &ast);
     assert_eq!(
-        expected, map,
+        &expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",
         ctx.errors, ctx.warnings
     );
@@ -30,9 +30,9 @@ fn check_error(text: &str, expected: MapTable, error: Error) {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, "<test>", text);
     let ast = ctx.parse(&bump, tokens);
-    let map = ctx.map(&ast);
+    let map = ctx.map(&bump, &ast);
     assert_eq!(
-        expected, map,
+        &expected, map,
         "\nerrors: {:#?}\nwarnings: {:#?}",
         ctx.errors, ctx.warnings
     );
@@ -77,14 +77,13 @@ fn dotted_key() {
     check(
         text,
         MapTable::from_pairs(
-            [("a", MapTableEntry::from_one(
+            [("a", MapTableEntry::new(
                 MapNode::Table(MapTable::from_pairs(
-                    [("b", MapTableEntry::from_one(
+                    [("b", MapTableEntry::new(
                         MapNode::Table(MapTable::from_pairs(
-                            [("c", MapTableEntry::from_one(
+                            [("c", MapTableEntry::new(
                                 MapNode::Scalar(Scalar::Int(&value)),
                                 MapTableEntryRepr::new(
-                                    ParentThingy(0),
                                     MapTableKeyRepr::Dotted(2, &key),
                                     MapTableEntryReprKind::ToplevelAssignment(&assignment),
                                 ),
@@ -177,12 +176,12 @@ a.b.d = 2
     check(
         text,
         MapTable::from_pairs(
-            [("a", MapTableEntry::new(
+            [("a", MapTableEntry::new_lskfdj(
                 MapNode::Table(MapTable::from_pairs(
-                    [("b", MapTableEntry::new(
+                    [("b", MapTableEntry::new_lskfdj(
                         MapNode::Table(MapTable::from_pairs(
                             [
-                                ("c", MapTableEntry::from_one(
+                                ("c", MapTableEntry::new(
                                     MapNode::Scalar(Scalar::Int(&value1)),
                                     MapTableEntryRepr::new(
                                         ParentThingy(0),
@@ -190,7 +189,7 @@ a.b.d = 2
                                         MapTableEntryReprKind::ToplevelAssignment(&assignment1),
                                     ),
                                 )),
-                                ("d", MapTableEntry::from_one(
+                                ("d", MapTableEntry::new(
                                     MapNode::Scalar(Scalar::Int(&value2)),
                                     MapTableEntryRepr::new(
                                         ParentThingy(1),
@@ -295,12 +294,12 @@ def = 23.0
     check(
         text,
         MapTable::from_pairs(
-            [("mytable", MapTableEntry::from_one(
+            [("mytable", MapTableEntry::new(
                 MapNode::Table(MapTable::from_pairs(
                     [
                         (
                             "abc",
-                            MapTableEntry::from_one(
+                            MapTableEntry::new(
                                 MapNode::Scalar(Scalar::Bool(&value1)),
                                 MapTableEntryRepr::new(
                                 ParentThingy(0),
@@ -311,7 +310,7 @@ def = 23.0
                         ),
                         (
                             "def",
-                            MapTableEntry::from_one(
+                            MapTableEntry::new(
                                 MapNode::Scalar(Scalar::Float(&value2)),
                                 MapTableEntryRepr::new(
                                     ParentThingy(0),
@@ -394,7 +393,7 @@ fn inline_array() {
     check(
         text,
         MapTable::from_pairs(
-            [("array", MapTableEntry::from_one(
+            [("array", MapTableEntry::new(
                 MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentThingy(0), &array, [
                     MapArrayInlineEntry::new(
                         MapNode::Scalar(Scalar::Int(&value1)),
@@ -492,11 +491,11 @@ fruit.apple = 3
         MapTable::from_pairs(
             [(
                 "fruit",
-                MapTableEntry::from_one(
+                MapTableEntry::new(
                     MapNode::Table(MapTable::from_pairs(
                         [(
                             "apple",
-                            MapTableEntry::from_one(
+                            MapTableEntry::new(
                                 MapNode::Scalar(Scalar::Int(&value)),
                                 MapTableEntryRepr::new(
                                     ParentThingy(0),
