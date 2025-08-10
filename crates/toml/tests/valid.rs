@@ -3,7 +3,7 @@ use common::diagnostic::DisplayDiagnostic;
 use toml_test_harness::{Decoded, DecodedValue};
 
 use dingey_toml::datetime::DateTime;
-use dingey_toml::map::{MapArray, MapNode, MapTableEntry, Scalar};
+use dingey_toml::map::{MapArray, MapInner, MapNode, Scalar};
 use dingey_toml::{Ast, TomlCtx, TomlDiagnostics};
 
 #[derive(Clone, Copy)]
@@ -17,7 +17,7 @@ impl toml_test_harness::Decoder for TestDecoder {
         let bump = Bump::new();
         let tokens = ctx.lex(&bump, "<case>", text);
         let ast = ctx.parse(&bump, tokens);
-        let map = ctx.map(&ast);
+        let map = ctx.map(&bump, &ast);
 
         if let Some(error) = ctx.errors.first() {
             let msg = error.display(&ast.source);
@@ -32,14 +32,14 @@ impl toml_test_harness::Decoder for TestDecoder {
     }
 }
 
-fn map_decoded(ast: &Ast, node: MapNode) -> Decoded {
+fn map_decoded(ast: &Ast, node: &MapNode) -> Decoded {
     match node {
         MapNode::Table(t) => map_table(ast, t),
         MapNode::Array(MapArray::Toplevel(a)) => {
-            Decoded::Array(a.into_iter().map(|e| map_table(ast, e.node)).collect())
+            Decoded::Array(a.iter().map(|e| map_table(ast, &e.node)).collect())
         }
         MapNode::Array(MapArray::Inline(a)) => {
-            Decoded::Array(a.into_iter().map(|e| map_decoded(ast, e.node)).collect())
+            Decoded::Array(a.iter().map(|e| map_decoded(ast, &e.node)).collect())
         }
         MapNode::Scalar(s) => Decoded::Value(match s {
             Scalar::String(s) => DecodedValue::String(s.text.to_string()),
@@ -60,21 +60,18 @@ fn map_decoded(ast: &Ast, node: MapNode) -> Decoded {
                 }
             }
             Scalar::Invalid(span) => {
-                let str = ast.source.spanned_str(*span);
+                let str = ast.source.spanned_str(**span);
                 unreachable!("`{str}` at {s:?}")
             }
         }),
     }
 }
 
-fn map_table<'a, M>(ast: &Ast, table: M) -> Decoded
-where
-    M: IntoIterator<Item = (&'a str, MapTableEntry<'a>)>,
-{
+fn map_table<'a, M: AsRef<MapInner<'a>>>(ast: &Ast, map: M) -> Decoded {
     Decoded::Table(
-        table
-            .into_iter()
-            .map(|(k, e)| (k.to_string(), map_decoded(ast, e.node)))
+        map.as_ref()
+            .iter()
+            .map(|(k, e)| (k.to_string(), map_decoded(ast, &e.node)))
             .collect(),
     )
 }

@@ -838,6 +838,7 @@ fn parse_inline_array<'a>(
                     comments: val_comments,
                     val,
                     comma: None,
+                    mapped: ManuallySyncCell::empty(),
                 });
                 break 'inline_array;
             }
@@ -853,6 +854,7 @@ fn parse_inline_array<'a>(
             comments: val_comments,
             val,
             comma,
+            mapped: ManuallySyncCell::empty(),
         });
 
         if is_valid {
@@ -888,6 +890,7 @@ fn parse_inline_array<'a>(
         l_par,
         values,
         end,
+        mapped: ManuallySyncCell::empty(),
     })
 }
 
@@ -1056,6 +1059,7 @@ fn parse_inline_table<'a>(
         l_par,
         assignments,
         end,
+        mapped: ManuallySyncCell::empty(),
     })
 }
 

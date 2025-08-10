@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
+use std::ptr::NonNull;
 
 use bumpalo::Bump;
 
@@ -48,7 +49,7 @@ impl<'a> ParentTable<'a, Incomplete> {
         let idx = ReprIdx(map.reprs.len() as u32);
         map.reprs.push(repr);
         // SAFETY: map is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(*map) };
+        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*map)) };
         Self::new(ptr, idx)
     }
 }
@@ -82,7 +83,7 @@ impl<'a> ParentToplevelArray<'a, Incomplete> {
         array: &mut &'a mut MapArrayToplevel<'a, Incomplete>,
     ) -> Self {
         // SAFETY: entry is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(*array) };
+        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*array)) };
         Self::new(ptr)
     }
 }
@@ -145,7 +146,7 @@ impl<'a> ParentTableEntry<'a, Incomplete> {
         let idx = ReprIdx(entry.reprs.len() as u32);
         entry.reprs.push(repr);
         // SAFETY: entry is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(*entry) };
+        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*entry)) };
         Self::new(ptr, idx)
     }
 }
@@ -205,7 +206,7 @@ impl<'a> ParentToplevelArrayExtensionEntry<'a, Incomplete> {
         let idx = ReprIdx(array_entry.extensions.len() as u32);
         array_entry.extensions.push(parent_entry);
         // SAFETY: map is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(*array_entry) };
+        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*array_entry)) };
         Self::new(ptr, idx)
     }
 }
@@ -221,7 +222,7 @@ impl<'a> ParentToplevelArrayExtensionEntry<'a, Complete> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ParentInlineArrayEntry<'a, S> {
+pub struct ParentInlineArrayEntry<'a, S = Complete> {
     ptr: Cyclic<'a, MapArrayInlineEntry<'a, S>, S>,
 }
 
@@ -255,7 +256,10 @@ pub(super) fn cyclic_slice<'a, V, T>(
         // SAFETY: loc is allocated inside the bump allocator, we just can't
         // borrow it, because we need to write to it later, after the value has
         // been constructed.
-        let ptr = unsafe { Cyclic::new_ptr(loc as *const MaybeUninit<T> as *const T) };
+        let ptr = unsafe {
+            let ptr = loc as *mut MaybeUninit<T> as *mut T;
+            Cyclic::new_ptr(NonNull::new_unchecked(ptr))
+        };
         let init = f(idx, ptr, val);
         loc.write(init);
     }
@@ -275,13 +279,16 @@ pub(super) fn cyclic<'a, T>(
     // SAFETY: loc is allocated inside the bump allocator, we just can't borrow
     // it, because we need to write to it later, after the value has been
     // constructed.
-    let ptr = unsafe { Cyclic::new_ptr(loc as *const MaybeUninit<T> as *const T) };
+    let ptr = unsafe {
+        let ptr = loc as *mut MaybeUninit<T> as *mut T;
+        Cyclic::new_ptr(NonNull::new_unchecked(ptr))
+    };
     let val = f(ptr);
     loc.write(val)
 }
 
 pub(super) struct Cyclic<'a, T, S> {
-    ptr: *const T,
+    ptr: NonNull<T>,
     lifetime: PhantomData<&'a T>,
     state: PhantomData<S>,
 }
@@ -312,9 +319,9 @@ impl<T, S> std::fmt::Debug for Cyclic<'_, T, S> {
 }
 
 impl<'a, T> Cyclic<'a, T, Complete> {
-    fn new(reference: &'a T) -> Self {
+    pub(super) fn new(reference: &'a T) -> Self {
         Self {
-            ptr: reference,
+            ptr: NonNull::from_ref(reference),
             lifetime: PhantomData,
             state: PhantomData,
         }
@@ -323,7 +330,7 @@ impl<'a, T> Cyclic<'a, T, Complete> {
     fn get(self) -> &'a T {
         // SAFETY: Either this cyclic cell was constructed in a complete state,
         // or the state has been changed to be complete.
-        unsafe { &*self.ptr }
+        unsafe { self.ptr.as_ref() }
     }
 }
 
@@ -332,7 +339,7 @@ impl<'a, T> Cyclic<'a, T, Incomplete> {
     ///
     /// The caller must guarantee that pointer is, or will be valid for the
     /// specified lifetime.
-    unsafe fn new_ptr(ptr: *const T) -> Self {
+    unsafe fn new_ptr(ptr: NonNull<T>) -> Self {
         Self {
             ptr,
             lifetime: PhantomData,
@@ -343,7 +350,6 @@ impl<'a, T> Cyclic<'a, T, Incomplete> {
 
 /// A cell that is Sync and Send, by requiring manual synchronization from the
 /// user.
-#[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ManuallySyncCell<T>(Option<T>);
 

@@ -46,9 +46,10 @@ use bumpalo::Bump;
 use common::OneVec;
 use common::{FmtChar, FmtStr, Span};
 
-use crate::map::construct::{MapError, MapErrorKind, Mapper};
+use crate::map::construct::{MapError, MapErrorKind};
 use crate::map::parent::{
-    Complete, ParentEntry, ParentInlineArray, ParentTable, ParentTableEntry, ParentToplevelArray,
+    Complete, Cyclic, ParentEntry, ParentInlineArray, ParentInlineArrayEntry, ParentTable,
+    ParentTableEntry, ParentToplevelArray, ParentToplevelArrayEntry, ReprIdx,
 };
 use crate::parse::{
     ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
@@ -63,8 +64,6 @@ pub mod parent;
 mod test;
 
 pub type MapInner<'a, S = Complete> = indexmap::IndexMap<&'a str, &'a mut MapTableEntry<'a, S>>;
-pub type MapIter<'b, 'a, S = Complete> =
-    indexmap::map::Iter<'b, &'a str, &'a mut MapTableEntry<'a, S>>;
 
 #[derive(Debug, PartialEq)]
 pub struct MapTable<'a, S = Complete> {
@@ -100,8 +99,8 @@ impl<'a, S> MapTable<'a, S> {
         self.inner.get(key).map(|e| &**e)
     }
 
-    pub fn iter(&self) -> MapIter<'_, 'a, S> {
-        self.inner.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&'a str, &MapTableEntry<'a, S>)> {
+        self.inner.iter().map(|(key, entry)| (*key, &**entry))
     }
 }
 
@@ -518,23 +517,82 @@ impl Scalar<'_> {
 }
 
 pub fn map<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, ast: &Ast<'a>) -> &'a MapTable<'a> {
-    let mut mapper = Mapper::default();
-    let map = construct::map(&mut mapper, bump, ast);
-
-    // SAFETY: The map has been fully constructed, and all cyclic references
-    // should be valid.
-    let errors: Vec<MapError<Complete>> = unsafe { std::mem::transmute(mapper.errors) };
+    let (errors, map) = construct::map(bump, ast);
+    set_mapped_table(map);
     for e in errors {
         ctx.error(convert_error(e));
     }
-
     map
+}
+
+fn set_mapped_table<'a>(map: &'a MapTable<'a>) {
+    for (repr, idx) in map.reprs.iter().zip(0..) {
+        match repr {
+            MapTableRepr::Root(_) => (),
+            MapTableRepr::Table(table, _) => {
+                let parent_table = ParentTable::new(Cyclic::new(map), ReprIdx(idx));
+                // SAFETY: The maptable was just constructed, on a single thread.
+                unsafe { table.mapped.set(parent_table) }
+            }
+            MapTableRepr::InlineTable(inline_table, _) => {
+                let parent_table = ParentTable::new(Cyclic::new(map), ReprIdx(idx));
+                // SAFETY: The maptable was just constructed, on a single thread.
+                unsafe { inline_table.mapped.set(parent_table) }
+            }
+            MapTableRepr::ArrayEntry(..) => (),
+            MapTableRepr::ToplevelAssignment(..) => (),
+            MapTableRepr::InlineTableAssignment(..) => (),
+        }
+    }
+
+    for (_, entry) in map.inner.iter() {
+        for (repr, idx) in entry.reprs.iter().zip(0..) {
+            let parent_entry = ParentTableEntry::new(Cyclic::new(entry), ReprIdx(idx));
+            // SAFETY: The maptable was just constructed, on a single thread.
+            unsafe { repr.key.repr_ident().mapped.set(parent_entry) };
+        }
+
+        set_mapped_node(&entry.node);
+    }
+}
+
+fn set_mapped_toplevel_array<'a>(array: &'a MapArrayToplevel<'a>) {
+    for entry in array.iter() {
+        let parent_entry = ParentToplevelArrayEntry::new(Cyclic::new(entry));
+        // SAFETY: The maptable was just constructed, on a single thread.
+        unsafe { entry.definition.mapped.set(parent_entry) };
+
+        set_mapped_table(&entry.node);
+    }
+}
+
+fn set_mapped_inline_array<'a>(array: &'a MapArrayInline<'a>) {
+    let parent_array = ParentInlineArray::new(Cyclic::new(array));
+    // SAFETY: The maptable was just constructed, on a single thread.
+    unsafe { array.repr.mapped.set(parent_array) };
+
+    for entry in array.iter() {
+        let parent_entry = ParentInlineArrayEntry::new(Cyclic::new(entry));
+        // SAFETY: The maptable was just constructed, on a single thread.
+        unsafe { entry.repr.mapped.set(parent_entry) };
+
+        set_mapped_node(&entry.node);
+    }
+}
+
+fn set_mapped_node<'a>(node: &'a MapNode<'a>) {
+    match node {
+        MapNode::Table(map) => set_mapped_table(map),
+        MapNode::Array(MapArray::Toplevel(array)) => set_mapped_toplevel_array(array),
+        MapNode::Array(MapArray::Inline(array)) => set_mapped_inline_array(array),
+        MapNode::Scalar(_) => (),
+    }
 }
 
 fn convert_error(error: MapError<Complete>) -> Error {
     let lines = context_lines([error.orig_parent, error.new_parent]);
     let path = joined_path(error.new_parent, error.new_ident);
-    let orig = error.orig_ident.lit_span();
+    let orig = error.orig_span.unwrap_or(error.orig_ident.lit_span());
     let new = error.new_ident.lit_span();
 
     match error.kind {

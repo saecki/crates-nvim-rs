@@ -1,421 +1,74 @@
-use common::{Pos, onevec};
-use pretty_assertions::assert_eq;
+use common::Pos;
 
-use crate::parse::{Assignment, End, Key, TableHeader, Value};
 use crate::test::*;
 use crate::util::{SimpleMap, SimpleVal};
-use crate::{TomlDiagnostics, Warning};
 
 use super::*;
 
-#[track_caller]
-fn check(text: &'static str, expected: MapTable<'_>) {
-    let mut ctx = TomlDiagnostics::default();
-    let bump = Bump::new();
-    let tokens = ctx.lex(&bump, "<test>", text);
-    let ast = ctx.parse(&bump, tokens);
-    let map = ctx.map(&bump, &ast);
-    assert_eq!(
-        &expected, map,
-        "\nerrors: {:#?}\nwarnings: {:#?}",
-        ctx.errors, ctx.warnings
-    );
-    assert_eq!(Vec::<Error>::new(), ctx.errors);
-    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
-}
-
-#[track_caller]
-fn check_error(text: &str, expected: MapTable, error: Error) {
-    let mut ctx = TomlDiagnostics::default();
-    let bump = Bump::new();
-    let tokens = ctx.lex(&bump, "<test>", text);
-    let ast = ctx.parse(&bump, tokens);
-    let map = ctx.map(&bump, &ast);
-    assert_eq!(
-        &expected, map,
-        "\nerrors: {:#?}\nwarnings: {:#?}",
-        ctx.errors, ctx.warnings
-    );
-    assert_eq!(vec![error], ctx.errors);
-    assert_eq!(Vec::<Warning>::new(), ctx.warnings);
-}
-
 #[test]
 fn dotted_key() {
-    let text = "a.b.c = 1";
-    let bump = Bump::new();
-    let builder = AstBuilder::new(&bump);
-
-    let key = vec![
-        DottedIdent {
-            ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos::new(0, 0), 1)),
-            dot: Some(Pos::new(0, 1)),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("b", Span::from_pos_len(Pos::new(0, 2), 1)),
-            dot: Some(Pos::new(0, 3)),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("c", Span::from_pos_len(Pos::new(0, 4), 1)),
-            dot: None,
-        },
-    ];
-    let value = IntVal {
-        lit_span: Span::from_pos_len(Pos::new(0, 8), 1),
-        val: 1,
-    };
-    let assignment = twrap(
-        builder.empty_comments(1),
-        Assignment {
-            key: Key::Dotted(&key),
-            eq: Pos::new(0, 6),
-            val: Value::Int(value.clone()),
-        },
-    );
-
-    #[rustfmt::skip]
-    check(
-        text,
-        MapTable::from_pairs(
-            [("a", MapTableEntry::new(
-                MapNode::Table(MapTable::from_pairs(
-                    [("b", MapTableEntry::new(
-                        MapNode::Table(MapTable::from_pairs(
-                            [("c", MapTableEntry::new(
-                                MapNode::Scalar(Scalar::Int(&value)),
-                                MapTableEntryRepr::new(
-                                    MapTableKeyRepr::Dotted(2, &key),
-                                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                                ),
-                            ))],
-                            OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
-                        )),
-                        MapTableEntryRepr::new(
-                            ParentThingy(0),
-                            MapTableKeyRepr::Dotted(1, &key),
-                            MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                        ),
-                    ))],
-                    OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
-                )),
-                MapTableEntryRepr::new(
-                    ROOT_PARENT,
-                    MapTableKeyRepr::Dotted(0, &key),
-                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                ),
-            ))],
-            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(0, 9)))),
-        ),
+    check_simple(
+        "a.b.c = 1",
+        SimpleMap::from_iter([(
+            "a".into(),
+            SimpleVal::Table(SimpleMap::from_iter([(
+                "b".into(),
+                SimpleVal::Table(SimpleMap::from_iter([("c".into(), SimpleVal::Int(1))])),
+            )])),
+        )]),
     );
 }
 
 #[test]
 fn dotted_keys_extend() {
-    let text = "\
+    check_simple(
+        "\
 a.b.c = 1
 a.b.d = 2
-";
-    let bump = Bump::new();
-    let builder = AstBuilder::new(&bump);
-
-    let key1 = [
-        DottedIdent {
-            ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos::new(0, 0), 1)),
-            dot: Some(Pos::new(0, 1)),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("b", Span::from_pos_len(Pos::new(0, 2), 1)),
-            dot: Some(Pos::new(0, 3)),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("c", Span::from_pos_len(Pos::new(0, 4), 1)),
-            dot: None,
-        },
-    ];
-    let value1 = IntVal {
-        lit_span: Span::from_pos_len(Pos::new(0, 8), 1),
-        val: 1,
-    };
-    let assignment1 = twrap(
-        builder.empty_comments(1),
-        Assignment {
-            key: Key::Dotted(&key1),
-            eq: Pos::new(0, 6),
-            val: Value::Int(value1.clone()),
-        },
-    );
-
-    let key2 = [
-        DottedIdent {
-            ident: Ident::from_plain_lit("a", Span::from_pos_len(Pos::new(1, 0), 1)),
-            dot: Some(Pos::new(1, 1)),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("b", Span::from_pos_len(Pos::new(1, 2), 1)),
-            dot: Some(Pos::new(1, 3)),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("d", Span::from_pos_len(Pos::new(1, 4), 1)),
-            dot: None,
-        },
-    ];
-    let value2 = IntVal {
-        lit_span: Span::from_pos_len(Pos::new(1, 8), 1),
-        val: 2,
-    };
-    let assignment2 = twrap(
-        builder.empty_comments(1),
-        Assignment {
-            key: Key::Dotted(&key2),
-            eq: Pos::new(1, 6),
-            val: Value::Int(value2.clone()),
-        },
-    );
-
-    #[rustfmt::skip]
-    check(
-        text,
-        MapTable::from_pairs(
-            [("a", MapTableEntry::new_lskfdj(
-                MapNode::Table(MapTable::from_pairs(
-                    [("b", MapTableEntry::new_lskfdj(
-                        MapNode::Table(MapTable::from_pairs(
-                            [
-                                ("c", MapTableEntry::new(
-                                    MapNode::Scalar(Scalar::Int(&value1)),
-                                    MapTableEntryRepr::new(
-                                        ParentThingy(0),
-                                        MapTableKeyRepr::Dotted(2, &key1),
-                                        MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                                    ),
-                                )),
-                                ("d", MapTableEntry::new(
-                                    MapNode::Scalar(Scalar::Int(&value2)),
-                                    MapTableEntryRepr::new(
-                                        ParentThingy(1),
-                                        MapTableKeyRepr::Dotted(2, &key2),
-                                        MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                                    ),
-                                )),
-                            ],
-                            onevec![
-                                MapTableRepr::ToplevelAssignment(&assignment1),
-                                MapTableRepr::ToplevelAssignment(&assignment2),
-                            ],
-                        )),
-                        onevec![
-                            MapTableEntryRepr::new(
-                                ParentThingy(0),
-                                MapTableKeyRepr::Dotted(1, &key1),
-                                MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                            ),
-                            MapTableEntryRepr::new(
-                                ParentThingy(1),
-                                MapTableKeyRepr::Dotted(1, &key2),
-                                MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                            ),
-                        ],
-                    ))],
-                    onevec![
-                        MapTableRepr::ToplevelAssignment(&assignment1),
-                        MapTableRepr::ToplevelAssignment(&assignment2),
-                    ],
-                )),
-                onevec![
-                    MapTableEntryRepr::new(
-                        ROOT_PARENT,
-                        MapTableKeyRepr::Dotted(0, &key1),
-                        MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                    ),
-                    MapTableEntryRepr::new(
-                        ROOT_PARENT,
-                        MapTableKeyRepr::Dotted(0, &key2),
-                        MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                    ),
-                ],
-            ))],
-            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(1, 9))))
-        ),
+",
+        SimpleMap::from_iter([(
+            "a".into(),
+            SimpleVal::Table(SimpleMap::from_iter([(
+                "b".into(),
+                SimpleVal::Table(SimpleMap::from_iter([
+                    ("c".into(), SimpleVal::Int(1)),
+                    ("d".into(), SimpleVal::Int(2)),
+                ])),
+            )])),
+        )]),
     );
 }
 
 #[test]
 fn table() {
-    let text = "\
+    check_simple(
+        "\
 [mytable]
 abc = true
 def = 23.0
-";
-
-    let table_key = Ident::from_plain_lit("mytable", Span::from_pos_len(Pos::new(0, 1), 7));
-    let bump = Bump::new();
-    let builder = AstBuilder::new(&bump);
-
-    let key1 = Ident::from_plain_lit("abc", Span::from_pos_len(Pos::new(1, 0), 3));
-    let value1 = BoolVal {
-        lit_span: Span::from_pos_len(Pos::new(1, 6), 4),
-        val: true,
-    };
-    let assignment1 = twrap(
-        builder.empty_comments(2),
-        Assignment {
-            key: Key::One(key1.clone()),
-            eq: Pos::new(1, 4),
-            val: Value::Bool(value1.clone()),
-        },
-    );
-
-    let key2 = Ident::from_plain_lit("def", Span::from_pos_len(Pos::new(2, 0), 3));
-    let value2 = FloatVal {
-        lit_span: Span::from_pos_len(Pos::new(2, 6), 4),
-        val: 23.0,
-    };
-    let assignment2 = twrap(
-        builder.empty_comments(2),
-        Assignment {
-            key: Key::One(key2.clone()),
-            eq: Pos::new(2, 4),
-            val: Value::Float(value2.clone()),
-        },
-    );
-
-    let table = Table {
-        comments: builder.empty_comments(1),
-        header: TableHeader::new(
-            Pos::new(0, 0),
-            Some(Key::One(table_key.clone())),
-            Some(Pos::new(0, 8)),
-        ),
-        assignments: vec![assignment1.clone(), assignment2.clone()],
-        mapped: CyclicCell::new(),
-    };
-
-    #[rustfmt::skip]
-    check(
-        text,
-        MapTable::from_pairs(
-            [("mytable", MapTableEntry::new(
-                MapNode::Table(MapTable::from_pairs(
-                    [
-                        (
-                            "abc",
-                            MapTableEntry::new(
-                                MapNode::Scalar(Scalar::Bool(&value1)),
-                                MapTableEntryRepr::new(
-                                ParentThingy(0),
-                                    MapTableKeyRepr::One(&key1),
-                                    MapTableEntryReprKind::ToplevelAssignment(&assignment1),
-                                ),
-                            ),
-                        ),
-                        (
-                            "def",
-                            MapTableEntry::new(
-                                MapNode::Scalar(Scalar::Float(&value2)),
-                                MapTableEntryRepr::new(
-                                    ParentThingy(0),
-                                    MapTableKeyRepr::One(&key2),
-                                    MapTableEntryReprKind::ToplevelAssignment(&assignment2),
-                                ),
-                            ),
-                        ),
-                    ],
-                    OneVec::new(MapTableRepr::Table(&table)),
-                )),
-                MapTableEntryRepr::new(
-                    ROOT_PARENT,
-                    MapTableKeyRepr::One(&table_key),
-                    MapTableEntryReprKind::Table(&table),
-                ),
-            ))],
-            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(2, 10)))),
-        ),
+",
+        SimpleMap::from_iter([(
+            "mytable".into(),
+            SimpleVal::Table(SimpleMap::from_iter([
+                ("abc".into(), SimpleVal::Bool(true)),
+                ("def".into(), SimpleVal::Float(23.0)),
+            ])),
+        )]),
     );
 }
 
 #[test]
 fn inline_array() {
-    let text = "array = [4, 8, 16]";
-    let bump = Bump::new();
-    let builder = AstBuilder::new(&bump);
-
-    let value1 = IntVal {
-        lit_span: Span::from_pos_len(Pos::new(0, 9), 1),
-        val: 4,
-    };
-    let inline_array_value1 = InlineArrayValue {
-        comments: builder.empty_comments(3),
-        val: Value::Int(value1.clone()),
-        comma: Some(Pos::new(0, 10)),
-    };
-
-    let value2 = IntVal {
-        lit_span: Span::from_pos_len(Pos::new(0, 12), 1),
-        val: 8,
-    };
-    let inline_array_value2 = InlineArrayValue {
-        comments: builder.empty_comments(3),
-        val: Value::Int(value2.clone()),
-        comma: Some(Pos::new(0, 13)),
-    };
-
-    let value3 = IntVal {
-        lit_span: Span::from_pos_len(Pos::new(0, 15), 2),
-        val: 16,
-    };
-    let inline_array_value3 = InlineArrayValue {
-        comments: builder.empty_comments(3),
-        val: Value::Int(value3.clone()),
-        comma: None,
-    };
-
-    let array_key = Ident::from_plain_lit("array", Span::from_pos_len(Pos::new(0, 0), 5));
-    let array = InlineArray {
-        comments: builder.empty_comments(2),
-        l_par: Pos::new(0, 8),
-        values: vec![
-            inline_array_value1.clone(),
-            inline_array_value2.clone(),
-            inline_array_value3.clone(),
-        ],
-        end: End::Par(Pos::new(0, 17)),
-    };
-    let assignment = twrap(
-        builder.empty_comments(1),
-        Assignment {
-            key: Key::One(array_key.clone()),
-            eq: Pos::new(0, 6),
-            val: Value::InlineArray(array.clone()),
-        },
-    );
-
-    #[rustfmt::skip]
-    check(
-        text,
-        MapTable::from_pairs(
-            [("array", MapTableEntry::new(
-                MapNode::Array(MapArray::Inline(MapArrayInline::from_iter(ParentThingy(0), &array, [
-                    MapArrayInlineEntry::new(
-                        MapNode::Scalar(Scalar::Int(&value1)),
-                        &inline_array_value1,
-                    ),
-                    MapArrayInlineEntry::new(
-                        MapNode::Scalar(Scalar::Int(&value2)),
-                        &inline_array_value2,
-                    ),
-                    MapArrayInlineEntry::new(
-                        MapNode::Scalar(Scalar::Int(&value3)),
-                        &inline_array_value3,
-                    ),
-                ]))),
-                MapTableEntryRepr::new(
-                    ROOT_PARENT,
-                    MapTableKeyRepr::One(&array_key),
-                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                ),
-            ))],
-            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(0, 18))))
-        ),
+    check_simple(
+        "array = [4, 8, 16]",
+        SimpleMap::from_iter([(
+            "array".into(),
+            SimpleVal::Array(vec![
+                SimpleVal::Int(4),
+                SimpleVal::Int(8),
+                SimpleVal::Int(16),
+            ]),
+        )]),
     );
 }
 
@@ -452,69 +105,20 @@ symbol = '£'
                 ])),
             ]),
         )]),
-    )
+    );
 }
 
 #[test]
 fn table_cannot_extend_dotted_key_of_assignment() {
-    let text = "\
+    check_simple_error(
+        "\
 fruit.apple = 3
 [fruit]
-";
-    let bump = Bump::new();
-    let builder = AstBuilder::new(&bump);
-
-    let key = [
-        DottedIdent {
-            ident: Ident::from_plain_lit("fruit", Span::from_pos_len(Pos::new(0, 0), 5)),
-            dot: Some(Pos::new(0, 5)),
-        },
-        DottedIdent {
-            ident: Ident::from_plain_lit("apple", Span::from_pos_len(Pos::new(0, 6), 5)),
-            dot: None,
-        },
-    ];
-    let value = IntVal {
-        lit_span: Span::from_pos_len(Pos::new(0, 14), 1),
-        val: 3,
-    };
-    let assignment = twrap(
-        builder.empty_comments(1),
-        Assignment {
-            key: Key::Dotted(&key),
-            eq: Pos::new(0, 12),
-            val: Value::Int(value.clone()),
-        },
-    );
-    check_error(
-        text,
-        MapTable::from_pairs(
-            [(
-                "fruit",
-                MapTableEntry::new(
-                    MapNode::Table(MapTable::from_pairs(
-                        [(
-                            "apple",
-                            MapTableEntry::new(
-                                MapNode::Scalar(Scalar::Int(&value)),
-                                MapTableEntryRepr::new(
-                                    ParentThingy(0),
-                                    MapTableKeyRepr::Dotted(1, &key),
-                                    MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                                ),
-                            ),
-                        )],
-                        OneVec::new(MapTableRepr::ToplevelAssignment(&assignment)),
-                    )),
-                    MapTableEntryRepr::new(
-                        ROOT_PARENT,
-                        MapTableKeyRepr::Dotted(0, &key),
-                        MapTableEntryReprKind::ToplevelAssignment(&assignment),
-                    ),
-                ),
-            )],
-            OneVec::new(MapTableRepr::Root(Span::new(Pos::ZERO, Pos::new(1, 7)))),
-        ),
+",
+        SimpleMap::from_iter([(
+            "fruit".into(),
+            SimpleVal::Table(SimpleMap::from_iter([("apple".into(), SimpleVal::Int(3))])),
+        )]),
         Error::DuplicateKey {
             lines: Box::new([]),
             path: "fruit".into(),
@@ -776,7 +380,7 @@ fn toml_test_repro_append_with_dotted_keys_1() {
         Error::CannotExtendTableWithDottedKey {
             lines: Box::new([0, 3]),
             path: "a.b".into(),
-            orig: Span::new(Pos { line: 0, char: 0 }, Pos { line: 1, char: 7 }),
+            orig: Span::new(Pos { line: 0, char: 0 }, Pos { line: 0, char: 7 }),
             new: Span::from_pos_len(Pos { line: 4, char: 2 }, 1),
         },
     );

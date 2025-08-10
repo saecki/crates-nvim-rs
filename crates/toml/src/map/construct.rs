@@ -1,10 +1,12 @@
 use bumpalo::Bump;
+use common::Span;
 use indexmap::map::Entry::{Occupied, Vacant};
 use indexmap::map::VacantEntry;
 
 use crate::map::parent::{
-    Incomplete, ParentInlineArray, ParentInlineArrayEntry, ParentTableEntry, ParentToplevelArray,
-    ParentToplevelArrayEntry, ParentToplevelArrayExtensionEntry, ReprIdx, cyclic, cyclic_slice,
+    Complete, Incomplete, ParentInlineArray, ParentInlineArrayEntry, ParentTableEntry,
+    ParentToplevelArray, ParentToplevelArrayEntry, ParentToplevelArrayExtensionEntry, ReprIdx,
+    cyclic, cyclic_slice,
 };
 use crate::map::{
     MapArray, MapArrayInline, MapArrayInlineEntry, MapArrayToplevel, MapArrayToplevelEntry,
@@ -19,21 +21,25 @@ use crate::{Ast, MapTable};
 
 #[derive(Default)]
 pub struct Mapper<'a> {
-    pub errors: Vec<MapError<'a>>,
+    pub errors: Vec<MapError<'a, Incomplete>>,
 }
 
 impl<'a> Mapper<'a> {
-    pub fn error(&mut self, error: MapError<'a>) {
+    pub fn error(&mut self, error: MapError<'a, Incomplete>) {
         self.errors.push(error);
     }
 }
 
 // TODO: set `mapped` references in Ast
-pub fn map<'a>(ctx: &mut Mapper<'a>, bump: &'a Bump, ast: &'_ Ast<'a>) -> &'a MapTable<'a> {
+pub fn map<'a>(
+    bump: &'a Bump,
+    ast: &'_ Ast<'a>,
+) -> (Vec<MapError<'a, Complete>>, &'a MapTable<'a>) {
+    let mut ctx = Mapper::default();
     let root = cyclic::<MapTable<'a, Incomplete>>(bump, |ptr| {
+        let parent = ParentTable::new(ptr, ReprIdx(0));
         let mut root = MapTable::new(MapTableRepr::Root(ast.span));
-        for (t, i) in ast.toplevel.iter().zip(0..) {
-            let parent = ParentTable::new(ptr, ReprIdx(i));
+        for t in ast.toplevel.iter() {
             let (key, value) = match t {
                 Toplevel::Assignment(assignment) => {
                     let key = &assignment.assignment.key;
@@ -54,14 +60,17 @@ pub fn map<'a>(ctx: &mut Mapper<'a>, bump: &'a Bump, ast: &'_ Ast<'a>) -> &'a Ma
                 }
             };
 
-            insert_node_at_path(ctx, &bump, parent, &mut root.inner, key, value);
+            insert_node_at_path(&mut ctx, &bump, parent, &mut root.inner, key, value);
         }
         root
     });
 
     // SAFETY: The map has been fully constructed, and all cyclic references
     // should be valid. The generic tag doesn't have any effect on memory layout.
-    unsafe { std::mem::transmute(root) }
+    let root = unsafe { std::mem::transmute(root) };
+    let errors = unsafe { std::mem::transmute(ctx.errors) };
+
+    (errors, root)
 }
 
 /// Value to be lazily mapped and inserted
@@ -299,7 +308,7 @@ fn insert_node<'a>(
     key: &'a Ident<'a>,
     value: InsertValue<'a>,
     repr: MapTableEntryRepr<'a, Incomplete>,
-) -> Result<(), MapError<'a>> {
+) -> Result<(), MapError<'a, Incomplete>> {
     let mut existing_entry = match map.entry(key.text) {
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
@@ -340,7 +349,7 @@ fn insert_table<'a>(
     parent_entry: ParentEntry<'a, Incomplete>,
     table: &'a Table<'a>,
     repr: MapTableEntryRepr<'a, Incomplete>,
-) -> Result<(), MapError<'a>> {
+) -> Result<(), MapError<'a, Incomplete>> {
     let mut existing_table = match &mut existing_entry.node {
         MapNode::Table(table) => table,
         MapNode::Array(_) | MapNode::Scalar(_) => {
@@ -351,7 +360,8 @@ fn insert_table<'a>(
             ));
         }
     };
-    for existing_repr in existing_entry.reprs.iter() {
+    // The last repr is the one that is currently being inserted.
+    for existing_repr in existing_entry.reprs[..existing_entry.reprs.len() - 1].iter() {
         match existing_repr.kind {
             MapTableEntryReprKind::Table(_) | MapTableEntryReprKind::ArrayEntry(_)
                 if !existing_repr.key.is_last_ident() =>
@@ -396,7 +406,7 @@ fn insert_array_entry<'a>(
     parent_entry: ParentEntry<'a, Incomplete>,
     array_repr: &'a ArrayEntry<'a>,
     repr: MapTableEntryRepr<'a, Incomplete>,
-) -> Result<(), MapError<'a>> {
+) -> Result<(), MapError<'a, Incomplete>> {
     let mut array = match &mut existing_entry.node {
         MapNode::Array(MapArray::Toplevel(a)) => a,
         MapNode::Array(MapArray::Inline(_)) => {
@@ -470,7 +480,7 @@ fn get_table_to_extend<'a, 'b>(
         ParentTable<'a, Incomplete>,
         &'b mut MapInner<'a, Incomplete>,
     ),
-    MapError<'a>,
+    MapError<'a, Incomplete>,
 > {
     let parent_table_entry = ParentTableEntry::insert_repr(bump, &mut entry, repr);
 
@@ -486,7 +496,8 @@ fn get_table_to_extend<'a, 'b>(
                     MapErrorKind::CannotExtendArrayWithDottedKey,
                     entry.reprs.first(),
                     &repr,
-                ));
+                )
+                .with_orig_span(array.inner.first().definition.header.span()));
             }
 
             // From the toml spec (https://toml.io/en/v1.0.0#array-of-tables):
@@ -524,13 +535,14 @@ fn get_table_to_extend<'a, 'b>(
 
     for existing in entry.reprs.iter() {
         match &existing.kind {
-            MapTableEntryReprKind::Table(_) => {
+            MapTableEntryReprKind::Table(table) => {
                 if repr.kind.is_assignment() {
                     return Err(map_error(
                         MapErrorKind::CannotExtendTableWithDottedKey,
                         entry.reprs.first(),
                         &repr,
-                    ));
+                    )
+                    .with_orig_span(table.header.span()));
                 }
             }
             MapTableEntryReprKind::ArrayEntry(_) => (),
@@ -551,12 +563,20 @@ fn get_table_to_extend<'a, 'b>(
     Ok((parent, &mut map.inner))
 }
 
-pub struct MapError<'a, S = Incomplete> {
+pub struct MapError<'a, S = Complete> {
     pub kind: MapErrorKind,
     pub orig_parent: ParentTable<'a, S>,
     pub orig_ident: &'a Ident<'a>,
+    pub orig_span: Option<Span>,
     pub new_parent: ParentTable<'a, S>,
     pub new_ident: &'a Ident<'a>,
+}
+
+impl<'a, S> MapError<'a, S> {
+    pub fn with_orig_span(mut self, span: Span) -> Self {
+        self.orig_span = Some(span);
+        self
+    }
 }
 
 pub enum MapErrorKind {
@@ -577,6 +597,7 @@ fn map_error<'a>(
         kind,
         orig_parent: original.parent,
         orig_ident: original.key.repr_ident(),
+        orig_span: None,
         new_parent: duplicate.parent,
         new_ident: duplicate.key.repr_ident(),
     }

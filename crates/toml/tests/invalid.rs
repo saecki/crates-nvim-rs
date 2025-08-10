@@ -261,7 +261,7 @@ fn run_case(text: &str) -> Result<SimpleMap, String> {
     let bump = Bump::new();
     let tokens = ctx.lex(&bump, "<fixture>", text);
     let ast = ctx.parse(&bump, tokens);
-    let map = ctx.map(&ast);
+    let map = ctx.map(&bump, &ast);
 
     if !ctx.errors.is_empty() {
         ctx.sort_diagnostics();

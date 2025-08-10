@@ -6,7 +6,8 @@ use crate::Quote;
 use crate::datetime::DateTime;
 use crate::lex::TextOffset;
 use crate::map::parent::{
-    ManuallySyncCell, ParentTable, ParentTableEntry, ParentToplevelArrayEntry,
+    ManuallySyncCell, ParentInlineArray, ParentInlineArrayEntry, ParentTable, ParentTableEntry,
+    ParentToplevelArrayEntry,
 };
 
 #[derive(Debug, PartialEq)]
@@ -591,6 +592,8 @@ pub struct InlineTable<'a> {
     // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub assignments: Vec<InlineTableAssignment<'a>>,
     pub end: End,
+
+    pub(crate) mapped: ManuallySyncCell<ParentTable<'a>>,
 }
 
 impl InlineTable<'_> {
@@ -650,6 +653,8 @@ pub struct InlineArray<'a> {
     // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
     pub values: Vec<InlineArrayValue<'a>>,
     pub end: End,
+
+    pub(crate) mapped: ManuallySyncCell<ParentInlineArray<'a>>,
 }
 
 impl InlineArray<'_> {
@@ -703,6 +708,8 @@ pub struct InlineArrayValue<'a> {
     pub comments: CommentRange,
     pub val: Value<'a>,
     pub comma: Option<Pos>,
+
+    pub(crate) mapped: ManuallySyncCell<ParentInlineArrayEntry<'a>>,
 }
 
 impl InlineArrayValue<'_> {
