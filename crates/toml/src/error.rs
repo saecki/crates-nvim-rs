@@ -764,7 +764,7 @@ impl DiagnosticHint for Hint {
             CannotExtendInlineTable(_) => write!(f, "original table defined here"),
             CannotExtendInlineArray(_) => write!(f, "original array defined here"),
             CannotExtendInlineArrayAsTable(_) => write!(f, "original array defined here"),
-            CannotExtendTableWithDottedKey(_) => write!(f, "original array defined here"),
+            CannotExtendTableWithDottedKey(_) => write!(f, "original table defined here"),
             CannotExtendArrayWithDottedKey(_) => write!(f, "original array defined here"),
         }
     }

@@ -336,6 +336,7 @@ fn insert_node<'a>(
             Err(map_error(
                 MapErrorKind::DuplicateKey,
                 existing_entry.reprs.first(),
+                None,
                 &repr,
             ))
         }
@@ -356,6 +357,7 @@ fn insert_table<'a>(
             return Err(map_error(
                 MapErrorKind::DuplicateKey,
                 existing_entry.reprs.first(),
+                None,
                 &repr,
             ));
         }
@@ -372,7 +374,12 @@ fn insert_table<'a>(
             | MapTableEntryReprKind::ArrayEntry(_)
             | MapTableEntryReprKind::ToplevelAssignment(_)
             | MapTableEntryReprKind::InlineTableAssignment(_) => {
-                return Err(map_error(MapErrorKind::DuplicateKey, existing_repr, &repr));
+                return Err(map_error(
+                    MapErrorKind::DuplicateKey,
+                    existing_repr,
+                    None,
+                    &repr,
+                ));
             }
         }
     }
@@ -410,9 +417,11 @@ fn insert_array_entry<'a>(
     let mut array = match &mut existing_entry.node {
         MapNode::Array(MapArray::Toplevel(a)) => a,
         MapNode::Array(MapArray::Inline(_)) => {
+            let orig = existing_entry.reprs.first();
             return Err(map_error(
                 MapErrorKind::CannotExtendInlineArray,
-                existing_entry.reprs.first(),
+                orig,
+                Some(orig.repr_span()),
                 &repr,
             ));
         }
@@ -420,6 +429,7 @@ fn insert_array_entry<'a>(
             return Err(map_error(
                 MapErrorKind::DuplicateKey,
                 existing_entry.reprs.first(),
+                None,
                 &repr,
             ));
         }
@@ -495,9 +505,9 @@ fn get_table_to_extend<'a, 'b>(
                 return Err(map_error(
                     MapErrorKind::CannotExtendArrayWithDottedKey,
                     entry.reprs.first(),
+                    Some(array.inner.first().definition.header.span()),
                     &repr,
-                )
-                .with_orig_span(array.inner.first().definition.header.span()));
+                ));
             }
 
             // From the toml spec (https://toml.io/en/v1.0.0#array-of-tables):
@@ -518,9 +528,11 @@ fn get_table_to_extend<'a, 'b>(
             (parent, map)
         }
         MapNode::Array(MapArray::Inline(_)) => {
+            let orig = entry.reprs.first();
             return Err(map_error(
                 MapErrorKind::CannotExtendInlineArrayAsTable,
-                entry.reprs.first(),
+                orig,
+                Some(orig.repr_span()),
                 &repr,
             ));
         }
@@ -528,6 +540,7 @@ fn get_table_to_extend<'a, 'b>(
             return Err(map_error(
                 MapErrorKind::DuplicateKey,
                 entry.reprs.first(),
+                None,
                 &repr,
             ));
         }
@@ -540,9 +553,9 @@ fn get_table_to_extend<'a, 'b>(
                     return Err(map_error(
                         MapErrorKind::CannotExtendTableWithDottedKey,
                         entry.reprs.first(),
+                        Some(table.header.span()),
                         &repr,
-                    )
-                    .with_orig_span(table.header.span()));
+                    ));
                 }
             }
             MapTableEntryReprKind::ArrayEntry(_) => (),
@@ -550,9 +563,11 @@ fn get_table_to_extend<'a, 'b>(
             | MapTableEntryReprKind::InlineTableAssignment(_) => {
                 if existing.key.is_last_ident() {
                     // `map` is an inline table
+                    let orig = entry.reprs.first();
                     return Err(map_error(
                         MapErrorKind::CannotExtendInlineTable,
-                        entry.reprs.first(),
+                        orig,
+                        Some(orig.repr_span()),
                         &repr,
                     ));
                 }
@@ -566,17 +581,9 @@ fn get_table_to_extend<'a, 'b>(
 pub struct MapError<'a, S = Complete> {
     pub kind: MapErrorKind,
     pub orig_parent: ParentTable<'a, S>,
-    pub orig_ident: &'a Ident<'a>,
-    pub orig_span: Option<Span>,
+    pub orig_span: Span,
     pub new_parent: ParentTable<'a, S>,
     pub new_ident: &'a Ident<'a>,
-}
-
-impl<'a, S> MapError<'a, S> {
-    pub fn with_orig_span(mut self, span: Span) -> Self {
-        self.orig_span = Some(span);
-        self
-    }
 }
 
 pub enum MapErrorKind {
@@ -590,15 +597,15 @@ pub enum MapErrorKind {
 
 fn map_error<'a>(
     kind: MapErrorKind,
-    original: &MapTableEntryRepr<'a, Incomplete>,
-    duplicate: &MapTableEntryRepr<'a, Incomplete>,
+    orig: &MapTableEntryRepr<'a, Incomplete>,
+    orig_span: Option<Span>,
+    new: &MapTableEntryRepr<'a, Incomplete>,
 ) -> MapError<'a, Incomplete> {
     MapError {
         kind,
-        orig_parent: original.parent,
-        orig_ident: original.key.repr_ident(),
-        orig_span: None,
-        new_parent: duplicate.parent,
-        new_ident: duplicate.key.repr_ident(),
+        orig_parent: orig.parent,
+        orig_span: orig_span.unwrap_or(orig.key.repr_ident().lit_span()),
+        new_parent: new.parent,
+        new_ident: new.key.repr_ident(),
     }
 }

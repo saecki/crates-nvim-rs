@@ -592,7 +592,7 @@ fn set_mapped_node<'a>(node: &'a MapNode<'a>) {
 fn convert_error(error: MapError<Complete>) -> Error {
     let lines = context_lines([error.orig_parent, error.new_parent]);
     let path = joined_path(error.new_parent, error.new_ident);
-    let orig = error.orig_span.unwrap_or(error.orig_ident.lit_span());
+    let orig = error.orig_span;
     let new = error.new_ident.lit_span();
 
     match error.kind {
