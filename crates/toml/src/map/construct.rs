@@ -170,12 +170,13 @@ fn map_value<'a>(
         Value::DateTime(d) => MapNode::Scalar(Scalar::DateTime(d)),
         Value::InlineTable(table) => {
             let map = cyclic(bump, |ptr| {
+                let parent = ParentTable::new(ptr, ReprIdx(0));
                 let mut map = MapTable::new(MapTableRepr::InlineTable(table, parent_entry));
-                for (assignment, i) in table.assignments.iter().zip(0..) {
+                for assignment in table.assignments.iter() {
                     insert_node_at_path(
                         ctx,
                         bump,
-                        ParentTable::new(ptr, ReprIdx(i)),
+                        parent,
                         &mut map.inner,
                         &assignment.assignment.key,
                         InsertValue::InlineTableAssignment(assignment),
