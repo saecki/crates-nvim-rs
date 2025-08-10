@@ -421,10 +421,10 @@ pub fn lex<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, path: &'a str, text: &'a 
 
     // If last line is empty (trailing newline), set the EOF position to the previous line end.
     let mut eof_pos = lexer.pos();
-    if let Some(token) = lexer.tokens.last() {
-        if token.ty == TokenType::Newline {
-            eof_pos = token.start;
-        }
+    if let Some(token) = lexer.tokens.last()
+        && token.ty == TokenType::Newline
+    {
+        eof_pos = token.start;
     }
     let eof = Token {
         ty: TokenType::EOF,

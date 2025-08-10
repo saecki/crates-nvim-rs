@@ -436,12 +436,12 @@ impl<'a, S> MapArrayInline<'a, S> {
         self.inner.len() == 0
     }
 
-    pub fn get(&self, idx: usize) -> Option<&MapArrayInlineEntry<'a, S>> {
+    pub fn get(&self, idx: usize) -> Option<&'a MapArrayInlineEntry<'a, S>> {
         self.inner.get(idx)
     }
 
-    pub fn as_slice(&self) -> &[MapArrayInlineEntry<'a, S>] {
-        &self.inner
+    pub fn as_slice(&self) -> &'a [MapArrayInlineEntry<'a, S>] {
+        self.inner
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &'a MapArrayInlineEntry<'a, S>> {
@@ -456,7 +456,7 @@ impl<'a, I: std::slice::SliceIndex<[MapArrayInlineEntry<'a>]>> std::ops::Index<I
 
     #[inline]
     fn index(&self, index: I) -> &Self::Output {
-        std::ops::Index::index(&*self.inner, index)
+        std::ops::Index::index(self.inner, index)
     }
 }
 
@@ -562,7 +562,7 @@ fn set_mapped_toplevel_array<'a>(array: &'a MapArrayToplevel<'a>) {
         // SAFETY: The maptable was just constructed, on a single thread.
         unsafe { entry.definition.mapped.set(parent_entry) };
 
-        set_mapped_table(&entry.node);
+        set_mapped_table(entry.node);
     }
 }
 

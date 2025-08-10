@@ -30,7 +30,6 @@ impl<'a> Mapper<'a> {
     }
 }
 
-// TODO: set `mapped` references in Ast
 pub fn map<'a>(
     bump: &'a Bump,
     ast: &'_ Ast<'a>,
@@ -60,17 +59,19 @@ pub fn map<'a>(
                 }
             };
 
-            insert_node_at_path(&mut ctx, &bump, parent, &mut root.inner, key, value);
+            insert_node_at_path(&mut ctx, bump, parent, &mut root.inner, key, value);
         }
         root
     });
 
     // SAFETY: The map has been fully constructed, and all cyclic references
     // should be valid. The generic tag doesn't have any effect on memory layout.
-    let root = unsafe { std::mem::transmute(root) };
-    let errors = unsafe { std::mem::transmute(ctx.errors) };
-
-    (errors, root)
+    unsafe {
+        (
+            std::mem::transmute::<Vec<MapError<Incomplete>>, Vec<MapError<Complete>>>(ctx.errors),
+            std::mem::transmute::<&mut MapTable<Incomplete>, &mut MapTable<Complete>>(root),
+        )
+    }
 }
 
 /// Value to be lazily mapped and inserted
@@ -236,7 +237,7 @@ fn insert_node_at_path<'a>(
             }
         };
 
-        let key_repr = MapTableKeyRepr::Dotted(i as u32, idents);
+        let key_repr = MapTableKeyRepr::Dotted(i, idents);
         let repr = MapTableEntryRepr::new(parent, key_repr, value.repr_kind());
         match get_table_to_extend(bump, entry, repr) {
             Ok((next_parent, next)) => {
@@ -309,7 +310,7 @@ fn insert_node<'a>(
     value: InsertValue<'a>,
     repr: MapTableEntryRepr<'a, Incomplete>,
 ) -> Result<(), MapError<'a, Incomplete>> {
-    let mut existing_entry = match map.entry(key.text) {
+    let existing_entry = match map.entry(key.text) {
         Occupied(occupied) => occupied.into_mut(),
         Vacant(vacant) => {
             let table_entry = cyclic(bump, |ptr| {
@@ -323,7 +324,7 @@ fn insert_node<'a>(
     };
 
     // TODO: Should happen only if the entry is inserted?
-    let parent_entry = ParentTableEntry::insert_repr(bump, &mut existing_entry, repr).wrap();
+    let parent_entry = ParentTableEntry::insert_repr(bump, existing_entry, repr).wrap();
 
     match value {
         InsertValue::Table(table) => {
@@ -351,7 +352,7 @@ fn insert_table<'a>(
     table: &'a Table<'a>,
     repr: MapTableEntryRepr<'a, Incomplete>,
 ) -> Result<(), MapError<'a, Incomplete>> {
-    let mut existing_table = match &mut existing_entry.node {
+    let existing_table = match &mut existing_entry.node {
         MapNode::Table(table) => table,
         MapNode::Array(_) | MapNode::Scalar(_) => {
             return Err(map_error(
@@ -390,11 +391,7 @@ fn insert_table<'a>(
     //
     // [a.b] # this would be the super table
     // ```
-    let parent = ParentTable::insert_repr(
-        bump,
-        &mut existing_table,
-        repr.kind.table_repr(parent_entry),
-    );
+    let parent = ParentTable::insert_repr(bump, existing_table, repr.kind.table_repr(parent_entry));
     insert_top_level_assignments(
         ctx,
         bump,
@@ -414,7 +411,7 @@ fn insert_array_entry<'a>(
     array_repr: &'a ArrayEntry<'a>,
     repr: MapTableEntryRepr<'a, Incomplete>,
 ) -> Result<(), MapError<'a, Incomplete>> {
-    let mut array = match &mut existing_entry.node {
+    let array = match &mut existing_entry.node {
         MapNode::Array(MapArray::Toplevel(a)) => a,
         MapNode::Array(MapArray::Inline(_)) => {
             let orig = existing_entry.reprs.first();
@@ -435,7 +432,7 @@ fn insert_array_entry<'a>(
         }
     };
 
-    let parent = ParentToplevelArray::new_from(bump, &mut array);
+    let parent = ParentToplevelArray::new_from(bump, array);
 
     let array_entry = cyclic(bump, |ptr| {
         let parent_array_entry = ParentToplevelArrayEntry::new(ptr).wrap();
@@ -483,7 +480,7 @@ fn insert_top_level_assignments<'a>(
 
 fn get_table_to_extend<'a, 'b>(
     bump: &'a Bump,
-    mut entry: &'b mut &'a mut MapTableEntry<'a, Incomplete>,
+    entry: &'b mut &'a mut MapTableEntry<'a, Incomplete>,
     repr: MapTableEntryRepr<'a, Incomplete>,
 ) -> Result<
     (
@@ -492,7 +489,7 @@ fn get_table_to_extend<'a, 'b>(
     ),
     MapError<'a, Incomplete>,
 > {
-    let parent_table_entry = ParentTableEntry::insert_repr(bump, &mut entry, repr);
+    let parent_table_entry = ParentTableEntry::insert_repr(bump, entry, repr);
 
     let (parent, map) = match &mut entry.node {
         MapNode::Table(map) => {
@@ -516,11 +513,10 @@ fn get_table_to_extend<'a, 'b>(
             // sub-tables, and even sub-arrays of tables, inside the most recent
             // table.
 
-            let mut array_entry = array.inner.last_mut();
+            let array_entry = array.inner.last_mut();
 
             let parent_extension_entry =
-                ParentToplevelArrayExtensionEntry::insert(&mut array_entry, parent_table_entry)
-                    .wrap();
+                ParentToplevelArrayExtensionEntry::insert(array_entry, parent_table_entry).wrap();
 
             let map = &mut array_entry.node;
             let parent =

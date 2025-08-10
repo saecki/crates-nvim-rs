@@ -276,10 +276,10 @@ impl Diagnostic for Error {
             }
             UnexpectedLiteralChar(part, char, _) => {
                 write!(f, "unexpected character `{char}` in {part}")?;
-                if *part == LitPart::IntOrFloat {
-                    if let 'a'..='f' | 'A'..='F' = char.0 {
-                        write!(f, ", hexadecimal integers need to be prefixed by `0x`")?;
-                    }
+                if *part == LitPart::IntOrFloat
+                    && let 'a'..='f' | 'A'..='F' = char.0
+                {
+                    write!(f, ", hexadecimal integers need to be prefixed by `0x`")?;
                 }
                 Ok(())
             }

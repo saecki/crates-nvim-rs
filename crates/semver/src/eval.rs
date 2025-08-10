@@ -42,22 +42,14 @@ fn matches_impl(cmp: &Comparator, ver: &Version) -> bool {
 }
 
 fn matches_exact(cmp: &Comparator, ver: &Version) -> bool {
-    if let Some(major) = cmp.version.major() {
-        if ver.major != major {
-            return false;
-        }
+    if cmp.version.major().is_some_and(|major| major != ver.major) {
+        return false;
     }
-
-    if let Some(minor) = cmp.version.minor() {
-        if ver.minor != minor {
-            return false;
-        }
+    if cmp.version.minor().is_some_and(|minor| minor != ver.minor) {
+        return false;
     }
-
-    if let Some(patch) = cmp.version.patch() {
-        if ver.patch != patch {
-            return false;
-        }
+    if cmp.version.patch().is_some_and(|patch| patch != ver.patch) {
+        return false;
     }
 
     &ver.pre == cmp.version.pre()
@@ -129,17 +121,13 @@ fn matches_tilde(cmp: &Comparator, ver: &Version) -> bool {
     if Some(ver.major) != cmp.version.major() {
         return false;
     }
-
-    if let Some(minor) = cmp.version.minor() {
-        if ver.minor != minor {
-            return false;
-        }
+    if cmp.version.minor().is_some_and(|minor| minor != ver.minor) {
+        return false;
     }
-
-    if let Some(patch) = cmp.version.patch() {
-        if ver.patch != patch {
-            return ver.patch > patch;
-        }
+    if let Some(patch) = cmp.version.patch()
+        && ver.patch != patch
+    {
+        return ver.patch > patch;
     }
 
     &ver.pre >= cmp.version.pre()

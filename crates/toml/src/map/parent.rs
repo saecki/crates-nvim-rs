@@ -304,11 +304,7 @@ impl<T, S> PartialEq for Cyclic<'_, T, S> {
 impl<T, S> Copy for Cyclic<'_, T, S> {}
 impl<T, S> Clone for Cyclic<'_, T, S> {
     fn clone(&self) -> Self {
-        Cyclic {
-            ptr: self.ptr,
-            lifetime: self.lifetime,
-            state: self.state,
-        }
+        *self
     }
 }
 

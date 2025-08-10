@@ -305,11 +305,11 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
                         t if t.ty == TokenType::SquareRight => {
                             parser.next();
 
-                            if let Some(a) = r_array_square {
-                                if a.char + 1 != t.start.char {
-                                    let span = Span::new(a.plus(1), t.start);
-                                    ctx.error(Error::SpaceBetweenArrayPars(span));
-                                }
+                            if let Some(a) = r_array_square
+                                && a.char + 1 != t.start.char
+                            {
+                                let span = Span::new(a.plus(1), t.start);
+                                ctx.error(Error::SpaceBetweenArrayPars(span));
                             }
 
                             Some(t.start)
@@ -804,10 +804,10 @@ fn parse_inline_array<'a>(
 
         // Only generate missing comma error once another value is found. This avoids missing
         // comma errors for unclosed inline-arrays
-        if let Some(prev) = values.last() {
-            if prev.comma.is_none() {
-                ctx.error(Error::MissingComma(prev.end()));
-            }
+        if let Some(prev) = values.last()
+            && prev.comma.is_none()
+        {
+            ctx.error(Error::MissingComma(prev.end()));
         }
 
         let val_line = val.start().line;
@@ -955,10 +955,10 @@ fn parse_inline_table<'a>(
 
         // Only generate missing comma error once another assignment is found. This avoids missing
         // comma errors for unclosed inline-tables.
-        if let Some(prev) = assignments.last() {
-            if prev.comma.is_none() {
-                ctx.error(Error::MissingComma(prev.end()));
-            }
+        if let Some(prev) = assignments.last()
+            && prev.comma.is_none()
+        {
+            ctx.error(Error::MissingComma(prev.end()));
         }
 
         let eq = match parser.peek() {
