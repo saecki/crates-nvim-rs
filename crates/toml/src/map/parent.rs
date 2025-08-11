@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
@@ -346,12 +347,16 @@ impl<'a, T> Cyclic<'a, T, Incomplete> {
 
 /// A cell that is Sync and Send, by requiring manual synchronization from the
 /// user.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct ManuallySyncCell<T>(Option<T>);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ManuallySyncCell<T: Copy>(Cell<Option<T>>);
 
-impl<T> ManuallySyncCell<T> {
+// SAFETY: The user is responsible for synchronization.
+unsafe impl<T: Copy> Send for ManuallySyncCell<T> {}
+unsafe impl<T: Copy> Sync for ManuallySyncCell<T> {}
+
+impl<T: Copy> ManuallySyncCell<T> {
     pub(crate) const fn empty() -> Self {
-        Self(None)
+        Self(Cell::new(None))
     }
 
     /// # Safety
@@ -359,15 +364,13 @@ impl<T> ManuallySyncCell<T> {
     /// If there are no other references to the inside of this cell, and there
     /// aren't multiple threads accessing the cell this should be safe.
     pub(crate) unsafe fn set(&self, val: T) {
-        let ptr = &self.0 as *const Option<T> as *mut Option<T>;
-        // SAFETY: The user must guarantee that this is safe.
-        unsafe { ptr.write(Some(val)) }
+        self.0.set(Some(val));
     }
 
-    pub(crate) fn get(self) -> Option<T>
+    pub(crate) fn get(&self) -> Option<T>
     where
         T: Copy,
     {
-        self.0
+        self.0.get()
     }
 }
