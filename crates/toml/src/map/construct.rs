@@ -556,10 +556,14 @@ fn get_table_to_extend<'a, 'b>(
                 }
             }
             MapTableEntryReprKind::ArrayEntry(_) => (),
-            MapTableEntryReprKind::ToplevelAssignment(_)
-            | MapTableEntryReprKind::InlineTableAssignment(_) => {
-                if existing.key.is_last_ident() {
-                    // `map` is an inline table
+            MapTableEntryReprKind::ToplevelAssignment(ToplevelAssignment {
+                assignment, ..
+            })
+            | MapTableEntryReprKind::InlineTableAssignment(InlineTableAssignment {
+                assignment,
+                ..
+            }) => {
+                if matches!(assignment.val, Value::InlineTable(_)) {
                     let orig = entry.reprs.first();
                     return Err(map_error(
                         MapErrorKind::CannotExtendInlineTable,
