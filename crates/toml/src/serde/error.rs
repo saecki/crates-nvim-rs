@@ -1,67 +1,14 @@
 use common::{FmtStr, Pos, Span};
 
-use crate::map::{MapArrayInlineEntry, MapArrayToplevelEntry, MapTableEntry};
-use crate::{Error, map};
+use crate::Error;
+use crate::map::{MapArrayInlineEntry, MapArrayToplevelEntry, MapTableEntry, NodeEntry};
 
 #[derive(Debug)]
 pub struct SerdeError<'a> {
     /// The parent entry, which allows reconstructing the path.
-    pub parent: Option<ErrorParent<'a>>,
+    pub parent: Option<NodeEntry<'a>>,
     pub span: Option<Span>,
     pub msg: String,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum ErrorParent<'a> {
-    Table(&'a MapTableEntry<'a>),
-    ToplevelArray(&'a MapArrayToplevelEntry<'a>),
-    InlineArray(&'a MapArrayInlineEntry<'a>),
-}
-
-impl<'a> ErrorParent<'a> {
-    pub fn context_lines(&self) -> Box<[u32]> {
-        let mut lines = Vec::new();
-        match self {
-            ErrorParent::Table(entry) => {
-                for repr in entry.reprs.iter() {
-                    lines.push(repr.key.repr_ident().lit_start.line);
-                    if let Some(parent_entry) = repr.parent.repr().parent_entry() {
-                        map::collect_lines(&mut lines, parent_entry);
-                    }
-                }
-            }
-            ErrorParent::ToplevelArray(entry) => {
-                lines.push(entry.definition.start().line);
-                map::collect_lines(&mut lines, entry.parent_entry);
-            }
-            ErrorParent::InlineArray(entry) => {
-                lines.push(entry.repr.start().line);
-                map::collect_lines(&mut lines, entry.parent.parent);
-            }
-        }
-        lines.sort();
-        lines.dedup();
-        lines.into_boxed_slice()
-    }
-
-    pub fn fmt_path(&self) -> FmtStr {
-        match self {
-            ErrorParent::Table(entry) => {
-                let repr = entry.reprs.first();
-                map::joined_path(repr.parent, repr.key.repr_ident())
-            }
-            ErrorParent::ToplevelArray(entry) => {
-                let mut buf = map::fmt_path(entry.parent_entry);
-                map::fmt_array_idx(&mut buf, entry.idx).ok();
-                FmtStr::from_string(buf)
-            }
-            ErrorParent::InlineArray(entry) => {
-                let mut buf = map::fmt_path(entry.parent.parent);
-                map::fmt_array_idx(&mut buf, entry.idx).ok();
-                FmtStr::from_string(buf)
-            }
-        }
-    }
 }
 
 impl std::error::Error for SerdeError<'_> {}
@@ -103,17 +50,17 @@ impl<'a> SerdeError<'a> {
     }
 
     pub fn with_table_parent(mut self, entry: &'a MapTableEntry<'a>) -> Self {
-        self.parent.get_or_insert(ErrorParent::Table(entry));
+        self.parent.get_or_insert(NodeEntry::Table(entry));
         self
     }
 
     pub fn with_toplevel_array_parent(mut self, entry: &'a MapArrayToplevelEntry<'a>) -> Self {
-        self.parent.get_or_insert(ErrorParent::ToplevelArray(entry));
+        self.parent.get_or_insert(NodeEntry::ToplevelArray(entry));
         self
     }
 
     pub fn with_inline_array_parent(mut self, entry: &'a MapArrayInlineEntry<'a>) -> Self {
-        self.parent.get_or_insert(ErrorParent::InlineArray(entry));
+        self.parent.get_or_insert(NodeEntry::InlineArray(entry));
         self
     }
 

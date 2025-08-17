@@ -1,7 +1,7 @@
-use common::{FmtStr, Span};
+use common::Span;
 use semver::{SemverCtx, VersionReq};
 use toml::map::{
-    self, MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr,
+    MapArray, MapArrayInlineEntry, MapNode, MapTable, MapTableEntry, MapTableEntryRepr, NodeEntry,
     Scalar,
 };
 use toml::parse::{BoolVal, Ident, StringVal};
@@ -163,8 +163,7 @@ impl<'a> BoolAssignment<'a> {
 pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> Manifest<'a> {
     let mut manifest = Manifest::default();
     for (key, entry) in table.iter() {
-        let path = map::Path::root(&entry.reprs);
-        match *key {
+        match key {
             // TODO
             "package" => (),
             "lib" => (),
@@ -181,74 +180,46 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> Manifest<'a>
             "workspace" => (),
 
             "dependencies" => {
-                if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(
-                        ctx,
-                        &mut manifest,
-                        &path,
-                        table,
-                        DependencyKind::Normal,
-                        None,
-                    )
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, &mut manifest, table, DependencyKind::Normal, None)
                 }
             }
             "dev-dependencies" => {
-                if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(ctx, &mut manifest, &path, table, DependencyKind::Dev, None)
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, &mut manifest, table, DependencyKind::Dev, None)
                 }
             }
             "dev_dependencies" => {
                 const OLD: &str = "dev_dependencies";
                 const NEW: &str = "dev-dependencies";
-                let ignored = deprecated_underscore(ctx, None, table, OLD, NEW, entry);
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
                 if !ignored {
-                    if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                        parse_dependencies(
-                            ctx,
-                            &mut manifest,
-                            &path,
-                            table,
-                            DependencyKind::Dev,
-                            None,
-                        )
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
+                        parse_dependencies(ctx, &mut manifest, table, DependencyKind::Dev, None)
                     }
                 }
             }
             "build-dependencies" => {
-                if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(
-                        ctx,
-                        &mut manifest,
-                        &path,
-                        table,
-                        DependencyKind::Build,
-                        None,
-                    )
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, &mut manifest, table, DependencyKind::Build, None)
                 }
             }
             "build_dependencies" => {
                 const OLD: &str = "build_dependencies";
                 const NEW: &str = "build-dependencies";
-                let ignored = deprecated_underscore(ctx, None, table, OLD, NEW, entry);
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
                 if !ignored {
-                    if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                        parse_dependencies(
-                            ctx,
-                            &mut manifest,
-                            &path,
-                            table,
-                            DependencyKind::Build,
-                            None,
-                        )
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
+                        parse_dependencies(ctx, &mut manifest, table, DependencyKind::Build, None)
                     }
                 }
             }
             "target" => {
-                if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_target(ctx, &mut manifest, &path, table);
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_target(ctx, &mut manifest, table);
                 }
             }
-            _ => warn_unused(ctx, &path, entry),
+            _ => warn_unused(ctx, entry),
         }
     }
     manifest
@@ -257,14 +228,12 @@ pub fn check<'a>(ctx: &mut impl IdeCtx, table: &'a MapTable<'a>) -> Manifest<'a>
 pub fn parse_target<'a>(
     ctx: &mut impl IdeCtx,
     manifest: &mut Manifest<'a>,
-    path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
 ) {
     for (key, entry) in table.iter() {
-        let path = path.append_key(&entry.reprs);
         // TODO: validate target spec
-        if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-            parse_target_dependencies(ctx, manifest, &path, table, key);
+        if let Some(table) = expect_table_in_table(ctx, entry) {
+            parse_target_dependencies(ctx, manifest, table, key);
         }
     }
 }
@@ -272,76 +241,45 @@ pub fn parse_target<'a>(
 pub fn parse_target_dependencies<'a>(
     ctx: &mut impl IdeCtx,
     manifest: &mut Manifest<'a>,
-    path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
     target: &'a str,
 ) {
     for (key, entry) in table.iter() {
-        let path = path.append_key(&entry.reprs);
-        match *key {
+        match key {
             "dependencies" => {
-                if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(
-                        ctx,
-                        manifest,
-                        &path,
-                        table,
-                        DependencyKind::Normal,
-                        Some(target),
-                    )
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, manifest, table, DependencyKind::Normal, Some(target))
                 }
             }
             "dev-dependencies" => {
-                if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(
-                        ctx,
-                        manifest,
-                        &path,
-                        table,
-                        DependencyKind::Dev,
-                        Some(target),
-                    )
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, manifest, table, DependencyKind::Dev, Some(target))
                 }
             }
             "dev_dependencies" => {
                 const OLD: &str = "dev_dependencies";
                 const NEW: &str = "dev-dependencies";
-                let ignored = deprecated_underscore(ctx, path.prev, table, OLD, NEW, entry);
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
                 if !ignored {
-                    if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                        parse_dependencies(
-                            ctx,
-                            manifest,
-                            &path,
-                            table,
-                            DependencyKind::Dev,
-                            Some(target),
-                        )
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
+                        parse_dependencies(ctx, manifest, table, DependencyKind::Dev, Some(target))
                     }
                 }
             }
             "build-dependencies" => {
-                if let Some(table) = expect_table_in_table(ctx, &path, entry) {
-                    parse_dependencies(
-                        ctx,
-                        manifest,
-                        &path,
-                        table,
-                        DependencyKind::Build,
-                        Some(target),
-                    )
+                if let Some(table) = expect_table_in_table(ctx, entry) {
+                    parse_dependencies(ctx, manifest, table, DependencyKind::Build, Some(target))
                 }
             }
             "build_dependencies" => {
                 const OLD: &str = "build_dependencies";
                 const NEW: &str = "build-dependencies";
-                let ignored = deprecated_underscore(ctx, path.prev, table, OLD, NEW, entry);
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
                 if !ignored {
-                    if let Some(table) = expect_table_in_table(ctx, &path, entry) {
+                    if let Some(table) = expect_table_in_table(ctx, entry) {
                         parse_dependencies(
                             ctx,
                             manifest,
-                            &path,
                             table,
                             DependencyKind::Build,
                             Some(target),
@@ -349,7 +287,7 @@ pub fn parse_target_dependencies<'a>(
                     }
                 }
             }
-            _ => warn_unused(ctx, &path, entry),
+            _ => warn_unused(ctx, entry),
         }
     }
 }
@@ -373,7 +311,6 @@ impl<'a> DependencyBuilder<'a> {
     fn try_build(
         self,
         ctx: &mut impl IdeCtx,
-        path: &map::Path,
         entry: &'a MapTableEntry<'a>,
         name: &'a str,
         kind: DependencyKind,
@@ -383,9 +320,8 @@ impl<'a> DependencyBuilder<'a> {
             if let Some(workspace) = self.workspace {
                 #[allow(clippy::bool_comparison)]
                 if workspace.val.val == false {
-                    ctx.error(cargo::Error::new(
-                        path.context_lines([workspace.repr.parent]),
-                        path.fmt_path(),
+                    ctx.error(cargo::Error::at(
+                        entry,
                         workspace.span(),
                         cargo::ErrorKind::DepWorkspaceIsFalse,
                     ));
@@ -403,9 +339,8 @@ impl<'a> DependencyBuilder<'a> {
                 ];
                 let workspace_span = workspace.span();
                 for repr in ignored.into_iter().flatten() {
-                    ctx.warn(cargo::Warning::new(
-                        path.context_lines([repr.parent]),
-                        path.joined_path(repr.key.repr_ident()),
+                    ctx.warn(cargo::Warning::at(
+                        entry,
                         repr.repr_span(),
                         cargo::WarningKind::WorkspaceDepIgnoredKey { workspace_span },
                     ));
@@ -422,9 +357,8 @@ impl<'a> DependencyBuilder<'a> {
                 ];
                 for (key, assignment) in ignored {
                     if let Some(a) = assignment {
-                        ctx.error(cargo::Error::new(
-                            path.context_lines([a.repr.parent]),
-                            path.fmt_path(),
+                        ctx.error(cargo::Error::at(
+                            entry,
                             a.span(),
                             cargo::ErrorKind::DepIgnoredGitKey(key),
                         ));
@@ -434,31 +368,27 @@ impl<'a> DependencyBuilder<'a> {
 
             match (self.git, self.path, self.registry) {
                 (Some(git), _, Some(registry)) => {
-                    ctx.error(cargo::Error::new(
-                        path.context_lines([git.repr.parent]),
-                        path.fmt_path(),
+                    ctx.error(cargo::Error::at(
+                        entry,
                         git.span(),
                         cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
-                    ctx.error(cargo::Error::new(
-                        path.context_lines([registry.repr.parent]),
-                        path.fmt_path(),
+                    ctx.error(cargo::Error::at(
+                        entry,
                         registry.span(),
                         cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
                     DependencySpec::Conflicting
                 }
-                (Some(git), Some(path_key), _) => {
-                    ctx.error(cargo::Error::new(
-                        path.context_lines([git.repr.parent]),
-                        path.fmt_path(),
+                (Some(git), Some(path), _) => {
+                    ctx.error(cargo::Error::at(
+                        entry,
                         git.span(),
                         cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
-                    ctx.error(cargo::Error::new(
-                        path.context_lines([path_key.repr.parent]),
-                        path.fmt_path(),
-                        path_key.span(),
+                    ctx.error(cargo::Error::at(
+                        entry,
+                        path.span(),
                         cargo::ErrorKind::AmbigousDepSpecGitRegistry,
                     ));
                     DependencySpec::Conflicting
@@ -469,9 +399,8 @@ impl<'a> DependencyBuilder<'a> {
                         + self.rev.is_some() as u8;
                     let spec = if num > 1 {
                         for key in [&self.branch, &self.tag, &self.rev].into_iter().flatten() {
-                            ctx.error(cargo::Error::new(
-                                path.context_lines([key.repr.parent]),
-                                path.fmt_path(),
+                            ctx.error(cargo::Error::at(
+                                entry,
                                 key.span(),
                                 cargo::ErrorKind::AmbigousGitSpec,
                             ));
@@ -510,9 +439,8 @@ impl<'a> DependencyBuilder<'a> {
                     } else {
                         for repr in entry.reprs.iter() {
                             // TODO: in the 2024 edition this becomes an error
-                            ctx.warn(cargo::Warning::new(
-                                map::context_lines(path.prev, [repr.parent]),
-                                path.fmt_path(),
+                            ctx.warn(cargo::Warning::at(
+                                entry,
                                 repr.repr_span(),
                                 cargo::WarningKind::MissingDepSpec,
                             ));
@@ -539,14 +467,11 @@ impl<'a> DependencyBuilder<'a> {
 fn parse_dependencies<'a>(
     ctx: &mut impl IdeCtx,
     manifest: &mut Manifest<'a>,
-    path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
     kind: DependencyKind,
     target: Option<&'a str>,
 ) {
-    for (&name, entry) in table.iter() {
-        let path = path.append_key(&entry.reprs);
-
+    for (name, entry) in table.iter() {
         let dep = match &entry.node {
             MapNode::Scalar(Scalar::String(val)) => {
                 let repr = entry.reprs.first();
@@ -571,9 +496,8 @@ fn parse_dependencies<'a>(
             MapNode::Scalar(Scalar::Invalid(..)) => continue,
             MapNode::Scalar(_) => {
                 let repr = entry.reprs.first();
-                ctx.error(cargo::Error::new(
-                    map::context_lines(path.prev, [repr.parent]),
-                    path.fmt_path(),
+                ctx.error(cargo::Error::at(
+                    entry,
                     repr.repr_span(),
                     cargo::ErrorKind::DepWrongDatatype(entry.node.datatype()),
                 ));
@@ -581,14 +505,13 @@ fn parse_dependencies<'a>(
             }
             MapNode::Table(table) => {
                 let mut builder = DependencyBuilder::default();
-                parse_dependency(ctx, &mut builder, &path, table);
-                builder.try_build(ctx, &path, entry, name, kind, target)
+                parse_dependency(ctx, &mut builder, table);
+                builder.try_build(ctx, entry, name, kind, target)
             }
             MapNode::Array(_) => {
                 for repr in entry.reprs.iter() {
-                    ctx.error(cargo::Error::new(
-                        map::context_lines(path.prev, [repr.parent]),
-                        path.fmt_path(),
+                    ctx.error(cargo::Error::at(
+                        entry,
                         repr.repr_span(),
                         cargo::ErrorKind::DepWrongDatatype(entry.node.datatype()),
                     ));
@@ -604,35 +527,31 @@ fn parse_dependencies<'a>(
 fn parse_dependency<'a>(
     ctx: &mut impl IdeCtx,
     builder: &mut DependencyBuilder<'a>,
-    path: &map::Path<'a, '_>,
     table: &'a MapTable<'a>,
 ) {
     for (key, entry) in table.iter() {
-        let path = path.append_key(&entry.reprs);
-        match *key {
-            "workspace" => builder.workspace = expect_bool_in_table(ctx, &path, entry),
-            "version" => builder.version = expect_string_in_table(ctx, &path, entry),
-            "registry" => builder.registry = expect_string_in_table(ctx, &path, entry),
-            "path" => builder.path = expect_string_in_table(ctx, &path, entry),
-            "git" => builder.git = expect_string_in_table(ctx, &path, entry),
-            "branch" => builder.branch = expect_string_in_table(ctx, &path, entry),
-            "tag" => builder.tag = expect_string_in_table(ctx, &path, entry),
-            "rev" => builder.rev = expect_string_in_table(ctx, &path, entry),
-            "package" => builder.package = expect_string_in_table(ctx, &path, entry),
-            "optional" => builder.optional = expect_bool_in_table(ctx, &path, entry),
-            "default-features" => {
-                builder.features.default = expect_bool_in_table(ctx, &path, entry)
-            }
+        match key {
+            "workspace" => builder.workspace = expect_bool_in_table(ctx, entry),
+            "version" => builder.version = expect_string_in_table(ctx, entry),
+            "registry" => builder.registry = expect_string_in_table(ctx, entry),
+            "path" => builder.path = expect_string_in_table(ctx, entry),
+            "git" => builder.git = expect_string_in_table(ctx, entry),
+            "branch" => builder.branch = expect_string_in_table(ctx, entry),
+            "tag" => builder.tag = expect_string_in_table(ctx, entry),
+            "rev" => builder.rev = expect_string_in_table(ctx, entry),
+            "package" => builder.package = expect_string_in_table(ctx, entry),
+            "optional" => builder.optional = expect_bool_in_table(ctx, entry),
+            "default-features" => builder.features.default = expect_bool_in_table(ctx, entry),
             "default_features" => {
                 const OLD: &str = "default_features";
                 const NEW: &str = "default-features";
-                let ignored = deprecated_underscore(ctx, path.prev, table, OLD, NEW, entry);
+                let ignored = deprecated_underscore(ctx, table, OLD, NEW, entry);
                 if !ignored {
-                    builder.features.default = expect_bool_in_table(ctx, &path, entry);
+                    builder.features.default = expect_bool_in_table(ctx, entry);
                 }
             }
-            "features" => parse_dependency_features(ctx, &mut builder.features.list, &path, entry),
-            _ => warn_unused(ctx, &path, entry),
+            "features" => parse_dependency_features(ctx, &mut builder.features.list, entry),
+            _ => warn_unused(ctx, entry),
         };
     }
 }
@@ -656,18 +575,16 @@ fn parse_version_req<'a>(
 fn parse_dependency_features<'a>(
     ctx: &mut impl IdeCtx,
     features: &mut Vec<&'a StringVal<'a>>,
-    path: &map::Path,
     entry: &'a MapTableEntry<'a>,
 ) {
-    let Some(array) = expect_array_in_table(ctx, path, entry) else {
+    let Some(array) = expect_array_in_table(ctx, entry) else {
         return;
     };
     let array = match array {
         MapArray::Toplevel(array) => {
-            for (i, array_entry) in array.iter().enumerate() {
-                ctx.error(cargo::Error::new(
-                    map::context_lines(path.prev, [array_entry.parent]),
-                    path.append_index(array_entry.parent, i).fmt_path(),
+            for array_entry in array.iter() {
+                ctx.error(cargo::Error::at(
+                    array_entry,
                     array_entry.definition.span(),
                     cargo::ErrorKind::WrongDatatype {
                         expected: Datatype::String,
@@ -680,9 +597,8 @@ fn parse_dependency_features<'a>(
         MapArray::Inline(i) => i,
     };
 
-    for (i, entry) in array.iter().enumerate() {
-        let path = path.append_index(array.parent, i);
-        if let Some(str) = expect_string_in_array(ctx, &path, array.parent, entry) {
+    for entry in array.iter() {
+        if let Some(str) = expect_string_in_array(ctx, entry) {
             features.push(str);
         }
     }
@@ -690,7 +606,6 @@ fn parse_dependency_features<'a>(
 
 fn expect_table_in_table<'a>(
     ctx: &mut impl IdeCtx,
-    path: &map::Path,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a MapTable<'a>> {
     match &entry.node {
@@ -698,7 +613,7 @@ fn expect_table_in_table<'a>(
         MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
-                ctx.error(wrong_datatype(path, n, repr, Datatype::Table));
+                ctx.error(wrong_datatype(entry, n, repr, Datatype::Table));
             }
             None
         }
@@ -707,7 +622,6 @@ fn expect_table_in_table<'a>(
 
 fn expect_array_in_table<'a>(
     ctx: &mut impl IdeCtx,
-    path: &map::Path,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<&'a MapArray<'a>> {
     match &entry.node {
@@ -715,7 +629,7 @@ fn expect_array_in_table<'a>(
         MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
-                ctx.error(wrong_datatype(path, n, repr, Datatype::Array));
+                ctx.error(wrong_datatype(entry, n, repr, Datatype::Array));
             }
             None
         }
@@ -724,7 +638,6 @@ fn expect_array_in_table<'a>(
 
 fn expect_string_in_table<'a>(
     ctx: &mut impl IdeCtx,
-    path: &map::Path,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<StringAssignment<'a>> {
     match &entry.node {
@@ -735,7 +648,7 @@ fn expect_string_in_table<'a>(
         MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
-                ctx.error(wrong_datatype(path, n, repr, Datatype::String));
+                ctx.error(wrong_datatype(entry, n, repr, Datatype::String));
             }
             None
         }
@@ -744,17 +657,14 @@ fn expect_string_in_table<'a>(
 
 fn expect_string_in_array<'a>(
     ctx: &mut impl IdeCtx,
-    path: &map::Path,
-    parent: ParentThingy,
     entry: &'a MapArrayInlineEntry<'a>,
 ) -> Option<&'a StringVal<'a>> {
     match &entry.node {
         MapNode::Scalar(Scalar::String(s)) => Some(s),
         MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
-            ctx.error(cargo::Error::new(
-                map::context_lines(path.prev, [parent]),
-                path.fmt_path(),
+            ctx.error(cargo::Error::at(
+                entry,
                 entry.repr.span(),
                 cargo::ErrorKind::WrongDatatype {
                     expected: Datatype::String,
@@ -768,7 +678,6 @@ fn expect_string_in_array<'a>(
 
 fn expect_bool_in_table<'a>(
     ctx: &mut impl IdeCtx,
-    path: &map::Path,
     entry: &'a MapTableEntry<'a>,
 ) -> Option<BoolAssignment<'a>> {
     match &entry.node {
@@ -779,18 +688,17 @@ fn expect_bool_in_table<'a>(
         MapNode::Scalar(Scalar::Invalid(_)) => None,
         n => {
             for repr in entry.reprs.iter() {
-                ctx.error(wrong_datatype(path, n, repr, Datatype::Bool));
+                ctx.error(wrong_datatype(entry, n, repr, Datatype::Bool));
             }
             None
         }
     }
 }
 
-fn warn_unused(ctx: &mut impl IdeCtx, path: &map::Path, entry: &MapTableEntry) {
+fn warn_unused<'a>(ctx: &mut impl IdeCtx, entry: &'a MapTableEntry<'a>) {
     for repr in entry.reprs.iter() {
-        ctx.warn(cargo::Warning::new(
-            map::context_lines(path.prev, [repr.parent]),
-            path.fmt_path(),
+        ctx.warn(cargo::Warning::at(
+            entry,
             repr.repr_span(),
             cargo::WarningKind::IgnoredUnknownKey,
         ));
@@ -798,13 +706,12 @@ fn warn_unused(ctx: &mut impl IdeCtx, path: &map::Path, entry: &MapTableEntry) {
 }
 
 /// Returns whether the key is ignored
-fn deprecated_underscore(
+fn deprecated_underscore<'a>(
     ctx: &mut impl IdeCtx,
-    path: Option<&map::Path>,
     table: &MapTable,
     old: &'static str,
     new: &'static str,
-    old_entry: &MapTableEntry,
+    old_entry: &'a MapTableEntry<'a>,
 ) -> bool {
     let ignored;
     // TODO: in the 2024 edition this becomes an error
@@ -821,9 +728,8 @@ fn deprecated_underscore(
     };
 
     for repr in old_entry.reprs.iter() {
-        ctx.warn(cargo::Warning::new(
-            map::context_lines(path, [repr.parent]),
-            path.map_or(FmtStr::empty(), map::Path::fmt_path),
+        ctx.warn(cargo::Warning::at(
+            old_entry,
             repr.repr_span(),
             kind.clone(),
         ));
@@ -832,15 +738,14 @@ fn deprecated_underscore(
     ignored
 }
 
-fn wrong_datatype(
-    path: &map::Path,
+fn wrong_datatype<'a>(
+    entry: impl Into<NodeEntry<'a>>,
     node: &MapNode,
     repr: &MapTableEntryRepr,
     expected: Datatype,
 ) -> cargo::Error {
-    cargo::Error::new(
-        map::context_lines(path.prev, [repr.parent]),
-        path.fmt_path(),
+    cargo::Error::at(
+        entry.into(),
         repr.repr_span(),
         cargo::ErrorKind::WrongDatatype {
             expected,

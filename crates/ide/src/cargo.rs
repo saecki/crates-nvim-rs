@@ -1,5 +1,6 @@
 use common::diagnostic::{Diagnostic, DiagnosticHint, Severity};
 use common::{Ctx, Diagnostics, FmtStr, Span};
+use toml::map::NodeEntry;
 use toml::util::Datatype;
 
 pub trait CargoCtx:
@@ -34,6 +35,16 @@ impl Error {
         Self {
             lines,
             path,
+            span,
+            kind,
+        }
+    }
+
+    pub fn at<'a>(parent: impl Into<NodeEntry<'a>>, span: Span, kind: ErrorKind) -> Self {
+        let parent = parent.into();
+        Self {
+            lines: parent.context_lines(),
+            path: parent.fmt_path(),
             span,
             kind,
         }
@@ -93,7 +104,7 @@ impl Diagnostic for Error {
             ),
             DepWorkspaceIsFalse => write!(
                 f,
-                "invalid dependency specification `{path}`; `workspace` cannot be false"
+                "invalid dependency specification `{path}`; `workspace` must be `true`"
             ),
             AmbigousDepSpecGitPath => write!(
                 f,
@@ -125,7 +136,7 @@ impl Diagnostic for Error {
             WrongDatatype { expected, .. } => write!(f, "expected {expected}"),
             UnsupportedUnderscore { new, .. } => write!(f, "unsupported; instead use `{new}`"),
             DepWrongDatatype(..) => write!(f, "expected string or table"),
-            DepWorkspaceIsFalse => write!(f, "`workspace` cannot be false"),
+            DepWorkspaceIsFalse => write!(f, "`workspace` must be `true`"),
             AmbigousDepSpecGitPath => write!(f, "only one of `git` or `path` is allowed"),
             AmbigousDepSpecGitRegistry => write!(f, "only one of `git` or `registry` is allowed"),
             AmbigousGitSpec => write!(f, "only one of `branch`, `tag` or `rev` is allowed"),
@@ -152,6 +163,16 @@ impl Warning {
         Self {
             lines,
             path,
+            span,
+            kind,
+        }
+    }
+
+    pub fn at<'a>(parent: impl Into<NodeEntry<'a>>, span: Span, kind: WarningKind) -> Self {
+        let parent = parent.into();
+        Self {
+            lines: parent.context_lines(),
+            path: parent.fmt_path(),
             span,
             kind,
         }

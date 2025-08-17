@@ -72,7 +72,7 @@ fn main() -> ExitCode {
     let lexing = std::time::SystemTime::now();
     let ast = ctx.parse(&bump, tokens);
     let parsing = std::time::SystemTime::now();
-    let map = ctx.map(&ast);
+    let map = ctx.map(&bump, &ast);
     let mapping = std::time::SystemTime::now();
     if command == Command::Check {
         let _state = ctx.check(&map);
