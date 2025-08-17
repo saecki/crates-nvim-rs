@@ -1,8 +1,10 @@
 use common::Span;
 
-use crate::map::{FmtIdent, MapArray, MapNode, MapTableEntry, PathSegment};
+use crate::map::{FmtIdent, MapArray, MapNode, MapTableEntry};
 use crate::serde::SerdeError;
-use crate::serde::array::ArrayDeserializer;
+use crate::serde::array::{
+    InlineArrayDeserializer, TableTupleDeserializer, ToplevelArrayDeserializer,
+};
 use crate::serde::value::ValueDeserializer;
 
 /// Deserializes table values into enum variants.
@@ -72,37 +74,38 @@ impl<'de> serde::de::VariantAccess<'de> for TableEnumDeserializer<'de> {
                     return Err(SerdeError::spanned(msg, span));
                 }
 
-                if table.len() == len {
-                    let iter = table
-                        .iter()
-                        .map(|(_, e)| (PathSegment::Table(&e.reprs), &e.node));
-                    serde::de::Deserializer::deserialize_seq(ArrayDeserializer::new(iter), visitor)
-                } else {
+                if table.len() != len {
                     let msg = format!("expected tuple with length {len}");
                     let span = Span::across(table.reprs.first().span(), table.reprs.last().span());
-                    Err(SerdeError::spanned(msg, span))
+                    return Err(SerdeError::spanned(msg, span));
                 }
+
+                serde::de::Deserializer::deserialize_seq(
+                    TableTupleDeserializer::new(table),
+                    visitor,
+                )
             }
             MapNode::Array(MapArray::Toplevel(array)) => {
-                if array.len() == len {
-                    serde::de::Deserializer::deserialize_seq(
-                        ArrayDeserializer::new(array.iter().enumerate()),
-                        visitor,
-                    )
-                } else {
+                if array.len() != len {
                     let msg = format!("expected tuple with length {len}");
                     let span = Span::across(
                         array.first().definition.span(),
                         array.last().definition.span(),
                     );
-                    Err(SerdeError::spanned(msg, span))
+                    return Err(SerdeError::spanned(msg, span));
                 }
+
+                serde::de::Deserializer::deserialize_seq(
+                    ToplevelArrayDeserializer::new(array),
+                    visitor,
+                )
             }
             MapNode::Array(MapArray::Inline(array)) => {
                 if array.len() == len {
-                    let iter = (array.iter().enumerate())
-                        .map(|(idx, e)| (PathSegment::Array(array.parent, idx), &e.node));
-                    serde::de::Deserializer::deserialize_seq(ArrayDeserializer::new(iter), visitor)
+                    serde::de::Deserializer::deserialize_seq(
+                        InlineArrayDeserializer::new(array),
+                        visitor,
+                    )
                 } else {
                     let msg = format!("expected tuple with length {len}");
                     let span = array.repr.span();

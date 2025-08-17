@@ -13,7 +13,7 @@ mod table;
 mod table_enum;
 mod value;
 
-pub fn deserialize<'de, T: Deserialize<'de>>(toml: &'de Toml<'de>) -> Result<T, SerdeError<'de>> {
-    let deserializer = TableDeserializer::new(&toml.map);
+pub fn deserialize<'de, T: Deserialize<'de>>(toml: &Toml<'de>) -> Result<T, SerdeError<'de>> {
+    let deserializer = TableDeserializer::new(toml.map);
     T::deserialize(deserializer)
 }

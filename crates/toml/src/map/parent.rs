@@ -112,6 +112,14 @@ impl<'a> ParentInlineArray<'a, Complete> {
     }
 }
 
+impl<'a> std::ops::Deref for ParentInlineArray<'a, Complete> {
+    type Target = MapArrayInline<'a>;
+
+    fn deref(&self) -> &'a Self::Target {
+        self.get()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParentEntry<'a, S = Complete> {
     Table(ParentTableEntry<'a, S>),

@@ -2,9 +2,9 @@ use common::Span;
 use serde::de::IntoDeserializer as _;
 
 use crate::MapTable;
-use crate::map::{MapArray, MapNode, PathSegment, Scalar};
+use crate::map::{MapArray, MapNode, Scalar};
 use crate::serde::SerdeError;
-use crate::serde::array::ArrayDeserializer;
+use crate::serde::array::{InlineArrayDeserializer, ToplevelArrayDeserializer};
 use crate::serde::datetime::DateTimeDeserializer;
 use crate::serde::table::TableDeserializer;
 
@@ -37,12 +37,10 @@ impl<'de> serde::de::Deserializer<'de> for ValueDeserializer<'de> {
         match self.node {
             MapNode::Table(table) => TableDeserializer::new(table).deserialize_any(visitor),
             MapNode::Array(MapArray::Inline(array)) => {
-                let iter = (array.iter().enumerate())
-                    .map(|(idx, e)| (PathSegment::Array(array.parent, idx), &e.node));
-                ArrayDeserializer::new(iter).deserialize_any(visitor)
+                InlineArrayDeserializer::new(array).deserialize_any(visitor)
             }
             MapNode::Array(MapArray::Toplevel(array)) => {
-                ArrayDeserializer::new(array.iter().enumerate()).deserialize_any(visitor)
+                ToplevelArrayDeserializer::new(array).deserialize_any(visitor)
             }
             MapNode::Scalar(Scalar::String(string)) => visitor
                 .visit_borrowed_str(string.text)
@@ -147,7 +145,7 @@ fn validate_struct_keys<'a>(
     let extra_fields = table
         .iter()
         .filter(|(key, _)| !fields.contains(key))
-        .map(|(key, _)| *key)
+        .map(|(key, _)| key)
         .collect::<Vec<_>>();
 
     if extra_fields.is_empty() {

@@ -1,6 +1,6 @@
 use common::Span;
 
-use crate::map::{MapIter, MapTable, MapTableEntry};
+use crate::map::{MapTable, MapTableEntry};
 use crate::serde::SerdeError;
 use crate::serde::key::KeyDeserializer;
 use crate::serde::table_enum::TableEnumDeserializer;
@@ -25,7 +25,7 @@ impl<'de> serde::Deserializer<'de> for TableDeserializer<'de> {
     {
         let table = self.table;
         visitor
-            .visit_map(TableMapAccess::new(self.table))
+            .visit_map(TableMapAccess::new(self.table.iter()))
             .map_err(|e| {
                 let span = Span::across(table.reprs.first().span(), table.reprs.last().span());
                 e.with_span(span)
@@ -62,25 +62,27 @@ impl<'de> serde::Deserializer<'de> for TableDeserializer<'de> {
     where
         V: serde::de::Visitor<'de>,
     {
-        if self.table.is_empty() {
+        let Some((key, entry)) = self.table.as_slice().first() else {
             let msg = "expected exactly 1 element, found 0 elements";
-            Err(SerdeError::spanned(msg, self.table.reprs.first().span()))
-        } else if self.table.len() != 1 {
+            return Err(SerdeError::spanned(msg, self.table.reprs.first().span()));
+        };
+
+        if self.table.len() != 1 {
             let msg = "expected exactly 1 element, found more than 1 element";
             let span = Span::across(
                 self.table.reprs.first().span(),
                 self.table.reprs.last().span(),
             );
-            Err(SerdeError::spanned(msg, span))
-        } else {
-            let table = self.table;
-            visitor
-                .visit_enum(TableMapAccess::new(self.table))
-                .map_err(|e| {
-                    let span = Span::across(table.reprs.first().span(), table.reprs.last().span());
-                    e.with_span(span)
-                })
+            return Err(SerdeError::spanned(msg, span));
         }
+
+        let table = self.table;
+        visitor
+            .visit_enum(TableEnumMapAccess::new(key, entry))
+            .map_err(|e| {
+                let span = Span::across(table.reprs.first().span(), table.reprs.last().span());
+                e.with_span(span)
+            })
     }
 
     serde::forward_to_deserialize_any! {
@@ -90,23 +92,24 @@ impl<'de> serde::Deserializer<'de> for TableDeserializer<'de> {
     }
 }
 
-pub struct TableMapAccess<'a> {
-    table: &'a MapTable<'a>,
-    iter: MapIter<'a, 'a>,
+pub struct TableMapAccess<'a, I> {
+    iter: I,
     entry: Option<&'a MapTableEntry<'a>>,
 }
 
-impl<'a> TableMapAccess<'a> {
-    pub fn new(table: &'a MapTable<'a>) -> Self {
-        Self {
-            table,
-            iter: table.iter(),
-            entry: None,
-        }
+impl<'a, I> TableMapAccess<'a, I>
+where
+    I: Iterator<Item = (&'a str, &'a MapTableEntry<'a>)>,
+{
+    pub fn new(iter: I) -> Self {
+        Self { iter, entry: None }
     }
 }
 
-impl<'de> serde::de::MapAccess<'de> for TableMapAccess<'de> {
+impl<'de, I> serde::de::MapAccess<'de> for TableMapAccess<'de, I>
+where
+    I: Iterator<Item = (&'de str, &'de MapTableEntry<'de>)>,
+{
     type Error = SerdeError<'de>;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
@@ -121,7 +124,7 @@ impl<'de> serde::de::MapAccess<'de> for TableMapAccess<'de> {
 
         let key = seed.deserialize(KeyDeserializer::new(key)).map_err(|e| {
             let span = entry.reprs.first().key.repr_ident().lit_span();
-            e.with_span(span).with_table_path(&entry.reprs)
+            e.with_span(span).with_table_parent(entry)
         })?;
         Ok(Some(key))
     }
@@ -139,31 +142,39 @@ impl<'de> serde::de::MapAccess<'de> for TableMapAccess<'de> {
                     entry.reprs.first().repr_span(),
                     entry.reprs.last().repr_span(),
                 );
-                e.with_span(span).with_table_path(&entry.reprs)
+                e.with_span(span).with_table_parent(entry)
             })
     }
 }
 
-impl<'de> serde::de::EnumAccess<'de> for TableMapAccess<'de> {
+pub struct TableEnumMapAccess<'a> {
+    key: &'a str,
+    entry: &'a MapTableEntry<'a>,
+}
+
+impl<'a> TableEnumMapAccess<'a> {
+    pub fn new(key: &'a str, entry: &'a MapTableEntry<'a>) -> Self {
+        Self { key, entry }
+    }
+}
+
+impl<'de> serde::de::EnumAccess<'de> for TableEnumMapAccess<'de> {
     type Error = SerdeError<'de>;
 
     type Variant = TableEnumDeserializer<'de>;
 
-    fn variant_seed<V>(mut self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
     where
         V: serde::de::DeserializeSeed<'de>,
     {
-        let Some((key, entry)) = self.iter.next() else {
-            let msg = "expected table with exactly 1 entry, found empty table";
-            return Err(SerdeError::spanned(msg, self.table.reprs.first().span()));
-        };
+        let key = seed
+            .deserialize(KeyDeserializer::new(self.key))
+            .map_err(|e| {
+                let span = self.entry.reprs.first().key.repr_ident().lit_span();
+                e.with_span(span).with_table_parent(self.entry)
+            })?;
 
-        let key = seed.deserialize(KeyDeserializer::new(key)).map_err(|e| {
-            let span = entry.reprs.first().key.repr_ident().lit_span();
-            e.with_span(span).with_table_path(&entry.reprs)
-        })?;
-
-        let variant = TableEnumDeserializer::new(entry);
+        let variant = TableEnumDeserializer::new(self.entry);
 
         Ok((key, variant))
     }

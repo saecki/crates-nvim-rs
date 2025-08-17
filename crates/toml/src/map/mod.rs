@@ -39,7 +39,6 @@
 //! # 3
 //! children_1 = { node_1 = 1, node_2 = false }
 //! ```
-use std::fmt::Write as _;
 // FIXME: All collections that allocate outside of the bump allocator will leak.
 
 use bumpalo::Bump;
@@ -97,6 +96,10 @@ impl<'a, S> MapTable<'a, S> {
 
     pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a, S>> {
         self.inner.get(key).map(|e| &**e)
+    }
+
+    pub fn as_slice(&self) -> &indexmap::map::Slice<&str, &mut MapTableEntry<'a, S>> {
+        self.inner.as_slice()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&'a str, &MapTableEntry<'a, S>)> {
@@ -590,7 +593,10 @@ fn set_mapped_node<'a>(node: &'a MapNode<'a>) {
 }
 
 fn convert_error(error: MapError<Complete>) -> Error {
-    let lines = context_lines([error.orig_parent, error.new_parent]);
+    let parents = [error.orig_parent, error.new_parent]
+        .into_iter()
+        .filter_map(|p| p.repr().parent_entry());
+    let lines = context_lines(parents);
     let path = joined_path(error.new_parent, error.new_ident);
     let orig = error.orig_span;
     let new = error.new_ident.lit_span();
@@ -645,7 +651,7 @@ pub fn joined_path(parent: ParentTable, ident: &Ident) -> FmtStr {
     FmtStr::from_string(buf)
 }
 
-fn fmt_path(parent_entry: ParentEntry) -> String {
+pub fn fmt_path(parent_entry: ParentEntry) -> String {
     match parent_entry {
         ParentEntry::Table(entry) => {
             let repr = entry.repr();
@@ -663,18 +669,18 @@ fn fmt_path(parent_entry: ParentEntry) -> String {
         ParentEntry::ToplevelArray(entry) => {
             let array_entry = entry.get();
             let mut buf = fmt_path(array_entry.parent_entry);
-            write!(&mut buf, "[{}]", array_entry.idx).ok();
+            fmt_array_idx(&mut buf, array_entry.idx).ok();
             buf
         }
         ParentEntry::ToplevelArrayExtension(entry) => {
             let mut buf = fmt_path(entry.parent_table_entry().wrap());
-            write!(&mut buf, "[{}]", entry.get().idx).ok();
+            fmt_array_idx(&mut buf, entry.get().idx).ok();
             buf
         }
         ParentEntry::InlineArray(entry) => {
             let array_entry = entry.get();
             let mut buf = fmt_path(array_entry.parent.get().parent);
-            write!(&mut buf, "[{}]", array_entry.idx).ok();
+            fmt_array_idx(&mut buf, array_entry.idx).ok();
             buf
         }
     }
@@ -711,19 +717,21 @@ fn fmt_ident_str(f: &mut impl std::fmt::Write, key: &str) -> std::fmt::Result {
     Ok(())
 }
 
-pub fn context_lines<const LEN: usize>(parents: [ParentTable; LEN]) -> Box<[u32]> {
+pub fn fmt_array_idx(f: &mut impl std::fmt::Write, idx: u32) -> std::fmt::Result {
+    write!(f, "[{idx}]")
+}
+
+pub fn context_lines<'a>(parents: impl IntoIterator<Item = ParentEntry<'a>>) -> Box<[u32]> {
     let mut lines = Vec::new();
-    for parent in parents {
-        if let Some(parent_entry) = parent.repr().parent_entry() {
-            collect_lines(&mut lines, parent_entry);
-        }
+    for parent in parents.into_iter() {
+        collect_lines(&mut lines, parent);
     }
     lines.sort();
     lines.dedup();
     lines.into_boxed_slice()
 }
 
-fn collect_lines(lines: &mut Vec<u32>, parent_entry: ParentEntry) {
+pub fn collect_lines(lines: &mut Vec<u32>, parent_entry: ParentEntry) {
     match parent_entry {
         ParentEntry::Table(entry) => {
             let repr = entry.repr();
