@@ -6,9 +6,9 @@ use ide::IdeDiagnostics;
 use lsp_server::{Connection, Message, Response};
 use lsp_types::notification::Notification as _;
 use lsp_types::{
-    InitializeParams, InitializeResult, PublishDiagnosticsClientCapabilities, ServerCapabilities,
-    ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
-    TextDocumentSyncSaveOptions,
+    InitializeParams, InitializeResult, OneOf, PublishDiagnosticsClientCapabilities,
+    ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextDocumentSyncKind,
+    TextDocumentSyncOptions, TextDocumentSyncSaveOptions,
 };
 
 use crate::edit::OffsetEncoding;
@@ -134,6 +134,7 @@ pub fn run() -> anyhow::Result<()> {
                 save: Some(TextDocumentSyncSaveOptions::Supported(false)),
             },
         )),
+        document_highlight_provider: Some(OneOf::Left(true)),
         ..Default::default()
     };
 

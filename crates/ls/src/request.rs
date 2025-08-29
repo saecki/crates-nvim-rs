@@ -4,7 +4,7 @@ use lsp_types::request::{self, Request as _};
 use toml::Toml;
 
 use crate::edit::{self, OffsetEncoding};
-use crate::{State, VfsPath};
+use crate::{State, VfsPath, lsp};
 
 pub enum RequestError {
     /// Respond to the client with a response error.
@@ -34,7 +34,7 @@ pub(crate) fn handle_request(
         }
 
         request::DocumentHighlightRequest::METHOD => {
-            wrap_request::<request::DocumentHighlightRequest>(state, params, handle_doucment_highlight)
+            wrap_request::<request::DocumentHighlightRequest>(state, params, handle_document_highlight)
         }
 
         _ if method.starts_with("$/") => {
@@ -64,13 +64,16 @@ fn wrap_request<R: lsp_types::request::Request>(
     handler(state, params).map(|result| serde_json::to_value(result).unwrap())
 }
 
-fn handle_doucment_highlight(
+fn handle_document_highlight(
     state: &mut State,
     params: lsp_types::DocumentHighlightParams,
 ) -> Result<Option<Vec<lsp_types::DocumentHighlight>>, RequestError> {
-    let (_toml, _path, _pos) = try_from_pos_params(state, params.text_document_position_params)?;
-    // TODO
-    Ok(None)
+    let (toml, _path, pos) = try_from_pos_params(state, params.text_document_position_params)?;
+    Ok(lsp::refs::document_highlight(
+        toml,
+        pos,
+        state.offset_encoding,
+    ))
 }
 
 fn try_from_pos_params(

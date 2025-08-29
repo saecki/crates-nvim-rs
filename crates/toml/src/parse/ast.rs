@@ -47,6 +47,16 @@ pub enum Toplevel<'a> {
     Array(ArrayEntry<'a>),
 }
 
+impl Toplevel<'_> {
+    pub fn span(&self) -> Span {
+        match self {
+            Toplevel::Assignment(assignment) => assignment.span(),
+            Toplevel::Table(table) => table.span(),
+            Toplevel::Array(array_entry) => array_entry.span(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct CommentId(pub u32);
 
@@ -352,6 +362,8 @@ impl Assignment<'_> {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Key<'a> {
     One(Ident<'a>),
+    /// Invariant: must always contain at least one key.
+    // A OneSlice type would be nice here.
     Dotted(&'a [DottedIdent<'a>]),
 }
 
@@ -361,7 +373,7 @@ pub struct DottedIdent<'a> {
     pub dot: Option<Pos>,
 }
 
-impl Key<'_> {
+impl<'a> Key<'a> {
     #[inline]
     pub fn span(&self) -> Span {
         Span::new(self.start(), self.end())
@@ -385,6 +397,22 @@ impl Key<'_> {
                     .map(|p| p.plus(1))
                     .unwrap_or_else(|| last.ident.lit_end())
             }
+        }
+    }
+
+    #[inline]
+    pub fn first(&self) -> &Ident<'a> {
+        match self {
+            Key::One(i) => i,
+            Key::Dotted(idents) => &idents.first().unwrap().ident,
+        }
+    }
+
+    #[inline]
+    pub fn last(&self) -> &Ident<'a> {
+        match self {
+            Key::One(i) => i,
+            Key::Dotted(idents) => &idents.last().unwrap().ident,
         }
     }
 }
@@ -462,6 +490,16 @@ pub enum IdentKind {
     Plain,
     BasicString,
     LiteralString,
+}
+
+impl IdentKind {
+    /// Returns `true` if the ident kind is [`Plain`].
+    ///
+    /// [`Plain`]: IdentKind::Plain
+    #[must_use]
+    pub fn is_plain(&self) -> bool {
+        matches!(self, Self::Plain)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

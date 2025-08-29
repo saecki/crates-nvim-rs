@@ -6,6 +6,8 @@ use ide::IdeDiagnostics;
 
 use crate::edit::{OffsetEncoding, SpanExt};
 
+pub mod refs;
+
 pub fn generate_diagnostics(
     source: &Source<'_>,
     diagnostics: &IdeDiagnostics,
