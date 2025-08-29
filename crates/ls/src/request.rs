@@ -33,6 +33,9 @@ pub(crate) fn handle_request(
             Ok(serde_json::Value::Null)
         }
 
+        request::References::METHOD => {
+            wrap_request::<request::References>(state, params, handle_references)
+        }
         request::DocumentHighlightRequest::METHOD => {
             wrap_request::<request::DocumentHighlightRequest>(state, params, handle_document_highlight)
         }
@@ -62,6 +65,14 @@ fn wrap_request<R: lsp_types::request::Request>(
         invalid_params_response(format!("invalid request params for `{}`: {e}", R::METHOD))
     })?;
     handler(state, params).map(|result| serde_json::to_value(result).unwrap())
+}
+
+fn handle_references(
+    state: &mut State,
+    params: lsp_types::ReferenceParams,
+) -> Result<Option<Vec<lsp_types::Location>>, RequestError> {
+    let (toml, _path, pos) = try_from_pos_params(state, params.text_document_position)?;
+    Ok(lsp::refs::references(toml, pos, state.offset_encoding))
 }
 
 fn handle_document_highlight(

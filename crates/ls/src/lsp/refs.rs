@@ -1,8 +1,33 @@
+use std::str::FromStr;
+
 use common::{Pos, Span};
 use toml::parse::{Assignment, Ident, Key, Value};
 use toml::{Ast, Toml, Toplevel};
 
 use crate::edit::{OffsetEncoding, SpanExt};
+
+pub fn references(
+    toml: &Toml,
+    pos: Pos,
+    encoding: OffsetEncoding,
+) -> Option<Vec<lsp_types::Location>> {
+    let Refs::Ident(ident) = find_refs(&toml.ast, pos)?;
+
+    let entry = ident.mapped()?.get();
+
+    let refs = entry.reprs.iter().map(|repr| {
+        let span = repr.key.repr_ident().lit_span();
+        let range = span.to_lsp_range(&toml.ast.source, encoding);
+        let uri = {
+            // FIXME: store VfsPath in source
+            let uri = format!("file://{}", toml.ast.source.path);
+            lsp_types::Url::from_str(&uri).expect("source path to be valid")
+        };
+        lsp_types::Location::new(uri, range)
+    });
+
+    Some(refs.collect())
+}
 
 pub fn document_highlight(
     toml: &Toml,

@@ -134,6 +134,7 @@ pub fn run() -> anyhow::Result<()> {
                 save: Some(TextDocumentSyncSaveOptions::Supported(false)),
             },
         )),
+        references_provider: Some(OneOf::Left(true)),
         document_highlight_provider: Some(OneOf::Left(true)),
         ..Default::default()
     };

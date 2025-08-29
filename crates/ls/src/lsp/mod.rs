@@ -44,7 +44,7 @@ fn generate<D: Diagnostic>(
                         {
                             // FIXME: store VfsPath in source
                             let uri = format!("file://{}", source.path);
-                            lsp_types::Url::from_str(&uri).expect("VfsPath to be a valid path")
+                            lsp_types::Url::from_str(&uri).expect("source path to be valid")
                         },
                         hint.span().to_lsp_range(source, encoding),
                     ),
