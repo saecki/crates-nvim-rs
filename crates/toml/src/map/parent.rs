@@ -44,13 +44,13 @@ impl<'a, S> ParentTable<'a, S> {
 impl<'a> ParentTable<'a, Incomplete> {
     pub(super) fn insert_repr(
         _bump: &'a Bump,
-        map: &mut &'a mut MapTable<'a, Incomplete>,
+        map: &'_ mut &'a mut MapTable<'a, Incomplete>,
         repr: MapTableRepr<'a, Incomplete>,
     ) -> Self {
         let idx = ReprIdx(map.reprs.len() as u32);
         map.reprs.push(repr);
         // SAFETY: map is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*map)) };
+        let ptr = unsafe { Cyclic::new_init_ptr(NonNull::from_ref(*map)) };
         Self::new(ptr, idx)
     }
 }
@@ -84,7 +84,7 @@ impl<'a> ParentToplevelArray<'a, Incomplete> {
         array: &mut &'a mut MapArrayToplevel<'a, Incomplete>,
     ) -> Self {
         // SAFETY: entry is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*array)) };
+        let ptr = unsafe { Cyclic::new_init_ptr(NonNull::from_ref(*array)) };
         Self::new(ptr)
     }
 }
@@ -155,7 +155,7 @@ impl<'a> ParentTableEntry<'a, Incomplete> {
         let idx = ReprIdx(entry.reprs.len() as u32);
         entry.reprs.push(repr);
         // SAFETY: entry is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*entry)) };
+        let ptr = unsafe { Cyclic::new_init_ptr(NonNull::from_ref(*entry)) };
         Self::new(ptr, idx)
     }
 }
@@ -215,7 +215,7 @@ impl<'a> ParentToplevelArrayExtensionEntry<'a, Incomplete> {
         let idx = ReprIdx(array_entry.extensions.len() as u32);
         array_entry.extensions.push(parent_entry);
         // SAFETY: map is allocated inside bump and will be valid to access.
-        let ptr = unsafe { Cyclic::new_ptr(NonNull::from_ref(*array_entry)) };
+        let ptr = unsafe { Cyclic::new_init_ptr(NonNull::from_ref(*array_entry)) };
         Self::new(ptr, idx)
     }
 }
@@ -265,10 +265,7 @@ pub(super) fn cyclic_slice<'a, V, T>(
         // SAFETY: loc is allocated inside the bump allocator, we just can't
         // borrow it, because we need to write to it later, after the value has
         // been constructed.
-        let ptr = unsafe {
-            let ptr = loc as *mut MaybeUninit<T> as *mut T;
-            Cyclic::new_ptr(NonNull::new_unchecked(ptr))
-        };
+        let ptr = unsafe { Cyclic::new_uninit_ptr(NonNull::from_ref(loc)) };
         let init = f(idx, ptr, val);
         loc.write(init);
     }
@@ -288,16 +285,13 @@ pub(super) fn cyclic<'a, T>(
     // SAFETY: loc is allocated inside the bump allocator, we just can't borrow
     // it, because we need to write to it later, after the value has been
     // constructed.
-    let ptr = unsafe {
-        let ptr = loc as *mut MaybeUninit<T> as *mut T;
-        Cyclic::new_ptr(NonNull::new_unchecked(ptr))
-    };
+    let ptr = unsafe { Cyclic::new_uninit_ptr(NonNull::from_ref(loc)) };
     let val = f(ptr);
     loc.write(val)
 }
 
 pub(super) struct Cyclic<'a, T, S> {
-    ptr: NonNull<T>,
+    ptr: NonNull<MaybeUninit<T>>,
     lifetime: PhantomData<&'a T>,
     state: PhantomData<S>,
 }
@@ -326,7 +320,7 @@ impl<T, S> std::fmt::Debug for Cyclic<'_, T, S> {
 impl<'a, T> Cyclic<'a, T, Complete> {
     pub(super) fn new(reference: &'a T) -> Self {
         Self {
-            ptr: NonNull::from_ref(reference),
+            ptr: NonNull::new(reference as *const T as *mut MaybeUninit<T>).unwrap(),
             lifetime: PhantomData,
             state: PhantomData,
         }
@@ -335,7 +329,7 @@ impl<'a, T> Cyclic<'a, T, Complete> {
     fn get(self) -> &'a T {
         // SAFETY: Either this cyclic cell was constructed in a complete state,
         // or the state has been changed to be complete.
-        unsafe { self.ptr.as_ref() }
+        unsafe { &*(self.ptr.as_ptr() as *const T) }
     }
 }
 
@@ -344,9 +338,21 @@ impl<'a, T> Cyclic<'a, T, Incomplete> {
     ///
     /// The caller must guarantee that pointer is, or will be valid for the
     /// specified lifetime.
-    unsafe fn new_ptr(ptr: NonNull<T>) -> Self {
+    unsafe fn new_uninit_ptr(ptr: NonNull<MaybeUninit<T>>) -> Self {
         Self {
             ptr,
+            lifetime: PhantomData,
+            state: PhantomData,
+        }
+    }
+
+    /// # Safety
+    ///
+    /// The caller must guarantee that pointer is, or will be valid for the
+    /// specified lifetime.
+    unsafe fn new_init_ptr(ptr: NonNull<T>) -> Self {
+        Self {
+            ptr: NonNull::new(ptr.as_ptr() as *mut MaybeUninit<T>).unwrap(),
             lifetime: PhantomData,
             state: PhantomData,
         }
