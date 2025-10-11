@@ -91,7 +91,7 @@ pub fn check_simple_error(text: &str, expected: SimpleMap, error: Error) {
     assert_eq!(Vec::<Warning>::new(), ctx.warnings);
 }
 
-pub fn int(line: u32, char: u32, lit: &str) -> Value {
+pub fn int(line: u32, char: u32, lit: &str) -> Value<'_> {
     let val_span = Span::from_pos_len(Pos { line, char }, lit.len() as u32);
     let num = lit.replace('_', "").parse::<i64>().unwrap();
     Value::Int(IntVal {
@@ -150,7 +150,7 @@ pub fn afloat<'a>(line: u32, char: u32, ident: &'a str, val: &'a str) -> Assignm
     a(line, char, ident, val)
 }
 
-pub fn abool(line: u32, char: u32, ident: &str, val: bool) -> Assignment {
+pub fn abool(line: u32, char: u32, ident: &str, val: bool) -> Assignment<'_> {
     let val = bool(line, char + ident.len() as u32 + 3, val);
     a(line, char, ident, val)
 }

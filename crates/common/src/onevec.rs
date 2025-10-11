@@ -79,7 +79,7 @@ impl<T> OneVec<T> {
         &self.inner
     }
 
-    pub fn iter(&self) -> std::slice::Iter<T> {
+    pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.inner.iter()
     }
 }

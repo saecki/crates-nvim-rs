@@ -76,7 +76,7 @@ fn handle_doucment_highlight(
 fn try_from_pos_params(
     state: &State,
     text_document_position: lsp_types::TextDocumentPositionParams,
-) -> Result<(&Toml, VfsPath, Pos), RequestError> {
+) -> Result<(&Toml<'_>, VfsPath, Pos), RequestError> {
     let uri = &text_document_position.text_document.uri;
     let (toml, path) = get_module(state, uri)?;
 
