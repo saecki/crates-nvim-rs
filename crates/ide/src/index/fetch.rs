@@ -11,7 +11,7 @@ use crate::index::{
     Crate, Dependency, DependencyKind, Error, ErrorKind, FeatureMember, ParseError, Version,
 };
 
-const USER_AGENT: &str = "crates-nvim-rs (https://github.com/saecki/crates-nvim-rs)";
+const USER_AGENT: &str = "dingey (https://github.com/saecki/dingey)";
 
 macro_rules! boxed_str {
     ($len:expr, $pat:expr, $str:expr) => {{

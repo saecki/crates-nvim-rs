@@ -4,7 +4,7 @@
 
 ### Snapshot tests
 The [`toml-test-data`](https://crates.io/crates/toml-test-data) crate provides a set of invalid test cases.
-Error messages are stored in the `crates-toml/tests/fixtures` directory and compared in the test suite.
+Error messages are stored in the `dingey-toml/tests/fixtures` directory and compared in the test suite.
 If an error message has changed or a new test case was added, the new output can be reviewed and stored by running:
 ```
 SNAPSHOT=review cargo test

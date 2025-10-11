@@ -202,94 +202,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
-name = "crates-cli"
-version = "0.1.0"
-dependencies = [
- "bumpalo",
- "crates-common",
- "crates-ide",
- "crates-toml",
-]
-
-[[package]]
-name = "crates-common"
-version = "0.1.0"
-dependencies = [
- "memchr",
- "unicode-width",
-]
-
-[[package]]
-name = "crates-fuzz"
-version = "0.0.0"
-dependencies = [
- "bumpalo",
- "crates-common",
- "crates-semver",
- "crates-toml",
- "libfuzzer-sys",
-]
-
-[[package]]
-name = "crates-ide"
-version = "0.1.0"
-dependencies = [
- "bumpalo",
- "crates-common",
- "crates-semver",
- "crates-toml",
- "crossbeam-channel",
- "http_req",
- "indexmap",
- "pretty_assertions",
- "serde",
- "serde_derive",
- "serde_json",
-]
-
-[[package]]
-name = "crates-ls"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bumpalo",
- "crates-common",
- "crates-ide",
- "crates-semver",
- "crates-toml",
- "indexmap",
- "lsp-server",
- "lsp-types",
- "memchr",
- "pretty_assertions",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "crates-semver"
-version = "0.1.0"
-dependencies = [
- "crates-common",
- "pretty_assertions",
- "serde",
-]
-
-[[package]]
-name = "crates-toml"
-version = "0.1.0"
-dependencies = [
- "bumpalo",
- "crates-common",
- "indexmap",
- "libtest-mimic 0.8.1",
- "pretty_assertions",
- "serde",
- "toml-test-data",
- "toml-test-harness",
-]
-
-[[package]]
 name = "crossbeam-channel"
 version = "0.5.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -328,6 +240,94 @@ name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56254986775e3233ffa9c4d7d3faaf6d36a2c09d30b20687e9f88bc8bafc16c8"
+
+[[package]]
+name = "dingey-cli"
+version = "0.1.0"
+dependencies = [
+ "bumpalo",
+ "dingey-common",
+ "dingey-ide",
+ "dingey-toml",
+]
+
+[[package]]
+name = "dingey-common"
+version = "0.1.0"
+dependencies = [
+ "memchr",
+ "unicode-width",
+]
+
+[[package]]
+name = "dingey-fuzz"
+version = "0.0.0"
+dependencies = [
+ "bumpalo",
+ "dingey-common",
+ "dingey-semver",
+ "dingey-toml",
+ "libfuzzer-sys",
+]
+
+[[package]]
+name = "dingey-ide"
+version = "0.1.0"
+dependencies = [
+ "bumpalo",
+ "crossbeam-channel",
+ "dingey-common",
+ "dingey-semver",
+ "dingey-toml",
+ "http_req",
+ "indexmap",
+ "pretty_assertions",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
+name = "dingey-ls"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bumpalo",
+ "dingey-common",
+ "dingey-ide",
+ "dingey-semver",
+ "dingey-toml",
+ "indexmap",
+ "lsp-server",
+ "lsp-types",
+ "memchr",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "dingey-semver"
+version = "0.1.0"
+dependencies = [
+ "dingey-common",
+ "pretty_assertions",
+ "serde",
+]
+
+[[package]]
+name = "dingey-toml"
+version = "0.1.0"
+dependencies = [
+ "bumpalo",
+ "dingey-common",
+ "indexmap",
+ "libtest-mimic 0.8.1",
+ "pretty_assertions",
+ "serde",
+ "toml-test-data",
+ "toml-test-harness",
+]
 
 [[package]]
 name = "displaydoc"

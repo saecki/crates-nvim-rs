@@ -2,9 +2,9 @@ use bumpalo::Bump;
 use common::diagnostic::DisplayDiagnostic;
 use toml_test_harness::{Decoded, DecodedValue};
 
-use crates_toml::datetime::DateTime;
-use crates_toml::map::{MapArray, MapNode, MapTableEntry, Scalar};
-use crates_toml::{Ast, TomlCtx, TomlDiagnostics};
+use dingey_toml::datetime::DateTime;
+use dingey_toml::map::{MapArray, MapNode, MapTableEntry, Scalar};
+use dingey_toml::{Ast, TomlCtx, TomlDiagnostics};
 
 #[derive(Clone, Copy)]
 struct TestDecoder;
@@ -28,7 +28,7 @@ impl toml_test_harness::Decoder for TestDecoder {
     }
 
     fn name(&self) -> &str {
-        "crates-toml"
+        "dingey-toml"
     }
 }
 

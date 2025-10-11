@@ -3,8 +3,8 @@ use std::io::Write as _;
 
 use bumpalo::Bump;
 use common::diagnostic::{self, ANSII_CLEAR, ANSII_COLOR_BLUE, ANSII_COLOR_YELLOW};
-use crates_toml::util::SimpleMap;
-use crates_toml::{TomlCtx, TomlDiagnostics};
+use dingey_toml::util::SimpleMap;
+use dingey_toml::{TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -272,7 +272,7 @@ fn run_case(text: &str) -> Result<SimpleMap, String> {
         return Err(msg);
     }
 
-    Ok(crates_toml::util::map_simple(&ast, map))
+    Ok(dingey_toml::util::map_simple(&ast, map))
 }
 
 fn dialog<const SIZE: usize>(options: [&str; SIZE]) -> &str {

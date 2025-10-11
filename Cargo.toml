@@ -6,10 +6,10 @@ members = [
 ]
 
 [workspace.dependencies]
-ide = { package = "crates-ide", path = "crates/ide" }
-toml = { package = "crates-toml", path = "crates/toml" }
-semver = { package = "crates-semver", path = "crates/semver", features = ["serde"] }
-common = { package = "crates-common", path = "crates/common" }
+ide = { package = "dingey-ide", path = "crates/ide" }
+toml = { package = "dingey-toml", path = "crates/toml" }
+semver = { package = "dingey-semver", path = "crates/semver", features = ["serde"] }
+common = { package = "dingey-common", path = "crates/common" }
 
 bumpalo = { version = "3.17.0", features = ["collections"] }
 indexmap = "2.8.0"

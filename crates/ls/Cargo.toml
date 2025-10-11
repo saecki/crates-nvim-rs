@@ -1,5 +1,5 @@
 [package]
-name = "crates-ls"
+name = "dingey-ls"
 version = "0.1.0"
 edition = "2024"
 
