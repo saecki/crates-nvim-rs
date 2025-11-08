@@ -315,7 +315,6 @@ pub enum MapArray<'a, S = Complete> {
     Inline(&'a MapArrayInline<'a, S>),
 }
 
-// FIXME: avoid mutable references, maybe using some sort of transmute trick at the end.
 #[derive(Debug, PartialEq)]
 pub struct MapArrayToplevel<'a, S = Complete> {
     inner: OneVec<&'a mut MapArrayToplevelEntry<'a, S>>,

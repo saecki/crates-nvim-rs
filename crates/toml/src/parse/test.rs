@@ -2,6 +2,7 @@ use common::Pos;
 use pretty_assertions::assert_eq;
 
 use crate::datetime::{DateTimeField, Offset, Time};
+use crate::lex::lex;
 use crate::test::*;
 use crate::util::{SimpleMap, SimpleVal};
 use crate::{TomlDiagnostics, Warning};
@@ -15,8 +16,8 @@ fn check<const SIZE: usize>(
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, "<test>", text);
-    let ast = ctx.parse(&bump, tokens);
+    let tokens = lex(&mut ctx, &bump, "<test>", text);
+    let ast = parse(&mut ctx, &bump, tokens);
 
     let expected_bump = Bump::new();
     let mut builder = AstBuilder::new(&expected_bump);
@@ -43,8 +44,8 @@ fn check_error<const SIZE: usize>(
 ) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, "<test>", text);
-    let ast = ctx.parse(&bump, tokens);
+    let tokens = lex(&mut ctx, &bump, "<test>", text);
+    let ast = parse(&mut ctx, &bump, tokens);
 
     let expected_bump = Bump::new();
     let mut builder = AstBuilder::new(&expected_bump);

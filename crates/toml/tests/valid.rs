@@ -4,7 +4,7 @@ use toml_test_harness::{Decoded, DecodedValue};
 
 use dingey_toml::datetime::DateTime;
 use dingey_toml::map::{MapArray, MapInner, MapNode, Scalar};
-use dingey_toml::{Ast, TomlCtx, TomlDiagnostics};
+use dingey_toml::{Ast, Toml, TomlCtx, TomlDiagnostics};
 
 #[derive(Clone, Copy)]
 struct TestDecoder;
@@ -15,9 +15,7 @@ impl toml_test_harness::Decoder for TestDecoder {
 
         let mut ctx = TomlDiagnostics::default();
         let bump = Bump::new();
-        let tokens = ctx.lex(&bump, "<case>", text);
-        let ast = ctx.parse(&bump, tokens);
-        let map = ctx.map(&bump, &ast);
+        let Toml { ast, map } = ctx.parse(&bump, "<case>", text);
 
         if let Some(error) = ctx.errors.first() {
             let msg = error.display(&ast.source);

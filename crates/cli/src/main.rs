@@ -3,8 +3,7 @@ use std::process::ExitCode;
 
 use bumpalo::Bump;
 use common::diagnostic::{ANSII_CLEAR, ANSII_COLOR_RED, ANSII_UNDERLINED, DisplayDiagnostic};
-use ide::{IdeCtx, IdeDiagnostics};
-use toml::TomlCtx;
+use ide::IdeDiagnostics;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Command {
@@ -68,14 +67,14 @@ fn main() -> ExitCode {
     let start = std::time::SystemTime::now();
     let mut ctx = IdeDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, &path, &text);
+    let tokens = toml::lex(&mut ctx, &bump, &path, &text);
     let lexing = std::time::SystemTime::now();
-    let ast = ctx.parse(&bump, tokens);
+    let ast = toml::parse(&mut ctx, &bump, tokens);
     let parsing = std::time::SystemTime::now();
-    let map = ctx.map(&bump, &ast);
+    let map = toml::map(&mut ctx, &bump, &ast);
     let mapping = std::time::SystemTime::now();
     if command == Command::Check {
-        let _state = ctx.check(&map);
+        let _state = ide::check(&mut ctx, &map);
     }
     let checking = std::time::SystemTime::now();
     let simple = toml::util::map_simple(&ast, map);

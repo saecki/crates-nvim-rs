@@ -80,11 +80,7 @@ unsafe fn build_container(
     path: &'static str,
     text: &'static str,
 ) -> Container {
-    let tokens = ctx.lex(bump, path, text);
-    let ast = ctx.parse(bump, tokens);
-    let map = ctx.map(bump, &ast);
-
-    let toml = Toml { ast, map };
+    let toml = ctx.parse(bump, path, text);
     let toml = ManuallyDrop::new(toml);
 
     Container { toml, bump }

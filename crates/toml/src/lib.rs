@@ -29,16 +29,11 @@ pub trait TomlCtx:
     type TomlWarning: From<Warning>;
     type TomlInfo: From<Info>;
 
-    fn lex<'a>(&mut self, bump: &'a Bump, path: &'a str, text: &'a str) -> Tokens<'a> {
-        lex(self, bump, path, text)
-    }
-
-    fn parse<'a>(&mut self, bump: &'a Bump, tokens: Tokens<'a>) -> Ast<'a> {
-        parse(self, bump, tokens)
-    }
-
-    fn map<'a>(&mut self, bump: &'a Bump, ast: &Ast<'a>) -> &'a MapTable<'a> {
-        map(self, bump, ast)
+    fn parse<'a>(&mut self, bump: &'a Bump, path: &'a str, text: &'a str) -> Toml<'a> {
+        let tokens = lex::lex(self, bump, path, text);
+        let ast = parse::parse(self, bump, tokens);
+        let map = map::map(self, bump, &ast);
+        Toml { ast, map }
     }
 }
 

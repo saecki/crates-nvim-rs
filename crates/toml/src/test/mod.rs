@@ -6,7 +6,7 @@ use crate::lex::TextOffset;
 use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
 use crate::util::SimpleMap;
 use crate::util::{self, SimpleVal};
-use crate::{Error, Quote, TomlCtx, TomlDiagnostics, Warning};
+use crate::{Error, Quote, Toml, TomlCtx, TomlDiagnostics, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
@@ -60,9 +60,7 @@ pub fn expect_float(table: &SimpleMap, key: &str) -> f64 {
 pub fn parse_simple(text: &str) -> (TomlDiagnostics, SimpleMap) {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, "<test>", text);
-    let ast = ctx.parse(&bump, tokens);
-    let map = ctx.map(&bump, &ast);
+    let Toml { ast, map } = ctx.parse(&bump, "<test>", text);
     let table = util::map_simple(&ast, map);
     (ctx, table)
 }

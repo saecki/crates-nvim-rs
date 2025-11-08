@@ -4,7 +4,7 @@ use std::io::Write as _;
 use bumpalo::Bump;
 use common::diagnostic::{self, ANSII_CLEAR, ANSII_COLOR_BLUE, ANSII_COLOR_YELLOW};
 use dingey_toml::util::SimpleMap;
-use dingey_toml::{TomlCtx, TomlDiagnostics};
+use dingey_toml::{Toml, TomlCtx, TomlDiagnostics};
 use libtest_mimic::Failed;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -259,9 +259,7 @@ fn main() {
 fn run_case(text: &str) -> Result<SimpleMap, String> {
     let mut ctx = TomlDiagnostics::default();
     let bump = Bump::new();
-    let tokens = ctx.lex(&bump, "<fixture>", text);
-    let ast = ctx.parse(&bump, tokens);
-    let map = ctx.map(&bump, &ast);
+    let Toml { ast, map } = ctx.parse(&bump, "<fixture>", text);
 
     if !ctx.errors.is_empty() {
         ctx.sort_diagnostics();
