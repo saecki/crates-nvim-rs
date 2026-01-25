@@ -1,5 +1,0 @@
-[91merror[0m: unexpected character `.` at start of literal
-    [94m-->[0m <fixture>:1:16
-     [94m|[0m
-[94m   1 |[0m leading-point = .12345
-     [94m|[0m                 [91m^ unexpected character[0m

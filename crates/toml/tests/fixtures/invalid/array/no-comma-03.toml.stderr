@@ -1,0 +1,7 @@
+[91merror[0m: expected `]`, found `EOF`
+    [94m-->[0m <fixture>:1:21
+     [94m|[0m
+[94m   1 |[0m no-comma-03 = [ 1 #,]
+     [94m|[0m               [94m- left `[` defined here[0m
+[94m   1 |[0m no-comma-03 = [ 1 #,]
+     [94m|[0m                      [91m^ expected `]`[0m

@@ -322,11 +322,12 @@ dependencies = [
  "bumpalo",
  "dingey-common",
  "indexmap",
- "libtest-mimic 0.8.1",
+ "libtest-mimic",
  "pretty_assertions",
  "serde",
  "toml-test-data",
  "toml-test-harness",
+ "walkdir",
 ]
 
 [[package]]
@@ -428,12 +429,6 @@ name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
-name = "hermit-abi"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d231dfb89cfffdbc30e7fc41579ed6066ad03abda9e567ccafae602b97ec5024"
 
 [[package]]
 name = "http_req"
@@ -654,6 +649,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "json-write"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4085027557b9a870495ab8b7b411e14576055491d7220c88b11b7e2ba198b297"
+
+[[package]]
+name = "lexarg"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "84373d01a60bb462a2e7caa28796669692d38ba075028a656bd626ac211062d4"
+dependencies = [
+ "lexarg-error",
+ "lexarg-parser",
+]
+
+[[package]]
+name = "lexarg-error"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "178daf11ee95fa4bf31ff1af878dda4c637dc08a37aabdd63ae3683481fd13a9"
+dependencies = [
+ "lexarg-parser",
+]
+
+[[package]]
+name = "lexarg-parser"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67367be9ace12a2d51c03741b5280ff3029a833c49a4ec1193223a1a8cfbc863"
+
+[[package]]
 name = "libc"
 version = "0.2.171"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -670,15 +696,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "libtest-mimic"
-version = "0.7.3"
+name = "libtest-json"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc0bda45ed5b3a2904262c1bb91e526127aa70e7ef3758aba2ef93cf896b9b58"
+checksum = "a8f58e30343a6bfe0fb896b0bb92cf482c34ed047c637aac4b561d0b251b638c"
 dependencies = [
- "clap",
- "escape8259",
- "termcolor",
- "threadpool",
+ "json-write",
+]
+
+[[package]]
+name = "libtest-lexarg"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "914e11e515e22a1b2a0aac76c0615e6417d470789c2f0433a0598a5b6aae491f"
+dependencies = [
+ "lexarg",
+ "lexarg-error",
 ]
 
 [[package]]
@@ -691,6 +724,30 @@ dependencies = [
  "anstyle",
  "clap",
  "escape8259",
+]
+
+[[package]]
+name = "libtest2-harness"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ca907aef7f70aceecb01e88588062946dd0af0727d80a68d9a1e928dacf07c9"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "lexarg-error",
+ "lexarg-parser",
+ "libtest-json",
+ "libtest-lexarg",
+]
+
+[[package]]
+name = "libtest2-mimic"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a91f49bdcba4db89919ae87029787d2102f051e5dcf635df29e3bfdf55b2a4ac"
+dependencies = [
+ "libtest-json",
+ "libtest2-harness",
 ]
 
 [[package]]
@@ -767,16 +824,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "num_cpus"
-version = "1.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
-dependencies = [
- "hermit-abi",
- "libc",
 ]
 
 [[package]]
@@ -1055,24 +1102,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "termcolor"
-version = "1.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
-dependencies = [
- "winapi-util",
-]
-
-[[package]]
-name = "threadpool"
-version = "1.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
-dependencies = [
- "num_cpus",
-]
-
-[[package]]
 name = "tinystr"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1084,9 +1113,9 @@ dependencies = [
 
 [[package]]
 name = "toml-test"
-version = "1.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "704beaf8cc30d87aeb4f283f3ba3b091c7e786e5a0740e1eb6869a973634d58c"
+checksum = "2849d808127660fc2182eb19c6fa69fd8d34a3968df247aa968da712c5a10064"
 dependencies = [
  "chrono",
  "ryu",
@@ -1096,21 +1125,21 @@ dependencies = [
 
 [[package]]
 name = "toml-test-data"
-version = "1.13.1"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cd230362857237e474ce9b5ba6576cf1858ecb14c04a6b376dc042538c9b93f"
+checksum = "b59b1c6fa1ba45f952bfe2c40b1fc6dab837507837ed69b04fb5d56cf3bed7d4"
 dependencies = [
  "include_dir",
 ]
 
 [[package]]
 name = "toml-test-harness"
-version = "0.4.12"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81710e8e7f644081a22bdc205db4840e41f7fb673e3adbcacc001e25692b0f74"
+checksum = "c1b0c89104957a5be58bd9d3b853691e11421b74effc1234430714a8dd48b8d5"
 dependencies = [
  "ignore",
- "libtest-mimic 0.7.3",
+ "libtest2-mimic",
  "toml-test",
  "toml-test-data",
 ]

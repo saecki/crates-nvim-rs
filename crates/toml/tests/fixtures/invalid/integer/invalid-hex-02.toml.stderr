@@ -1,0 +1,5 @@
+[91merror[0m: hexadecimal digit `g` out of range, valid digits are `0-9`, `a-f`, and `A-F`
+    [94m-->[0m <fixture>:1:19
+     [94m|[0m
+[94m   1 |[0m invalid-hex-02 = 0xgabba00f1
+     [94m|[0m                    [91m^ hexadecimal digit  out of range[0m

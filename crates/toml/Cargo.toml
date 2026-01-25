@@ -15,9 +15,10 @@ serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
-toml-test-harness = "0.4.12"
-toml-test-data = "1.13.1"
+toml-test-harness = "1.4.0"
+toml-test-data = "2.4.0"
 libtest-mimic = "0.8.1"
+walkdir = "2.5.0"
 
 [[test]]
 name = "valid"
@@ -25,4 +26,8 @@ harness = false
 
 [[test]]
 name = "invalid"
+harness = false
+
+[[test]]
+name = "dangling"
 harness = false

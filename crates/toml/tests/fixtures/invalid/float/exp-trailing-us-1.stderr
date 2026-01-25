@@ -1,5 +1,0 @@
-[91merror[0m: float integral cannot end with `_`
-    [94m-->[0m <fixture>:1:21
-     [94m|[0m
-[94m   1 |[0m exp-trailing-us-1 = 1_e2
-     [94m|[0m                      [91m^ float integral cannot end with `_`[0m

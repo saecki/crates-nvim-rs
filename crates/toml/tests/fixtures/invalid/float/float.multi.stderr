@@ -1,0 +1,185 @@
+[91merror[0m: invalid leading `0` in number
+    [94m-->[0m <fixture>:1:15
+     [94m|[0m
+[94m   1 |[0m leading-zero = 03.14
+     [94m|[0m                [91m^ invalid leading `0`[0m
+[91merror[0m: invalid leading `0` in number
+    [94m-->[0m <fixture>:2:20
+     [94m|[0m
+[94m   2 |[0m leading-zero-neg = -03.14
+     [94m|[0m                     [91m^ invalid leading `0`[0m
+[91merror[0m: invalid leading `0` in number
+    [94m-->[0m <fixture>:3:21
+     [94m|[0m
+[94m   3 |[0m leading-zero-plus = +03.14
+     [94m|[0m                      [91m^ invalid leading `0`[0m
+[91merror[0m: unexpected character `.` at start of literal
+    [94m-->[0m <fixture>:5:14
+     [94m|[0m
+[94m   5 |[0m leading-dot = .12345
+     [94m|[0m               [91m^ unexpected character[0m
+[91merror[0m: missing digit after sign `-`, expected at least one
+    [94m-->[0m <fixture>:6:19
+     [94m|[0m
+[94m   6 |[0m leading-dot-neg = -.12345
+     [94m|[0m                    [91m^ missing digit after sign[0m
+[91merror[0m: missing digit after sign `+`, expected at least one
+    [94m-->[0m <fixture>:7:20
+     [94m|[0m
+[94m   7 |[0m leading-dot-plus = +.12345
+     [94m|[0m                     [91m^ missing digit after sign[0m
+[91merror[0m: missing fractional part of float literal, expected at least one digit
+    [94m-->[0m <fixture>:9:17
+     [94m|[0m
+[94m   9 |[0m trailing-dot = 1.
+     [94m|[0m                  [91m^ missing fractional part of float literal[0m
+[91merror[0m: missing fractional part of float literal, expected at least one digit
+    [94m-->[0m <fixture>:10:22
+     [94m|[0m
+[94m  10 |[0m trailing-dot-min = -1.
+     [94m|[0m                       [91m^ missing fractional part of float literal[0m
+[91merror[0m: missing fractional part of float literal, expected at least one digit
+    [94m-->[0m <fixture>:11:23
+     [94m|[0m
+[94m  11 |[0m trailing-dot-plus = +1.
+     [94m|[0m                        [91m^ missing fractional part of float literal[0m
+[91merror[0m: float literal overflow, number doesn't fit into a 64-bit IEEE float
+    [94m-->[0m <fixture>:13:15
+     [94m|[0m
+[94m  13 |[0m trailing-exp = 0.0E
+     [94m|[0m                [91m^^^^ float literal overflow[0m
+[91merror[0m: missing fractional part of float literal, expected at least one digit
+    [94m-->[0m <fixture>:14:22
+     [94m|[0m
+[94m  14 |[0m trailing-exp-dot =  0.e
+     [94m|[0m                       [91m^ missing fractional part of float literal[0m
+[91merror[0m: float literal overflow, number doesn't fit into a 64-bit IEEE float
+    [94m-->[0m <fixture>:15:21
+     [94m|[0m
+[94m  15 |[0m trailing-exp-minus = 0.0e-
+     [94m|[0m                      [91m^^^^^ float literal overflow[0m
+[91merror[0m: float literal overflow, number doesn't fit into a 64-bit IEEE float
+    [94m-->[0m <fixture>:16:20
+     [94m|[0m
+[94m  16 |[0m trailing-exp-plus = 0.0e+
+     [94m|[0m                     [91m^^^^^ float literal overflow[0m
+[91merror[0m: float fractional part cannot end with `_`
+    [94m-->[0m <fixture>:18:17
+     [94m|[0m
+[94m  18 |[0m trailing-us = 1.2_
+     [94m|[0m                  [91m^ float fractional part cannot end with `_`[0m
+[91merror[0m: literal cannot start with `_`
+    [94m-->[0m <fixture>:19:13
+     [94m|[0m
+[94m  19 |[0m leading-us = _1.2
+     [94m|[0m              [91m^ literal cannot start with `_`[0m
+[91merror[0m: float integral cannot end with `_`
+    [94m-->[0m <fixture>:20:17
+     [94m|[0m
+[94m  20 |[0m us-before-dot = 1_.2
+     [94m|[0m                  [91m^ float integral cannot end with `_`[0m
+[91merror[0m: float fractional part cannot start with `_`
+    [94m-->[0m <fixture>:21:17
+     [94m|[0m
+[94m  21 |[0m us-after-dot = 1._2
+     [94m|[0m                  [91m^ float fractional part cannot start with `_`[0m
+[91merror[0m: unexpected character `.` in float fractional part
+    [94m-->[0m <fixture>:23:18
+     [94m|[0m
+[94m  23 |[0m double-dot-01 = 0..1
+     [94m|[0m                   [91m^ unexpected character in float fractional part[0m
+[91merror[0m: unexpected character `.` in float fractional part
+    [94m-->[0m <fixture>:24:19
+     [94m|[0m
+[94m  24 |[0m double-dot-02 = 0.1.2
+     [94m|[0m                    [91m^ unexpected character in float fractional part[0m
+[91merror[0m: unexpected character `.` in float exponent
+    [94m-->[0m <fixture>:26:16
+     [94m|[0m
+[94m  26 |[0m exp-dot-01 = 1e2.3
+     [94m|[0m                 [91m^ unexpected character in float exponent[0m
+[91merror[0m: missing fractional part of float literal, expected at least one digit
+    [94m-->[0m <fixture>:27:15
+     [94m|[0m
+[94m  27 |[0m exp-dot-02 = 1.e2
+     [94m|[0m                [91m^ missing fractional part of float literal[0m
+[91merror[0m: missing fractional part of float literal, expected at least one digit
+    [94m-->[0m <fixture>:28:15
+     [94m|[0m
+[94m  28 |[0m exp-dot-03 = 3.e+20
+     [94m|[0m                [91m^ missing fractional part of float literal[0m
+[91merror[0m: unexpected character `e` in float exponent
+    [94m-->[0m <fixture>:30:20
+     [94m|[0m
+[94m  30 |[0m exp-double-e-01 = 1ee2
+     [94m|[0m                     [91m^ unexpected character in float exponent[0m
+[91merror[0m: unexpected character `e` in float exponent
+    [94m-->[0m <fixture>:31:21
+     [94m|[0m
+[94m  31 |[0m exp-double-e-02 = 1e2e3
+     [94m|[0m                      [91m^ unexpected character in float exponent[0m
+[91merror[0m: float exponent cannot start with `_`
+    [94m-->[0m <fixture>:33:19
+     [94m|[0m
+[94m  33 |[0m exp-leading-us = 1e_23
+     [94m|[0m                    [91m^ float exponent cannot start with `_`[0m
+[91merror[0m: float exponent cannot end with `_`
+    [94m-->[0m <fixture>:34:22
+     [94m|[0m
+[94m  34 |[0m exp-trailing-us = 1e23_
+     [94m|[0m                       [91m^ float exponent cannot end with `_`[0m
+[91merror[0m: float exponent cannot start with `_`
+    [94m-->[0m <fixture>:35:18
+     [94m|[0m
+[94m  35 |[0m exp-double-us = 1e__23
+     [94m|[0m                   [91m^ float exponent cannot start with `_`[0m
+[91merror[0m: float integral cannot end with `_`
+    [94m-->[0m <fixture>:37:22
+     [94m|[0m
+[94m  37 |[0m exp-trailing-us-01 = 1_e2
+     [94m|[0m                       [91m^ float integral cannot end with `_`[0m
+[91merror[0m: float fractional part cannot end with `_`
+    [94m-->[0m <fixture>:38:24
+     [94m|[0m
+[94m  38 |[0m exp-trailing-us-02 = 1.2_e2
+     [94m|[0m                         [91m^ float fractional part cannot end with `_`[0m
+[91merror[0m: missing characters in literal, expected `inf`
+    [94m-->[0m <fixture>:40:22
+     [94m|[0m
+[94m  40 |[0m inf-incomplete-01 = in
+     [94m|[0m                       [91m^ missing characters[0m
+[91merror[0m: missing characters in literal, expected `inf`
+    [94m-->[0m <fixture>:41:23
+     [94m|[0m
+[94m  41 |[0m inf-incomplete-02 = +in
+     [94m|[0m                        [91m^ missing characters[0m
+[91merror[0m: missing characters in literal, expected `inf`
+    [94m-->[0m <fixture>:42:23
+     [94m|[0m
+[94m  42 |[0m inf-incomplete-03 = -in
+     [94m|[0m                        [91m^ missing characters[0m
+[91merror[0m: missing characters in literal, expected `nan`
+    [94m-->[0m <fixture>:44:22
+     [94m|[0m
+[94m  44 |[0m nan-incomplete-01 = na
+     [94m|[0m                       [91m^ missing characters[0m
+[91merror[0m: missing characters in literal, expected `nan`
+    [94m-->[0m <fixture>:45:23
+     [94m|[0m
+[94m  45 |[0m nan-incomplete-02 = +na
+     [94m|[0m                        [91m^ missing characters[0m
+[91merror[0m: missing characters in literal, expected `nan`
+    [94m-->[0m <fixture>:46:23
+     [94m|[0m
+[94m  46 |[0m nan-incomplete-03 = -na
+     [94m|[0m                        [91m^ missing characters[0m
+[91merror[0m: unexpected character `_` in literal, expected `nan`
+    [94m-->[0m <fixture>:48:19
+     [94m|[0m
+[94m  48 |[0m nan_underscore = na_n
+     [94m|[0m                    [91m^ unexpected character[0m
+[91merror[0m: unexpected character `_` in literal, expected `inf`
+    [94m-->[0m <fixture>:49:19
+     [94m|[0m
+[94m  49 |[0m inf_underscore = in_f
+     [94m|[0m                    [91m^ unexpected character[0m

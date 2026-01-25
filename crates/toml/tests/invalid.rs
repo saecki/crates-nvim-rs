@@ -1,5 +1,6 @@
 use std::fmt::Write as _;
 use std::io::Write as _;
+use std::path::{Path, PathBuf};
 
 use bumpalo::Bump;
 use common::diagnostic::{self, ANSII_CLEAR, ANSII_COLOR_BLUE, ANSII_COLOR_YELLOW};
@@ -66,11 +67,9 @@ fn main() {
                 .unwrap_or(true)
         })
         .map(|case| {
+            let expect_path = fixture_path(&case.name);
             libtest_mimic::Trial::test(case.name.display().to_string(), move || {
-                let expect_path =
-                    std::path::Path::new("tests/fixtures").join(case.name.with_extension("stderr"));
-
-                let Ok(text) = std::str::from_utf8(case.fixture) else {
+                let Ok(text) = std::str::from_utf8(case.fixture.as_ref()) else {
                     return Ok(());
                 };
                 let actual_error = match run_case(text) {
@@ -81,6 +80,7 @@ fn main() {
                     Err(err) => err,
                 };
 
+                let expect_path = fixture_path(&case.name);
                 let expect_error = match std::fs::read_to_string(&expect_path) {
                     Ok(t) => t,
                     Err(e) => {
@@ -244,11 +244,7 @@ fn main() {
             })
             .with_ignored_flag(match mode {
                 Mode::Skip => true,
-                Mode::SkipMissing => {
-                    let expect_path = std::path::Path::new("tests/fixtures")
-                        .join(case.name.with_extension("stderr"));
-                    !expect_path.exists()
-                }
+                Mode::SkipMissing => !expect_path.exists(),
                 _ => false,
             })
         })
@@ -301,4 +297,8 @@ fn dialog<const SIZE: usize>(options: [&str; SIZE]) -> &str {
 
         println!("Invalid input {text:?}");
     }
+}
+
+fn fixture_path(name: &Path) -> PathBuf {
+    std::path::Path::new("tests/fixtures").join(name.with_added_extension("stderr"))
 }

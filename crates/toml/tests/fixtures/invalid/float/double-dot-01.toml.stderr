@@ -1,0 +1,5 @@
+[91merror[0m: unexpected character `.` in float fractional part
+    [94m-->[0m <fixture>:1:18
+     [94m|[0m
+[94m   1 |[0m double-dot-01 = 0..1
+     [94m|[0m                   [91m^ unexpected character in float fractional part[0m

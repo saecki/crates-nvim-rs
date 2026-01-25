@@ -1,0 +1,10 @@
+[91merror[0m: expected a value, found `,`
+    [94m-->[0m <fixture>:1:17
+     [94m|[0m
+[94m   1 |[0m only-comma-02 = [,,]
+     [94m|[0m                  [91m^ expected a value[0m
+[91merror[0m: expected a value, found `,`
+    [94m-->[0m <fixture>:1:18
+     [94m|[0m
+[94m   1 |[0m only-comma-02 = [,,]
+     [94m|[0m                   [91m^ expected a value[0m

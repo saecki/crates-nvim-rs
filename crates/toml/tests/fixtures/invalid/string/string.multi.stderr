@@ -1,0 +1,170 @@
+[91merror[0m: invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+    [94m-->[0m <fixture>:1:19
+     [94m|[0m
+[94m   1 |[0m bad-hex-esc-01 = "\x0g"
+     [94m|[0m                    [91m^ invalid escape character[0m
+[91merror[0m: invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+    [94m-->[0m <fixture>:2:19
+     [94m|[0m
+[94m   2 |[0m bad-hex-esc-02 = "\xG0"
+     [94m|[0m                    [91m^ invalid escape character[0m
+[91merror[0m: invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+    [94m-->[0m <fixture>:3:19
+     [94m|[0m
+[94m   3 |[0m bad-hex-esc-03 = "\x"
+     [94m|[0m                    [91m^ invalid escape character[0m
+[91merror[0m: invalid escape character `x`, expected one of: `u`, `U`, `b`, `t`, `n`, `f`, `r`, `"`, `\`
+    [94m-->[0m <fixture>:4:19
+     [94m|[0m
+[94m   4 |[0m bad-hex-esc-04 = "\x 50"
+     [94m|[0m                    [91m^ invalid escape character[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:6:21
+     [94m|[0m
+[94m   6 |[0m bad-uni-esc-01 = "val\ue"
+     [94m|[0m                      [91m^^^ unfinished escape sequence[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:7:21
+     [94m|[0m
+[94m   7 |[0m bad-uni-esc-02 = "val\Ux"
+     [94m|[0m                      [91m^^^ unfinished escape sequence[0m
+[91merror[0m: invalid character `x` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:7:23
+     [94m|[0m
+[94m   7 |[0m bad-uni-esc-02 = "val\Ux"
+     [94m|[0m                        [91m^ invalid unicode escape character[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:8:21
+     [94m|[0m
+[94m   8 |[0m bad-uni-esc-03 = "val\U0000000"
+     [94m|[0m                      [91m^^^^^^^^^ unfinished escape sequence[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:9:21
+     [94m|[0m
+[94m   9 |[0m bad-uni-esc-04 = "val\U0000"
+     [94m|[0m                      [91m^^^^^^ unfinished escape sequence[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:23
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                        [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:24
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                         [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:25
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                          [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:26
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                           [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:27
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                            [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:28
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                             [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:29
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                              [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:10:30
+     [94m|[0m
+[94m  10 |[0m bad-uni-esc-05 = "val\Ugggggggg"
+     [94m|[0m                               [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid unicode scalar `0xd801` (`55297`)
+    [94m-->[0m <fixture>:11:70
+     [94m|[0m
+[94m  11 |[0m bad-uni-esc-06 = "This string contains a non scalar unicode codepoint \uD801"
+     [94m|[0m                                                                       [91m^^^^^^ invalid unicode scalar[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:12:23
+     [94m|[0m
+[94m  12 |[0m bad-uni-esc-07 = "\uabag"
+     [94m|[0m                        [91m^ invalid unicode escape character[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:14:26
+     [94m|[0m
+[94m  14 |[0m bad-uni-esc-ml-01 = """val\ue"""
+     [94m|[0m                           [91m^^^ unfinished escape sequence[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:15:26
+     [94m|[0m
+[94m  15 |[0m bad-uni-esc-ml-02 = """val\Ux"""
+     [94m|[0m                           [91m^^^ unfinished escape sequence[0m
+[91merror[0m: invalid character `x` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:15:28
+     [94m|[0m
+[94m  15 |[0m bad-uni-esc-ml-02 = """val\Ux"""
+     [94m|[0m                             [91m^ invalid unicode escape character[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:16:26
+     [94m|[0m
+[94m  16 |[0m bad-uni-esc-ml-03 = """val\U0000000"""
+     [94m|[0m                           [91m^^^^^^^^^ unfinished escape sequence[0m
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:17:26
+     [94m|[0m
+[94m  17 |[0m bad-uni-esc-ml-04 = """val\U0000"""
+     [94m|[0m                           [91m^^^^^^ unfinished escape sequence[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:28
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                             [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:29
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                              [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:30
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                               [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:31
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                                [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:32
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                                 [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:33
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                                  [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:34
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                                   [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:18:35
+     [94m|[0m
+[94m  18 |[0m bad-uni-esc-ml-05 = """val\Ugggggggg"""
+     [94m|[0m                                    [91m^ invalid unicode escape character[0m
+[91merror[0m: invalid unicode scalar `0xd801` (`55297`)
+    [94m-->[0m <fixture>:19:75
+     [94m|[0m
+[94m  19 |[0m bad-uni-esc-ml-06 = """This string contains a non scalar unicode codepoint \uD801"""
+     [94m|[0m                                                                            [91m^^^^^^ invalid unicode scalar[0m
+[91merror[0m: invalid character `g` in unicode escape sequence, valid characters are: `a-f`, `A-F` and `0-9`
+    [94m-->[0m <fixture>:20:28
+     [94m|[0m
+[94m  20 |[0m bad-uni-esc-ml-07 = """\uabag"""
+     [94m|[0m                             [91m^ invalid unicode escape character[0m

@@ -1,5 +1,0 @@
-[91merror[0m: date-time offset-minute `61` out of range, the valid range is `0..=59`
-    [94m-->[0m <fixture>:3:27
-     [94m|[0m
-[94m   3 |[0m d = 1985-06-18 17:04:07+12:61
-     [94m|[0m                            [91m^^ offset-minute out of range[0m

@@ -1,0 +1,5 @@
+[91merror[0m: float fractional part cannot start with `_`
+    [94m-->[0m <fixture>:1:17
+     [94m|[0m
+[94m   1 |[0m us-after-dot = 1._2
+     [94m|[0m                  [91m^ float fractional part cannot start with `_`[0m

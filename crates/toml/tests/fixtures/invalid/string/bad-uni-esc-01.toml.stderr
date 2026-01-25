@@ -1,0 +1,5 @@
+[91merror[0m: unfinished escape sequence
+    [94m-->[0m <fixture>:1:21
+     [94m|[0m
+[94m   1 |[0m bad-uni-esc-01 = "val\ue"
+     [94m|[0m                      [91m^^^ unfinished escape sequence[0m

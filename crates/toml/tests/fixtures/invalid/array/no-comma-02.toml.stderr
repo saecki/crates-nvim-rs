@@ -1,0 +1,10 @@
+[91merror[0m: missing comma (`,`)
+    [94m-->[0m <fixture>:1:17
+     [94m|[0m
+[94m   1 |[0m no-comma-02 = [ 1 2 3 ]
+     [94m|[0m                  [91m^ missing comma (`,`)[0m
+[91merror[0m: missing comma (`,`)
+    [94m-->[0m <fixture>:1:19
+     [94m|[0m
+[94m   1 |[0m no-comma-02 = [ 1 2 3 ]
+     [94m|[0m                    [91m^ missing comma (`,`)[0m
