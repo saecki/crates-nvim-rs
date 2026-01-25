@@ -290,6 +290,7 @@ pub(super) fn cyclic<'a, T>(
     loc.write(val)
 }
 
+#[repr(transparent)]
 pub(super) struct Cyclic<'a, T, S> {
     ptr: NonNull<MaybeUninit<T>>,
     lifetime: PhantomData<&'a T>,
