@@ -7,7 +7,7 @@ use common::{DiagnosticMark, FmtChar, FmtStr, Pos, Source, Span};
 
 use crate::datetime::{Date, DateTime};
 use crate::lex::{StringId, StringToken, Token, TokenType, Tokens};
-use crate::map::parent::ManuallySyncCell;
+use crate::map::cyclic::ManuallySyncCell;
 use crate::parse::lit::PartialValue;
 use crate::{Error, Quote, TomlCtx};
 

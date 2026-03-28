@@ -5,7 +5,7 @@
 //!     - entries:
 //!         - "children_1": [MapTableEntry]
 //!             - reprs: [OneVec<MapTableEntryRepr>]
-//!                 - parent: [ParentEntry::Table] // refers to root
+//!                 - parent: [ParentTable] // refers to root
 //!                 - key: ...
 //!                 - kind: ...
 //!             - node: [MapNode::Table]: [MapTable]
@@ -18,10 +18,10 @@
 //!                             - parent: [ParentEntry::Table]
 //!                             - key: ...
 //!                             - kind: ...
-//!                     - "node_2": MapTableEntry
+//!                     - "node_2": [MapTableEntry]
 //!                         - node: [MapNode::Scalar]
 //!                         - reprs: [OneVec<MapTableEntryRepr>]
-//!                             - parent: [ParentId] // index into children_1
+//!                             - parent: [ParentEntry::Table]
 //!                             - key: ...
 //!                             - kind: ...
 //!
@@ -46,9 +46,10 @@ use common::OneVec;
 use common::Span;
 
 use crate::map::construct::{MapError, MapErrorKind};
+use crate::map::cyclic::{Complete, Cyclic, CyclicCell};
 use crate::map::parent::{
-    Complete, Cyclic, ParentEntry, ParentInlineArray, ParentInlineArrayEntry, ParentTable,
-    ParentTableEntry, ParentToplevelArray, ParentToplevelArrayEntry, ReprIdx,
+    ParentEntry, ParentInlineArray, ParentInlineArrayEntry, ParentTable, ParentTableEntry,
+    ParentToplevelArray, ParentToplevelArrayEntry, ReprIdx,
 };
 use crate::parse::{
     ArrayEntry, BoolVal, CommentRange, DateTimeVal, DottedIdent, FloatVal, Ident, InlineArray,
@@ -60,23 +61,19 @@ use crate::{Ast, Error, TomlCtx};
 pub use path::*;
 
 mod construct;
+pub mod cyclic;
 pub mod parent;
 mod path;
 #[cfg(test)]
 mod test;
 
-pub type MapInner<'a, S = Complete> = indexmap::IndexMap<&'a str, &'a mut MapTableEntry<'a, S>>;
+type MapInner<'a, S = Complete> =
+    indexmap::IndexMap<&'a str, CyclicCell<'a, MapTableEntry<'a, S>, S>>;
 
 #[derive(Debug, PartialEq)]
 pub struct MapTable<'a, S = Complete> {
     inner: MapInner<'a, S>,
     pub reprs: OneVec<MapTableRepr<'a, S>>,
-}
-
-impl<'a> AsRef<MapInner<'a>> for MapTable<'a> {
-    fn as_ref(&self) -> &MapInner<'a> {
-        &self.inner
-    }
 }
 
 impl<'a, S> MapTable<'a, S> {
@@ -86,7 +83,9 @@ impl<'a, S> MapTable<'a, S> {
             inner: MapInner::new(),
         }
     }
+}
 
+impl<'a> MapTable<'a, Complete> {
     #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
@@ -97,25 +96,20 @@ impl<'a, S> MapTable<'a, S> {
         self.inner.is_empty()
     }
 
-    pub fn get(&self, key: &str) -> Option<&MapTableEntry<'a, S>> {
-        self.inner.get(key).map(|e| &**e)
+    pub fn get(&self, key: &str) -> Option<&'a MapTableEntry<'a>> {
+        self.inner.get(key).map(|e| e.get())
     }
 
-    pub fn as_slice(&self) -> &indexmap::map::Slice<&str, &mut MapTableEntry<'a, S>> {
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (&'a str, &'a MapTableEntry<'a>)> + DoubleEndedIterator {
+        self.inner.iter().map(|(key, entry)| (*key, entry.get()))
+    }
+
+    pub(crate) fn as_slice(
+        &self,
+    ) -> &indexmap::map::Slice<&'a str, CyclicCell<'a, MapTableEntry<'a>>> {
         self.inner.as_slice()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&'a str, &MapTableEntry<'a, S>)> {
-        self.inner.iter().map(|(key, entry)| (*key, &**entry))
-    }
-}
-
-impl<'a, S> IntoIterator for MapTable<'a, S> {
-    type Item = (&'a str, &'a mut MapTableEntry<'a, S>);
-    type IntoIter = <MapInner<'a, S> as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
     }
 }
 
@@ -311,26 +305,24 @@ impl<'a> MapTableKeyRepr<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum MapArray<'a, S = Complete> {
-    Toplevel(&'a mut MapArrayToplevel<'a, S>),
+    Toplevel(CyclicCell<'a, MapArrayToplevel<'a, S>, S>),
     Inline(&'a MapArrayInline<'a, S>),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MapArrayToplevel<'a, S = Complete> {
-    inner: OneVec<&'a mut MapArrayToplevelEntry<'a, S>>,
+    inner: OneVec<CyclicCell<'a, MapArrayToplevelEntry<'a, S>, S>>,
 }
 
 impl<'a, S> MapArrayToplevel<'a, S> {
-    pub fn new(entry: &'a mut MapArrayToplevelEntry<'a, S>) -> Self {
+    pub fn new(entry: CyclicCell<'a, MapArrayToplevelEntry<'a, S>, S>) -> Self {
         Self {
             inner: OneVec::new(entry),
         }
     }
+}
 
-    fn push(&mut self, entry: &'a mut MapArrayToplevelEntry<'a, S>) {
-        self.inner.push(entry);
-    }
-
+impl<'a> MapArrayToplevel<'a, Complete> {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
@@ -339,36 +331,28 @@ impl<'a, S> MapArrayToplevel<'a, S> {
         self.inner.len() == 0
     }
 
-    pub fn as_slice(&self) -> &[&'a mut MapArrayToplevelEntry<'a, S>] {
+    pub(crate) fn as_slice(&self) -> &[CyclicCell<'a, MapArrayToplevelEntry<'a>>] {
         self.inner.as_slice()
     }
 
-    pub fn first(&self) -> &MapArrayToplevelEntry<'a, S> {
-        self.inner.first()
+    pub fn first(&self) -> &'a MapArrayToplevelEntry<'a> {
+        self.inner.first().get()
     }
 
-    pub fn last(&self) -> &MapArrayToplevelEntry<'a, S> {
-        self.inner.last()
+    pub fn last(&self) -> &MapArrayToplevelEntry<'a> {
+        self.inner.last().get()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &MapArrayToplevelEntry<'a, S>> {
-        self.inner.iter().map(|e| &**e)
-    }
-}
-
-impl<'a, S: 'a> IntoIterator for MapArrayToplevel<'a, S> {
-    type Item = &'a mut MapArrayToplevelEntry<'a, S>;
-
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.inner.into_iter()
+    pub fn iter(
+        &self,
+    ) -> impl ExactSizeIterator<Item = &MapArrayToplevelEntry<'a>> + DoubleEndedIterator {
+        self.inner.iter().map(|e| e.get())
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct MapArrayToplevelEntry<'a, S = Complete> {
-    pub node: &'a mut MapTable<'a, S>,
+    pub node: CyclicCell<'a, MapTable<'a, S>, S>,
     /// The definition of this array of tables entry.
     /// ```toml
     /// [[a.b]] # this here
@@ -390,7 +374,7 @@ pub struct MapArrayToplevelEntry<'a, S = Complete> {
 
 impl<'a, S> MapArrayToplevelEntry<'a, S> {
     pub fn new(
-        node: &'a mut MapTable<'a, S>,
+        node: CyclicCell<'a, MapTable<'a, S>, S>,
         repr: &'a ArrayEntry<'a>,
         parent_entry: ParentEntry<'a, S>,
         parent: ParentToplevelArray<'a, S>,
@@ -491,7 +475,7 @@ impl<'a, S> MapArrayInlineEntry<'a, S> {
 
 #[derive(Debug, PartialEq)]
 pub enum MapNode<'a, S = Complete> {
-    Table(&'a mut MapTable<'a, S>),
+    Table(CyclicCell<'a, MapTable<'a, S>, S>),
     Array(MapArray<'a, S>),
     Scalar(Scalar<'a>),
 }
@@ -536,12 +520,12 @@ fn set_mapped_table<'a>(map: &'a MapTable<'a>) {
             MapTableRepr::Root(_) => (),
             MapTableRepr::Table(table, _) => {
                 let parent_table = ParentTable::new(Cyclic::new(map), ReprIdx(idx));
-                // SAFETY: The maptable was just constructed, on a single thread.
+                // SAFETY: The map isn't shared between threads.
                 unsafe { table.mapped.set(parent_table) }
             }
             MapTableRepr::InlineTable(inline_table, _) => {
                 let parent_table = ParentTable::new(Cyclic::new(map), ReprIdx(idx));
-                // SAFETY: The maptable was just constructed, on a single thread.
+                // SAFETY: The map isn't shared between threads.
                 unsafe { inline_table.mapped.set(parent_table) }
             }
             MapTableRepr::ArrayEntry(..) => (),
@@ -552,8 +536,8 @@ fn set_mapped_table<'a>(map: &'a MapTable<'a>) {
 
     for (_, entry) in map.inner.iter() {
         for (repr, idx) in entry.reprs.iter().zip(0..) {
-            let parent_entry = ParentTableEntry::new(Cyclic::new(entry), ReprIdx(idx));
-            // SAFETY: The maptable was just constructed, on a single thread.
+            let parent_entry = ParentTableEntry::new(Cyclic::new(entry.get()), ReprIdx(idx));
+            // SAFETY: The map isn't shared between threads.
             unsafe { repr.key.repr_ident().mapped.set(parent_entry) };
         }
 
@@ -564,21 +548,21 @@ fn set_mapped_table<'a>(map: &'a MapTable<'a>) {
 fn set_mapped_toplevel_array<'a>(array: &'a MapArrayToplevel<'a>) {
     for entry in array.iter() {
         let parent_entry = ParentToplevelArrayEntry::new(Cyclic::new(entry));
-        // SAFETY: The maptable was just constructed, on a single thread.
+        // SAFETY: The map isn't shared between threads.
         unsafe { entry.definition.mapped.set(parent_entry) };
 
-        set_mapped_table(entry.node);
+        set_mapped_table(entry.node.get());
     }
 }
 
 fn set_mapped_inline_array<'a>(array: &'a MapArrayInline<'a>) {
     let parent_array = ParentInlineArray::new(Cyclic::new(array));
-    // SAFETY: The maptable was just constructed, on a single thread.
+    // SAFETY: The map isn't shared between threads.
     unsafe { array.repr.mapped.set(parent_array) };
 
     for entry in array.iter() {
         let parent_entry = ParentInlineArrayEntry::new(Cyclic::new(entry));
-        // SAFETY: The maptable was just constructed, on a single thread.
+        // SAFETY: The map isn't shared between threads.
         unsafe { entry.repr.mapped.set(parent_entry) };
 
         set_mapped_node(&entry.node);
@@ -587,8 +571,8 @@ fn set_mapped_inline_array<'a>(array: &'a MapArrayInline<'a>) {
 
 fn set_mapped_node<'a>(node: &'a MapNode<'a>) {
     match node {
-        MapNode::Table(map) => set_mapped_table(map),
-        MapNode::Array(MapArray::Toplevel(array)) => set_mapped_toplevel_array(array),
+        MapNode::Table(map) => set_mapped_table(map.get()),
+        MapNode::Array(MapArray::Toplevel(array)) => set_mapped_toplevel_array(array.get()),
         MapNode::Array(MapArray::Inline(array)) => set_mapped_inline_array(array),
         MapNode::Scalar(_) => (),
     }

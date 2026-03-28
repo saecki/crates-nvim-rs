@@ -79,7 +79,7 @@ fn handle_did_open_text_document(
 
     let mut ctx = IdeDiagnostics::default();
     let toml = toml::Container::parse(&mut ctx, path.as_str(), &text_doc.text);
-    ctx.check(&toml.toml().map);
+    ctx.check(toml.toml().map);
     let doc = VfsDocumentData::new(text_doc.version, ctx, toml);
 
     state.mem_docs.insert(path, doc);
@@ -108,7 +108,7 @@ fn handle_did_change_text_document(
 
     let mut ctx = IdeDiagnostics::default();
     let toml = toml::Container::parse(&mut ctx, path.as_str(), &text);
-    ctx.check(&toml.toml().map);
+    ctx.check(toml.toml().map);
     *doc = VfsDocumentData::new(text_doc.version, ctx, toml);
 
     publish_diagnostics(state)?;

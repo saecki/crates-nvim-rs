@@ -5,8 +5,9 @@ use common::{Pos, Source, Span};
 use crate::Quote;
 use crate::datetime::DateTime;
 use crate::lex::TextOffset;
+use crate::map::cyclic::ManuallySyncCell;
 use crate::map::parent::{
-    ManuallySyncCell, ParentInlineArray, ParentInlineArrayEntry, ParentTable, ParentTableEntry,
+    ParentInlineArray, ParentInlineArrayEntry, ParentTable, ParentTableEntry,
     ParentToplevelArrayEntry,
 };
 

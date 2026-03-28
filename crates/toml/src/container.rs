@@ -67,7 +67,11 @@ impl<'a> Container {
     pub fn toml(&'a self) -> &'a Toml<'a> {
         // Only give out a reference which is restricted to the container's lifetime.
         let ptr = &*self.toml as *const Toml<'static> as *const Toml<'a>;
-        // TODO: safety comment
+
+        // SAFETY: The lifetime parameter in only invariant, because of the use
+        // of `UnsafeCell`, but that API is not exposed publicly, and no
+        // mutations happen after the map has been constructed. Thus it's fine
+        // to narrow the lifetime of the TOML document.
         unsafe { &*ptr }
     }
 }

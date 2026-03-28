@@ -43,7 +43,7 @@ impl<'de> serde::de::SeqAccess<'de> for ToplevelArrayDeserializer<'de> {
             return Ok(None);
         };
         self.idx += 1;
-        seed.deserialize(TableDeserializer::new(entry.node))
+        seed.deserialize(TableDeserializer::new(entry.node.get()))
             .map_err(|e| e.with_toplevel_array_parent(entry))
             .map(Some)
     }

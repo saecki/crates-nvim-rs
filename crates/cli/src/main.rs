@@ -74,7 +74,7 @@ fn main() -> ExitCode {
     let map = toml::map(&mut ctx, &bump, &ast);
     let mapping = std::time::SystemTime::now();
     if command == Command::Check {
-        let _state = ide::check(&mut ctx, &map);
+        let _state = ide::check(&mut ctx, map);
     }
     let checking = std::time::SystemTime::now();
     let simple = toml::util::map_simple(&ast, map);

@@ -1,6 +1,6 @@
-use crate::Ast;
 use crate::datetime::DateTime;
-use crate::map::{MapArray, MapInner, MapNode, Scalar};
+use crate::map::{MapArray, MapNode, Scalar};
+use crate::{Ast, MapTable};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Datatype {
@@ -102,12 +102,8 @@ impl std::fmt::Debug for SimpleVal {
     }
 }
 
-pub fn map_simple<'a, M>(ast: &Ast, map: M) -> SimpleMap
-where
-    M: AsRef<MapInner<'a>>,
-{
+pub fn map_simple(ast: &Ast, map: &MapTable) -> SimpleMap {
     let iter = map
-        .as_ref()
         .iter()
         .map(|(k, e)| (k.to_string(), map_simple_val(ast, &e.node)));
     SimpleMap::from_iter(iter)

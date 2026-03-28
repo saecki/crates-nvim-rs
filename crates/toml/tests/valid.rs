@@ -3,8 +3,8 @@ use common::diagnostic::DisplayDiagnostic;
 use toml_test_harness::{DecodedScalar, DecodedValue};
 
 use dingey_toml::datetime::DateTime;
-use dingey_toml::map::{MapArray, MapInner, MapNode, Scalar};
-use dingey_toml::{Ast, Toml, TomlCtx, TomlDiagnostics};
+use dingey_toml::map::{MapArray, MapNode, Scalar};
+use dingey_toml::{Ast, MapTable, Toml, TomlCtx, TomlDiagnostics};
 
 #[derive(Clone, Copy)]
 struct TestDecoder;
@@ -65,10 +65,9 @@ fn map_decoded(ast: &Ast, node: &MapNode) -> DecodedValue {
     }
 }
 
-fn map_table<'a, M: AsRef<MapInner<'a>>>(ast: &Ast, map: M) -> DecodedValue {
+fn map_table(ast: &Ast, map: &MapTable) -> DecodedValue {
     DecodedValue::Table(
-        map.as_ref()
-            .iter()
+        map.iter()
             .map(|(k, e)| (k.to_string(), map_decoded(ast, &e.node)))
             .collect(),
     )

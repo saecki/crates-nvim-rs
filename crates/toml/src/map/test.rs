@@ -73,6 +73,32 @@ fn inline_array() {
 }
 
 #[test]
+fn cannot_extend_inline_array() {
+    check_simple_error(
+        "\
+array = [4, 8, 16]
+
+[[array]]
+thing = false
+",
+        SimpleMap::from_iter([(
+            "array".into(),
+            SimpleVal::Array(vec![
+                SimpleVal::Int(4),
+                SimpleVal::Int(8),
+                SimpleVal::Int(16),
+            ]),
+        )]),
+        Error::CannotExtendInlineArray {
+            lines: Box::new([]),
+            path: "array".into(),
+            orig: Span::from_pos_len(Pos::new(0, 0), 18),
+            new: Span::from_pos_len(Pos::new(2, 2), 5),
+        },
+    );
+}
+
+#[test]
 fn array_of_tables() {
     check_simple(
         "\
