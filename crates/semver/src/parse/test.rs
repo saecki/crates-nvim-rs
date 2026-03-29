@@ -42,7 +42,7 @@ macro_rules! v {
             minor: $minor,
             patch: $patch,
             pre: Prerelease {
-                str: unsafe { InlineStr::new_unchecked($pre) },
+                str: InlineStr::new($pre).unwrap(),
             },
             meta: BuildMetadata::EMPTY,
         }
@@ -54,7 +54,7 @@ macro_rules! v {
             patch: $patch,
             pre: Prerelease::EMPTY,
             meta: BuildMetadata {
-                str: unsafe { InlineStr::new_unchecked($meta) },
+                str: InlineStr::new($meta).unwrap(),
             },
         }
     };
@@ -64,10 +64,10 @@ macro_rules! v {
             minor: $minor,
             patch: $patch,
             pre: Prerelease {
-                str: unsafe { InlineStr::new_unchecked($pre) },
+                str: InlineStr::new($pre).unwrap(),
             },
             meta: BuildMetadata {
-                str: unsafe { InlineStr::new_unchecked($meta) },
+                str: InlineStr::new($meta).unwrap(),
             },
         }
     };

@@ -32,13 +32,58 @@ pub struct InlineStr {
 unsafe impl Sync for InlineStr {}
 unsafe impl Send for InlineStr {}
 
+/// An error that describes why validation failed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ValiationError {
+    NotAscii,
+    NulByte,
+}
+
+impl std::error::Error for ValiationError {}
+
+impl std::fmt::Display for ValiationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ValiationError::NotAscii => "string is not valid ASCII",
+            ValiationError::NulByte => "string contains nul byte",
+        })
+    }
+}
+
+impl TryFrom<&str> for InlineStr {
+    type Error = ValiationError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
 impl InlineStr {
     pub const fn empty() -> Self {
         let repr = unsafe { NonNull::new_unchecked(EMPTY as *mut u8) };
         Self { repr }
     }
 
-    /// SAFETY: `str` must be ASCII and not contain nul bytes
+    /// Try to construct an inline string from the string slice.
+    ///
+    /// Fails when the string contains non ASCII characters or nul bytes.
+    pub fn new(str: &str) -> Result<Self, ValiationError> {
+        for b in str.bytes() {
+            if !b.is_ascii() {
+                return Err(ValiationError::NotAscii);
+            }
+            if b == 0 {
+                return Err(ValiationError::NulByte);
+            }
+        }
+
+        // SAFETY: The string contains only ASCII characters
+        Ok(unsafe { InlineStr::new_unchecked(str) })
+    }
+
+    /// # Safety
+    ///
+    /// `str` must only contain ASCII charcters and no nul bytes.
     pub unsafe fn new_unchecked(str: &str) -> Self {
         let len = str.len();
         match len {
