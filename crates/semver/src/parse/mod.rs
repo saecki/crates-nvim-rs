@@ -246,13 +246,11 @@ fn comp_version(chars: &mut CharIter, op: &mut Op) -> Result<CompVersion, Error>
     let mut pre = None;
     let mut meta = None;
     if eat_hyphen(chars) {
-        let ident = parse_ident(chars, IdentField::Prerelease)?;
-        let str = unsafe { InlineStr::new_unchecked(ident) };
+        let str = parse_ident(chars, IdentField::Prerelease)?;
         pre = Some(Prerelease { str });
     }
     if eat_plus(chars) {
-        let ident = parse_ident(chars, IdentField::BuildMetadata)?;
-        let str = unsafe { InlineStr::new_unchecked(ident) };
+        let str = parse_ident(chars, IdentField::BuildMetadata)?;
         meta = Some(BuildMetadata { str });
     }
 
@@ -274,16 +272,14 @@ pub fn parse_version(text: &str, pos: Pos) -> Result<Version, Error> {
     let patch = parse_int(&mut chars, NumField::Patch)?;
 
     let pre = if eat_hyphen(&mut chars) {
-        let ident = parse_ident(&mut chars, IdentField::Prerelease)?;
-        let str = unsafe { InlineStr::new_unchecked(ident) };
+        let str = parse_ident(&mut chars, IdentField::Prerelease)?;
         Prerelease { str }
     } else {
         Prerelease::EMPTY
     };
 
     let meta = if eat_plus(&mut chars) {
-        let ident = parse_ident(&mut chars, IdentField::BuildMetadata)?;
-        let str = unsafe { InlineStr::new_unchecked(ident) };
+        let str = parse_ident(&mut chars, IdentField::BuildMetadata)?;
         BuildMetadata { str }
     } else {
         BuildMetadata::EMPTY
@@ -377,7 +373,7 @@ fn parse_int(chars: &mut CharIter, field: NumField) -> Result<u32, Error> {
     }
 }
 
-fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a str, Error> {
+fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<InlineStr, Error> {
     let start = chars.idx;
     let mut segment_start = chars.idx;
     let mut segment_has_nondigit = false;
@@ -415,7 +411,12 @@ fn parse_ident<'a>(chars: &mut CharIter<'a>, field: IdentField) -> Result<&'a st
                     segment_has_nondigit = false;
                 } else {
                     let end = chars.idx;
-                    let str = &chars.str[start..end];
+                    let ident = &chars.str[start..end];
+
+                    // SAFETY: The parsed identifier contains only ASCII
+                    // characters and no nul byte.
+                    let str = unsafe { InlineStr::new_unchecked(ident) };
+
                     return Ok(str);
                 }
             }
