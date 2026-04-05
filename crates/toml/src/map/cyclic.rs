@@ -1,16 +1,19 @@
-//! This module contains types and functions to construct a tree containing
+//! This module contains types and functions to [construct] a tree containing
 //! cyclic references.
 //!
 //! Most of the unsafe code relies on interior mutability of [`CyclicCell`] by
-//! means of [`UnsafeCell`] and the fact that we only *store* cyclic references
-//! during the constructions, but never actually access them until the map has
-//! been fully constructed. After that the map isn't mutated using interior
-//! mutability anymore and the shared cyclic references are valid to access.
+//! means of [`UnsafeCell`] and the fact that we only *store* [`Cyclic`]
+//! references during the construction, but never actually access them until
+//! the map has been fully constructed. After that the map isn't mutated using
+//! interior mutability anymore and the shared cyclic references are valid to
+//! access.
 //!
 //! This is enforced using the type-state pattern. During construction, the
 //! [`Incomplete`] tag is used as a generic tag to mark the [`Cyclic`]
 //! references as not yet accessible. After construction is finished, the whole
 //! map is [`std::mem::transmute`]d to having the [`Complete`] tag.
+//!
+//! [construct]: crate::map::construct
 
 use std::cell::{Cell, UnsafeCell};
 use std::marker::PhantomData;
@@ -53,7 +56,7 @@ pub(in crate::map) fn cyclic_slice<'a, V, T>(
     unsafe { std::mem::transmute::<&'a [MaybeUninit<UnsafeCell<T>>], &'a [T]>(slice) }
 }
 
-/// Construct a [`CyclicCell`].
+/// Construct a [`CyclicCell`] containing [`Cyclic`] references its value.
 /// NOTE: The [`Cyclic`] reference is only valid to access once this function
 /// returns and the value is written.
 pub(in crate::map) fn cyclic_cell<'a, T>(
@@ -68,7 +71,7 @@ pub(in crate::map) fn cyclic_cell<'a, T>(
     }
 }
 
-/// Construct A [`Cyclic`] reference.
+/// Construct a value containing [`Cyclic`] references.
 /// NOTE: The [`Cyclic`] reference is only valid to access once this function
 /// returns and the value is written.
 pub(in crate::map) fn cyclic<'a, T>(

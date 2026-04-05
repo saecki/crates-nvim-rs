@@ -1,3 +1,15 @@
+//! This module constructs a [`MapTable`] from an [`Ast`].
+//!
+//! It makes use of [cyclic] references to build a doubly linked map structure
+//! that can be conveniently traversed to access both semantic and syntactic
+//! information.
+//!
+//! This is the only place where the [`Incomplete`] state will appear and at the
+//! end of [`map`] all types will be [`std::mem::transmute`]d to have a
+//! [`Complete`] generic tag.
+//!
+//! [cyclic]: crate::map::cyclic
+
 use bumpalo::Bump;
 use common::Span;
 use indexmap::map::Entry::{Occupied, Vacant};
