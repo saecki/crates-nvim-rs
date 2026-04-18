@@ -55,19 +55,10 @@ enum Refs<'a> {
 }
 
 fn find_refs<'a>(ast: &Ast<'a>, pos: Pos) -> Option<Refs<'a>> {
-    let t = binary_search(ast.toplevel, pos, |t| t.span()).select(|a, b| {
-        if let Toplevel::Assignment(assignment) = b {
-            if assignment.assignment.key.first().kind.is_plain() {
-                return b;
-            }
-        }
-        a
-    })?;
+    let t = binary_search(ast.toplevel, pos, |t| t.span()).left_bias()?;
 
     let assignments = match t {
-        Toplevel::Assignment(assignment) => {
-            return find_refs_in_assignment(&assignment.assignment, pos);
-        }
+        Toplevel::Root(assignment) => assignment,
         Toplevel::Table(table) => {
             if let Some(key) = &table.header.key
                 && let Some(ident) = find_refs_in_key(key, pos)
@@ -160,6 +151,16 @@ impl<T> SearchResult<T> {
         }
     }
 
+    /// If between two results, select the left one.
+    fn left_bias(self) -> Option<T> {
+        match self {
+            SearchResult::None => None,
+            SearchResult::One(v) => Some(v),
+            SearchResult::Between(a, _) => Some(a),
+        }
+    }
+
+    /// If between two results, select the right one.
     fn right_bias(self) -> Option<T> {
         match self {
             SearchResult::None => None,

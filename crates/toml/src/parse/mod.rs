@@ -246,12 +246,43 @@ fn reset<T>(ctx: &mut impl TomlCtx, parser: &mut Parser, values: &mut Vec<T>, ma
     values.truncate(mark.values as usize);
 }
 
+struct Current<'a> {
+    kind: CurrentKind<'a>,
+    assignments: Vec<ToplevelAssignment<'a>>,
+}
+
+impl<'a> Current<'a> {
+    fn new(kind: CurrentKind<'a>) -> Self {
+        Self {
+            kind,
+            assignments: Vec::new(),
+        }
+    }
+
+    fn append_comment_range(&mut self) -> Option<&mut CommentRange> {
+        match self.assignments.last_mut() {
+            Some(a) => Some(&mut a.comments),
+            None => match &mut self.kind {
+                CurrentKind::Root => None,
+                CurrentKind::Table(comments, _) | CurrentKind::Array(comments, _) => Some(comments),
+            },
+        }
+    }
+}
+
+enum CurrentKind<'a> {
+    Root,
+    Table(CommentRange, TableHeader<'a>),
+    Array(CommentRange, ArrayHeader<'a>),
+}
+
 /// All errors are stored inside the [`TomlCtx`]. If an error is encountered this won't stop parsing
 /// and will try to recover. If the [`TomlCtx`] contains no errors, the returned [`Ast`] is
 /// completely valid, otherwise they might be incomplete or partially/completely invalid.
 pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> Ast<'a> {
     let mut parser = Parser::new(tokens);
     let mut toplevel = Vec::new();
+    let mut current = Current::new(CurrentKind::Root);
 
     'root: loop {
         let token = parser.peek();
@@ -354,21 +385,13 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
                             key,
                             (r_array_square, r_table_square),
                         );
-                        toplevel.push(Toplevel::Array(ArrayEntry {
-                            comments,
-                            header,
-                            assignments: Vec::new(),
-                            mapped: ManuallySyncCell::empty(),
-                        }));
+                        let kind = CurrentKind::Array(comments, header);
+                        replace_current(bump, &mut parser, &mut toplevel, &mut current, kind);
                     }
                     None => {
                         let header = TableHeader::new(l_table_square, key, r_table_square);
-                        toplevel.push(Toplevel::Table(Table {
-                            comments,
-                            header,
-                            assignments: Vec::new(),
-                            mapped: ManuallySyncCell::empty(),
-                        }));
+                        let kind = CurrentKind::Table(comments, header);
+                        replace_current(bump, &mut parser, &mut toplevel, &mut current, kind);
                     }
                 }
 
@@ -378,13 +401,9 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
                 parser.next();
                 let comment = Comment::from_pos_len(token.start, len);
                 if parser.newline_required {
-                    let comments = match toplevel.last_mut() {
-                        Some(Toplevel::Table(t)) => t.append_comment_range(),
-                        Some(Toplevel::Array(a)) => a.append_comment_range(),
-                        Some(Toplevel::Assignment(a)) => &mut a.comments,
-                        None => unreachable!(),
-                    };
-                    add_comment(&mut parser, comments, comment, AssocPos::LineEnd);
+                    if let Some(comments) = current.append_comment_range() {
+                        add_comment(&mut parser, comments, comment, AssocPos::LineEnd);
+                    }
                 } else {
                     let comment = AssocComment::contained(parser.level, comment);
                     _ = store_comment(&mut parser, comment);
@@ -397,18 +416,15 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
             TokenType::EOF => break 'root,
             _ => {
                 parser.level += 1;
-                parse_assignment(ctx, bump, &mut parser, &mut toplevel);
+                if let Some(assignment) = parse_assignment(ctx, bump, &mut parser) {
+                    current.assignments.push(assignment);
+                }
                 parser.level -= 1;
             }
         }
     }
 
-    match toplevel.last_mut() {
-        Some(Toplevel::Table(t)) => t.comments.extend_to(parser.next_comment_id()),
-        Some(Toplevel::Array(a)) => a.comments.extend_to(parser.next_comment_id()),
-        Some(Toplevel::Assignment(_)) => (),
-        None => (),
-    };
+    toplevel.extend(finish_current(bump, &parser, current));
 
     Ast {
         source: parser.source,
@@ -416,6 +432,47 @@ pub fn parse<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, tokens: Tokens<'a>) -> 
         toplevel: bump.alloc_slice_fill_iter(toplevel),
         comments: bump.alloc_slice_fill_iter(parser.comment_storage),
     }
+}
+
+fn replace_current<'a>(
+    bump: &'a Bump,
+    parser: &mut Parser<'a>,
+    toplevel: &mut Vec<Toplevel<'a>>,
+    current: &mut Current<'a>,
+    kind: CurrentKind<'a>,
+) {
+    let last = std::mem::replace(current, Current::new(kind));
+    toplevel.extend(finish_current(bump, parser, last));
+}
+
+fn finish_current<'a>(
+    bump: &'a Bump,
+    parser: &Parser<'a>,
+    current: Current<'a>,
+) -> Option<Toplevel<'a>> {
+    let assignments = bump.alloc_slice_fill_iter(current.assignments);
+    Some(match current.kind {
+        CurrentKind::Root if assignments.is_empty() => return None,
+        CurrentKind::Root => Toplevel::Root(assignments),
+        CurrentKind::Table(mut comments, header) => {
+            comments.extend_to(parser.next_comment_id());
+            Toplevel::Table(Table {
+                comments,
+                header,
+                assignments,
+                mapped: ManuallySyncCell::empty(),
+            })
+        }
+        CurrentKind::Array(mut comments, header) => {
+            comments.extend_to(parser.next_comment_id());
+            Toplevel::Array(ArrayEntry {
+                comments,
+                header,
+                assignments,
+                mapped: ManuallySyncCell::empty(),
+            })
+        }
+    })
 }
 
 fn mark_comments_above(parser: &mut Parser, mut line: u32, level: u16) -> CommentRange {
@@ -472,8 +529,7 @@ fn parse_assignment<'a>(
     ctx: &mut impl TomlCtx,
     bump: &'a Bump,
     parser: &mut Parser<'a>,
-    toplevel: &mut Vec<Toplevel<'a>>,
-) {
+) -> Option<ToplevelAssignment<'a>> {
     let token = parser.peek();
     let mark = ctx.mark();
 
@@ -488,7 +544,7 @@ fn parse_assignment<'a>(
                 let span = Span::new(token.start, end);
                 ctx.error(Error::ExpectedNewlineFound(string, span));
             }
-            return;
+            return None;
         }
         KeyResult::Err(e) => {
             recover_on!(parser, Newline | Comment { .. } | EOF);
@@ -502,7 +558,7 @@ fn parse_assignment<'a>(
             } else {
                 ctx.error(e);
             }
-            return;
+            return None;
         }
     };
 
@@ -524,7 +580,7 @@ fn parse_assignment<'a>(
                 let (string, span) = parser.token_fmt_str_and_span(t);
                 ctx.error(Error::ExpectedEqOrDotFound(string, span));
             }
-            return;
+            return None;
         }
     };
 
@@ -541,7 +597,7 @@ fn parse_assignment<'a>(
             let end = parser.peek().start;
             let span = Span::new(token.start, end);
             ctx.error(Error::ExpectedNewlineFound(string, span));
-            return;
+            return None;
         }
     }
 
@@ -553,7 +609,7 @@ fn parse_assignment<'a>(
         Err(e) => {
             ctx.error(e);
             parser.newline_required = false;
-            recover_on!(parser, Newline | Comment { .. } | EOF => return);
+            recover_on!(parser, Newline | Comment { .. } | EOF => return None);
         }
     };
 
@@ -566,11 +622,7 @@ fn parse_assignment<'a>(
         assignment,
     };
 
-    match toplevel.last_mut() {
-        Some(Toplevel::Table(t)) => t.assignments.push(assignment),
-        Some(Toplevel::Array(a)) => a.assignments.push(assignment),
-        Some(Toplevel::Assignment(_)) | None => toplevel.push(Toplevel::Assignment(assignment)),
-    }
+    Some(assignment)
 }
 
 fn parse_key<'a>(ctx: &mut impl TomlCtx, bump: &'a Bump, parser: &mut Parser<'a>) -> KeyResult<'a> {
@@ -888,7 +940,7 @@ fn parse_inline_array<'a>(
     Ok(InlineArray {
         comments: array_comments,
         l_par,
-        values,
+        values: bump.alloc_slice_fill_iter(values),
         end,
         mapped: ManuallySyncCell::empty(),
     })
@@ -1057,7 +1109,7 @@ fn parse_inline_table<'a>(
 
     Ok(InlineTable {
         l_par,
-        assignments,
+        assignments: bump.alloc_slice_fill_iter(assignments),
         end,
         mapped: ManuallySyncCell::empty(),
     })

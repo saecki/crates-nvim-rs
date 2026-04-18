@@ -43,7 +43,10 @@ impl<'a> Ast<'a> {
 
 #[derive(Debug, PartialEq)]
 pub enum Toplevel<'a> {
-    Assignment(ToplevelAssignment<'a>),
+    /// Assignments in the root table.
+    ///
+    /// If [`Toplevel::Root`] present, the list of assignments is non-empty.
+    Root(&'a [ToplevelAssignment<'a>]),
     Table(Table<'a>),
     Array(ArrayEntry<'a>),
 }
@@ -51,7 +54,10 @@ pub enum Toplevel<'a> {
 impl Toplevel<'_> {
     pub fn span(&self) -> Span {
         match self {
-            Toplevel::Assignment(assignment) => assignment.span(),
+            Toplevel::Root(assignments) => Span::across(
+                assignments.first().unwrap().span(),
+                assignments.last().unwrap().span(),
+            ),
             Toplevel::Table(table) => table.span(),
             Toplevel::Array(array_entry) => array_entry.span(),
         }
@@ -138,8 +144,7 @@ pub enum AssocPos {
 pub struct Table<'a> {
     pub comments: CommentRange,
     pub header: TableHeader<'a>,
-    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
-    pub assignments: Vec<ToplevelAssignment<'a>>,
+    pub assignments: &'a [ToplevelAssignment<'a>],
 
     pub(crate) mapped: ManuallySyncCell<ParentTable<'a>>,
 }
@@ -160,13 +165,6 @@ impl<'a> Table<'a> {
         (self.assignments.last())
             .map(|a| a.assignment.val.end())
             .unwrap_or_else(|| self.header.end())
-    }
-
-    pub fn append_comment_range(&mut self) -> &mut CommentRange {
-        match self.assignments.last_mut() {
-            Some(a) => &mut a.comments,
-            None => &mut self.comments,
-        }
     }
 
     // Constrain the returned reference to self, to not leak the static lifetime.
@@ -220,8 +218,7 @@ impl<'a> TableHeader<'a> {
 pub struct ArrayEntry<'a> {
     pub comments: CommentRange,
     pub header: ArrayHeader<'a>,
-    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
-    pub assignments: Vec<ToplevelAssignment<'a>>,
+    pub assignments: &'a [ToplevelAssignment<'a>],
 
     pub(crate) mapped: ManuallySyncCell<ParentToplevelArrayEntry<'a>>,
 }
@@ -242,14 +239,6 @@ impl<'a> ArrayEntry<'a> {
         (self.assignments.last())
             .map(|a| a.assignment.val.end())
             .unwrap_or_else(|| self.header.end())
-    }
-
-    /// Comment on the same line as the last item of this table
-    pub fn append_comment_range(&mut self) -> &mut CommentRange {
-        match self.assignments.last_mut() {
-            Some(a) => &mut a.comments,
-            None => &mut self.comments,
-        }
     }
 
     // Constrain the returned reference to self, to not leak the static lifetime.
@@ -628,8 +617,7 @@ impl DateTimeVal {
 #[derive(Debug, Clone, PartialEq)]
 pub struct InlineTable<'a> {
     pub l_par: Pos,
-    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
-    pub assignments: Vec<InlineTableAssignment<'a>>,
+    pub assignments: &'a [InlineTableAssignment<'a>],
     pub end: End,
 
     pub(crate) mapped: ManuallySyncCell<ParentTable<'a>>,
@@ -689,8 +677,7 @@ impl InlineTableAssignment<'_> {
 pub struct InlineArray<'a> {
     pub comments: CommentRange,
     pub l_par: Pos,
-    // FIXME: dropping will leak this collection since it isn't allocated inside the `Bump` arena.
-    pub values: Vec<InlineArrayValue<'a>>,
+    pub values: &'a [InlineArrayValue<'a>],
     pub end: End,
 
     pub(crate) mapped: ManuallySyncCell<ParentInlineArray<'a>>,

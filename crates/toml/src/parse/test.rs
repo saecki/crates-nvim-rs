@@ -154,26 +154,12 @@ fn assign_sgined_zero_floats() {
 fn sign_prefixed_binary_int() {
     check_error(
         "num = -0b10100",
-        |b| {
-            [Toplevel::Assignment(tainvalid(
-                b.ec(1),
-                0,
-                "num",
-                "-0b10100",
-            ))]
-        },
+        |b| [root([tainvalid(b.ec(1), 0, "num", "-0b10100")], b)],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
     check_error(
         "num = +0b10100",
-        |b| {
-            [Toplevel::Assignment(tainvalid(
-                b.ec(1),
-                0,
-                "num",
-                "+0b10100",
-            ))]
-        },
+        |b| [root([tainvalid(b.ec(1), 0, "num", "+0b10100")], b)],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
@@ -182,12 +168,12 @@ fn sign_prefixed_binary_int() {
 fn sign_prefixed_octal_int() {
     check_error(
         "num = -0o361",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "-0o361"))],
+        |b| [root([tainvalid(b.ec(1), 0, "num", "-0o361")], b)],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
     check_error(
         "num = +0o361",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "+0o361"))],
+        |b| [root([tainvalid(b.ec(1), 0, "num", "+0o361")], b)],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
@@ -196,12 +182,12 @@ fn sign_prefixed_octal_int() {
 fn signed_prefixed_hexadecimal_int() {
     check_error(
         "num = -0xc20",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "-0xc20"))],
+        |b| [root([tainvalid(b.ec(1), 0, "num", "-0xc20")], b)],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
     check_error(
         "num = +0xc20",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "num", "+0xc20"))],
+        |b| [root([tainvalid(b.ec(1), 0, "num", "+0xc20")], b)],
         Error::PrefixedIntSignNotAllowed(Pos { line: 0, char: 6 }),
     );
 }
@@ -236,33 +222,28 @@ fn uppercase_hexadecimal_radix_not_allowed() {
 #[test]
 fn assign_bool() {
     check("abc = false", |b| {
-        [Toplevel::Assignment(tabool(b.ec(1), 0, "abc", false))]
+        [root([tabool(b.ec(1), 0, "abc", false)], b)]
     });
 }
 
 #[test]
 fn assign_float() {
     check("abc = 23.5", |b| {
-        [Toplevel::Assignment(tafloat(b.ec(1), 0, "abc", "23.5"))]
+        [root([tafloat(b.ec(1), 0, "abc", "23.5")], b)]
     });
 }
 
 #[test]
 fn assign_float_with_exp1() {
     check("abc = 23.5e+9", |b| {
-        [Toplevel::Assignment(tafloat(b.ec(1), 0, "abc", "23.5e+9"))]
+        [root([tafloat(b.ec(1), 0, "abc", "23.5e+9")], b)]
     });
 }
 
 #[test]
 fn assign_float_with_exp2() {
     check("abc = 23.5e-1_2", |b| {
-        [Toplevel::Assignment(tafloat(
-            b.ec(1),
-            0,
-            "abc",
-            "23.5e-1_2",
-        ))]
+        [root([tafloat(b.ec(1), 0, "abc", "23.5e-1_2")], b)]
     });
 }
 
@@ -270,14 +251,7 @@ fn assign_float_with_exp2() {
 fn float_fractional_part_ends_with_underscore() {
     check_error(
         "abc = 23.5_e9",
-        |b| {
-            [Toplevel::Assignment(tainvalid(
-                b.ec(1),
-                0,
-                "abc",
-                "23.5_e9",
-            ))]
-        },
+        |b| [root([tainvalid(b.ec(1), 0, "abc", "23.5_e9")], b)],
         Error::LitEndsWithUnderscore(LitPart::FloatFract, Pos { line: 0, char: 10 }),
     );
 }
@@ -285,7 +259,7 @@ fn float_fractional_part_ends_with_underscore() {
 #[test]
 fn int_with_underscore() {
     check("abc = 1_000", |b| {
-        [Toplevel::Assignment(taint(b.ec(1), 0, "abc", "1_000"))]
+        [root([taint(b.ec(1), 0, "abc", "1_000")], b)]
     });
 }
 
@@ -293,7 +267,7 @@ fn int_with_underscore() {
 fn invalid_prefixed_int_radix() {
     check_error(
         "abc = 0c324",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0c324"))],
+        |b| [root([tainvalid(b.ec(1), 0, "abc", "0c324")], b)],
         Error::ExpectedRadixOrDateTime(FmtChar('c'), Pos { line: 0, char: 7 }),
     );
 }
@@ -302,7 +276,7 @@ fn invalid_prefixed_int_radix() {
 fn prefixed_int_digit_too_big() {
     check_error(
         "abc = 0o384",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0o384"))],
+        |b| [root([tainvalid(b.ec(1), 0, "abc", "0o384")], b)],
         Error::IntDigitTooBig(IntPrefix::Octal, FmtChar('8'), Pos { line: 0, char: 9 }),
     );
 }
@@ -311,7 +285,7 @@ fn prefixed_int_digit_too_big() {
 fn prefixed_int_starts_with_underscore() {
     check_error(
         "abc = 0o_43",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0o_43"))],
+        |b| [root([tainvalid(b.ec(1), 0, "abc", "0o_43")], b)],
         Error::PrefixedIntValueStartsWithUnderscore(Pos { line: 0, char: 8 }),
     );
 }
@@ -320,7 +294,7 @@ fn prefixed_int_starts_with_underscore() {
 fn prefixed_int_ends_with_underscore() {
     check_error(
         "abc = 0o43_",
-        |b| [Toplevel::Assignment(tainvalid(b.ec(1), 0, "abc", "0o43_"))],
+        |b| [root([tainvalid(b.ec(1), 0, "abc", "0o43_")], b)],
         Error::PrefixedIntValueEndsWithUnderscore(Pos { line: 0, char: 10 }),
     );
 }
@@ -328,43 +302,46 @@ fn prefixed_int_ends_with_underscore() {
 #[test]
 fn dotted_key() {
     check("a.b.c = false", |builder| {
-        [Toplevel::Assignment(twrap(
-            builder.empty_comments(1),
-            Assignment {
-                key: Key::Dotted(builder.bump.alloc([
-                    DottedIdent {
-                        ident: Ident::from_plain_lit(
-                            "a",
-                            Span::from_pos_len(Pos { line: 0, char: 0 }, 1),
-                        ),
-                        dot: Some(Pos { line: 0, char: 1 }),
-                    },
-                    DottedIdent {
-                        ident: Ident::from_plain_lit(
-                            "b",
-                            Span::from_pos_len(Pos { line: 0, char: 2 }, 1),
-                        ),
-                        dot: Some(Pos { line: 0, char: 3 }),
-                    },
-                    DottedIdent {
-                        ident: Ident::from_plain_lit(
-                            "c",
-                            Span::from_pos_len(Pos { line: 0, char: 4 }, 1),
-                        ),
-                        dot: None,
-                    },
-                ])),
-                eq: Pos { line: 0, char: 6 },
-                val: bool(0, 8, false),
-            },
-        ))]
+        [root(
+            [twrap(
+                builder.empty_comments(1),
+                Assignment {
+                    key: Key::Dotted(builder.bump.alloc([
+                        DottedIdent {
+                            ident: Ident::from_plain_lit(
+                                "a",
+                                Span::from_pos_len(Pos { line: 0, char: 0 }, 1),
+                            ),
+                            dot: Some(Pos { line: 0, char: 1 }),
+                        },
+                        DottedIdent {
+                            ident: Ident::from_plain_lit(
+                                "b",
+                                Span::from_pos_len(Pos { line: 0, char: 2 }, 1),
+                            ),
+                            dot: Some(Pos { line: 0, char: 3 }),
+                        },
+                        DottedIdent {
+                            ident: Ident::from_plain_lit(
+                                "c",
+                                Span::from_pos_len(Pos { line: 0, char: 4 }, 1),
+                            ),
+                            dot: None,
+                        },
+                    ])),
+                    eq: Pos { line: 0, char: 6 },
+                    val: bool(0, 8, false),
+                },
+            )],
+            builder,
+        )]
     });
 }
 
 #[test]
 fn int_identifier() {
     check("123 = false", |b| {
-        [Toplevel::Assignment(tabool(b.ec(1), 0, "123", false))]
+        [root([tabool(b.ec(1), 0, "123", false)], b)]
     });
 }
 
@@ -372,7 +349,7 @@ fn int_identifier() {
 fn invalid_int_identifier() {
     check_error(
         "+99 = false",
-        |b| [Toplevel::Assignment(tabool(b.ec(1), 0, "+99", false))],
+        |b| [root([tabool(b.ec(1), 0, "+99", false)], b)],
         Error::InvalidCharInIdentifier(FmtChar('+'), Pos { line: 0, char: 0 }),
     );
 }
@@ -409,13 +386,10 @@ fn invalid_float_literal_as_identifier() {
     check_error(
         "23e+3 = 'hello'",
         |b| {
-            [Toplevel::Assignment(tastring(
-                b.ec(1),
-                0,
-                "23e+3",
-                "'hello'",
-                Quote::Literal,
-            ))]
+            [root(
+                [tastring(b.ec(1), 0, "23e+3", "'hello'", Quote::Literal)],
+                b,
+            )]
         },
         Error::InvalidCharInIdentifier(FmtChar('+'), Pos { line: 0, char: 3 }),
     );
@@ -442,131 +416,15 @@ fn multi_line_basic_string_identifier() {
 #[test]
 fn inline_array() {
     check("array = [0, 1, 2]", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "array",
-            Value::InlineArray(InlineArray {
-                comments: builder.empty_comments(2),
-                l_par: Pos { line: 0, char: 8 },
-                values: vec![
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: int(0, 9, "0"),
-                        comma: Some(Pos { line: 0, char: 10 }),
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: int(0, 12, "1"),
-                        comma: Some(Pos { line: 0, char: 13 }),
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: int(0, 15, "2"),
-                        comma: None,
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                ],
-                end: End::Par(Pos { line: 0, char: 16 }),
-                mapped: ManuallySyncCell::empty(),
-            }),
-        ))]
-    });
-}
-
-#[test]
-fn multi_line_inline_array() {
-    check("array = [\n  0,\n  1,\n  2,\n]", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "array",
-            Value::InlineArray(InlineArray {
-                comments: builder.empty_comments(2),
-                l_par: Pos { line: 0, char: 8 },
-                values: vec![
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: int(1, 2, "0"),
-                        comma: Some(Pos { line: 1, char: 3 }),
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: int(2, 2, "1"),
-                        comma: Some(Pos { line: 2, char: 3 }),
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: int(3, 2, "2"),
-                        comma: Some(Pos { line: 3, char: 3 }),
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                ],
-                end: End::Par(Pos { line: 4, char: 0 }),
-                mapped: ManuallySyncCell::empty(),
-            }),
-        ))]
-    });
-}
-
-#[test]
-fn inline_array_recover_comma() {
-    check_error(
-        "array = [0, 1  2]",
-        |builder| {
-            [Toplevel::Assignment(ta(
+        [root(
+            [ta(
                 builder.empty_comments(1),
                 0,
                 "array",
                 Value::InlineArray(InlineArray {
                     comments: builder.empty_comments(2),
                     l_par: Pos { line: 0, char: 8 },
-                    values: vec![
-                        InlineArrayValue {
-                            comments: builder.empty_comments(3),
-                            val: int(0, 9, "0"),
-                            comma: Some(Pos { line: 0, char: 10 }),
-                            mapped: ManuallySyncCell::empty(),
-                        },
-                        InlineArrayValue {
-                            comments: builder.empty_comments(3),
-                            val: int(0, 12, "1"),
-                            comma: None,
-                            mapped: ManuallySyncCell::empty(),
-                        },
-                        InlineArrayValue {
-                            comments: builder.empty_comments(3),
-                            val: int(0, 15, "2"),
-                            comma: None,
-                            mapped: ManuallySyncCell::empty(),
-                        },
-                    ],
-                    end: End::Par(Pos { line: 0, char: 16 }),
-                    mapped: ManuallySyncCell::empty(),
-                }),
-            ))]
-        },
-        Error::MissingComma(Pos { line: 0, char: 13 }),
-    );
-}
-
-#[test]
-fn inline_array_recover_invalid() {
-    check_error(
-        "array = [0, 1, 2, =]",
-        |builder| {
-            [Toplevel::Assignment(ta(
-                builder.empty_comments(1),
-                0,
-                "array",
-                Value::InlineArray(InlineArray {
-                    comments: builder.empty_comments(2),
-                    l_par: Pos { line: 0, char: 8 },
-                    values: vec![
+                    values: builder.bump.alloc([
                         InlineArrayValue {
                             comments: builder.empty_comments(3),
                             val: int(0, 9, "0"),
@@ -582,14 +440,142 @@ fn inline_array_recover_invalid() {
                         InlineArrayValue {
                             comments: builder.empty_comments(3),
                             val: int(0, 15, "2"),
-                            comma: Some(Pos { line: 0, char: 16 }),
+                            comma: None,
                             mapped: ManuallySyncCell::empty(),
                         },
-                    ],
-                    end: End::Par(Pos { line: 0, char: 19 }),
+                    ]),
+                    end: End::Par(Pos { line: 0, char: 16 }),
                     mapped: ManuallySyncCell::empty(),
                 }),
-            ))]
+            )],
+            builder,
+        )]
+    });
+}
+
+#[test]
+fn multi_line_inline_array() {
+    check("array = [\n  0,\n  1,\n  2,\n]", |builder| {
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "array",
+                Value::InlineArray(InlineArray {
+                    comments: builder.empty_comments(2),
+                    l_par: Pos { line: 0, char: 8 },
+                    values: builder.bump.alloc([
+                        InlineArrayValue {
+                            comments: builder.empty_comments(3),
+                            val: int(1, 2, "0"),
+                            comma: Some(Pos { line: 1, char: 3 }),
+                            mapped: ManuallySyncCell::empty(),
+                        },
+                        InlineArrayValue {
+                            comments: builder.empty_comments(3),
+                            val: int(2, 2, "1"),
+                            comma: Some(Pos { line: 2, char: 3 }),
+                            mapped: ManuallySyncCell::empty(),
+                        },
+                        InlineArrayValue {
+                            comments: builder.empty_comments(3),
+                            val: int(3, 2, "2"),
+                            comma: Some(Pos { line: 3, char: 3 }),
+                            mapped: ManuallySyncCell::empty(),
+                        },
+                    ]),
+                    end: End::Par(Pos { line: 4, char: 0 }),
+                    mapped: ManuallySyncCell::empty(),
+                }),
+            )],
+            builder,
+        )]
+    });
+}
+
+#[test]
+fn inline_array_recover_comma() {
+    check_error(
+        "array = [0, 1  2]",
+        |builder| {
+            [root(
+                [ta(
+                    builder.empty_comments(1),
+                    0,
+                    "array",
+                    Value::InlineArray(InlineArray {
+                        comments: builder.empty_comments(2),
+                        l_par: Pos { line: 0, char: 8 },
+                        values: builder.bump.alloc([
+                            InlineArrayValue {
+                                comments: builder.empty_comments(3),
+                                val: int(0, 9, "0"),
+                                comma: Some(Pos { line: 0, char: 10 }),
+                                mapped: ManuallySyncCell::empty(),
+                            },
+                            InlineArrayValue {
+                                comments: builder.empty_comments(3),
+                                val: int(0, 12, "1"),
+                                comma: None,
+                                mapped: ManuallySyncCell::empty(),
+                            },
+                            InlineArrayValue {
+                                comments: builder.empty_comments(3),
+                                val: int(0, 15, "2"),
+                                comma: None,
+                                mapped: ManuallySyncCell::empty(),
+                            },
+                        ]),
+                        end: End::Par(Pos { line: 0, char: 16 }),
+                        mapped: ManuallySyncCell::empty(),
+                    }),
+                )],
+                builder,
+            )]
+        },
+        Error::MissingComma(Pos { line: 0, char: 13 }),
+    );
+}
+
+#[test]
+fn inline_array_recover_invalid() {
+    check_error(
+        "array = [0, 1, 2, =]",
+        |builder| {
+            [root(
+                [ta(
+                    builder.empty_comments(1),
+                    0,
+                    "array",
+                    Value::InlineArray(InlineArray {
+                        comments: builder.empty_comments(2),
+                        l_par: Pos { line: 0, char: 8 },
+                        values: builder.bump.alloc([
+                            InlineArrayValue {
+                                comments: builder.empty_comments(3),
+                                val: int(0, 9, "0"),
+                                comma: Some(Pos { line: 0, char: 10 }),
+                                mapped: ManuallySyncCell::empty(),
+                            },
+                            InlineArrayValue {
+                                comments: builder.empty_comments(3),
+                                val: int(0, 12, "1"),
+                                comma: Some(Pos { line: 0, char: 13 }),
+                                mapped: ManuallySyncCell::empty(),
+                            },
+                            InlineArrayValue {
+                                comments: builder.empty_comments(3),
+                                val: int(0, 15, "2"),
+                                comma: Some(Pos { line: 0, char: 16 }),
+                                mapped: ManuallySyncCell::empty(),
+                            },
+                        ]),
+                        end: End::Par(Pos { line: 0, char: 19 }),
+                        mapped: ManuallySyncCell::empty(),
+                    }),
+                )],
+                builder,
+            )]
         },
         Error::ExpectedValueFound(
             "`=`".into(),
@@ -601,53 +587,56 @@ fn inline_array_recover_invalid() {
 #[test]
 fn nested_inline_array() {
     check("array = [[0], [1]]", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "array",
-            Value::InlineArray(InlineArray {
-                comments: builder.empty_comments(2),
-                l_par: Pos { line: 0, char: 8 },
-                values: vec![
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: Value::InlineArray(InlineArray {
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "array",
+                Value::InlineArray(InlineArray {
+                    comments: builder.empty_comments(2),
+                    l_par: Pos { line: 0, char: 8 },
+                    values: builder.bump.alloc([
+                        InlineArrayValue {
                             comments: builder.empty_comments(3),
-                            l_par: Pos { line: 0, char: 9 },
-                            values: vec![InlineArrayValue {
-                                comments: builder.empty_comments(4),
-                                val: int(0, 10, "0"),
-                                comma: None,
+                            val: Value::InlineArray(InlineArray {
+                                comments: builder.empty_comments(3),
+                                l_par: Pos { line: 0, char: 9 },
+                                values: builder.bump.alloc([InlineArrayValue {
+                                    comments: builder.empty_comments(4),
+                                    val: int(0, 10, "0"),
+                                    comma: None,
+                                    mapped: ManuallySyncCell::empty(),
+                                }]),
+                                end: End::Par(Pos { line: 0, char: 11 }),
                                 mapped: ManuallySyncCell::empty(),
-                            }],
-                            end: End::Par(Pos { line: 0, char: 11 }),
+                            }),
+                            comma: Some(Pos { line: 0, char: 12 }),
                             mapped: ManuallySyncCell::empty(),
-                        }),
-                        comma: Some(Pos { line: 0, char: 12 }),
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                    InlineArrayValue {
-                        comments: builder.empty_comments(3),
-                        val: Value::InlineArray(InlineArray {
+                        },
+                        InlineArrayValue {
                             comments: builder.empty_comments(3),
-                            l_par: Pos { line: 0, char: 14 },
-                            values: vec![InlineArrayValue {
-                                comments: builder.empty_comments(4),
-                                val: int(0, 15, "1"),
-                                comma: None,
+                            val: Value::InlineArray(InlineArray {
+                                comments: builder.empty_comments(3),
+                                l_par: Pos { line: 0, char: 14 },
+                                values: builder.bump.alloc([InlineArrayValue {
+                                    comments: builder.empty_comments(4),
+                                    val: int(0, 15, "1"),
+                                    comma: None,
+                                    mapped: ManuallySyncCell::empty(),
+                                }]),
+                                end: End::Par(Pos { line: 0, char: 16 }),
                                 mapped: ManuallySyncCell::empty(),
-                            }],
-                            end: End::Par(Pos { line: 0, char: 16 }),
+                            }),
+                            comma: None,
                             mapped: ManuallySyncCell::empty(),
-                        }),
-                        comma: None,
-                        mapped: ManuallySyncCell::empty(),
-                    },
-                ],
-                end: End::Par(Pos { line: 0, char: 17 }),
-                mapped: ManuallySyncCell::empty(),
-            }),
-        ))]
+                        },
+                    ]),
+                    end: End::Par(Pos { line: 0, char: 17 }),
+                    mapped: ManuallySyncCell::empty(),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
@@ -661,31 +650,34 @@ fn unclosed_inline_array_error_on_last_line() {
         check_error(
             text,
             |builder| {
-                [Toplevel::Assignment(ta(
-                    builder.empty_comments(1),
-                    0,
-                    "array",
-                    Value::InlineArray(InlineArray {
-                        comments: builder.empty_comments(2),
-                        l_par: Pos { line: 0, char: 8 },
-                        values: vec![
-                            InlineArrayValue {
-                                comments: builder.empty_comments(3),
-                                val: int(1, 2, "0"),
-                                comma: Some(Pos { line: 1, char: 3 }),
-                                mapped: ManuallySyncCell::empty(),
-                            },
-                            InlineArrayValue {
-                                comments: builder.empty_comments(3),
-                                val: int(2, 2, "1"),
-                                comma: None,
-                                mapped: ManuallySyncCell::empty(),
-                            },
-                        ],
-                        end: End::None(Pos { line: 2, char: 3 }),
-                        mapped: ManuallySyncCell::empty(),
-                    }),
-                ))]
+                [root(
+                    [ta(
+                        builder.empty_comments(1),
+                        0,
+                        "array",
+                        Value::InlineArray(InlineArray {
+                            comments: builder.empty_comments(2),
+                            l_par: Pos { line: 0, char: 8 },
+                            values: builder.bump.alloc([
+                                InlineArrayValue {
+                                    comments: builder.empty_comments(3),
+                                    val: int(1, 2, "0"),
+                                    comma: Some(Pos { line: 1, char: 3 }),
+                                    mapped: ManuallySyncCell::empty(),
+                                },
+                                InlineArrayValue {
+                                    comments: builder.empty_comments(3),
+                                    val: int(2, 2, "1"),
+                                    comma: None,
+                                    mapped: ManuallySyncCell::empty(),
+                                },
+                            ]),
+                            end: End::None(Pos { line: 2, char: 3 }),
+                            mapped: ManuallySyncCell::empty(),
+                        }),
+                    )],
+                    builder,
+                )]
             },
             Error::ExpectedRightSquareFound(
                 "`EOF`".into(),
@@ -699,26 +691,29 @@ fn unclosed_inline_array_error_on_last_line() {
 #[test]
 fn inline_table() {
     check("table = { a = 3, b = true }", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "table",
-            Value::InlineTable(InlineTable {
-                l_par: Pos { line: 0, char: 8 },
-                assignments: vec![
-                    InlineTableAssignment {
-                        assignment: aint(0, 10, "a", "3"),
-                        comma: Some(Pos { line: 0, char: 15 }),
-                    },
-                    InlineTableAssignment {
-                        assignment: abool(0, 17, "b", true),
-                        comma: None,
-                    },
-                ],
-                end: End::Par(Pos { line: 0, char: 26 }),
-                mapped: ManuallySyncCell::empty(),
-            }),
-        ))]
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "table",
+                Value::InlineTable(InlineTable {
+                    l_par: Pos { line: 0, char: 8 },
+                    assignments: builder.bump.alloc([
+                        InlineTableAssignment {
+                            assignment: aint(0, 10, "a", "3"),
+                            comma: Some(Pos { line: 0, char: 15 }),
+                        },
+                        InlineTableAssignment {
+                            assignment: abool(0, 17, "b", true),
+                            comma: None,
+                        },
+                    ]),
+                    end: End::Par(Pos { line: 0, char: 26 }),
+                    mapped: ManuallySyncCell::empty(),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
@@ -727,26 +722,29 @@ fn inline_table_recover_missing_comma() {
     check_error(
         "table = { a = 3  b = true }",
         |builder| {
-            [Toplevel::Assignment(ta(
-                builder.empty_comments(1),
-                0,
-                "table",
-                Value::InlineTable(InlineTable {
-                    l_par: Pos { line: 0, char: 8 },
-                    assignments: vec![
-                        InlineTableAssignment {
-                            assignment: aint(0, 10, "a", "3"),
-                            comma: None,
-                        },
-                        InlineTableAssignment {
-                            assignment: abool(0, 17, "b", true),
-                            comma: None,
-                        },
-                    ],
-                    end: End::Par(Pos { line: 0, char: 26 }),
-                    mapped: ManuallySyncCell::empty(),
-                }),
-            ))]
+            [root(
+                [ta(
+                    builder.empty_comments(1),
+                    0,
+                    "table",
+                    Value::InlineTable(InlineTable {
+                        l_par: Pos { line: 0, char: 8 },
+                        assignments: builder.bump.alloc([
+                            InlineTableAssignment {
+                                assignment: aint(0, 10, "a", "3"),
+                                comma: None,
+                            },
+                            InlineTableAssignment {
+                                assignment: abool(0, 17, "b", true),
+                                comma: None,
+                            },
+                        ]),
+                        end: End::Par(Pos { line: 0, char: 26 }),
+                        mapped: ManuallySyncCell::empty(),
+                    }),
+                )],
+                builder,
+            )]
         },
         Error::MissingComma(Pos { line: 0, char: 15 }),
     );
@@ -757,26 +755,29 @@ fn inline_table_recover_invalid() {
     check_error(
         "table = { a = 3, b = true, = }",
         |builder| {
-            [Toplevel::Assignment(ta(
-                builder.empty_comments(1),
-                0,
-                "table",
-                Value::InlineTable(InlineTable {
-                    l_par: Pos { line: 0, char: 8 },
-                    assignments: vec![
-                        InlineTableAssignment {
-                            assignment: aint(0, 10, "a", "3"),
-                            comma: Some(Pos { line: 0, char: 15 }),
-                        },
-                        InlineTableAssignment {
-                            assignment: abool(0, 17, "b", true),
-                            comma: Some(Pos { line: 0, char: 25 }),
-                        },
-                    ],
-                    end: End::Par(Pos { line: 0, char: 29 }),
-                    mapped: ManuallySyncCell::empty(),
-                }),
-            ))]
+            [root(
+                [ta(
+                    builder.empty_comments(1),
+                    0,
+                    "table",
+                    Value::InlineTable(InlineTable {
+                        l_par: Pos { line: 0, char: 8 },
+                        assignments: builder.bump.alloc([
+                            InlineTableAssignment {
+                                assignment: aint(0, 10, "a", "3"),
+                                comma: Some(Pos { line: 0, char: 15 }),
+                            },
+                            InlineTableAssignment {
+                                assignment: abool(0, 17, "b", true),
+                                comma: Some(Pos { line: 0, char: 25 }),
+                            },
+                        ]),
+                        end: End::Par(Pos { line: 0, char: 29 }),
+                        mapped: ManuallySyncCell::empty(),
+                    }),
+                )],
+                builder,
+            )]
         },
         Error::ExpectedKeyFound(
             "`=`".into(),
@@ -801,7 +802,9 @@ fn table_header() {
                 ))),
                 Some(Pos { line: 0, char: 9 }),
             ),
-            assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
+            assignments: builder
+                .bump
+                .alloc([tabool(builder.ec(2), 1, "entry", false)]),
             mapped: ManuallySyncCell::empty(),
         })]
     })
@@ -823,7 +826,9 @@ fn array_header() {
                     Some(Pos { line: 0, char: 11 }),
                 ),
             ),
-            assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
+            assignments: builder
+                .bump
+                .alloc([tabool(builder.ec(2), 1, "entry", false)]),
             mapped: ManuallySyncCell::empty(),
         })]
     })
@@ -844,7 +849,9 @@ fn newline_is_required_after_table_header() {
                     ))),
                     Some(Pos { line: 0, char: 9 }),
                 ),
-                assignments: vec![twrap(builder.ec(2), abool(0, 10, "entry", false))],
+                assignments: builder
+                    .bump
+                    .alloc([twrap(builder.ec(2), abool(0, 10, "entry", false))]),
                 mapped: ManuallySyncCell::empty(),
             })]
         },
@@ -857,10 +864,13 @@ fn newline_is_required_after_assignment() {
     check_error(
         "a = false b = 87",
         |builder| {
-            [
-                Toplevel::Assignment(twrap(builder.ec(1), abool(0, 0, "a", false))),
-                Toplevel::Assignment(twrap(builder.ec(1), aint(0, 10, "b", "87"))),
-            ]
+            [root(
+                [
+                    twrap(builder.ec(1), abool(0, 0, "a", false)),
+                    twrap(builder.ec(1), aint(0, 10, "b", "87")),
+                ],
+                builder,
+            )]
         },
         Error::MissingNewline(Pos { line: 0, char: 10 }),
     )
@@ -888,7 +898,7 @@ fn table_header_with_associated_comment_above() {
                 ))),
                 Some(Pos { line: 1, char: 9 }),
             ),
-            assignments: Vec::new(),
+            assignments: &[],
             mapped: ManuallySyncCell::empty(),
         })]
     })
@@ -918,7 +928,7 @@ fn non_associated_comment() {
                 ))),
                 Some(Pos { line: 2, char: 9 }),
             ),
-            assignments: Vec::new(),
+            assignments: &[],
             mapped: ManuallySyncCell::empty(),
         })]
     })
@@ -946,7 +956,9 @@ fn comment_after_table_header() {
                 ))),
                 Some(Pos { line: 0, char: 9 }),
             ),
-            assignments: vec![tabool(builder.ec(2), 1, "entry", false)],
+            assignments: builder
+                .bump
+                .alloc([tabool(builder.ec(2), 1, "entry", false)]),
             mapped: ManuallySyncCell::empty(),
         })]
     })
@@ -955,47 +967,53 @@ fn comment_after_table_header() {
 #[test]
 fn associated_comments_above_assignment() {
     check("# comment 1\n# comment 2\nabc = false", |builder| {
-        [Toplevel::Assignment(ToplevelAssignment {
-            comments: builder.comments(
-                1,
-                [
-                    AssocComment {
-                        pos: AssocPos::Above,
-                        level: 1,
-                        comment: Comment {
-                            span: Span::from_pos_len(Pos { line: 0, char: 0 }, 11),
+        [root(
+            [ToplevelAssignment {
+                comments: builder.comments(
+                    1,
+                    [
+                        AssocComment {
+                            pos: AssocPos::Above,
+                            level: 1,
+                            comment: Comment {
+                                span: Span::from_pos_len(Pos { line: 0, char: 0 }, 11),
+                            },
                         },
-                    },
-                    AssocComment {
-                        pos: AssocPos::Above,
-                        level: 1,
-                        comment: Comment {
-                            span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
+                        AssocComment {
+                            pos: AssocPos::Above,
+                            level: 1,
+                            comment: Comment {
+                                span: Span::from_pos_len(Pos { line: 1, char: 0 }, 11),
+                            },
                         },
-                    },
-                ],
-            ),
-            assignment: abool(2, 0, "abc", false),
-        })]
+                    ],
+                ),
+                assignment: abool(2, 0, "abc", false),
+            }],
+            builder,
+        )]
     })
 }
 
 #[test]
 fn comment_after_assignment() {
     check("abc = false # comment\n", |builder| {
-        [Toplevel::Assignment(ToplevelAssignment {
-            comments: builder.comments(
-                1,
-                [AssocComment {
-                    pos: AssocPos::LineEnd,
-                    level: 1,
-                    comment: Comment {
-                        span: Span::from_pos_len(Pos { line: 0, char: 12 }, 9),
-                    },
-                }],
-            ),
-            assignment: abool(0, 0, "abc", false),
-        })]
+        [root(
+            [ToplevelAssignment {
+                comments: builder.comments(
+                    1,
+                    [AssocComment {
+                        pos: AssocPos::LineEnd,
+                        level: 1,
+                        comment: Comment {
+                            span: Span::from_pos_len(Pos { line: 0, char: 12 }, 9),
+                        },
+                    }],
+                ),
+                assignment: abool(0, 0, "abc", false),
+            }],
+            builder,
+        )]
     })
 }
 
@@ -1013,26 +1031,29 @@ fn comment_separated_by_blank_line_is_not_associated() {
             }],
         );
 
-        [Toplevel::Assignment(ToplevelAssignment {
-            comments: builder.comments(
-                1,
-                [AssocComment {
-                    pos: AssocPos::Above,
-                    level: 1,
-                    comment: Comment {
-                        span: Span::from_pos_len(Pos { line: 2, char: 0 }, 12),
-                    },
-                }],
-            ),
-            assignment: abool(3, 0, "abc", false),
-        })]
+        [root(
+            [ToplevelAssignment {
+                comments: builder.comments(
+                    1,
+                    [AssocComment {
+                        pos: AssocPos::Above,
+                        level: 1,
+                        comment: Comment {
+                            span: Span::from_pos_len(Pos { line: 2, char: 0 }, 12),
+                        },
+                    }],
+                ),
+                assignment: abool(3, 0, "abc", false),
+            }],
+            builder,
+        )]
     })
 }
 
 #[test]
 fn comment_is_last_token() {
     check("abc = false\n# free standing", |builder| {
-        let toplevel = [Toplevel::Assignment(tabool(builder.ec(1), 0, "abc", false))];
+        let toplevel = [root([tabool(builder.ec(1), 0, "abc", false)], builder)];
         builder.comments(
             0,
             [AssocComment {
@@ -1072,7 +1093,7 @@ fn comment_contained_by_table() {
                     ))),
                     Some(Pos { line: 0, char: 9 }),
                 ),
-                assignments: vec![tabool(builder.ec(2), 4, "abc", false)],
+                assignments: builder.bump.alloc([tabool(builder.ec(2), 4, "abc", false)]),
                 mapped: ManuallySyncCell::empty(),
             })]
         },
@@ -1094,81 +1115,102 @@ array = [
     # comment 3
 ]",
         |builder| {
-            let toplevel = [Toplevel::Assignment(ToplevelAssignment {
-                comments: CommentRange::new(CommentId(0), 7, 1),
-                assignment: a(
-                    0,
-                    0,
-                    "array",
-                    Value::InlineArray(InlineArray {
-                        comments: {
-                            builder.comments(
-                                2,
-                                [
-                                    AssocComment {
-                                        pos: AssocPos::Contained,
-                                        level: 2,
-                                        comment: Comment {
-                                            span: Span::from_pos_len(Pos { line: 1, char: 4 }, 11),
+            let toplevel = [root(
+                [ToplevelAssignment {
+                    comments: CommentRange::new(CommentId(0), 7, 1),
+                    assignment: a(
+                        0,
+                        0,
+                        "array",
+                        Value::InlineArray(InlineArray {
+                            comments: {
+                                builder.comments(
+                                    2,
+                                    [
+                                        AssocComment {
+                                            pos: AssocPos::Contained,
+                                            level: 2,
+                                            comment: Comment {
+                                                span: Span::from_pos_len(
+                                                    Pos { line: 1, char: 4 },
+                                                    11,
+                                                ),
+                                            },
                                         },
-                                    },
-                                    AssocComment {
-                                        pos: AssocPos::Contained,
-                                        level: 2,
-                                        comment: Comment {
-                                            span: Span::from_pos_len(Pos { line: 2, char: 4 }, 11),
+                                        AssocComment {
+                                            pos: AssocPos::Contained,
+                                            level: 2,
+                                            comment: Comment {
+                                                span: Span::from_pos_len(
+                                                    Pos { line: 2, char: 4 },
+                                                    11,
+                                                ),
+                                            },
                                         },
-                                    },
-                                ],
-                            );
+                                    ],
+                                );
 
-                            // last comment is added at the end
-                            CommentRange::new(CommentId(0), 7, 2)
-                        },
-                        l_par: Pos { line: 0, char: 8 },
-                        values: vec![InlineArrayValue {
-                            comments: builder.comments(
-                                3,
-                                [
-                                    AssocComment {
-                                        pos: AssocPos::Above,
-                                        level: 3,
-                                        comment: Comment {
-                                            span: Span::from_pos_len(Pos { line: 4, char: 4 }, 13),
+                                // last comment is added at the end
+                                CommentRange::new(CommentId(0), 7, 2)
+                            },
+                            l_par: Pos { line: 0, char: 8 },
+                            values: builder.bump.alloc([InlineArrayValue {
+                                comments: builder.comments(
+                                    3,
+                                    [
+                                        AssocComment {
+                                            pos: AssocPos::Above,
+                                            level: 3,
+                                            comment: Comment {
+                                                span: Span::from_pos_len(
+                                                    Pos { line: 4, char: 4 },
+                                                    13,
+                                                ),
+                                            },
                                         },
-                                    },
-                                    AssocComment {
-                                        pos: AssocPos::LineEnd,
-                                        level: 3,
-                                        comment: Comment {
-                                            span: Span::from_pos_len(Pos { line: 5, char: 6 }, 13),
+                                        AssocComment {
+                                            pos: AssocPos::LineEnd,
+                                            level: 3,
+                                            comment: Comment {
+                                                span: Span::from_pos_len(
+                                                    Pos { line: 5, char: 6 },
+                                                    13,
+                                                ),
+                                            },
                                         },
-                                    },
-                                    AssocComment {
-                                        pos: AssocPos::Contained,
-                                        level: 3,
-                                        comment: Comment {
-                                            span: Span::from_pos_len(Pos { line: 6, char: 4 }, 19),
+                                        AssocComment {
+                                            pos: AssocPos::Contained,
+                                            level: 3,
+                                            comment: Comment {
+                                                span: Span::from_pos_len(
+                                                    Pos { line: 6, char: 4 },
+                                                    19,
+                                                ),
+                                            },
                                         },
-                                    },
-                                    AssocComment {
-                                        pos: AssocPos::LineEnd,
-                                        level: 3,
-                                        comment: Comment {
-                                            span: Span::from_pos_len(Pos { line: 7, char: 6 }, 13),
+                                        AssocComment {
+                                            pos: AssocPos::LineEnd,
+                                            level: 3,
+                                            comment: Comment {
+                                                span: Span::from_pos_len(
+                                                    Pos { line: 7, char: 6 },
+                                                    13,
+                                                ),
+                                            },
                                         },
-                                    },
-                                ],
-                            ),
-                            val: int(5, 4, "1"),
-                            comma: Some(Pos { line: 7, char: 4 }),
+                                    ],
+                                ),
+                                val: int(5, 4, "1"),
+                                comma: Some(Pos { line: 7, char: 4 }),
+                                mapped: ManuallySyncCell::empty(),
+                            }]),
+                            end: End::Par(Pos { line: 9, char: 0 }),
                             mapped: ManuallySyncCell::empty(),
-                        }],
-                        end: End::Par(Pos { line: 9, char: 0 }),
-                        mapped: ManuallySyncCell::empty(),
-                    }),
-                ),
-            })];
+                        }),
+                    ),
+                }],
+                builder,
+            )];
 
             // add last comment
             builder.comments(
@@ -1222,102 +1264,120 @@ fn recursion_limit_inline_table() {
 #[test]
 fn offset_date_time_with_subsec() {
     check("abc = 2023-12-05T10:11:12.3324243-04:30", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "abc",
-            Value::DateTime(DateTimeVal {
-                lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 33),
-                val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 5),
-                    Time::new(10, 11, 12, 332_424_300),
-                    Offset::Custom(-(4 * 60 + 30)),
-                ),
-            }),
-        ))]
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "abc",
+                Value::DateTime(DateTimeVal {
+                    lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 33),
+                    val: DateTime::OffsetDateTime(
+                        Date::new(2023, 12, 5),
+                        Time::new(10, 11, 12, 332_424_300),
+                        Offset::Custom(-(4 * 60 + 30)),
+                    ),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
 #[test]
 fn offset_date_time_without_subsec() {
     check("abc = 2023-12-05T10:11:12+04:30", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "abc",
-            Value::DateTime(DateTimeVal {
-                lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 25),
-                val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 5),
-                    Time::new(10, 11, 12, 0),
-                    Offset::Custom(4 * 60 + 30),
-                ),
-            }),
-        ))]
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "abc",
+                Value::DateTime(DateTimeVal {
+                    lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 25),
+                    val: DateTime::OffsetDateTime(
+                        Date::new(2023, 12, 5),
+                        Time::new(10, 11, 12, 0),
+                        Offset::Custom(4 * 60 + 30),
+                    ),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
 #[test]
 fn offset_date_time_with_z_suffix() {
     check("abc = 2023-12-05T10:11:12Z", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "abc",
-            Value::DateTime(DateTimeVal {
-                lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 20),
-                val: DateTime::OffsetDateTime(
-                    Date::new(2023, 12, 5),
-                    Time::new(10, 11, 12, 0),
-                    Offset::Utc,
-                ),
-            }),
-        ))]
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "abc",
+                Value::DateTime(DateTimeVal {
+                    lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 20),
+                    val: DateTime::OffsetDateTime(
+                        Date::new(2023, 12, 5),
+                        Time::new(10, 11, 12, 0),
+                        Offset::Utc,
+                    ),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
 #[test]
 fn space_separated_time() {
     check("abc = 2023-12-05 10:11:12", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "abc",
-            Value::DateTime(DateTimeVal {
-                lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 19),
-                val: DateTime::LocalDateTime(Date::new(2023, 12, 5), Time::new(10, 11, 12, 0)),
-            }),
-        ))]
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "abc",
+                Value::DateTime(DateTimeVal {
+                    lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 19),
+                    val: DateTime::LocalDateTime(Date::new(2023, 12, 5), Time::new(10, 11, 12, 0)),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
 #[test]
 fn local_date() {
     check("abc = 2023-12-05", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "abc",
-            Value::DateTime(DateTimeVal {
-                lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 10),
-                val: DateTime::LocalDate(Date::new(2023, 12, 5)),
-            }),
-        ))]
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "abc",
+                Value::DateTime(DateTimeVal {
+                    lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 10),
+                    val: DateTime::LocalDate(Date::new(2023, 12, 5)),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
 #[test]
 fn local_time() {
     check("abc = 10:11:12", |builder| {
-        [Toplevel::Assignment(ta(
-            builder.empty_comments(1),
-            0,
-            "abc",
-            Value::DateTime(DateTimeVal {
-                lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 8),
-                val: DateTime::LocalTime(Time::new(10, 11, 12, 0)),
-            }),
-        ))]
+        [root(
+            [ta(
+                builder.empty_comments(1),
+                0,
+                "abc",
+                Value::DateTime(DateTimeVal {
+                    lit_span: Span::from_pos_len(Pos { line: 0, char: 6 }, 8),
+                    val: DateTime::LocalTime(Time::new(10, 11, 12, 0)),
+                }),
+            )],
+            builder,
+        )]
     });
 }
 
@@ -1325,14 +1385,7 @@ fn local_time() {
 fn local_time_hour_out_of_range() {
     check_error(
         "abc = 25:00:00",
-        |b| {
-            [Toplevel::Assignment(tainvalid(
-                b.ec(1),
-                0,
-                "abc",
-                "25:00:00",
-            ))]
-        },
+        |b| [root([tainvalid(b.ec(1), 0, "abc", "25:00:00")], b)],
         Error::DateTimeOutOfBounds(
             DateTimeField::Hour,
             25,

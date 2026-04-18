@@ -6,7 +6,7 @@ use crate::lex::TextOffset;
 use crate::parse::{Assignment, Ident, Key, ToplevelAssignment, Value};
 use crate::util::SimpleMap;
 use crate::util::{self, SimpleVal};
-use crate::{Error, Quote, Toml, TomlCtx, TomlDiagnostics, Warning};
+use crate::{Error, Quote, Toml, TomlCtx, TomlDiagnostics, Toplevel, Warning};
 
 use crate::parse::{AssocComment, BoolVal, CommentId, CommentRange, FloatVal, IntVal, StringVal};
 
@@ -46,6 +46,13 @@ impl<'a> AstBuilder<'a> {
         self.comments.extend(comments);
         range
     }
+}
+
+pub fn root<'a, const SIZE: usize>(
+    assignments: [ToplevelAssignment<'a>; SIZE],
+    builder: &AstBuilder<'a>,
+) -> Toplevel<'a> {
+    Toplevel::Root(builder.bump.alloc(assignments))
 }
 
 #[track_caller]

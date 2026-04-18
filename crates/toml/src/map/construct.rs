@@ -51,27 +51,27 @@ pub fn map<'a>(
         let parent = ParentTable::new(ptr, ReprIdx(0));
         let mut root = MapTable::new(MapTableRepr::Root(ast.span));
         for t in ast.toplevel.iter() {
-            let (key, value) = match t {
-                Toplevel::Assignment(assignment) => {
-                    let key = &assignment.assignment.key;
-                    let value = InsertValue::ToplevelAssignment(assignment);
-                    (key, value)
+            match t {
+                Toplevel::Root(assignments) => {
+                    for assignment in assignments.iter() {
+                        let key = &assignment.assignment.key;
+                        let value = InsertValue::ToplevelAssignment(assignment);
+                        insert_node_at_path(&mut ctx, bump, parent, &mut root.inner, key, value);
+                    }
                 }
                 Toplevel::Table(table) => {
-                    let Some(key) = &table.header.key else {
-                        continue;
-                    };
-                    (key, InsertValue::Table(table))
+                    if let Some(key) = &table.header.key {
+                        let value = InsertValue::Table(table);
+                        insert_node_at_path(&mut ctx, bump, parent, &mut root.inner, key, value);
+                    }
                 }
                 Toplevel::Array(array_entry) => {
-                    let Some(key) = &array_entry.header.key else {
-                        continue;
-                    };
-                    (key, InsertValue::ArrayEntry(array_entry))
+                    if let Some(key) = &array_entry.header.key {
+                        let value = InsertValue::ArrayEntry(array_entry);
+                        insert_node_at_path(&mut ctx, bump, parent, &mut root.inner, key, value);
+                    }
                 }
-            };
-
-            insert_node_at_path(&mut ctx, bump, parent, &mut root.inner, key, value);
+            }
         }
         root
     });
@@ -125,7 +125,7 @@ fn map_insert_value<'a>(
                     bump,
                     ParentTable::new(ptr, ReprIdx(0)),
                     &mut map.inner,
-                    &table.assignments,
+                    table.assignments,
                 );
                 map
             });
@@ -147,7 +147,7 @@ fn map_insert_value<'a>(
                             bump,
                             parent,
                             &mut map.inner,
-                            &array_repr.assignments,
+                            array_repr.assignments,
                         );
                         map
                     });
@@ -201,7 +201,7 @@ fn map_value<'a>(
         Value::InlineArray(inline_array) => {
             let array = cyclic(bump, |ptr| {
                 let parent = ParentInlineArray::new(ptr);
-                let entries = cyclic_slice(bump, &inline_array.values, |idx, ptr, val| {
+                let entries = cyclic_slice(bump, inline_array.values, |idx, ptr, val| {
                     let parent_entry = ParentInlineArrayEntry::new(ptr).wrap();
                     let node = map_value(ctx, bump, parent_entry, &val.val);
                     MapArrayInlineEntry::new(node, val, parent, idx)
@@ -411,7 +411,7 @@ fn insert_table<'a>(
         bump,
         parent,
         &mut existing_table.get_mut().inner,
-        &table.assignments,
+        table.assignments,
     );
 
     Ok(())
@@ -461,7 +461,7 @@ fn insert_array_entry<'a>(
                 bump,
                 parent,
                 &mut map.inner,
-                &array_repr.assignments,
+                array_repr.assignments,
             );
             map
         });
