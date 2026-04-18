@@ -63,9 +63,7 @@ pub fn parse_decimal_int_float_or_date(
     int_accum *= sign;
     let mut parse_state = NumParseState::Int;
     let mut last_underscore = false;
-    loop {
-        let Some((i, c)) = chars.next() else { break };
-
+    while let Some((i, c)) = chars.next() {
         match c {
             '0'..='9' => {
                 match parse_state {
@@ -366,9 +364,7 @@ pub fn validate_float_fractional_part(
     }
 
     let mut last_underscore = false;
-    loop {
-        let Some((i, c)) = chars.next() else { break };
-
+    while let Some((i, c)) = chars.next() {
         match c {
             '0'..='9' => {}
             'e' | 'E' => {
